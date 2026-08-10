@@ -1,0 +1,438 @@
+{% comment %}
+  Snippet pour le stepper (indicateur d'étapes)
+  Usage: {% render 'conf-stepper', current_step: 1, steps: steps_array %}
+{% endcomment %}
+
+{%- liquid
+  assign current_step = current_step | default: 1
+  assign steps = steps | default: blank
+-%}
+
+<div class="conf-stepper" data-stepper>
+  <div class="conf-stepper-track">
+    {%- if steps == blank -%}
+      {%- comment -%} Étapes par défaut {%- endcomment -%}
+      {%- assign default_steps = 'Personnalisation,Récapitulatif,Commande' | split: ',' -%}
+      
+      {%- for step in default_steps -%}
+        {%- assign step_number = forloop.index -%}
+        {%- assign is_active = false -%}
+        {%- assign is_completed = false -%}
+        
+        {%- if step_number == current_step -%}
+          {%- assign is_active = true -%}
+        {%- endif -%}
+        
+        {%- if step_number < current_step -%}
+          {%- assign is_completed = true -%}
+        {%- endif -%}
+        
+        <div class="conf-step{% if is_active %} active{% endif %}{% if is_completed %} completed{% endif %}" data-step="{{ step_number }}">
+          <div class="conf-step-indicator">
+            <div class="conf-step-circle">
+              {%- if is_completed -%}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill="currentColor"/>
+                </svg>
+              {%- else -%}
+                <span class="conf-step-number">{{ step_number }}</span>
+              {%- endif -%}
+            </div>
+            {%- unless forloop.last -%}
+              <div class="conf-step-line"></div>
+            {%- endunless -%}
+          </div>
+          <div class="conf-step-content">
+            <span class="conf-step-label">{{ step }}</span>
+          </div>
+        </div>
+      {%- endfor -%}
+    {%- else -%}
+      {%- comment -%} Utiliser les étapes fournies {%- endcomment -%}
+      {%- for step in steps -%}
+        {%- assign step_number = forloop.index -%}
+        {%- assign is_active = false -%}
+        {%- assign is_completed = false -%}
+        
+        {%- if step_number == current_step -%}
+          {%- assign is_active = true -%}
+        {%- endif -%}
+        
+        {%- if step_number < current_step -%}
+          {%- assign is_completed = true -%}
+        {%- endif -%}
+        
+        <div class="conf-step{% if is_active %} active{% endif %}{% if is_completed %} completed{% endif %}" data-step="{{ step_number }}">
+          <div class="conf-step-indicator">
+            <div class="conf-step-circle">
+              {%- if is_completed -%}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 16.17L4.83 12L3.41 13.41L9 19L21 7L19.59 5.59L9 16.17Z" fill="currentColor"/>
+                </svg>
+              {%- else -%}
+                <span class="conf-step-number">{{ step_number }}</span>
+              {%- endif -%}
+            </div>
+            {%- unless forloop.last -%}
+              <div class="conf-step-line"></div>
+            {%- endunless -%}
+          </div>
+          <div class="conf-step-content">
+            <span class="conf-step-label">{{ step.label | default: step }}</span>
+            {%- if step.description != blank -%}
+              <span class="conf-step-description">{{ step.description }}</span>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endfor -%}
+    {%- endif -%}
+  </div>
+  
+  {%- comment -%} Navigation optionnelle {%- endcomment -%}
+  <div class="conf-stepper-nav" data-stepper-nav style="display: none;">
+    <button class="conf-stepper-btn conf-stepper-prev" data-step-prev disabled>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M15.41 7.41L14 6L8 12L14 18L15.41 16.59L10.83 12L15.41 7.41Z" fill="currentColor"/>
+      </svg>
+      <span>Précédent</span>
+    </button>
+    
+    <button class="conf-stepper-btn conf-stepper-next" data-step-next>
+      <span>Suivant</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M8.59 16.59L10 18L16 12L10 6L8.59 7.41L13.17 12L8.59 16.59Z" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+{% stylesheet %}
+  .conf-stepper {
+    width: 100%;
+    padding: 20px 0;
+  }
+  
+  .conf-stepper-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .conf-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+  }
+  
+  .conf-step-indicator {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  
+  .conf-step-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    color: #9ca3af;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+  }
+  
+  .conf-step.active .conf-step-circle {
+    border-color: #2c5aa0;
+    background: #2c5aa0;
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(44, 90, 160, 0.1);
+  }
+  
+  .conf-step.completed .conf-step-circle {
+    border-color: #22c55e;
+    background: #22c55e;
+    color: #fff;
+  }
+  
+  .conf-step-number {
+    display: block;
+  }
+  
+  .conf-step.completed .conf-step-number {
+    display: none;
+  }
+  
+  .conf-step-line {
+    flex: 1;
+    height: 3px;
+    background: #d1d5db;
+    margin: 0 8px;
+    position: relative;
+    z-index: 1;
+    transition: background 0.3s ease;
+  }
+  
+  .conf-step.completed .conf-step-line {
+    background: #22c55e;
+  }
+  
+  .conf-step-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .conf-step-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #9ca3af;
+    transition: color 0.3s ease;
+  }
+  
+  .conf-step.active .conf-step-label {
+    color: #2c5aa0;
+    font-weight: 600;
+  }
+  
+  .conf-step.completed .conf-step-label {
+    color: #374151;
+  }
+  
+  .conf-step-description {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 4px;
+    max-width: 120px;
+  }
+  
+  /* Navigation */
+  .conf-stepper-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 32px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .conf-stepper-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: 2px solid #d1d5db;
+    background: #fff;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .conf-stepper-btn:hover:not(:disabled) {
+    border-color: #2c5aa0;
+    background: #f0f4ff;
+    color: #2c5aa0;
+  }
+  
+  .conf-stepper-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .conf-stepper-next {
+    margin-left: auto;
+    border-color: #2c5aa0;
+    background: #2c5aa0;
+    color: #fff;
+  }
+  
+  .conf-stepper-next:hover:not(:disabled) {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .conf-stepper-track {
+      max-width: 100%;
+    }
+    
+    .conf-step-circle {
+      width: 36px;
+      height: 36px;
+      font-size: 14px;
+    }
+    
+    .conf-step-label {
+      font-size: 12px;
+    }
+    
+    .conf-step-description {
+      font-size: 11px;
+      max-width: 80px;
+    }
+    
+    .conf-step-line {
+      margin: 0 4px;
+    }
+    
+    .conf-stepper-nav {
+      flex-direction: column;
+    }
+    
+    .conf-stepper-next {
+      margin-left: 0;
+    }
+  }
+  
+  /* Vertical variant */
+  .conf-stepper.vertical .conf-stepper-track {
+    flex-direction: column;
+  }
+  
+  .conf-stepper.vertical .conf-step {
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+  }
+  
+  .conf-stepper.vertical .conf-step-indicator {
+    flex-direction: column;
+    width: auto;
+    margin-bottom: 0;
+    margin-right: 16px;
+  }
+  
+  .conf-stepper.vertical .conf-step-line {
+    width: 3px;
+    height: 48px;
+    margin: 8px 0;
+  }
+  
+  .conf-stepper.vertical .conf-step-content {
+    align-items: flex-start;
+    text-align: left;
+    flex: 1;
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  document.addEventListener('DOMContentLoaded', function() {
+    const steppers = document.querySelectorAll('[data-stepper]');
+    
+    steppers.forEach(stepper => {
+      const steps = stepper.querySelectorAll('.conf-step');
+      const prevBtn = stepper.querySelector('[data-step-prev]');
+      const nextBtn = stepper.querySelector('[data-step-next]');
+      const stepperNav = stepper.querySelector('[data-stepper-nav]');
+      
+      let currentStep = 1;
+      
+      // Trouver l'étape active actuelle
+      steps.forEach((step, index) => {
+        if (step.classList.contains('active')) {
+          currentStep = index + 1;
+        }
+      });
+      
+      // Fonction pour mettre à jour les étapes
+      function updateSteps(newStep) {
+        if (newStep < 1 || newStep > steps.length) return;
+        
+        currentStep = newStep;
+        
+        steps.forEach((step, index) => {
+          const stepNumber = index + 1;
+          
+          step.classList.remove('active', 'completed');
+          
+          if (stepNumber === currentStep) {
+            step.classList.add('active');
+          } else if (stepNumber < currentStep) {
+            step.classList.add('completed');
+          }
+        });
+        
+        // Mettre à jour les boutons
+        if (prevBtn) {
+          prevBtn.disabled = currentStep === 1;
+        }
+        
+        if (nextBtn) {
+          nextBtn.disabled = currentStep === steps.length;
+          
+          if (currentStep === steps.length) {
+            nextBtn.querySelector('span').textContent = 'Terminer';
+          } else {
+            nextBtn.querySelector('span').textContent = 'Suivant';
+          }
+        }
+        
+        // Déclencher un événement personnalisé
+        stepper.dispatchEvent(new CustomEvent('stepChange', {
+          detail: { step: currentStep, totalSteps: steps.length },
+          bubbles: true
+        }));
+      }
+      
+      // Gestion des boutons de navigation
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          updateSteps(currentStep - 1);
+        });
+      }
+      
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          if (currentStep === steps.length) {
+            // Dernière étape - déclencher événement de complétion
+            stepper.dispatchEvent(new CustomEvent('stepperComplete', {
+              bubbles: true
+            }));
+          } else {
+            updateSteps(currentStep + 1);
+          }
+        });
+      }
+      
+      // Permettre de cliquer sur les étapes pour naviguer
+      steps.forEach((step, index) => {
+        step.addEventListener('click', () => {
+          const stepNumber = index + 1;
+          // Autoriser uniquement de revenir en arrière ou d'aller à l'étape suivante
+          if (stepNumber <= currentStep + 1) {
+            updateSteps(stepNumber);
+          }
+        });
+        
+        // Ajouter le style cursor pointer pour les étapes cliquables
+        if (index <= currentStep) {
+          step.style.cursor = 'pointer';
+        }
+      });
+      
+      // Initialiser l'état des boutons
+      if (stepperNav && (prevBtn || nextBtn)) {
+        stepperNav.style.display = 'flex';
+        updateSteps(currentStep);
+      }
+    });
+  });
+{% endjavascript %}

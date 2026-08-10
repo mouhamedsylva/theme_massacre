@@ -1,0 +1,359 @@
+/**
+ * Canvas Single View - Une seule grande image qui change
+ */
+
+/* Container de la vue unique */
+.cv-single-view {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+}
+
+/* ── Couche des logos déplaçables ── */
+.logo-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* laisse passer les clics sauf sur les logos */
+  z-index: 5;
+}
+
+/* N'afficher que les logos de la vue active.
+   data-view sur la couche = face | dos | cote */
+.logo-layer[data-view="face"] .for-dos,
+.logo-layer[data-view="face"] .for-cote,
+.logo-layer[data-view="dos"]  .for-face,
+.logo-layer[data-view="dos"]  .for-cote,
+.logo-layer[data-view="cote"] .for-face,
+.logo-layer[data-view="cote"] .for-dos {
+  display: none !important;
+}
+
+/* En vue de côté, un seul profil est montré à la fois (gauche OU droite).
+   Sans cette règle, les deux zones de manche se superposeraient sur la même
+   image : deux pointillés côte à côte au même endroit.
+   data-side sur la couche = l | r */
+.logo-layer[data-side="l"] .side-r,
+.logo-layer[data-side="r"] .side-l {
+  display: none !important;
+}
+
+/* ── Bascule gauche / droite (vue de côté) ──────────────────────────────
+   Il n'existe qu'UNE image de profil par couleur. Le côté droit est le
+   côté gauche retourné en miroir : le vêtement est symétrique.
+   Le logo, LUI, n'est pas retourné (il apparaîtrait inversé) — d'où le
+   miroir appliqué à l'image seule, et non à la couche des logos. */
+.product-img-single#view-cote {
+  transition: transform .45s cubic-bezier(.4, 0, .2, 1);
+  transform-origin: center;
+}
+.cv-single-view.side-r .product-img-single#view-cote {
+  transform: scaleX(-1);
+}
+
+/* Rotation jouée au changement de côté : le vêtement pivote. */
+@keyframes sleeveFlip {
+  0%   { transform: perspective(900px) rotateY(0deg)   scaleX(var(--flip, 1)); }
+  50%  { transform: perspective(900px) rotateY(-78deg) scaleX(var(--flip, 1)); }
+  100% { transform: perspective(900px) rotateY(0deg)   scaleX(var(--flip, 1)); }
+}
+.cv-single-view.flipping .product-img-single#view-cote {
+  animation: sleeveFlip .55s ease-in-out;
+}
+
+/* Bascule : petit sélecteur segmenté, ancré en haut à droite de l'aperçu.
+   Hors du flux (absolute) pour ne pas décaler les onglets de vue. */
+.cv-wrap { position: relative; }
+
+.side-toggle {
+  position: absolute;
+  top: 0;
+  right: 12px;
+  z-index: 6;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: #f1f3f5;
+  border-radius: 8px;
+}
+.st-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.st-btn:hover { color: #1a1a1a; }
+.st-btn.on {
+  background: #fff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .1);
+}
+.st-ico { font-size: 8px; opacity: .65; }
+
+.design-logo {
+  position: absolute;
+  /* width défini en inline (modifiable au redimensionnement) */
+  cursor: grab;
+  pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+  border: 1.5px dashed transparent;
+  border-radius: 4px;
+  transition: border-color 0.15s ease;
+}
+
+.design-logo:hover,
+.design-logo.dragging,
+.design-logo.resizing {
+  border-color: #1a1a1a;
+}
+
+/* ── Zones guides (pointillés rouges) : où poser l'asset ── */
+.logo-zone {
+  position: absolute;
+  border: 2px dashed #e02424;
+  border-radius: 6px;
+  background: rgba(224, 36, 36, 0.04);
+  pointer-events: none;      /* n'interfère pas avec le drag du logo */
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+.logo-zone span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #e02424;
+  background: rgba(255,255,255,0.75);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+/* ── Visibilité des repères ────────────────────────────────────────────
+   Une zone VIDE reste affichée : elle indique où déposer un design.
+   Une fois REMPLIE (.filled, posée en JS), elle s'efface — le logo occupe
+   la place, le cadre n'a plus rien à montrer et encombrerait l'aperçu.
+   Pendant un déplacement ou un redimensionnement, toutes les zones
+   réapparaissent : elles redeviennent un guide, y compris celle du logo
+   manipulé. .is-manipulating est posée sur .logo-layer par
+   conf-logo-drag.js le temps du geste. */
+.logo-zone.filled { opacity: 0; }
+
+.logo-layer.is-manipulating .logo-zone,
+.logo-layer.is-manipulating .logo-zone.filled {
+  opacity: 1;
+}
+
+/* Les zones suivent l'affichage par vue (comme les logos). */
+.logo-layer[data-view="face"] .logo-zone.for-dos,
+.logo-layer[data-view="face"] .logo-zone.for-cote,
+.logo-layer[data-view="dos"]  .logo-zone.for-face,
+.logo-layer[data-view="dos"]  .logo-zone.for-cote,
+.logo-layer[data-view="cote"] .logo-zone.for-face,
+.logo-layer[data-view="cote"] .logo-zone.for-dos {
+  display: none !important;
+}
+
+.design-logo.dragging { cursor: grabbing; }
+
+.design-logo img {
+  width: 100%;
+  height: auto;
+  display: block;
+  pointer-events: none;
+}
+
+/* Poignées de redimensionnement : 4 coins + 4 côtés.
+   La position et le curseur dépendent de la classe `pos-*` (voir plus bas).
+   Sans classe, on retombe sur le coin bas-droit (compatibilité). */
+.logo-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  display: none;
+  touch-action: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  z-index: 6;
+}
+
+/* Icône SVG de redimensionnement (flèches diagonales) */
+.logo-resize::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,8 L0,12 L4,12 M12,0 L12,4 L8,4 M0,8 L4,12 M8,4 L12,0' stroke='%231a1a1a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* ── Coins ── (redimensionnement proportionnel) */
+.logo-resize.pos-nw { left: -7px;  top: -7px;    right: auto; bottom: auto; cursor: nwse-resize; }
+.logo-resize.pos-ne { right: -7px; top: -7px;    left: auto;  bottom: auto; cursor: nesw-resize; }
+.logo-resize.pos-sw { left: -7px;  bottom: -7px; right: auto; top: auto;    cursor: nesw-resize; }
+.logo-resize.pos-se { right: -7px; bottom: -7px; left: auto;  top: auto;    cursor: nwse-resize; }
+
+/* ── Côtés ── (poignées allongées, plus faciles à saisir) */
+.logo-resize.pos-n,
+.logo-resize.pos-s {
+  left: 50%; transform: translateX(-50%);
+  right: auto; width: 18px; height: 10px; border-radius: 6px;
+  cursor: ns-resize;
+}
+.logo-resize.pos-n { top: -6px;    bottom: auto; }
+.logo-resize.pos-s { bottom: -6px; top: auto; }
+
+.logo-resize.pos-w,
+.logo-resize.pos-e {
+  top: 50%; transform: translateY(-50%);
+  bottom: auto; width: 10px; height: 18px; border-radius: 6px;
+  cursor: ew-resize;
+}
+.logo-resize.pos-w { left: -6px;  right: auto; }
+.logo-resize.pos-e { right: -6px; left: auto; }
+
+/* Poignée visible UNIQUEMENT pendant manipulation (pas au survol) */
+.design-logo .logo-resize {
+  display: none !important;
+}
+.design-logo.dragging .logo-resize,
+.design-logo.resizing .logo-resize {
+  display: block !important;
+}
+
+/* Images - une seule visible à la fois - TAILLE MOYENNE */
+.product-img-single {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: 60vh;
+  object-fit: contain;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Image visible */
+.product-img-single.on {
+  display: block;
+  opacity: 1;
+}
+
+/* Labels de mesure */
+.mlbl {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: #666;
+  font-weight: 600;
+}
+
+.mlbl-r {
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: row-reverse;
+}
+
+.mlbl:not(.mlbl-r) {
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.mline {
+  width: 1px;
+  height: 60px;
+  background: #ccc;
+}
+
+.mlbl span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.mlbl-r span {
+  writing-mode: vertical-rl;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .cv-single-view {
+    padding: 10px;
+  }
+  
+  .product-img-single {
+    max-width: 100%;
+    height: 70vh;
+  }
+  
+  .mlbl {
+    font-size: 8px;
+  }
+  
+  .mline {
+    height: 40px;
+  }
+}
+
+/* ── Édition d'un texte SUR PLACE (double-clic) ──────────────────────
+   Le texte se modifie là où il est, avec sa propre police et sa couleur :
+   le client voit le rendu réel pendant qu'il tape. Aucun champ flottant,
+   donc rien à repositionner au zoom ou au défilement. */
+.dt-content.is-editing {
+  outline: none;                 /* le cadre vient de .design-text.is-editing */
+  cursor: text;
+  /* La saisie doit rester sur une ligne : un texte de flocage ne se
+     déroule pas sur plusieurs lignes. */
+  white-space: nowrap;
+  /* Le caret prend la couleur du texte, illisible sur un fond de même
+     teinte : on force un accent visible sur clair comme sur sombre. */
+  caret-color: #c2410c;
+}
+
+/* Cadre pendant l'édition : distinct du cadre de sélection (blanc), pour
+   qu'on voie d'un coup d'œil qu'on est en train d'écrire. */
+.design-text.is-editing {
+  border-color: #c2410c !important;
+  border-style: solid !important;
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, .2);
+}
+
+/* Le texte redevient sélectionnable et interactif pendant l'édition :
+   .design-text porte user-select:none et touch-action:none pour le
+   glisser-déposer, ce qui empêcherait la saisie (et le curseur tactile). */
+.dt-content.is-editing,
+.design-text.is-editing {
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: auto;
+  cursor: text;
+}

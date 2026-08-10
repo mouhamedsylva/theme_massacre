@@ -1,0 +1,2004 @@
+/* ============================================================
+   POPOTE WAR — habillage du jeu (MASSACRE)
+   Réutilise les variables de style.css (palette kaki / feu)
+   ============================================================ */
+
+/* ============================================================
+   DIRECTION ARTISTIQUE "RÉGIMENT" — recolore TOUT Popote War
+   (header/topbar/footer inclus, via les variables partagées de
+   style.css réécrites ici) sans toucher au reste du site : ces
+   variables ne s'appliquent qu'aux pages qui chargent ce fichier
+   (popote-war.html, profils.html).
+   ============================================================ */
+:root{
+  --olive:#7a8a35;
+  --olive-dark:#4d5a26;
+  --khaki:#dcc98f;
+  --khaki-soft:#efe2ba;
+  --sand:#f3e9c9;
+  --ink:#1c1a10;
+  --ink-soft:#262114;
+  --paper:#f9f1d9;
+  --red:#c1502f;
+  --red-dark:#833520;
+  --fire:#e0ac3f;
+  --fire-hot:#f6ca66;
+  --line:rgba(224,172,63,.24);
+
+  --bronze:#cd7f32;
+  --argent:#cdd2da;
+  --or:#ffd23f;
+  --gg-card:#292513;
+  --gg-card2:#201c10;
+  /* Hauteur RÉELLE de .pw-topbar (padding .5rem ×2 + logo 30px + bordure).
+     Elle sert de point d'ancrage à la barre d'onglets collante : à 60px,
+     une bande vide de 13px laissait défiler le contenu entre les deux. */
+  --header-h:47px;
+}
+
+/* ============================================================
+   THÈMES SAISONNIERS — on ne change QUE les accents et le fond du hero,
+   la direction artistique militaire (base sombre, insignes, typo) reste
+   identique. Appliqués via l'attribut data-pw-season sur <html>.
+   ============================================================ */
+:root[data-pw-season="ete"]{
+  --fire:#f0b840; --fire-hot:#ffd875; --or:#ffd34d;
+  --khaki:#ecd79a; --sand:#f7eecb; --line:rgba(255,196,86,.30);
+}
+:root[data-pw-season="ete"] .gg-hero{
+  background:
+    linear-gradient(180deg, rgba(12,7,2,.28), rgba(12,7,2,.58)),
+    url("hero-ete.jpg") center/cover no-repeat,
+    radial-gradient(ellipse at 50% 120%, rgba(255,201,92,.40), transparent 55%),
+    linear-gradient(180deg,#1b1707,#241d0e 65%,#3a2c12);
+}
+/* Photo de saison en fond → on masque la scène SVG « plage » de l'été. */
+:root[data-pw-season="ete"] .gg-hero__summer{ display:none; }
+:root[data-pw-season="automne"]{
+  --olive:#8a6a2e; --olive-dark:#5a4520; --fire:#d97b2e; --fire-hot:#f0a24d;
+  --red:#a83a1f; --red-dark:#6e2513; --or:#e8a33a; --khaki:#e0c592;
+  --line:rgba(212,112,48,.28);
+}
+:root[data-pw-season="automne"] .gg-hero{
+  background:
+    linear-gradient(180deg, rgba(14,8,3,.26), rgba(14,8,3,.56)),
+    url("hero-automne.jpg") center/cover no-repeat,
+    radial-gradient(ellipse at 50% 120%, rgba(214,120,46,.38), transparent 55%),
+    linear-gradient(180deg,#1c1108,#281709 68%,#3a1f0d);
+}
+:root[data-pw-season="hiver"]{
+  --olive:#5f6f78; --olive-dark:#3c4850; --fire:#84b4da; --fire-hot:#c4e2f6;
+  --red:#7f99aa; --red-dark:#516875; --or:#d2e7f6; --khaki:#d3dbe4;
+  --sand:#eef4f9; --ink:#0f1318; --ink-soft:#161d24; --line:rgba(150,200,235,.26);
+  --gg-card:#1a2129; --gg-card2:#141a20;
+}
+:root[data-pw-season="hiver"] .gg-hero{
+  background:
+    linear-gradient(180deg, rgba(6,10,15,.24), rgba(6,10,15,.52)),
+    url("hero-hiver.jpg") center/cover no-repeat,
+    radial-gradient(ellipse at 50% 120%, rgba(150,205,240,.30), transparent 55%),
+    linear-gradient(180deg,#0e141a,#152029 68%,#1c2c38);
+}
+:root[data-pw-season="printemps"]{
+  --olive:#8fae3f; --olive-dark:#5c7228; --fire:#e6c24a; --fire-hot:#f6e08a;
+  --red:#d06a7c; --red-dark:#95455a; --or:#ffe066; --khaki:#e4dcb2;
+  --line:rgba(163,201,92,.28);
+}
+:root[data-pw-season="printemps"] .gg-hero{
+  background:
+    linear-gradient(180deg, rgba(10,12,6,.24), rgba(10,12,6,.52)),
+    url("hero-printemps.jpg") center/cover no-repeat,
+    radial-gradient(ellipse at 50% 120%, rgba(163,201,92,.34), transparent 55%),
+    linear-gradient(180deg,#12160b,#1c2411 66%,#243016);
+}
+
+/* ---- Bandeau de PROMOTION de grade (péage en coins) ---- */
+.gg-promo{
+  margin:0 0 .9rem; padding:.9rem 1rem; border-radius:14px;
+  border:1px solid var(--line); background:var(--gg-card);
+}
+.gg-promo--ready{ border-color:var(--fire); background:color-mix(in srgb, var(--fire) 12%, var(--gg-card)); }
+.gg-promo--max{ text-align:center; color:var(--or); font-weight:700; }
+.gg-promo__t{ font-weight:800; color:var(--sand); margin-bottom:.2rem; }
+.gg-promo__d{ font-size:.88rem; color:var(--khaki); line-height:1.45; }
+.gg-promo--ready #btnPromote{ margin-top:.6rem; width:100%; }
+/* Échelon "à payer" dans le ladder */
+.gg-rung--ready{ border-color:var(--fire); }
+.gg-rung--ready .gg-rung__tag{ color:var(--fire); font-weight:700; }
+
+/* ============================================================
+   EFFET ÉTÉ — coucher de soleil sur la mer, palmiers, étincelles.
+   Calque injecté par popote-war.js dans le hero (mountSummerScene),
+   visible SEULEMENT en thème Été. z-index 1 : au-dessus des braises,
+   sous le contenu (.gg-hero__content est en z-index 2) → texte lisible.
+   100 % CSS/SVG, animations coupées si "animations réduites".
+   ============================================================ */
+.gg-hero__summer{
+  position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; display:none;
+  background:linear-gradient(180deg,#f6ba52 0%,#ec8636 34%,#bd5723 60%,#7a3a1e 100%);
+}
+/* La photo de saison remplace la scène SVG « plage » : on la garde masquée
+   même en été (sinon son fond opaque recouvrirait la photo du hero). */
+:root[data-pw-season="ete"] .gg-hero__summer{ display:none; }
+.pw-summer__sun{
+  position:absolute; left:50%; top:42%; width:190px; height:190px; transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:radial-gradient(circle,#fff4cc 0%,#ffe08a 26%,rgba(255,196,86,.5) 46%,transparent 70%);
+  animation:pwSunPulse 5s ease-in-out infinite;
+}
+.pw-summer__sun::after{ content:""; position:absolute; inset:35%; border-radius:50%; background:#ffe294; }
+.pw-summer__sea{ position:absolute; left:0; right:0; bottom:0; width:100%; height:92px; display:block; }
+.pw-summer__palm{ position:absolute; bottom:0; width:124px; height:160px; filter:drop-shadow(0 5px 7px rgba(0,0,0,.4)); }
+.pw-summer__palm--l{ left:-18px; transform-origin:50% 100%; animation:pwSwayL 6s ease-in-out infinite; }
+.pw-summer__palm--r{ right:-18px; transform:scaleX(-1); transform-origin:50% 100%; animation:pwSwayR 6.6s ease-in-out infinite; }
+.pw-summer__palm--m{ left:50%; width:82px; height:106px; transform:translateX(-50%) scaleX(-1); opacity:.92; }
+.pw-summer__spark{
+  position:absolute; width:9px; height:9px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,246,206,.95),transparent 70%);
+  animation:pwSpark 7s ease-in-out infinite;
+}
+@keyframes pwSunPulse{ 0%,100%{ opacity:.92; } 50%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); } }
+@keyframes pwSwayL{ 0%,100%{ transform:rotate(-2.2deg); } 50%{ transform:rotate(2.2deg); } }
+@keyframes pwSwayR{ 0%,100%{ transform:scaleX(-1) rotate(-2.2deg); } 50%{ transform:scaleX(-1) rotate(2.2deg); } }
+@keyframes pwSpark{ 0%{ transform:translateY(8px) scale(.5); opacity:0; } 25%{ opacity:1; } 65%{ opacity:.6; } 100%{ transform:translateY(-18px) scale(1); opacity:0; } }
+@media (prefers-reduced-motion: reduce){
+  .pw-summer__sun,.pw-summer__palm--l,.pw-summer__palm--r,.pw-summer__spark{ animation:none; }
+}
+
+/* Lisibilité du texte du hero en Été : voile sombre derrière le texte + ombres. */
+.gg-hero__summer::after{ content:""; position:absolute; inset:0;
+  background:radial-gradient(120% 78% at 50% 46%, rgba(18,9,3,.6), rgba(18,9,3,.14) 55%, transparent 74%); }
+:root[data-pw-season="ete"] .gg-hero__title{ text-shadow:0 3px 20px rgba(55,22,4,.95),0 1px 2px rgba(0,0,0,.55); }
+:root[data-pw-season="ete"] .gg-hero__lead{ color:#fff2d8; text-shadow:0 1px 7px rgba(55,22,4,.92); }
+:root[data-pw-season="ete"] .gg-hero .section__eyebrow{ color:#ffe9b8; text-shadow:0 1px 6px rgba(55,22,4,.92); }
+
+/* FX des 3 autres saisons : particules qui tombent (feuilles / flocons / pétales). */
+.gg-hero__fx{ position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; display:none; }
+:root[data-pw-season="automne"] .gg-hero__fx,
+:root[data-pw-season="hiver"] .gg-hero__fx,
+:root[data-pw-season="printemps"] .gg-hero__fx{ display:block; }
+.pw-flake{ position:absolute; top:-18px; width:11px; height:11px; opacity:.85; animation:pwFall linear infinite; }
+:root[data-pw-season="automne"] .pw-flake{ background:#c86a2a; border-radius:60% 0 60% 0; }
+:root[data-pw-season="automne"] .pw-flake:nth-child(3n){ background:#b03e1f; }
+:root[data-pw-season="automne"] .pw-flake:nth-child(3n+1){ background:#e0982f; }
+:root[data-pw-season="hiver"] .pw-flake{ background:#eef6fc; border-radius:50%; box-shadow:0 0 5px rgba(200,232,255,.7); }
+:root[data-pw-season="printemps"] .pw-flake{ background:#e79ab0; border-radius:60% 0 60% 0; }
+:root[data-pw-season="printemps"] .pw-flake:nth-child(2n){ background:#f2c04d; }
+@keyframes pwFall{ 0%{ transform:translateY(-18px) translateX(0) rotate(0); opacity:0; } 12%{ opacity:.85; } 100%{ transform:translateY(400px) translateX(30px) rotate(300deg); opacity:.85; } }
+@media (prefers-reduced-motion: reduce){ .pw-flake{ display:none; } }
+
+/* Sélecteur de thème dans le profil (réutilise le style des bannières). */
+.gg-themes{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:.55rem; }
+.gg-theme{
+  display:flex; align-items:center; gap:.5rem; padding:.7rem .8rem; cursor:pointer;
+  border-radius:12px; border:1px solid var(--line); background:var(--gg-card);
+  color:var(--khaki); font-weight:700; font-size:.9rem; text-align:left;
+  transition:transform .12s ease, border-color .12s ease, background .12s ease;
+}
+.gg-theme:hover{ transform:translateY(-1px); }
+.gg-theme--sel{ border-color:var(--fire); background:color-mix(in srgb, var(--fire) 16%, var(--gg-card)); color:var(--sand); }
+.gg-theme__ico{ font-size:1.25rem; line-height:1; }
+.gg-theme__sw{ width:14px; height:14px; border-radius:50%; margin-left:auto; box-shadow:0 0 0 2px rgba(0,0,0,.3) inset; }
+
+/* ---------- HERO COMPACT ---------- */
+.gg-hero{
+  position:relative; overflow:hidden; text-align:center;
+  padding:3rem 1.2rem 2.2rem;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(224,172,63,.32), transparent 55%),
+    linear-gradient(180deg,#181509,#221f12 70%,#2e2412);
+  border-bottom:1px solid var(--line);
+}
+.gg-hero__embers{position:absolute; inset:0; width:100%; height:100%;}
+.gg-hero__overlay{position:absolute; inset:0; background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.6));}
+.gg-hero__content{position:relative; z-index:2; max-width:820px; margin:0 auto;}
+.gg-hero__title{font-size:clamp(2.4rem,8vw,5rem); line-height:.9; color:var(--paper); text-shadow:0 4px 30px rgba(0,0,0,.6);}
+.gg-hero__accent{background:linear-gradient(135deg,var(--fire-hot),var(--fire),var(--red)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.gg-hero__lead{color:var(--khaki-soft); margin:1rem auto 0; max-width:600px; font-size:1.05rem;}
+.gg-hero__lead strong{color:var(--fire-hot);}
+
+/* ---------- ÉCRAN DE COMPTE (auth) ---------- */
+.pw-auth{
+  min-height:72vh; display:grid; place-items:center; position:relative; overflow:hidden;
+  padding:3rem 1.2rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(224,172,63,.24), transparent 55%),
+    linear-gradient(180deg,#181509,#1e1b10);
+}
+.pw-auth__box{
+  position:relative; z-index:2; width:100%; max-width:440px; text-align:center;
+  padding:2.2rem 1.6rem; border-radius:18px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+.pw-auth__title{font-family:"Anton"; font-size:clamp(2.4rem,9vw,3.4rem); color:var(--paper); line-height:.9; margin:.2rem 0 .6rem;}
+.pw-auth__sub{color:var(--khaki); font-size:.9rem; margin-bottom:1.4rem;}
+.pw-auth__fields{display:flex; flex-direction:column; gap:.7rem; margin-bottom:.6rem;}
+.pw-auth__err{min-height:1.2em; color:#ff7a7f; font-size:.84rem; font-weight:600; margin-bottom:.4rem;}
+.pw-auth__actions{display:flex; flex-direction:column; gap:.6rem;}
+.pw-auth__actions .btn{width:100%;}
+.pw-auth__toggle{margin-top:1rem;}
+.pw-auth__bonus{margin-top:1.2rem; font-family:"Oswald"; font-weight:700; color:var(--fire-hot); letter-spacing:.5px; font-size:.9rem;}
+
+/* ---------- HUD / PROFIL ---------- */
+.gg-hud{
+  max-width:var(--maxw); margin:-1.4rem auto 0; position:relative; z-index:5;
+  padding:1rem 1.2rem; display:flex; flex-wrap:wrap; align-items:center; gap:1.2rem;
+  background:linear-gradient(180deg,#2d2916,#221f12);
+  border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);
+  width:calc(100% - 2.4rem);
+}
+.gg-hud__id{display:flex; align-items:center; gap:.9rem; min-width:0;}
+.gg-hud__badge{flex:none; width:62px; height:62px; display:grid; place-items:center;}
+.gg-hud__who{min-width:0;}
+.gg-hud__name{font-family:"Anton",sans-serif; font-size:1.4rem; color:var(--paper); letter-spacing:.5px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem;}
+.gg-hud__name:hover{color:var(--fire-hot);}
+.gg-hud__name .pen{font-size:.8rem; opacity:.5;}
+.gg-hud__grade{font-family:"Oswald",sans-serif; font-weight:600; font-size:.85rem; letter-spacing:.5px; margin-top:.2rem;}
+.gg-hud__tier{padding:.05rem .5rem; border-radius:999px; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-left:.3rem;}
+
+.gg-hud__level{flex:1; min-width:170px;}
+.gg-hud__level-top{display:flex; justify-content:space-between; font-family:"Oswald"; font-size:.78rem; letter-spacing:1px; color:var(--khaki); text-transform:uppercase;}
+.gg-hud__level-top b{color:var(--fire-hot);}
+.gg-bar{height:12px; border-radius:999px; background:#171408; border:1px solid var(--line); overflow:hidden; margin-top:.35rem;}
+.gg-bar__fill{height:100%; width:0; background:linear-gradient(90deg,var(--olive),var(--fire)); transition:width .6s var(--ease);}
+
+/* ---------- icône coin MASSACRE / objets d'intendance ---------- */
+.pw-coin-ico{width:1em; height:1em; object-fit:contain; vertical-align:-2px; display:inline-block;}
+.pw-coin-ico--lg{width:1.5rem; height:1.5rem; vertical-align:-4px;}
+.pw-item-ico{width:1.7em; height:1.7em; object-fit:contain; vertical-align:-5px; display:inline-block;}
+
+/* banque de coins mise en avant */
+.gg-bank{
+  flex:none; text-align:center; padding:.5rem .9rem; border-radius:12px;
+  background:linear-gradient(135deg,rgba(246,202,102,.14),rgba(224,172,63,.08)); border:1px solid var(--fire);
+}
+.gg-bank__num{font-family:"Anton"; font-size:1.7rem; color:var(--fire-hot); line-height:1;}
+.gg-bank__lbl{display:block; font-size:.62rem; letter-spacing:1px; text-transform:uppercase; color:var(--khaki-soft); margin-top:.1rem;}
+
+.gg-hud__stats{display:flex; gap:1rem;}
+.gg-stat{text-align:center;}
+.gg-stat__num{font-family:"Anton"; font-size:1.4rem; line-height:1;}
+.gg-stat__num--win{color:#8fd14f;}
+.gg-stat__num--loss{color:#ff7a7f;}
+.gg-stat__num--streak{color:var(--fire);}
+.gg-stat__lbl{display:block; font-size:.62rem; letter-spacing:1px; text-transform:uppercase; color:var(--khaki); margin-top:.15rem;}
+
+.gg-hud__actions{display:flex; gap:.4rem; margin-left:auto; align-items:center;}
+.gg-hud__btn{
+  font-family:"Oswald"; font-weight:600; font-size:.8rem; letter-spacing:.5px;
+  padding:.5rem .8rem; border-radius:8px; border:1px solid var(--line); color:var(--khaki-soft);
+  background:rgba(255,255,255,.03); transition:all .2s var(--ease);
+}
+.gg-hud__btn:hover{color:var(--fire); border-color:var(--fire);}
+.gg-hud__btn--wheel{color:var(--fire-hot); border-color:var(--fire);}
+
+/* ---------- ONGLETS (sticky = nav fluide) ---------- */
+.gg-tabs{
+  position:sticky; top:var(--header-h); z-index:40;
+  margin:1.4rem auto .4rem; padding:.5rem 1.2rem;
+  display:flex; gap:.5rem; flex-wrap:wrap; max-width:100%;
+  background:rgba(15,15,11,.92); backdrop-filter:blur(8px);
+  border-block:1px solid var(--line);
+}
+.gg-tabs__inner{max-width:var(--maxw); margin:0 auto; display:flex; gap:.5rem; flex-wrap:wrap; width:100%;}
+.gg-tab{
+  font-family:"Oswald"; font-weight:600; letter-spacing:.5px; font-size:.9rem;
+  padding:.6rem 1.1rem; border-radius:8px; color:var(--khaki-soft);
+  border:1px solid var(--line); background:rgba(255,255,255,.02); transition:all .2s var(--ease);
+}
+.gg-tab:hover{color:var(--fire); border-color:var(--fire); transform:translateY(-1px);}
+.gg-tab--active{background:linear-gradient(135deg,var(--olive),var(--olive-dark)); color:#fff; border-color:var(--olive);}
+
+/* ---------- ZONES / VUES ---------- */
+.gg-main{max-width:var(--maxw); margin:0 auto; padding:1rem 1.2rem 4rem; min-height:50vh;}
+.gg-view{display:none;}
+.gg-view--active{display:block; animation:ggIn .32s var(--ease);}
+.gg-view[hidden]{display:none;}
+@keyframes ggIn{from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:none;}}
+
+/* Les titres n'avaient qu'une marge basse : sur le site autonome une
+   feuille globale fournissait la marge haute. Dans une page Shopify
+   cette feuille n'existe pas, et chaque titre venait se coller au bloc
+   précédent. La marge haute est donc portée ici, dans la seule feuille
+   dont le jeu dépend vraiment. `:first-child` l'annule pour ne pas
+   creuser un vide en haut de chaque onglet. */
+.gg-section-title{
+  font-family:"Anton"; font-size:clamp(1.6rem,4vw,2.4rem); color:var(--paper);
+  margin-block:2.6rem .8rem;
+  line-height:1.15;
+}
+.gg-section-title:first-child{ margin-block-start:0; }
+.gg-section-title--sm{font-size:1.3rem; margin-block:2.4rem .7rem;}
+.gg-career__sub{color:var(--khaki); margin-bottom:1.4rem; max-width:760px;}
+
+/* !important + -webkit-text-fill-color : sur Shopify, la feuille de style du
+   thème (ou un défaut navigateur) forçait un FOND CLAIR sous le champ, alors
+   que le texte restait beige → saisie illisible. On impose ici le fond sombre
+   et le texte clair, quoi qu'il arrive. */
+.gg-input{
+  padding:.7rem .9rem; border-radius:8px; border:1px solid var(--line);
+  background:#1a170d !important; color:var(--sand) !important;
+  -webkit-text-fill-color:var(--sand);
+  font-family:"Inter"; font-size:.92rem; min-width:0;
+}
+.gg-input::placeholder{ color:var(--khaki); opacity:.85; -webkit-text-fill-color:var(--khaki); }
+.gg-input:focus{outline:none; border-color:var(--fire);}
+/* Auto-remplissage : le navigateur impose son propre fond clair + texte sombre.
+   Le box-shadow interne rétablit le fond sombre du thème, et text-fill-color le
+   texte clair. */
+.gg-input:-webkit-autofill,
+.gg-input:-webkit-autofill:hover,
+.gg-input:-webkit-autofill:focus,
+.gg-input:-webkit-autofill:active{
+  -webkit-text-fill-color:var(--sand) !important;
+  -webkit-box-shadow:0 0 0 1000px #1a170d inset !important;
+  box-shadow:0 0 0 1000px #1a170d inset !important;
+  caret-color:var(--sand);
+  transition:background-color 9999s ease-in-out 0s;
+}
+
+/* ---------- SÉLECTEUR DE MISE ---------- */
+.pw-stakes{display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-bottom:1.4rem;}
+.pw-stakes__lbl{font-family:"Oswald"; font-weight:700; letter-spacing:1px; color:var(--sand); font-size:.95rem;}
+.pw-stake{
+  display:inline-flex; align-items:center; gap:.35rem; padding:.55rem 1rem; border-radius:9px;
+  border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--sand);
+  font-family:"Oswald"; font-weight:700; font-size:1rem; transition:all .15s var(--ease);
+}
+.pw-stake:hover:not(:disabled){border-color:var(--fire-hot); color:var(--fire-hot);}
+.pw-stake--active{background:linear-gradient(135deg,var(--fire),var(--red)); color:#1c1a10; border-color:var(--fire);}
+.pw-stake:disabled{opacity:.35; cursor:not-allowed;}
+
+/* ---------- LOBBY : actions rapides ---------- */
+.gg-quick{display:flex; flex-wrap:wrap; gap:.7rem; align-items:center; margin-bottom:1.8rem;}
+.gg-quick__btn{flex:none;}
+/* PARTIE RAPIDE = action principale : on la met clairement en avant. */
+#btnQuick{ font-size:1.05rem; padding:.95rem 1.7rem; box-shadow:0 6px 20px rgba(224,120,40,.35); }
+/* Le "code d'ami" passe sur SA PROPRE ligne (sépare « lancer une partie » de
+   « rejoindre un pote ») : plus de bloc flottant perdu à droite. */
+.gg-join{
+  display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;
+  flex-basis:100%; margin-top:.3rem; padding-top:.8rem; border-top:1px solid var(--line);
+}
+.gg-join .gg-input{width:230px;}
+.gg-join__lbl{ font-family:"Oswald",sans-serif; font-weight:600; font-size:.88rem; color:var(--sand); white-space:nowrap; }
+
+.gg-salons__head{display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;}
+.gg-search{display:flex; gap:.4rem; align-items:center;}
+.gg-search .gg-input{width:280px; max-width:60vw;}
+.gg-salons__list{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:1rem;}
+.gg-salons__empty{
+  color:var(--khaki-soft); padding:1.6rem 1.2rem; text-align:center; font-size:.95rem;
+  border:1px dashed var(--line); border-radius:12px; background:rgba(255,255,255,.02);
+  max-width:520px; margin:.4rem auto;
+}
+
+.gg-salon{
+  display:flex; align-items:center; gap:.9rem; padding:.9rem 1rem;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); border-radius:12px; transition:transform .2s var(--ease), border-color .2s, box-shadow .2s;
+}
+.gg-salon:hover{transform:translateY(-3px); border-color:var(--fire); box-shadow:0 12px 26px rgba(0,0,0,.4);}
+.gg-salon__badge{flex:none; width:46px; height:46px; display:grid; place-items:center;}
+.gg-salon__info{min-width:0; flex:1;}
+.gg-salon__name{font-family:"Oswald"; font-weight:700; color:var(--paper); font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.gg-salon__meta{font-size:.86rem; color:var(--khaki-soft);}
+.gg-salon__meta code{color:var(--sand); background:rgba(255,255,255,.07); padding:0 .35rem; border-radius:4px;}
+.gg-salon__stake{font-family:"Oswald"; font-weight:700; color:var(--fire-hot); font-size:.95rem;}
+.gg-salon__join{flex:none;}
+
+/* ---------- SALON D'ATTENTE ---------- */
+.gg-wait{
+  max-width:560px; margin:1rem auto; text-align:center; padding:2rem 1.4rem;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); border-radius:16px;
+}
+.gg-wait__code{font-family:"Anton"; font-size:2.6rem; color:var(--fire-hot); letter-spacing:3px; margin:.4rem 0;}
+.gg-wait__sub{color:var(--khaki); font-size:.9rem; margin-bottom:1.4rem;}
+.gg-wait__players{display:flex; gap:1rem; justify-content:center; margin-bottom:1.4rem; flex-wrap:wrap;}
+.gg-player{flex:1; min-width:160px; max-width:220px; padding:1rem; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid var(--line);}
+.gg-player__badge{width:48px; height:48px; margin:0 auto .5rem; display:grid; place-items:center;}
+.gg-player__name{font-family:"Oswald"; font-weight:700; color:var(--paper);}
+.gg-player__grade{font-size:.75rem; color:var(--khaki);}
+.gg-wait__rounds{display:flex; align-items:center; gap:.5rem; justify-content:center; margin-bottom:1rem; color:var(--khaki); font-family:"Oswald"; font-size:.85rem; flex-wrap:wrap;}
+.gg-chip{min-width:38px; height:38px; padding:0 .5rem; border-radius:8px; border:1px solid var(--line); color:var(--khaki-soft); font-family:"Oswald"; font-weight:700; background:rgba(255,255,255,.02);}
+.gg-chip--active{background:var(--fire); color:#1a1a12; border-color:var(--fire);}
+.gg-wait__pot{font-family:"Anton"; color:var(--fire-hot); font-size:1.3rem; margin-bottom:1rem;}
+.gg-wait__actions{display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; margin-bottom:.8rem;}
+
+/* ---------- MATCH / QCM ---------- */
+.gg-match{max-width:760px; margin:0 auto;}
+.gg-scoreboard{display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-bottom:1rem;}
+.gg-side{flex:1; text-align:center; padding:.8rem .4rem; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.02);}
+.gg-side--me{border-color:rgba(143,209,79,.35);}
+.gg-side--foe{border-color:rgba(255,122,127,.35);}
+.gg-side__badge{width:42px; height:42px; margin:0 auto .35rem; display:grid; place-items:center;}
+.gg-side__name{font-family:"Oswald"; font-weight:700; font-size:.85rem; color:var(--paper); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.gg-side__score{font-family:"Anton"; font-size:2rem; color:var(--fire-hot); line-height:1;}
+.gg-side__rw{font-family:"Oswald"; font-size:.68rem; letter-spacing:.5px; text-transform:uppercase; color:var(--khaki); margin-top:.15rem;}
+.gg-round{flex:none; text-align:center; padding:0 .6rem;}
+.gg-round__label{display:block; font-size:.62rem; letter-spacing:1px; color:var(--khaki);}
+.gg-round__num{font-family:"Anton"; font-size:1.3rem; color:var(--paper);}
+.gg-pot{display:block; font-family:"Oswald"; font-weight:700; color:var(--fire-hot); font-size:.78rem; margin-top:.15rem;}
+
+/* ---------- ARSENAL EN MATCH (fusil / casque / montre) ---------- */
+.gg-arsenal-bar{display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; margin-bottom:1rem;}
+.gg-arm-btn{
+  position:relative; display:flex; align-items:center; gap:.5rem; padding:.5rem .9rem .5rem .6rem;
+  border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--khaki-soft);
+  font-family:"Oswald"; font-weight:700; font-size:.78rem; letter-spacing:.5px; transition:all .15s var(--ease);
+}
+.gg-arm-btn img{width:2.4rem; height:2.4rem; object-fit:contain;}
+.gg-arm-btn:hover:not(:disabled){border-color:var(--fire-hot); color:var(--fire-hot); transform:translateY(-2px);}
+.gg-arm-btn:disabled{opacity:.35; cursor:not-allowed;}
+.gg-arm-btn--active{border-color:#8fd14f; color:#8fd14f; box-shadow:0 0 14px rgba(143,209,79,.35);}
+.gg-arm-btn__count{
+  position:absolute; top:-7px; right:-7px; min-width:18px; height:18px; padding:0 .3rem; border-radius:999px;
+  background:var(--fire); color:#1a1a12; font-size:.68rem; font-weight:700; display:grid; place-items:center;
+}
+
+.gg-timer{height:8px; border-radius:999px; background:#171408; border:1px solid var(--line); overflow:hidden; margin-bottom:1.4rem;}
+.gg-timer__fill{height:100%; width:100%; background:linear-gradient(90deg,var(--fire-hot),var(--fire),var(--red));}
+
+.gg-question{
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); border-radius:16px; padding:1.6rem 1.4rem;
+}
+.gg-question__tag{font-family:"Oswald"; letter-spacing:2px; font-size:.72rem; color:var(--fire-hot); text-transform:uppercase; margin-bottom:.6rem;}
+.gg-question__text{font-size:clamp(1.3rem,3.4vw,1.9rem); color:var(--paper); line-height:1.2; margin-bottom:1.4rem;}
+.gg-options{display:grid; grid-template-columns:1fr 1fr; gap:.7rem;}
+.gg-opt{
+  display:flex; align-items:center; gap:.7rem; text-align:left; width:100%;
+  padding:.85rem 1rem; border-radius:10px; border:1px solid var(--line);
+  background:rgba(255,255,255,.03); color:var(--sand); font-family:"Inter"; font-size:.95rem;
+  transition:transform .12s var(--ease), border-color .2s, background .2s;
+}
+.gg-opt:hover:not(:disabled){border-color:var(--fire); transform:translateY(-2px);}
+.gg-opt:disabled{cursor:default;}
+.gg-opt__key{flex:none; width:26px; height:26px; border-radius:6px; display:grid; place-items:center; font-family:"Oswald"; font-weight:700; background:var(--olive); color:#fff; font-size:.85rem;}
+.gg-opt--correct{border-color:#8fd14f; background:rgba(143,209,79,.16);}
+.gg-opt--correct .gg-opt__key{background:#8fd14f; color:#14140f;}
+.gg-opt--wrong{border-color:#ff7a7f; background:rgba(255,122,127,.14);}
+.gg-opt--wrong .gg-opt__key{background:#ff7a7f; color:#14140f;}
+.gg-feedback{margin-top:1rem; min-height:1.4em; font-size:.92rem; color:var(--khaki-soft); font-style:italic;}
+.gg-feedback b{color:var(--fire-hot); font-style:normal;}
+
+/* ---------- RÉSULTAT ---------- */
+.gg-result{
+  max-width:560px; margin:1rem auto; text-align:center; padding:2.2rem 1.4rem;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); border-radius:16px;
+}
+.gg-result--win{box-shadow:0 0 50px rgba(224,172,63,.35); border-color:var(--fire);}
+.gg-result--loss{border-color:var(--red-dark);}
+.gg-result__title{font-family:"Anton"; font-size:3rem;}
+.gg-result--win .gg-result__title{color:var(--fire-hot); text-shadow:0 0 30px rgba(224,172,63,.6);}
+.gg-result--loss .gg-result__title{color:#ff7a7f;}
+.gg-result__score{font-family:"Oswald"; font-weight:700; font-size:1.3rem; color:var(--paper); letter-spacing:1px; margin-bottom:1.2rem;}
+.gg-result__pot{font-family:"Anton"; font-size:2.4rem; margin-bottom:.4rem;}
+.gg-result__pot--win{color:#8fd14f;}
+.gg-result__pot--loss{color:#ff7a7f;}
+.gg-result__gains{display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; margin-bottom:1rem;}
+.gg-gain{padding:.7rem 1rem; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid var(--line); min-width:96px;}
+.gg-gain__num{font-family:"Anton"; font-size:1.5rem; color:var(--fire-hot);}
+.gg-gain__lbl{font-size:.66rem; letter-spacing:1px; text-transform:uppercase; color:var(--khaki);}
+.gg-result__rankup{margin:1rem 0; padding:1rem; border-radius:12px; background:linear-gradient(135deg,rgba(246,202,102,.16),rgba(224,172,63,.1)); border:1px solid var(--fire); animation:rankPulse 1.2s var(--ease) infinite alternate;}
+@keyframes rankPulse{from{box-shadow:0 0 10px rgba(224,172,63,.2);} to{box-shadow:0 0 28px rgba(246,202,102,.55);}}
+.gg-result__rankup b{font-family:"Anton"; font-size:1.4rem; color:var(--fire-hot); display:block;}
+.gg-result__actions{display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap; margin-top:1.2rem;}
+
+/* ---------- CARRIÈRE ---------- */
+.gg-ladder{display:flex; flex-direction:column; gap:.5rem;}
+.gg-rung{display:flex; align-items:center; gap:1rem; padding:.7rem 1rem; border-radius:10px; background:rgba(255,255,255,.02); border:1px solid var(--line);}
+.gg-rung--current{border-color:var(--fire); background:rgba(224,172,63,.08); box-shadow:0 0 22px rgba(224,172,63,.18);}
+.gg-rung--done{opacity:.55;}
+.gg-rung__badge{flex:none; width:46px; height:46px; display:grid; place-items:center;}
+.gg-rung__name{font-family:"Oswald"; font-weight:700; color:var(--paper); flex:1;}
+.gg-rung__name small{display:block; font-weight:400; font-size:.72rem; color:var(--khaki);}
+.gg-rung__tag{font-family:"Oswald"; font-size:.7rem; letter-spacing:1px; text-transform:uppercase; color:var(--khaki); padding:.2rem .6rem; border:1px solid var(--line); border-radius:999px;}
+.gg-rung--current .gg-rung__tag{color:var(--fire-hot); border-color:var(--fire);}
+
+/* ---------- INTENDANCE ---------- */
+.gg-shop__grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem;}
+.gg-deal{display:flex; flex-direction:column; padding:1.2rem 1rem; border-radius:14px; background:linear-gradient(180deg,var(--gg-card),var(--gg-card2)); border:1px solid var(--line); transition:transform .2s var(--ease), border-color .2s;}
+.gg-deal:hover{transform:translateY(-4px); border-color:var(--fire);}
+.gg-deal__ico{font-size:2.2rem;}
+.gg-deal__ico-img{width:3.4rem; height:3.4rem; object-fit:contain;}
+.gg-deal--item{border-color:rgba(224,172,63,.25);}
+.gg-deal__title{font-family:"Oswald"; font-weight:700; color:var(--paper); font-size:1.05rem; margin:.4rem 0 .2rem;}
+.gg-deal__desc{font-size:.82rem; color:var(--khaki); flex:1; margin-bottom:.8rem;}
+.gg-deal__price{font-family:"Anton"; font-size:1.3rem; color:var(--fire-hot); margin-bottom:.6rem;}
+.gg-deal__price span{font-size:.8rem; color:var(--khaki);}
+.gg-deal .btn{width:100%;}
+.gg-deal--locked{opacity:.55;}
+
+.gg-codes{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.7rem;}
+.gg-code{display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.7rem .9rem; border-radius:10px; border:1px dashed var(--fire); background:rgba(224,172,63,.06);}
+.gg-code__val{font-family:"Oswald"; font-weight:700; letter-spacing:1px; color:var(--fire-hot);}
+.gg-code__desc{font-size:.72rem; color:var(--khaki);}
+/* Pastille de CONDITION sur un code (ex. « dès 30 € d'achat ») : bien visible
+   pour que le joueur sache qu'un minimum de panier est requis. */
+.gg-code__cond{
+  display:inline-block; margin-top:.15rem; padding:.08rem .4rem; border-radius:999px;
+  font-size:.66rem; font-weight:700; letter-spacing:.02em; white-space:nowrap;
+  color:#1c1a10; background:var(--fire-hot);
+}
+.gg-code__actions{display:flex; align-items:center; gap:.35rem; flex-shrink:0;}
+.gg-code__copy{font-size:.72rem; color:var(--khaki-soft); border:1px solid var(--line); padding:.25rem .5rem; border-radius:6px; background:none; cursor:pointer;}
+.gg-code__copy:hover{color:var(--fire); border-color:var(--fire);}
+/* Bouton supprimer : discret, rouge au survol pour signaler l'action destructive. */
+.gg-code__del{font-size:.8rem; line-height:1; color:var(--khaki-soft); border:1px solid var(--line); padding:.25rem .45rem; border-radius:6px; background:none; cursor:pointer;}
+.gg-code__del:hover{color:#fff; border-color:var(--red); background:var(--red);}
+/* Le message « aucun code » est un enfant direct de la grille : sans
+   consigne il occupait UNE colonne de 210px et se cassait sur trois
+   lignes au milieu d'une zone vide. Il doit traverser toute la largeur. */
+.gg-codes__empty{
+  grid-column:1 / -1;
+  color:var(--khaki); font-size:.88rem; line-height:1.6;
+  padding:1.1rem 1.2rem; border-radius:12px;
+  border:1px dashed var(--line); background:rgba(255,255,255,.02);
+  text-wrap:pretty;
+}
+
+.gg-arsenal{display:flex; gap:.7rem; flex-wrap:wrap; margin-bottom:.4rem;}
+.gg-arsenal-item{display:flex; align-items:center; gap:.5rem; padding:.6rem .9rem; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03);}
+.gg-arsenal-item__ico img{width:2.2rem; height:2.2rem; object-fit:contain;}
+.gg-arsenal-item__label{font-family:"Oswald"; font-weight:600; font-size:.82rem; color:var(--khaki-soft);}
+.gg-arsenal-item__count{font-family:"Anton"; color:var(--fire-hot); font-size:1rem;}
+.gg-arsenal--compact{margin-top:.6rem; padding-top:.6rem; border-top:1px solid var(--line); width:100%;}
+
+.gg-insignia{width:100%; height:100%;}
+
+/* Photo d'écusson posée par-dessus le tracé SVG. Le SVG occupe le flux
+   et donne ses dimensions au conteneur ; la photo se cale dessus en
+   absolu. Si `onerror` la retire, le tracé redevient simplement visible,
+   sans que rien ne bouge autour. */
+.gg-insignia-wrap{position:relative; display:block; width:100%; height:100%;}
+.gg-insignia__photo{
+  position:absolute; inset:0;
+  width:100%; height:100%; object-fit:contain;
+  border-radius:10px;
+}
+
+/* ---------- MODALE GÉNÉRIQUE ---------- */
+.pw-modal{position:fixed; inset:0; z-index:300; display:grid; place-items:center; padding:1.2rem;}
+.pw-modal[hidden]{display:none;}
+.pw-modal__backdrop{position:absolute; inset:0; background:rgba(6,6,4,.78); backdrop-filter:blur(4px); animation:fadeIn .25s var(--ease);}
+.pw-modal__box{
+  position:relative; z-index:2; width:100%; max-width:460px; text-align:center;
+  padding:1.8rem 1.5rem; border-radius:18px;
+  background:linear-gradient(180deg,#2b2714,#1c1a0f); border:1px solid var(--fire);
+  box-shadow:0 24px 70px rgba(0,0,0,.6); animation:popIn .3s var(--ease);
+}
+@keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
+@keyframes popIn{from{opacity:0; transform:scale(.9) translateY(10px);} to{opacity:1; transform:none;}}
+.pw-modal__close{position:absolute; top:.6rem; right:.8rem; font-size:1.3rem; color:var(--khaki); line-height:1;}
+.pw-modal__close:hover{color:var(--fire);}
+.pw-modal__eyebrow{font-family:"Oswald"; letter-spacing:2px; font-size:.72rem; color:var(--fire-hot); text-transform:uppercase;}
+.pw-modal__title{font-family:"Anton"; font-size:2rem; color:var(--paper); margin:.3rem 0 .6rem; line-height:1;}
+.pw-modal__text{color:var(--khaki-soft); font-size:.95rem; margin-bottom:1.2rem;}
+.pw-modal__text b{color:var(--fire-hot);}
+.pw-modal__actions{display:flex; gap:.6rem; justify-content:center; flex-wrap:wrap;}
+.pw-bigcode{font-family:"Oswald"; font-weight:700; letter-spacing:2px; font-size:1.3rem; color:var(--fire-hot); border:1px dashed var(--fire); border-radius:10px; padding:.6rem 1rem; display:inline-block; margin-bottom:1rem; background:rgba(224,172,63,.06);}
+.pw-countdown{font-family:"Anton"; font-size:1.6rem; color:#ff7a7f; margin-bottom:1rem;}
+
+/* ---------- ROUE DE LA POPOTE ---------- */
+.pw-wheel-wrap{position:relative; width:260px; height:260px; margin:0 auto 1.2rem;}
+.pw-wheel{
+  width:100%; height:100%; border-radius:50%; position:relative;
+  border:6px solid #3a3319; box-shadow:0 0 0 4px var(--fire), 0 14px 40px rgba(0,0,0,.5);
+  transition:transform 4.2s cubic-bezier(.17,.67,.16,1);
+}
+.pw-wheel__seg{position:absolute; inset:0; display:flex; justify-content:center; pointer-events:none;}
+.pw-wheel__seg span{
+  margin-top:14px; font-family:"Oswald"; font-weight:700; font-size:.72rem; color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.7); transform-origin:center; max-width:64px; text-align:center; line-height:1.05;
+}
+.pw-wheel__pin{position:absolute; top:-6px; left:50%; transform:translateX(-50%); z-index:5; font-size:1.6rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));}
+.pw-wheel__hub{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:46px; height:46px; border-radius:50%; background:#211e11; border:3px solid var(--fire); z-index:4; display:grid; place-items:center; font-size:1.2rem;}
+.pw-wheel__cost{color:var(--khaki); font-size:.82rem; margin-bottom:.8rem;}
+
+/* ---------- TOAST réutilise .toast de style.css ---------- */
+
+/* ---------- onglet "jeu" dans la nav ---------- */
+.nav__link--game{color:var(--fire-hot);}
+.nav__link--game:hover{color:var(--fire);}
+.nav__link--active{color:var(--fire);}
+.nav__link--active::after{width:100%;}
+
+/* ============================================================
+   TOUCHE "RÉGIMENT" : typo héraldique sur les libellés +
+   un peu de dynamisme (lueur qui respire, reflet au survol)
+   ============================================================ */
+.hero__eyebrow, .section__eyebrow, .pw-modal__eyebrow, .gg-hud__grade,
+.gg-round__label, .gg-rung__tag, .gg-bank__lbl, .gg-stat__lbl, .gg-arsenal-item__label{
+  font-family:"Cinzel","Oswald",serif; letter-spacing:1.5px;
+}
+.gg-section-title, .gg-wait__code, .pw-auth__title, .pw-modal__title{
+  font-family:"Anton","Cinzel",sans-serif;
+}
+
+@keyframes ggGlowBreathe{
+  from{ box-shadow:0 0 0 rgba(224,172,63,0), inset 0 0 0 rgba(224,172,63,0); }
+  to{ box-shadow:0 0 22px rgba(224,172,63,.4), inset 0 0 14px rgba(224,172,63,.08); }
+}
+.gg-bank{ animation:ggGlowBreathe 2.6s ease-in-out infinite alternate; }
+
+.gg-hud__btn--wheel, .pw-stake--active, .gg-tab--active{
+  position:relative; overflow:hidden;
+}
+.gg-hud__btn--wheel::after, .pw-stake--active::after, .gg-tab--active::after{
+  content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+  background:linear-gradient(115deg, transparent, rgba(255,255,255,.35), transparent);
+  transform:skewX(-20deg);
+}
+.gg-hud__btn--wheel:hover::after, .pw-stake--active:hover::after, .gg-tab--active:hover::after{
+  animation:ggShine .9s ease forwards;
+}
+@keyframes ggShine{ to{ left:130%; } }
+
+/* ---------- responsive ---------- */
+@media (max-width:820px){
+  .gg-hud{flex-direction:column; align-items:stretch;}
+  .gg-hud__actions{margin-left:0; justify-content:center;}
+  .gg-hud__stats{justify-content:space-between;}
+  .gg-bank{align-self:center;}
+}
+@media (max-width:760px){
+  .gg-join{margin-left:0;}
+  .gg-options{grid-template-columns:1fr;}
+  .gg-quick__btn{flex:1;}
+}
+@media (max-width:560px){
+  .gg-search .gg-input{width:100%;}
+  .gg-salons__head{flex-direction:column; align-items:stretch;}
+  .gg-search{width:100%;}
+  .pw-wheel-wrap{width:220px; height:220px;}
+}
+
+/* Correctif : l.attribut HTML "hidden" doit l.emporter sur le display:grid des sections d.auth */
+.pw-auth[hidden]{display:none !important;}
+
+/* ============================================================
+   PALIER DE DIFFICULTÉ (badge au-dessus de la question)
+   ============================================================ */
+.gg-question__head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:.8rem; flex-wrap:wrap; margin-bottom:.35rem;
+}
+.gg-diff{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.28rem .6rem; border-radius:6px;
+  background:rgba(0,0,0,.28);
+  border:1px solid color-mix(in srgb, var(--diff-col,#cdd2da) 45%, transparent);
+  font-family:"Oswald",sans-serif; font-size:.7rem; letter-spacing:.09em;
+}
+.gg-diff__bars{display:inline-flex; gap:2px; align-items:flex-end;}
+.gg-diff__bar{
+  display:block; width:4px; height:8px; border-radius:1px;
+  background:rgba(255,255,255,.16);
+}
+.gg-diff__bar:nth-child(2){height:11px;}
+.gg-diff__bar:nth-child(3){height:14px;}
+.gg-diff__bar:nth-child(4){height:17px;}
+.gg-diff__bar:nth-child(5){height:20px;}
+.gg-diff__bar--on{
+  background:var(--diff-col,#cdd2da);
+  box-shadow:0 0 6px color-mix(in srgb, var(--diff-col,#cdd2da) 70%, transparent);
+}
+.gg-diff__name{color:var(--diff-col,#cdd2da); font-weight:600;}
+.gg-diff__mult{
+  color:var(--ink); background:var(--diff-col,#cdd2da);
+  padding:.06rem .32rem; border-radius:4px; font-weight:700; font-size:.66rem;
+}
+
+/* ============================================================
+   EFFETS D'OBJET (fusil / casque / montre)
+   Overlay plein écran, non cliquable, retiré par JS après l'anim.
+   ============================================================ */
+.pw-fx{
+  position:fixed; inset:0; z-index:9000;
+  pointer-events:none;               /* ne bloque JAMAIS un clic en plein match */
+  display:grid; place-items:center;
+  overflow:hidden;
+}
+.pw-fx__label{
+  position:absolute; top:22%; left:50%; transform:translateX(-50%);
+  font-family:"Anton",sans-serif; font-size:clamp(1.4rem,5vw,2.6rem);
+  letter-spacing:.05em; color:var(--paper);
+  text-shadow:0 0 18px rgba(0,0,0,.9), 0 2px 0 rgba(0,0,0,.6);
+  animation:fxLabel 1.4s cubic-bezier(.2,.9,.2,1) forwards;
+  white-space:nowrap;
+}
+@keyframes fxLabel{
+  0%{opacity:0; transform:translateX(-50%) scale(.7);}
+  18%{opacity:1; transform:translateX(-50%) scale(1.06);}
+  30%{transform:translateX(-50%) scale(1);}
+  75%{opacity:1;}
+  100%{opacity:0; transform:translateX(-50%) translateY(-18px) scale(.98);}
+}
+
+/* ---- secousse d'écran (fusil) ---- */
+.pw-shake{animation:pwShake .5s cubic-bezier(.36,.07,.19,.97);}
+@keyframes pwShake{
+  0%,100%{transform:translate(0,0);}
+  10%{transform:translate(-6px,3px) rotate(-.35deg);}
+  25%{transform:translate(7px,-4px) rotate(.4deg);}
+  40%{transform:translate(-5px,2px) rotate(-.25deg);}
+  55%{transform:translate(4px,-2px) rotate(.2deg);}
+  70%{transform:translate(-3px,1px);}
+  85%{transform:translate(2px,-1px);}
+}
+
+/* ---- FUSIL : flash de bouche + réticule + impact ---- */
+.pw-fx__flash{
+  position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 55%, rgba(255,232,170,.95) 0%, rgba(246,202,102,.55) 18%, rgba(224,120,40,.25) 34%, transparent 62%);
+  animation:fxFlash .42s ease-out forwards;
+}
+@keyframes fxFlash{
+  0%{opacity:0; transform:scale(.5);}
+  12%{opacity:1; transform:scale(1.05);}
+  100%{opacity:0; transform:scale(1.5);}
+}
+.pw-fx__crosshair{
+  position:relative; width:min(46vw,230px); aspect-ratio:1;
+  animation:fxCross .9s cubic-bezier(.2,.9,.2,1) forwards;
+}
+.pw-fx__crosshair span{
+  position:absolute; background:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 10px rgba(246,202,102,.9);
+}
+.pw-fx__crosshair span:nth-child(1){left:0; right:0; top:50%; height:2px; transform:translateY(-50%);}
+.pw-fx__crosshair span:nth-child(2){top:0; bottom:0; left:50%; width:2px; transform:translateX(-50%);}
+.pw-fx__crosshair i{
+  position:absolute; inset:18%; border-radius:50%;
+  border:2px solid var(--fire-hot,#f6ca66);
+  box-shadow:0 0 16px rgba(246,202,102,.7), inset 0 0 16px rgba(246,202,102,.35);
+}
+@keyframes fxCross{
+  0%{opacity:0; transform:scale(2.1) rotate(-12deg);}
+  35%{opacity:1; transform:scale(.92) rotate(0deg);}
+  55%{transform:scale(1);}
+  100%{opacity:0; transform:scale(.86);}
+}
+.pw-fx__crack{
+  position:absolute; width:min(60vw,340px); aspect-ratio:1;
+  background:
+    conic-gradient(from 0deg,
+      transparent 0deg 8deg, rgba(255,255,255,.5) 9deg 10deg, transparent 11deg 52deg,
+      rgba(255,255,255,.4) 53deg 54deg, transparent 55deg 118deg,
+      rgba(255,255,255,.45) 119deg 120deg, transparent 121deg 196deg,
+      rgba(255,255,255,.4) 197deg 198deg, transparent 199deg 262deg,
+      rgba(255,255,255,.45) 263deg 264deg, transparent 265deg 330deg,
+      rgba(255,255,255,.4) 331deg 332deg, transparent 333deg 360deg);
+  animation:fxCrack .8s ease-out forwards;
+}
+@keyframes fxCrack{
+  0%{opacity:0; transform:scale(.2);}
+  25%{opacity:.9;}
+  100%{opacity:0; transform:scale(1.3);}
+}
+
+/* ---- CASQUE : dôme de protection + ondes ---- */
+.pw-fx__dome{
+  position:absolute; width:min(70vw,420px); aspect-ratio:1; border-radius:50%;
+  background:radial-gradient(circle at 50% 60%, transparent 52%, rgba(143,209,79,.16) 62%, rgba(143,209,79,.35) 72%, transparent 80%);
+  border:2px solid rgba(143,209,79,.55);
+  box-shadow:0 0 50px rgba(143,209,79,.35), inset 0 0 60px rgba(143,209,79,.18);
+  animation:fxDome 1.3s cubic-bezier(.2,.9,.2,1) forwards;
+}
+.pw-fx__dome--hit{
+  border-color:rgba(246,202,102,.75);
+  background:radial-gradient(circle at 50% 60%, transparent 52%, rgba(246,202,102,.2) 62%, rgba(246,202,102,.42) 72%, transparent 80%);
+  box-shadow:0 0 60px rgba(246,202,102,.5), inset 0 0 60px rgba(246,202,102,.2);
+  animation:fxDomeHit .9s cubic-bezier(.36,.07,.19,.97) forwards;
+}
+@keyframes fxDome{
+  0%{opacity:0; transform:scale(.55);}
+  40%{opacity:1; transform:scale(1.04);}
+  60%{transform:scale(1);}
+  100%{opacity:0; transform:scale(1.08);}
+}
+@keyframes fxDomeHit{
+  0%{opacity:0; transform:scale(1.15);}
+  18%{opacity:1; transform:scale(.95);}
+  32%{transform:scale(1.02);}
+  46%{transform:scale(.98);}
+  100%{opacity:0; transform:scale(1.05);}
+}
+.pw-fx__ring{
+  position:absolute; width:min(70vw,420px); aspect-ratio:1; border-radius:50%;
+  border:2px solid rgba(143,209,79,.6);
+  animation:fxRing 1.25s ease-out forwards;
+}
+.pw-fx__ring--2{animation-delay:.22s;}
+@keyframes fxRing{
+  0%{opacity:.85; transform:scale(.4);}
+  100%{opacity:0; transform:scale(1.5);}
+}
+
+/* ---- MONTRE : distorsion temporelle + cadran ---- */
+.pw-fx__timewarp{
+  position:absolute; inset:0;
+  background:repeating-radial-gradient(circle at 50% 50%,
+    transparent 0 18px, rgba(246,202,102,.09) 18px 20px, transparent 20px 40px);
+  animation:fxWarp 1.35s ease-out forwards;
+}
+@keyframes fxWarp{
+  0%{opacity:0; transform:scale(.5);}
+  30%{opacity:1;}
+  100%{opacity:0; transform:scale(1.7);}
+}
+.pw-fx__dial{
+  position:relative; width:min(34vw,160px); aspect-ratio:1; border-radius:50%;
+  border:3px solid var(--fire-hot,#f6ca66);
+  box-shadow:0 0 34px rgba(246,202,102,.6), inset 0 0 26px rgba(246,202,102,.25);
+  animation:fxDial 1.35s cubic-bezier(.2,.9,.2,1) forwards;
+}
+.pw-fx__dial i{
+  position:absolute; left:50%; top:12%; width:3px; height:38%;
+  background:var(--fire-hot,#f6ca66); border-radius:2px;
+  transform-origin:50% 100%;
+  animation:fxHand 1.35s cubic-bezier(.3,.8,.3,1) forwards;
+}
+@keyframes fxDial{
+  0%{opacity:0; transform:scale(.5) rotate(-25deg);}
+  30%{opacity:1; transform:scale(1.05) rotate(0);}
+  100%{opacity:0; transform:scale(1.1);}
+}
+@keyframes fxHand{
+  0%{transform:translateX(-50%) rotate(0deg);}
+  100%{transform:translateX(-50%) rotate(900deg);}
+}
+/* le chrono du match pulse en doré quand on ajoute du temps */
+.gg-timer__fill--boost{
+  box-shadow:0 0 18px rgba(246,202,102,.95), 0 0 40px rgba(246,202,102,.5);
+  animation:fxTimerPulse .45s ease-in-out 3;
+}
+@keyframes fxTimerPulse{
+  0%,100%{filter:brightness(1);}
+  50%{filter:brightness(1.9) saturate(1.3);}
+}
+
+/* ============================================================
+   TUTORIEL (Instruction)
+   ============================================================ */
+.pw-tuto__icon{
+  font-size:2.8rem; line-height:1; text-align:center;
+  margin:.2rem 0 .5rem;
+  filter:drop-shadow(0 4px 14px rgba(0,0,0,.5));
+  animation:fxTutoIcon .5s cubic-bezier(.2,.9,.2,1);
+}
+@keyframes fxTutoIcon{
+  0%{opacity:0; transform:scale(.5) translateY(10px);}
+  100%{opacity:1; transform:scale(1) translateY(0);}
+}
+.pw-tuto__body{text-align:left; line-height:1.65;}
+.pw-tuto__body b{color:var(--fire-hot,#f6ca66);}
+.pw-tuto__dots{
+  display:flex; justify-content:center; gap:.45rem; margin:1.1rem 0 .3rem;
+}
+.pw-tuto__dot{
+  width:8px; height:8px; border-radius:50%; cursor:pointer;
+  background:rgba(255,255,255,.2); transition:all .2s;
+}
+.pw-tuto__dot:hover{background:rgba(255,255,255,.4); transform:scale(1.2);}
+.pw-tuto__dot--on{
+  background:var(--fire-hot,#f6ca66); width:22px; border-radius:4px;
+  box-shadow:0 0 10px rgba(246,202,102,.7);
+}
+
+/* ============================================================
+   DOSSIER MILITAIRE (titres, bannières, décorations)
+   ============================================================ */
+.gg-dossier{display:block;}
+
+/* --- carte d'identité --- */
+.gg-dossier__card{
+  display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  padding:1.2rem; border-radius:14px;
+  border:1px solid var(--line); margin-bottom:1rem;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 8px 24px rgba(0,0,0,.35);
+}
+.gg-dossier__badge{width:64px; flex:none;}
+.gg-dossier__badge svg{width:100%; height:auto;}
+.gg-dossier__id{display:flex; flex-direction:column; gap:.15rem; min-width:0; flex:1;}
+.gg-dossier__title{
+  font-family:"Cinzel",serif; font-size:.78rem; letter-spacing:.12em;
+  color:var(--fire-hot,#f6ca66); text-transform:uppercase;
+}
+.gg-dossier__pseudo{
+  font-family:"Anton",sans-serif; font-size:1.6rem; color:var(--paper);
+  line-height:1.1; overflow:hidden; text-overflow:ellipsis;
+}
+.gg-dossier__grade{font-family:"Oswald",sans-serif; font-size:.8rem; color:var(--khaki);}
+.gg-dossier__ribbons{display:flex; gap:.35rem; flex-wrap:wrap; align-items:center;}
+.gg-dossier__none{font-size:.78rem; color:var(--khaki); font-style:italic;}
+/* Bande d'identité COMPACTE : l'identité + le visuel sont sur le HUD.
+   Ici, une seule ligne épurée = rang mondial à gauche, décorations à droite. */
+.gg-dossier__strip{
+  display:flex; align-items:center; justify-content:space-between; gap:.8rem;
+  flex-wrap:wrap; padding:.55rem .85rem; margin-bottom:1rem; border-radius:11px;
+  background:rgba(255,255,255,.02); border:1px solid var(--line);
+}
+.gg-dossier__strip .gg-dossier__world{ margin:0; }
+.gg-dossier__strip .gg-dossier__ribbons{ margin-left:auto; }
+.gg-ribbon{
+  display:grid; place-items:center; width:34px; height:34px; border-radius:7px;
+  font-size:1.05rem; background:rgba(0,0,0,.35); border:1px solid var(--line);
+}
+.gg-dossier__stats{
+  display:grid; grid-template-columns:repeat(6,1fr); gap:.5rem; margin-bottom:1.6rem;
+}
+.gg-dossier__cat{
+  font-family:"Cinzel",serif; font-size:.8rem; letter-spacing:.14em;
+  color:var(--khaki); text-transform:uppercase; margin:1.1rem 0 .5rem;
+  padding-bottom:.3rem; border-bottom:1px solid var(--line);
+}
+
+/* --- sélecteurs de titre --- */
+.gg-picker{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:.5rem; margin-bottom:1.6rem;}
+.gg-pick{
+  display:flex; flex-direction:column; align-items:flex-start; gap:.15rem;
+  padding:.65rem .8rem; border-radius:9px; cursor:pointer; text-align:left;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); transition:all .16s;
+}
+.gg-pick:hover:not(:disabled){border-color:var(--fire,#e0ac3f); transform:translateY(-2px);}
+.gg-pick__name{font-family:"Oswald",sans-serif; font-weight:600; color:var(--paper); font-size:.92rem;}
+.gg-pick__desc{font-size:.72rem; color:var(--khaki);}
+.gg-pick--sel{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 18px rgba(246,202,102,.25);
+}
+.gg-pick--sel .gg-pick__name{color:var(--fire-hot,#f6ca66);}
+.gg-pick--lock{opacity:.45; cursor:not-allowed;}
+
+/* --- sélecteur de bannière --- */
+.gg-banners{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.5rem; margin-bottom:1.6rem;}
+.gg-banner{
+  height:58px; border-radius:9px; cursor:pointer;
+  border:1px solid var(--line); transition:all .16s;
+  display:grid; place-items:center;
+  font-family:"Oswald",sans-serif; font-size:.8rem; color:var(--paper);
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+}
+.gg-banner:hover:not(:disabled){transform:translateY(-2px);}
+.gg-banner:disabled{opacity:.4; cursor:not-allowed;}
+.gg-banner--sel{box-shadow:0 0 0 2px var(--fire-hot,#f6ca66), 0 0 18px rgba(246,202,102,.3);}
+
+/* --- grille de décorations --- */
+.gg-medals{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.6rem;}
+.gg-medal{
+  display:flex; gap:.75rem; align-items:flex-start;
+  padding:.75rem; border-radius:11px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-medal__ico{
+  display:grid; place-items:center; width:46px; height:46px; flex:none;
+  border-radius:9px; font-size:1.5rem;
+  background:rgba(0,0,0,.35); border:1px solid var(--line);
+}
+.gg-medal__body{min-width:0; flex:1;}
+.gg-medal__name{font-family:"Oswald",sans-serif; font-weight:600; color:var(--paper); font-size:.9rem;}
+.gg-medal__desc{font-size:.74rem; color:var(--khaki); margin-bottom:.35rem;}
+.gg-medal__got{font-size:.72rem; font-weight:700; color:#8fd14f; letter-spacing:.06em;}
+.gg-medal__bar{height:5px; margin:.2rem 0 .15rem;}
+.gg-medal__prog{font-size:.68rem; color:var(--khaki); font-variant-numeric:tabular-nums;}
+.gg-medal--off{opacity:.62;}
+.gg-medal--off .gg-medal__ico{filter:grayscale(1);}
+.gg-medal--bronze .gg-medal__ico,.gg-ribbon.gg-medal--bronze{border-color:#cd7f32; box-shadow:0 0 12px rgba(205,127,50,.35);}
+.gg-medal--argent .gg-medal__ico,.gg-ribbon.gg-medal--argent{border-color:#cdd2da; box-shadow:0 0 12px rgba(205,210,218,.3);}
+.gg-medal--or .gg-medal__ico,.gg-ribbon.gg-medal--or{border-color:#f6ca66; box-shadow:0 0 14px rgba(246,202,102,.45);}
+
+/* --- titre dans le HUD --- */
+.gg-hud__mytitle{
+  font-family:"Cinzel",serif; font-size:.66rem; letter-spacing:.12em;
+  color:var(--fire-hot,#f6ca66); text-transform:uppercase; display:block;
+}
+
+/* --- décoration annoncée sur l'écran de résultat --- */
+.gg-newmedal{
+  display:flex; align-items:center; gap:.45rem; justify-content:center;
+  margin-top:.4rem; font-size:.86rem; color:var(--fire-hot,#f6ca66);
+  animation:fxLabel 2.2s ease-out;
+}
+.gg-newmedal__ico{font-size:1.15rem;}
+
+/* --- cérémonie de remise --- */
+.gg-ceremony{position:relative; display:grid; place-items:center; height:130px; margin:.4rem 0;}
+.gg-ceremony__rays{
+  position:absolute; width:170px; height:170px; border-radius:50%;
+  background:conic-gradient(from 0deg, transparent 0 12deg, rgba(246,202,102,.22) 13deg 16deg, transparent 17deg 30deg);
+  animation:ceremSpin 9s linear infinite;
+}
+@keyframes ceremSpin{to{transform:rotate(360deg);}}
+.gg-ceremony__medal{
+  position:relative; display:grid; place-items:center;
+  width:92px; height:92px; border-radius:50%; font-size:2.7rem;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.16), rgba(0,0,0,.5));
+  border:3px solid var(--fire-hot,#f6ca66);
+  box-shadow:0 0 34px rgba(246,202,102,.55), inset 0 0 22px rgba(246,202,102,.2);
+  animation:ceremPop .75s cubic-bezier(.2,1.5,.35,1);
+}
+@keyframes ceremPop{
+  0%{opacity:0; transform:scale(.3) rotate(-25deg);}
+  60%{opacity:1; transform:scale(1.12) rotate(6deg);}
+  100%{transform:scale(1) rotate(0);}
+}
+/* La médaille de cérémonie n'a pas d'enfant .gg-medal__ico : il lui faut ses
+   propres variantes de métal, sinon tout ressort en doré par défaut. */
+.gg-ceremony__medal.gg-medal--bronze{
+  border-color:#cd7f32;
+  box-shadow:0 0 34px rgba(205,127,50,.55), inset 0 0 22px rgba(205,127,50,.2);
+}
+.gg-ceremony__medal.gg-medal--argent{
+  border-color:#cdd2da;
+  box-shadow:0 0 34px rgba(205,210,218,.5), inset 0 0 22px rgba(205,210,218,.18);
+}
+.gg-ceremony__medal.gg-medal--or{
+  border-color:#f6ca66;
+  box-shadow:0 0 34px rgba(246,202,102,.55), inset 0 0 22px rgba(246,202,102,.2);
+}
+/* Médaille obtenue : léger relief pour la distinguer des verrouillées. */
+.gg-medal--on{box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+
+@media (max-width:760px){
+  .gg-dossier__stats{grid-template-columns:repeat(3,1fr);}
+}
+@media (max-width:560px){
+  .gg-dossier__card{gap:.7rem; padding:.9rem;}
+  .gg-dossier__badge{width:48px;}
+  .gg-dossier__pseudo{font-size:1.25rem;}
+  .gg-dossier__stats{grid-template-columns:repeat(2,1fr);}
+  .gg-picker{grid-template-columns:1fr;}
+  .gg-medals{grid-template-columns:1fr;}
+  .gg-banners{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ============================================================
+   CLASSEMENT & AMIS
+   ============================================================ */
+.gg-lb__bar{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:.8rem; flex-wrap:wrap; margin-bottom:1rem;
+}
+.gg-lb__scopes,.gg-lb__fields{display:flex; gap:.35rem; flex-wrap:wrap;}
+.gg-lb__scope,.gg-lb__field{
+  padding:.42rem .8rem; border-radius:7px; cursor:pointer;
+  font-family:"Oswald",sans-serif; font-size:.78rem; letter-spacing:.05em;
+  background:rgba(0,0,0,.3); border:1px solid var(--line); color:var(--khaki);
+  transition:all .15s;
+}
+.gg-lb__scope:hover,.gg-lb__field:hover{color:var(--paper); border-color:var(--fire,#e0ac3f);}
+.gg-lb__scope--on,.gg-lb__field--on{
+  background:linear-gradient(180deg,var(--fire,#e0ac3f),var(--fire-hot,#f6ca66));
+  color:var(--ink); border-color:var(--fire-hot,#f6ca66); font-weight:600;
+}
+
+/* --- boîte code ami --- */
+.gg-friendbox{
+  display:grid; grid-template-columns:auto 1fr; gap:1rem; align-items:center;
+  padding:.9rem 1rem; margin-bottom:1rem; border-radius:12px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-friendbox__lbl{
+  display:block; font-family:"Cinzel",serif; font-size:.62rem;
+  letter-spacing:.14em; color:var(--khaki); text-transform:uppercase; margin-bottom:.3rem;
+}
+.gg-friendbox__code{
+  font-family:"Anton",sans-serif; font-size:1.5rem; letter-spacing:.12em;
+  color:var(--fire-hot,#f6ca66); line-height:1.1; margin-bottom:.35rem;
+}
+.gg-friendbox__mine{
+  padding-right:1rem; border-right:1px solid var(--line);
+}
+.gg-friendbox__add{min-width:0;}
+.gg-friendbox__row{display:flex; gap:.4rem;}
+.gg-friendbox__row .gg-input{flex:1; min-width:0; text-transform:uppercase; letter-spacing:.1em;}
+
+/* --- demandes reçues --- */
+.gg-req{
+  display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+  padding:.6rem .8rem; margin-bottom:.4rem; border-radius:9px;
+  background:rgba(0,0,0,.25); border:1px solid var(--line);
+}
+.gg-req__name{font-family:"Oswald",sans-serif; font-weight:600; color:var(--paper);}
+.gg-req__actions{display:flex; gap:.35rem; flex-wrap:wrap;}
+
+/* --- lignes du classement --- */
+.gg-lb__rows{display:flex; flex-direction:column; gap:.35rem;}
+.gg-lb__row{
+  display:grid; grid-template-columns:44px 38px 1fr auto;
+  align-items:center; gap:.7rem;
+  padding:.55rem .8rem; border-radius:9px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-lb__row--me{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 20px rgba(246,202,102,.2);
+}
+.gg-lb__pos{
+  font-family:"Anton",sans-serif; font-size:1.05rem; text-align:center;
+  color:var(--khaki);
+}
+.gg-lb__row:nth-child(-n+3) .gg-lb__pos{font-size:1.3rem;}
+.gg-lb__badge svg{width:32px; height:32px; display:block;}
+.gg-lb__who{display:flex; flex-direction:column; min-width:0;}
+.gg-lb__who b{
+  font-family:"Oswald",sans-serif; color:var(--paper); font-size:.95rem;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.gg-lb__who small{font-size:.7rem; color:var(--khaki);}
+.gg-lb__val{
+  display:flex; flex-direction:column; align-items:flex-end;
+  font-family:"Anton",sans-serif; font-size:1.15rem; color:var(--fire-hot,#f6ca66);
+  font-variant-numeric:tabular-nums; line-height:1.1;
+}
+.gg-lb__val small{
+  font-family:"Oswald",sans-serif; font-size:.62rem; color:var(--khaki);
+  letter-spacing:.05em; text-transform:uppercase;
+}
+
+@media (max-width:620px){
+  .gg-friendbox{grid-template-columns:1fr; gap:.8rem;}
+  .gg-friendbox__mine{
+    padding-right:0; padding-bottom:.8rem;
+    border-right:none; border-bottom:1px solid var(--line);
+  }
+  .gg-lb__bar{flex-direction:column; align-items:stretch;}
+  .gg-lb__scopes,.gg-lb__fields{justify-content:center;}
+  .gg-lb__scope,.gg-lb__field{flex:1; text-align:center; font-size:.7rem; padding:.4rem .5rem;}
+  .gg-lb__row{grid-template-columns:32px 28px 1fr auto; gap:.45rem; padding:.5rem .6rem;}
+  .gg-lb__badge svg{width:24px; height:24px;}
+  .gg-lb__who b{font-size:.85rem;}
+  .gg-lb__val{font-size:1rem;}
+  .gg-req{flex-direction:column; align-items:stretch;}
+}
+
+/* ============================================================
+   COMPTE À REBOURS DE PRÉPARATION
+   ============================================================ */
+.pw-prep{
+  position:fixed; inset:0; z-index:9500;
+  display:grid; place-items:center;
+  background:rgba(10,10,7,.82);
+  backdrop-filter:blur(3px);
+  animation:prepIn .25s ease-out;
+}
+@keyframes prepIn{from{opacity:0;}to{opacity:1;}}
+.pw-prep__box{text-align:center; padding:1rem;}
+.pw-prep__eyebrow{
+  font-family:"Cinzel",serif; font-size:.75rem; letter-spacing:.2em;
+  color:var(--khaki); text-transform:uppercase; margin-bottom:.6rem;
+}
+.pw-prep__num{
+  font-family:"Anton",sans-serif;
+  font-size:clamp(5rem,22vw,11rem); line-height:1;
+  color:var(--fire-hot,#f6ca66);
+  text-shadow:0 0 40px rgba(246,202,102,.6), 0 6px 0 rgba(0,0,0,.5);
+}
+.pw-prep__num--pop{animation:prepPop .5s cubic-bezier(.2,1.4,.35,1);}
+@keyframes prepPop{
+  0%{transform:scale(1.55); opacity:.25;}
+  55%{transform:scale(.94);}
+  100%{transform:scale(1); opacity:1;}
+}
+.pw-prep__num--go{
+  font-size:clamp(2.6rem,12vw,6rem);
+  color:#8fd14f; text-shadow:0 0 46px rgba(143,209,79,.75);
+  animation:prepGo .55s cubic-bezier(.2,1.4,.35,1);
+}
+@keyframes prepGo{
+  0%{transform:scale(.4); opacity:0;}
+  60%{transform:scale(1.12);}
+  100%{transform:scale(1); opacity:1;}
+}
+.pw-prep__hint{margin-top:.5rem; color:var(--khaki); font-size:.85rem;}
+
+/* petit indicateur d'attente (invité dans un salon) */
+.pw-prep__spinner{
+  width:38px; height:38px; margin:1rem auto;
+  border:3px solid rgba(255,255,255,.14);
+  border-top-color:var(--fire-hot,#f6ca66);
+  border-radius:50%;
+  animation:prepSpin .9s linear infinite;
+}
+@keyframes prepSpin{to{transform:rotate(360deg);}}
+
+/* ============================================================
+   FICHE JOUEUR (depuis le classement)
+   ============================================================ */
+.gg-lb__row{
+  width:100%; text-align:left; cursor:pointer; font:inherit;
+  transition:transform .14s, border-color .14s;
+}
+.gg-lb__row:hover{transform:translateY(-2px); border-color:var(--fire,#e0ac3f);}
+.gg-pcard{
+  display:flex; align-items:center; gap:.9rem; text-align:left;
+  padding:.9rem; border-radius:12px; margin:.3rem 0 .8rem;
+  background:linear-gradient(135deg,#2b2a16,#1d1c10);
+  border:1px solid var(--line);
+}
+.gg-pcard__badge{width:58px; flex:none;}
+.gg-pcard__badge svg{width:100%; height:auto;}
+.gg-pcard__id{display:flex; flex-direction:column; gap:.12rem; min-width:0;}
+.gg-pcard__pseudo{
+  font-family:"Anton",sans-serif; font-size:1.45rem; color:var(--paper);
+  line-height:1.1; overflow:hidden; text-overflow:ellipsis;
+}
+.gg-pcard__stats{grid-template-columns:repeat(3,1fr); margin-bottom:.5rem;}
+
+@media (max-width:560px){
+  .gg-pcard__stats{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ============================================================
+   DYNAMISME DE MATCH
+   ============================================================ */
+
+/* --- chrono : la couleur monte avec la pression --- */
+.gg-timer__fill--warn{
+  background:linear-gradient(90deg,#e0ac3f,#f6ca66) !important;
+  box-shadow:0 0 14px rgba(224,172,63,.6);
+}
+.gg-timer__fill--danger{
+  background:linear-gradient(90deg,#c4402f,#ff7a7f) !important;
+  box-shadow:0 0 18px rgba(255,122,127,.75);
+  animation:timerPanic .55s ease-in-out infinite;
+}
+@keyframes timerPanic{
+  0%,100%{filter:brightness(1);}
+  50%{filter:brightness(1.55);}
+}
+
+/* --- compteurs de score --- */
+.gg-score--bump{animation:scoreBump .48s cubic-bezier(.2,1.5,.35,1);}
+@keyframes scoreBump{
+  0%{transform:scale(1);}
+  35%{transform:scale(1.32); color:var(--fire-hot,#f6ca66);}
+  100%{transform:scale(1);}
+}
+
+/* --- points flottants --- */
+.pw-float{
+  position:fixed; z-index:9200; pointer-events:none;
+  transform:translate(-50%,-50%);
+  font-family:"Anton",sans-serif; font-size:1.7rem; letter-spacing:.04em;
+  text-shadow:0 2px 12px rgba(0,0,0,.85);
+  animation:floatUp 1.15s cubic-bezier(.2,.9,.3,1) forwards;
+  white-space:nowrap;
+}
+.pw-float--win{color:#8fd14f;}
+.pw-float--loss{color:#ff7a7f;}
+@keyframes floatUp{
+  0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
+  22%{opacity:1; transform:translate(-50%,-70%) scale(1.12);}
+  38%{transform:translate(-50%,-78%) scale(1);}
+  100%{opacity:0; transform:translate(-50%,-170%) scale(.95);}
+}
+
+/* --- badges de manches --- */
+.gg-rw--flash{animation:rwFlash .75s ease-out;}
+@keyframes rwFlash{
+  0%{transform:scale(1);}
+  25%{transform:scale(1.22); color:var(--fire-hot,#f6ca66); text-shadow:0 0 16px rgba(246,202,102,.8);}
+  100%{transform:scale(1);}
+}
+
+/* --- options : apparition en cascade + retour au clic --- */
+.gg-opt{animation:optIn .34s cubic-bezier(.2,.9,.3,1) backwards; transition:transform .12s, border-color .16s, background .16s;}
+.gg-opt:nth-child(1){animation-delay:.02s;}
+.gg-opt:nth-child(2){animation-delay:.08s;}
+.gg-opt:nth-child(3){animation-delay:.14s;}
+.gg-opt:nth-child(4){animation-delay:.20s;}
+@keyframes optIn{
+  from{opacity:0; transform:translateY(9px);}
+  to{opacity:1; transform:translateY(0);}
+}
+.gg-opt:hover:not(:disabled){transform:translateX(4px);}
+.gg-opt:active:not(:disabled){transform:scale(.985);}
+.gg-opt--correct{animation:optCorrect .6s cubic-bezier(.2,1.4,.35,1);}
+@keyframes optCorrect{
+  0%{transform:scale(1);}
+  40%{transform:scale(1.035);}
+  100%{transform:scale(1);}
+}
+.gg-opt--wrong{animation:optWrong .42s cubic-bezier(.36,.07,.19,.97);}
+@keyframes optWrong{
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-7px);}
+  40%{transform:translateX(6px);}
+  60%{transform:translateX(-4px);}
+  80%{transform:translateX(2px);}
+}
+
+/* --- la question elle-même --- */
+.gg-question__text{animation:qIn .38s cubic-bezier(.2,.9,.3,1);}
+@keyframes qIn{
+  from{opacity:0; transform:translateY(-7px);}
+  to{opacity:1; transform:translateY(0);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .gg-timer__fill--danger{animation:none !important;}
+  .gg-score--bump,.gg-rw--flash,.gg-opt,.gg-opt--correct,.gg-opt--wrong,.gg-question__text{animation:none !important;}
+  .pw-float{animation-duration:.6s !important;}
+}
+
+/* ============================================================
+   ORDINAIRE DE LA SEMAINE (calendrier de présence)
+   ============================================================ */
+.gg-weekwrap{display:block;}
+.gg-week__head{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:.8rem; flex-wrap:wrap;
+}
+.gg-week__streak{
+  font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.12em;
+  color:var(--fire-hot,#f6ca66); text-transform:uppercase;
+}
+.gg-week{
+  display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem;
+  margin:1rem 0;
+}
+.gg-day{
+  display:flex; flex-direction:column; align-items:center; gap:.3rem;
+  padding:.8rem .4rem; border-radius:11px; text-align:center;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+  transition:transform .16s;
+}
+.gg-day__num{
+  font-family:"Cinzel",serif; font-size:.58rem; letter-spacing:.1em;
+  color:var(--khaki); text-transform:uppercase;
+}
+.gg-day__ico{font-size:1.6rem; line-height:1.1;}
+.gg-day__lbl{
+  font-family:"Oswald",sans-serif; font-size:.68rem; color:var(--paper);
+  line-height:1.25;
+}
+
+/* déjà perçu */
+.gg-day--done{opacity:.55;}
+.gg-day--done .gg-day__ico{color:#8fd14f; font-size:1.5rem;}
+.gg-day--done .gg-day__lbl{color:var(--khaki);}
+
+/* à percevoir aujourd'hui */
+.gg-day--now{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 22px rgba(246,202,102,.3);
+  transform:translateY(-3px);
+  animation:dayPulse 2.1s ease-in-out infinite;
+}
+@keyframes dayPulse{
+  0%,100%{box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 18px rgba(246,202,102,.25);}
+  50%{box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 30px rgba(246,202,102,.5);}
+}
+
+/* pas encore atteint */
+.gg-day--soon{opacity:.72;}
+.gg-day--soon .gg-day__ico{filter:grayscale(.7);}
+
+/* le jour 7 */
+.gg-day--jackpot{
+  background:linear-gradient(180deg,#3a2f12,#241d0c);
+  border-color:rgba(246,202,102,.45);
+}
+.gg-day--jackpot .gg-day__lbl{color:var(--fire-hot,#f6ca66);}
+
+.gg-week__cta{display:flex; justify-content:center; margin-top:.4rem;}
+.gg-week__warn{
+  margin-top:.8rem; text-align:center; font-size:.82rem; color:#ff7a7f;
+}
+
+/* pastille de notification sur l'onglet */
+.gg-tab__dot{
+  display:inline-block; width:8px; height:8px; margin-left:.35rem;
+  border-radius:50%; background:#ff7a7f; vertical-align:middle;
+  box-shadow:0 0 8px rgba(255,122,127,.9);
+  animation:dotPulse 1.6s ease-in-out infinite;
+}
+@keyframes dotPulse{
+  0%,100%{transform:scale(1); opacity:1;}
+  50%{transform:scale(1.35); opacity:.65;}
+}
+
+@media (max-width:760px){
+  .gg-week{grid-template-columns:repeat(4,1fr);}
+}
+@media (max-width:420px){
+  .gg-week{grid-template-columns:repeat(3,1fr); gap:.4rem;}
+  .gg-day{padding:.6rem .3rem;}
+  .gg-day__ico{font-size:1.35rem;}
+  .gg-day__lbl{font-size:.62rem;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .gg-day--now,.gg-tab__dot{animation:none !important;}
+}
+
+/* ============================================================
+   SÉLECTEUR D'ARMÉE (lobby)
+   ============================================================ */
+.gg-army{
+  padding:.85rem 1rem;
+  margin-bottom:.9rem;
+  border-radius:12px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-army__lbl{
+  display:block;
+  font-family:"Cinzel",serif; font-size:.72rem; letter-spacing:.16em;
+  color:var(--sand); text-transform:uppercase; margin-bottom:.6rem;
+}
+/* Grille compacte qui s'adapte au nombre de corps (7 avec les Pompiers) :
+   autant de colonnes que la largeur le permet, réparties régulièrement. */
+.gg-army__row{
+  display:grid; grid-template-columns:repeat(7,1fr); gap:.4rem;
+}
+@media (max-width:1100px){ .gg-army__row{ grid-template-columns:repeat(4,1fr); } }
+.gg-army__btn{
+  display:flex; flex-direction:column; align-items:center; gap:.1rem;
+  padding:.5rem .3rem; border-radius:9px; cursor:pointer;
+  background:rgba(0,0,0,.3); border:1px solid var(--line);
+  color:var(--khaki); transition:all .16s;
+}
+.gg-army__btn:hover{ border-color:var(--fire,#e0ac3f); color:var(--paper); transform:translateY(-1px); }
+.gg-army__ico{ font-size:1.25rem; line-height:1; }
+.gg-army__name{
+  font-family:"Oswald",sans-serif; font-size:.8rem; letter-spacing:.03em; color:var(--paper);
+}
+.gg-army__n{
+  font-size:.72rem; opacity:.9; font-variant-numeric:tabular-nums;
+}
+@media (max-width:900px){ .gg-army__row{ grid-template-columns:repeat(3,1fr); } }
+.gg-army__btn--on{
+  background:linear-gradient(180deg,rgba(224,172,63,.22),rgba(224,172,63,.08));
+  border-color:var(--fire-hot,#f6ca66);
+  color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 18px rgba(246,202,102,.22);
+}
+.gg-army__hint{
+  margin-top:.6rem; font-size:.82rem; line-height:1.5; color:var(--khaki-soft);
+}
+
+/* Intro du lobby : explique le déroulé en une phrase, bien lisible. */
+.gg-lobby-intro{
+  margin:0 0 1rem; padding:.75rem 1rem; border-radius:12px;
+  background:color-mix(in srgb, var(--fire) 8%, var(--gg-card));
+  border:1px solid rgba(255,210,63,.28);
+  color:var(--sand); font-size:.95rem; line-height:1.55;
+}
+.gg-lobby-intro b{ color:var(--fire-hot); }
+.gg-lobby-intro .step{
+  display:inline-block; min-width:1.4em; text-align:center; margin-right:.15rem;
+  color:var(--fire-hot); font-weight:800;
+}
+
+/* Armée du salon dans la liste */
+.gg-salon__army{
+  font-family:"Oswald",sans-serif; font-size:.68rem;
+  color:var(--fire-hot,#f6ca66); letter-spacing:.04em; margin-top:.1rem;
+}
+
+@media (max-width:480px){
+  .gg-army{ padding:.7rem .75rem; }
+  .gg-army__row{ gap:.3rem; }
+  .gg-army__btn{ padding:.5rem .2rem; }
+  .gg-army__ico{ font-size:1.2rem; }
+  .gg-army__name{ font-size:.64rem; }
+  .gg-army__hint{ font-size:.7rem; }
+}
+
+/* Objet possédé mais pas encore utilisable (ex. fusil sans manche adverse à
+   annuler). Le bouton reste CLIQUABLE — il explique alors pourquoi — au lieu
+   d'être désactivé et de ne produire aucune réaction au doigt. */
+.gg-arm-btn--wait{
+  opacity: .55;
+  filter: saturate(.6);
+}
+.gg-arm-btn--wait:active{ opacity: .8; }
+
+/* ============================================================
+   PROGRESSION — NIVEAUX & PRESTIGE
+   ============================================================ */
+.gg-prog{display:block; margin-bottom:1.6rem;}
+
+/* --- bandeau niveau --- */
+.gg-prog__head{
+  display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  padding:1.1rem; border-radius:14px; margin-bottom:1rem;
+  background:linear-gradient(135deg,#2f2a15,#1c1a0f);
+  border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.gg-prog__badge{
+  position:relative; flex:none;
+  width:76px; height:76px; border-radius:50%;
+  display:grid; place-items:center;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.12), rgba(0,0,0,.55));
+  border:3px solid var(--fire,#e0ac3f);
+  box-shadow:0 0 26px rgba(224,172,63,.35);
+}
+.gg-prog__badge--pres{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 34px rgba(246,202,102,.55);
+}
+.gg-prog__lvl{font-family:"Anton",sans-serif; font-size:1.9rem; color:var(--paper); line-height:1;}
+.gg-prog__presico{
+  position:absolute; top:-8px; right:-6px; font-size:1.4rem;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));
+}
+.gg-prog__info{flex:1; min-width:200px; display:flex; flex-direction:column; gap:.2rem;}
+.gg-prog__label{
+  font-family:"Cinzel",serif; font-size:.66rem; letter-spacing:.16em;
+  color:var(--fire-hot,#f6ca66); text-transform:uppercase;
+}
+.gg-prog__title{font-family:"Anton",sans-serif; font-size:1.4rem; color:var(--paper); line-height:1.1;}
+.gg-prog__xp{font-size:.76rem; color:var(--khaki); font-variant-numeric:tabular-nums;}
+
+/* --- encart prestige --- */
+.gg-prestige{
+  display:flex; align-items:center; gap:.9rem; flex-wrap:wrap;
+  padding:.9rem 1rem; border-radius:12px; margin-bottom:1.4rem;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-prestige--ready{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 26px rgba(246,202,102,.25);
+  animation:presGlow 2.6s ease-in-out infinite;
+}
+@keyframes presGlow{
+  0%,100%{box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 20px rgba(246,202,102,.2);}
+  50%{box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 34px rgba(246,202,102,.45);}
+}
+.gg-prestige__ico{font-size:2rem; flex:none;}
+.gg-prestige__txt{flex:1; min-width:190px; display:flex; flex-direction:column; gap:.15rem;}
+.gg-prestige__txt b{font-family:"Oswald",sans-serif; color:var(--fire-hot,#f6ca66); font-size:.95rem;}
+.gg-prestige__txt span{font-size:.78rem; color:var(--khaki); line-height:1.45;}
+
+/* --- paliers de récompense --- */
+.gg-levels{display:flex; flex-direction:column; gap:.3rem; margin-bottom:1.6rem;}
+.gg-lvl{
+  display:grid; grid-template-columns:44px 1fr 28px; align-items:center; gap:.7rem;
+  padding:.5rem .8rem; border-radius:9px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-lvl__n{
+  font-family:"Anton",sans-serif; font-size:1.05rem; text-align:center;
+  color:var(--khaki);
+}
+.gg-lvl__r{font-family:"Oswald",sans-serif; font-size:.86rem; color:var(--paper);}
+.gg-lvl__s{text-align:center; font-size:.9rem;}
+.gg-lvl--done{opacity:.5;}
+.gg-lvl--done .gg-lvl__s{color:#8fd14f;}
+.gg-lvl--next{
+  border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 0 1px var(--fire-hot,#f6ca66), 0 0 16px rgba(246,202,102,.22);
+}
+.gg-lvl--next .gg-lvl__n{color:var(--fire-hot,#f6ca66);}
+.gg-lvl--big{background:linear-gradient(180deg,#3a2f12,#241d0c);}
+.gg-lvl--big .gg-lvl__r{color:var(--fire-hot,#f6ca66);}
+
+/* --- galerie des prestiges --- */
+.gg-presgrid{display:grid; grid-template-columns:repeat(5,1fr); gap:.5rem;}
+.gg-pres{
+  display:flex; flex-direction:column; align-items:center; gap:.15rem;
+  padding:.7rem .3rem; border-radius:10px; text-align:center;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line); opacity:.55;
+}
+.gg-pres--got{
+  opacity:1; border-color:var(--fire-hot,#f6ca66);
+  box-shadow:0 0 14px rgba(246,202,102,.25);
+}
+.gg-pres__ico{font-size:1.5rem; line-height:1;}
+.gg-pres__n{font-family:"Anton",sans-serif; font-size:.8rem; color:var(--khaki);}
+.gg-pres__name{font-size:.56rem; color:var(--khaki); line-height:1.25;}
+.gg-pres--got .gg-pres__name{color:var(--fire-hot,#f6ca66);}
+
+/* --- pastilles de prestige ailleurs dans l'interface --- */
+.gg-hud__pres, .gg-lb__pres{
+  display:inline-block; padding:.05rem .3rem; border-radius:4px;
+  background:rgba(246,202,102,.16); border:1px solid rgba(246,202,102,.4);
+  color:var(--fire-hot,#f6ca66); font-size:.72rem; font-weight:700;
+}
+
+@media (max-width:560px){
+  .gg-prog__head{padding:.85rem; gap:.75rem;}
+  .gg-prog__badge{width:60px; height:60px; border-width:2px;}
+  .gg-prog__lvl{font-size:1.5rem;}
+  .gg-prog__title{font-size:1.15rem;}
+  .gg-presgrid{grid-template-columns:repeat(3,1fr);}
+  .gg-prestige__ico{font-size:1.6rem;}
+  .gg-prestige .btn{width:100%;}
+  .gg-lvl{grid-template-columns:36px 1fr 24px; padding:.45rem .6rem;}
+  .gg-lvl__r{font-size:.8rem;}
+}
+
+/* ============================================================
+   NOUVEAUX OBJETS — JUMELLES / RATION / FUMIGÈNE / GRENADE
+   ============================================================ */
+
+/* Objet sans visuel dédié : l'emoji tient la place de l'image, à la
+   même taille, pour que la boutique reste régulière. */
+.pw-item-emo{
+  display:inline-grid; place-items:center;
+  font-size:1.5em; line-height:1;
+}
+.gg-deal__ico-img.pw-item-emo{font-size:2.6rem;}
+.gg-arm-btn .pw-item-emo{font-size:1.7rem;}
+
+/* Réponse écartée par les jumelles : barrée et estompée, mais toujours
+   lisible — le joueur voit ce qui a été éliminé, c'est ça le plaisir. */
+.gg-opt--out{
+  opacity:.3;
+  text-decoration:line-through;
+  filter:grayscale(1);
+  pointer-events:none;
+  animation:optOut .4s ease-out;
+}
+@keyframes optOut{
+  0%{opacity:1; transform:scale(1);}
+  40%{transform:scale(.97);}
+  100%{opacity:.3; transform:scale(1);}
+}
+
+/* Aveuglement par fumigène : les réponses restent CLIQUABLES, seulement
+   illisibles. On peut tenter au hasard, ce qui garde la manche jouable. */
+.gg-options--blind .gg-opt{
+  filter:blur(7px) grayscale(.6);
+  transition:filter .35s;
+}
+.gg-options--blind{ position:relative; }
+.gg-options--blind::after{
+  content:"💨 FUMIGÈNE";
+  position:absolute; inset:0;
+  display:grid; place-items:center;
+  font-family:"Anton",sans-serif; font-size:1.4rem; letter-spacing:.08em;
+  color:var(--paper); text-shadow:0 2px 14px rgba(0,0,0,.9);
+  pointer-events:none;
+}
+
+/* --- effets plein écran --- */
+.pw-fx__scope{
+  position:absolute; width:min(60vw,300px); aspect-ratio:1; border-radius:50%;
+  border:3px solid var(--fire-hot,#f6ca66);
+  box-shadow:0 0 40px rgba(246,202,102,.5), inset 0 0 60px rgba(246,202,102,.15);
+  animation:fxScope 1.1s cubic-bezier(.2,.9,.3,1) forwards;
+}
+.pw-fx__scope::before,.pw-fx__scope::after{
+  content:""; position:absolute; background:var(--fire-hot,#f6ca66);
+}
+.pw-fx__scope::before{left:0; right:0; top:50%; height:2px;}
+.pw-fx__scope::after{top:0; bottom:0; left:50%; width:2px;}
+@keyframes fxScope{
+  0%{opacity:0; transform:scale(1.8);}
+  35%{opacity:1; transform:scale(.95);}
+  55%{transform:scale(1);}
+  100%{opacity:0; transform:scale(.9);}
+}
+
+.pw-fx__smoke{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(circle at 30% 60%, rgba(190,190,180,.75) 0%, transparent 42%),
+    radial-gradient(circle at 70% 40%, rgba(210,210,200,.7) 0%, transparent 45%),
+    radial-gradient(circle at 50% 75%, rgba(170,170,160,.65) 0%, transparent 50%);
+  animation:fxSmoke 1.5s ease-out forwards;
+}
+@keyframes fxSmoke{
+  0%{opacity:0; transform:scale(.5);}
+  30%{opacity:1;}
+  100%{opacity:0; transform:scale(1.7);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .gg-opt--out,.pw-fx__scope,.pw-fx__smoke{animation:none !important;}
+  .gg-options--blind .gg-opt{filter:blur(7px);}
+}
+
+/* ============================================================
+   EN-TÊTE AUTONOME DU JEU
+   Remplace le bandeau promo + la navigation boutique. Une seule
+   barre, discrète, avec une porte de sortie vers la boutique.
+   ============================================================ */
+.pw-topbar{
+  /* z-index 200 : au-dessus du contenu, mais SOUS les modales (300).
+     À 500, la barre restait peinte et cliquable par-dessus la roue, le
+     tutoriel et les cérémonies — l'ancien header était à 100. */
+  position:sticky; top:0; z-index:200;
+  background:color-mix(in srgb, var(--ink) 94%, transparent);
+  backdrop-filter:blur(12px) saturate(1.2);
+  -webkit-backdrop-filter:blur(12px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top, 0px);
+}
+.pw-topbar__inner{
+  max-width:var(--maxw); margin:0 auto;
+  display:flex; align-items:center; gap:.8rem;
+  padding:.5rem 1.2rem;
+}
+.pw-topbar__logo{flex:none; display:flex; align-items:center;}
+.pw-topbar__logo img{height:30px; width:auto; display:block;}
+.pw-topbar__title{
+  flex:1; min-width:0;
+  font-family:"Anton",sans-serif; font-size:1rem; letter-spacing:.06em;
+  color:var(--khaki); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.pw-topbar__title b{color:var(--fire-hot,#f6ca66); font-weight:400;}
+.pw-topbar__shop{
+  flex:none; text-decoration:none;
+  font-family:"Oswald",sans-serif; font-size:.72rem; letter-spacing:.06em;
+  color:var(--paper); padding:.42rem .7rem; border-radius:8px;
+  background:rgba(0,0,0,.3); border:1px solid var(--line);
+  transition:all .16s;
+}
+.pw-topbar__shop:hover{border-color:var(--fire,#e0ac3f); color:var(--fire-hot,#f6ca66);}
+
+.pw-foot{
+  text-align:center; padding:1.4rem 1rem;
+  font-size:.72rem; color:var(--khaki);
+  border-top:1px solid var(--line);
+}
+
+/* ============================================================
+   PROFIL — bloc compte
+   ============================================================ */
+.gg-account{
+  padding:.9rem 1.1rem; border-radius:12px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid var(--line);
+}
+.gg-account__row{
+  display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+  padding:.5rem 0; border-bottom:1px solid var(--line);
+}
+.gg-account__row:last-of-type{border-bottom:none;}
+.gg-account__row span{font-size:.78rem; color:var(--khaki);}
+.gg-account__row b{
+  font-family:"Oswald",sans-serif; color:var(--paper); font-size:.9rem;
+  text-align:right; word-break:break-word;
+}
+.gg-account__actions{
+  display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.9rem;
+}
+.gg-account__actions .btn{flex:1; min-width:150px; text-align:center;}
+
+@media (max-width:560px){
+  .pw-topbar__inner{padding:.45rem .8rem; gap:.55rem;}
+  .pw-topbar__logo img{height:26px;}
+  .pw-topbar__title{font-size:.85rem;}
+  .pw-topbar__shop{font-size:.66rem; padding:.36rem .55rem;}
+  .gg-account__actions .btn{flex:1 1 100%;}
+}
+
+/* Respect des préférences système : on coupe les grosses animations. */
+@media (prefers-reduced-motion:reduce){
+  .pw-fx, .pw-shake{animation:none !important;}
+  .pw-fx *{animation-duration:.01ms !important;}
+  /* Le compte à rebours reste lisible : on ne coupe que les rebonds. */
+  .pw-prep__num--pop, .pw-prep__num--go{animation:none !important;}
+}
+
+@media (max-width:600px){
+  .gg-question__head{gap:.4rem;}
+  .gg-diff{font-size:.62rem; padding:.22rem .45rem;}
+  .pw-fx__label{font-size:1.15rem; top:18%;}
+  .pw-tuto__body{font-size:.92rem;}
+}
+
+/* ---- Classement : navigation par pages (20 joueurs/page) ---- */
+.gg-lb__nav{
+  display:flex; align-items:center; justify-content:center;
+  gap:.55rem; flex-wrap:wrap; margin:.7rem 0;
+}
+.gg-lb__pageinfo{
+  font-size:.78rem; letter-spacing:.03em; white-space:nowrap;
+  color:var(--khaki, #b7b58a); opacity:.9;
+}
+.gg-lb__nav .lbMe{ margin-left:.15rem; }
+.gg-lb__troops{
+  text-align:center; margin:.4rem 0 .1rem; font-size:.92rem;
+  letter-spacing:.03em; color:var(--khaki, #b7b58a);
+}
+.gg-lb__troops b{ color:#ffd23f; font-size:1.05rem; }
+.gg-salon__fallback{
+  margin:.3rem 0 .55rem; padding:.5rem .75rem; border-radius:10px;
+  background:rgba(255,210,63,.07); border:1px solid rgba(255,210,63,.25);
+  color:var(--khaki, #b7b58a); font-size:.85rem; text-align:center;
+}
+
+/* ---- Parrainage (onglet Classement) ---- */
+.gg-referral{
+  margin:.7rem 0; padding:.85rem 1rem; border-radius:14px;
+  background:color-mix(in srgb, var(--fire) 10%, var(--gg-card)); border:1px solid rgba(255,210,63,.28);
+}
+.gg-referral__head{ font-weight:800; color:var(--sand); margin-bottom:.55rem; font-size:.95rem; }
+.gg-referral__head b{ color:var(--fire); }
+.gg-referral__row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-top:.4rem; }
+.gg-referral__mine{ color:var(--khaki); font-size:.9rem; }
+.gg-referral__mine b{ color:var(--sand); letter-spacing:1px; }
+.gg-referral__row .gg-input{ flex:1; min-width:150px; }
+.gg-referral__done{ margin-top:.4rem; color:var(--olive); font-size:.85rem; font-weight:700; }
+
+/* ============================================================
+   MATRICULE — bloc unifié amis + parrainage (le code n'apparaît qu'UNE fois)
+   Colonne gauche = matricule + actions ; colonne droite = les deux saisies.
+   Ton militaire + humour de chambrée, compact et lisible.
+   ============================================================ */
+.gg-ally{
+  display:grid; grid-template-columns:minmax(150px,auto) 1fr; gap:.9rem 1.4rem;
+  align-items:start; margin:.7rem 0 1rem; padding:1rem 1.1rem; border-radius:14px;
+  background:linear-gradient(180deg,var(--gg-card),var(--gg-card2));
+  border:1px solid rgba(255,210,63,.28);
+}
+.gg-ally__lbl{
+  display:block; font-family:"Cinzel",serif; font-size:.62rem; letter-spacing:.14em;
+  color:var(--khaki); text-transform:uppercase; margin-bottom:.4rem;
+}
+.gg-ally__lbl b{ color:var(--fire); letter-spacing:0; }
+.gg-ally__id{ padding-right:1.3rem; border-right:1px solid var(--line); }
+.gg-ally__code{
+  font-family:"Anton",sans-serif; font-size:1.7rem; letter-spacing:.12em;
+  color:var(--fire-hot); line-height:1; margin-bottom:.35rem;
+}
+.gg-ally__sub{ font-size:.72rem; line-height:1.4; color:var(--khaki); margin-bottom:.55rem; }
+.gg-ally__sub b{ color:var(--sand); }
+.gg-ally__acts{ display:flex; gap:.4rem; flex-wrap:wrap; }
+.gg-ally__ops{ display:flex; flex-direction:column; gap:.7rem; min-width:0; }
+.gg-ally__row{ display:flex; gap:.4rem; }
+.gg-ally__row .gg-input{ flex:1; min-width:0; text-transform:uppercase; letter-spacing:.08em; }
+.gg-ally__joke{
+  grid-column:1 / -1; margin:.1rem 0 0; padding-top:.7rem;
+  border-top:1px solid var(--line);
+  font-size:.82rem; line-height:1.5; color:var(--khaki);
+}
+.gg-ally__joke b{ color:var(--fire-hot); }
+@media (max-width:620px){
+  .gg-ally{ grid-template-columns:1fr; }
+  .gg-ally__id{
+    padding-right:0; border-right:none;
+    padding-bottom:.8rem; border-bottom:1px solid var(--line);
+  }
+}
+
+/* ---- Boucle boutique : rappel HUD + bannière intendance ---- */
+.gg-bank__hint{ display:block; margin-top:.15rem; font-size:.68rem; letter-spacing:.02em; color:var(--fire); opacity:.9; }
+.gg-shop-banner{
+  margin:0 0 .9rem; padding:.7rem .9rem; border-radius:12px; text-align:center;
+  font-size:.9rem; line-height:1.5; color:var(--khaki);
+  background:rgba(255,210,63,.06); border:1px solid rgba(255,210,63,.22);
+}
+.gg-shop-banner b{ color:var(--sand); }
+.gg-shop-banner--go{ background:color-mix(in srgb, var(--fire) 14%, var(--gg-card)); border-color:var(--fire); }
+.gg-shop-banner a{ color:var(--fire); font-weight:700; white-space:nowrap; }
+
+/* ---- Rang mondial dans la carte de dossier ---- */
+.gg-dossier__world{
+  display:inline-block; margin-top:.35rem;
+  font-size:.82rem; font-weight:700; letter-spacing:.02em;
+  color:#ffd23f;
+}
+.gg-dossier__world b{ color:#fff; }
+
+/* Barre d'XP / galons : montée fluide (évite l'effet "saut" à la fin d'un match). */
+.gg-bar__fill{ transition: width .5s ease; }
+
+/* ---- Anti double-tap mobile : supprime le délai/zoom du double-clic sur les
+   boutons de réponse et d'action, source de "clics qui partent deux fois". ---- */
+.gg-opt, .btn, .gg-hud__btn, .pw-stake, .gg-salon__join{ touch-action: manipulation; }
+/* Une réponse déjà cliquée est neutralisée immédiatement (ceinture visuelle). */
+.gg-opt:disabled{ pointer-events:none; }
+
+/* ---- Profil : changer pseudo / mot de passe ---- */
+.gg-account__edit{
+  margin:.6rem 0; padding:.75rem; border-radius:12px;
+  background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06);
+}
+.gg-account__lbl{
+  display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--khaki, #b7b58a); margin-bottom:.35rem;
+}
+.gg-account__row2{ display:flex; gap:.5rem; align-items:center; }
+.gg-account__row2 .gg-input{ flex:1; min-width:0; }
+
+/* ---- Lien "mot de passe oublié" sur l'écran de connexion ---- */
+.pw-auth__forgot{
+  display:block; margin:.5rem auto 0; padding:.2rem .4rem;
+  background:none; border:none; cursor:pointer;
+  color:var(--khaki, #b7b58a); font-size:.82rem; text-decoration:underline; opacity:.85;
+}
+.pw-auth__forgot:hover{ opacity:1; }
+
+/* ============================================================
+   BOUTON CLAIR / SOMBRE (dans le HUD, à droite d'INSTRUCTION)
+   ============================================================ */
+.gg-hud__mode{
+  font-size:1.05rem; line-height:1; padding:.5rem .65rem;
+}
+
+/* ============================================================
+   THÈME CLAIR — data-pw-mode="light"  (mode « plein soleil »)
+   ------------------------------------------------------------
+   Fond parchemin clair, texte foncé, accents dorés/olive conservés.
+   Indépendant de la saison : on peut être en clair ET en été, etc.
+   ============================================================ */
+:root[data-pw-mode="light"]{
+  --ink:#ece4d0; --ink-soft:#e2d8c0;
+  --paper:#241f12; --sand:#2c2614;
+  --khaki:#5f5128; --khaki-soft:#493d1e;
+  --gg-card:#fbf6ea; --gg-card2:#f1e8d4;
+  --line:rgba(120,88,24,.30);
+  --olive:#5c6a20; --olive-dark:#3f4a17;
+  --red:#a83e1e; --red-dark:#6e2b16;
+  --fire:#b3780f; --fire-hot:#9c6608; --or:#956f06;
+}
+/* Surface claire sur tout le jeu */
+:root[data-pw-mode="light"] #gameShell,
+:root[data-pw-mode="light"] .gg-main,
+:root[data-pw-mode="light"] .pw-auth{ background:var(--ink); }
+
+/* Barre du haut + onglets collants : clairs */
+:root[data-pw-mode="light"] .gg-tabs{ background:rgba(236,228,208,.95); }
+:root[data-pw-mode="light"] .gg-tab{ background:rgba(0,0,0,.04); }
+
+/* Champs de saisie clairs (bat le !important sombre du correctif Shopify) */
+:root[data-pw-mode="light"] .gg-input{
+  background:#fffdf7 !important; color:#241f12 !important;
+  -webkit-text-fill-color:#241f12; border-color:var(--line);
+}
+:root[data-pw-mode="light"] .gg-input::placeholder{ color:#8a7c55; -webkit-text-fill-color:#8a7c55; }
+:root[data-pw-mode="light"] .gg-input:-webkit-autofill,
+:root[data-pw-mode="light"] .gg-input:-webkit-autofill:hover,
+:root[data-pw-mode="light"] .gg-input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#241f12 !important;
+  -webkit-box-shadow:0 0 0 1000px #fffdf7 inset !important;
+  box-shadow:0 0 0 1000px #fffdf7 inset !important;
+}
+
+/* Fonds sombres codés en dur -> tons clairs */
+:root[data-pw-mode="light"] .gg-army__btn,
+:root[data-pw-mode="light"] .pw-stake,
+:root[data-pw-mode="light"] .gg-opt,
+:root[data-pw-mode="light"] .gg-chip,
+:root[data-pw-mode="light"] .gg-lb__scope,
+:root[data-pw-mode="light"] .gg-lb__field,
+:root[data-pw-mode="light"] .gg-hud__btn{ background:rgba(0,0,0,.04); }
+:root[data-pw-mode="light"] .gg-ribbon,
+:root[data-pw-mode="light"] .gg-medal__ico,
+:root[data-pw-mode="light"] .gg-pick,
+:root[data-pw-mode="light"] .gg-theme,
+:root[data-pw-mode="light"] .gg-day{ background:var(--gg-card); }
+
+/* Modales claires */
+:root[data-pw-mode="light"] .pw-modal__box{
+  background:linear-gradient(180deg,#fdf9ee,#f3ecd8); color:var(--paper);
+}
+
+/* Pastille de condition (dès 30 €) : texte blanc sur or foncé -> lisible */
+:root[data-pw-mode="light"] .gg-code__cond{ color:#fff; }
+
+/* Ombres allégées sur fond clair */
+:root[data-pw-mode="light"] .gg-salon:hover{ box-shadow:0 8px 20px rgba(90,60,10,.18); }
+:root[data-pw-mode="light"] .gg-hud{ box-shadow:0 12px 30px rgba(90,60,10,.22); }
+
+/* IMPORTANT : le HUD et le HERO gardent un FOND SOMBRE (bannière / photo).
+   On y restaure donc la palette SOMBRE pour que leur texte reste clair et
+   lisible, au lieu de devenir foncé (illisible sur fond sombre). */
+:root[data-pw-mode="light"] .gg-hud,
+:root[data-pw-mode="light"] .gg-hero{
+  --paper:#f9f1d9; --sand:#f7eecb; --khaki:#e0c592; --khaki-soft:#efe2ba;
+  --fire:#e0ac3f; --fire-hot:#f6ca66; --or:#ffd23f;
+}
+@media (prefers-reduced-motion:reduce){ .pw-topbar__mode{ transition:none; } }

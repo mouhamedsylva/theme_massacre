@@ -1,0 +1,169 @@
+/* ============================================================
+   POPOTE WAR — SOCLE AUTONOME POUR SHOPIFY
+   ------------------------------------------------------------
+   Remplace `style.css` (la feuille du site MASSACRE), qui n'a
+   rien à faire dans un thème Shopify : elle contient tout
+   l'habillage de la boutique et entrerait en conflit.
+
+   Ne contient QUE ce dont le jeu a réellement besoin :
+   les variables de couleur, les boutons, le toast et l'eyebrow.
+
+   ISOLATION — le point critique
+   ------------------------------------------------------------
+   Un thème Shopify définit presque toujours `.btn`, `button`,
+   `a`, `h1`… Sans précaution, deux choses cassent :
+     • le thème réécrit les boutons du jeu ;
+     • le jeu réécrit les boutons de la boutique.
+   Tout est donc enfermé dans `#pw-app`, l'identifiant du
+   conteneur du jeu. Un `#id` pèse plus lourd qu'une classe dans
+   la cascade : le jeu gagne chez lui, et ne déborde jamais
+   ailleurs.
+   ============================================================ */
+
+/* Les variables restent sur :root — les couleurs peuvent servir
+   aux modales, au toast et aux calques rendus hors du conteneur. */
+:root {
+  --olive:      #4a5224;
+  --olive-dark: #2f3417;
+  --khaki:      #b8a06a;
+  --khaki-soft: #d8c79a;
+  --sand:       #e8e0cd;
+  --ink:        #14140f;
+  --ink-soft:   #1d1d16;
+  --paper:      #f4f1e8;
+  --red:        #c4161c;
+  --red-dark:   #8e0f13;
+  --fire:       #ff7a1a;
+  --fire-hot:   #ffd23f;
+  --line:       rgba(255,255,255,.12);
+  --radius: 4px;
+  --maxw: 1280px;
+  --ease: cubic-bezier(.22,.61,.36,1);
+}
+
+/* ------------------------------------------------------------
+   CONTENEUR DU JEU
+   `isolation` crée un contexte d'empilement propre : les calques
+   du jeu ne peuvent plus passer au-dessus de l'en-tête du thème.
+   ------------------------------------------------------------ */
+#pw-app {
+  isolation: isolate;
+  background: var(--ink);
+  color: var(--sand);
+  font-family: "Inter", system-ui, sans-serif;
+  line-height: 1.5;
+  text-align: left;
+}
+
+/* Neutralise l'héritage du thème sur les éléments de formulaire :
+   beaucoup de thèmes imposent une police, un fond et des bordures
+   qui déforment les boutons du jeu.
+
+   POURQUOI UNE COUCHE @layer, ET PAS DE SIMPLES RÈGLES
+   ------------------------------------------------------------
+   `#pw-app button` pèse (1,0,1) dans la cascade. `.gg-army__btn`
+   et `.pw-stake`, qui portent le vrai style du jeu, ne pèsent que
+   (0,1,0). Écrite normalement, la remise à zéro écrasait donc le
+   style qu'elle était censée protéger : cartes d'armée et boutons
+   de mise se retrouvaient sans bordure ni fond, et l'élément
+   sélectionné devenait impossible à distinguer.
+
+   Une couche nommée règle le problème proprement : quelle que
+   soit leur spécificité, les règles d'une couche cèdent toujours
+   devant les règles hors couche. Le reste du jeu (popote-war.css,
+   pw-app.css, mobile.css) n'est pas en couche : il l'emporte
+   désormais systématiquement, sans qu'on ait à surenchérir.
+
+   Contrepartie assumée : les règles du thème, elles aussi hors
+   couche, passent maintenant devant cette remise à zéro. En
+   pratique elle ne sert plus que là où le jeu ne se prononce pas.
+   Si un thème déforme un élément précis, on le corrige au cas par
+   cas dans ce fichier, hors couche — pas en remettant un bloc
+   global qui casserait à nouveau tout le reste. */
+@layer pw-reset {
+  #pw-app button,
+  #pw-app input,
+  #pw-app select {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    border-radius: 0;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: none;
+    margin: 0;
+  }
+  #pw-app a { color: inherit; text-decoration: none; }
+  #pw-app h1, #pw-app h2, #pw-app h3, #pw-app h4 {
+    font-family: "Anton", "Oswald", sans-serif;
+    font-weight: 400; letter-spacing: .5px;
+    margin: 0; text-transform: none;
+  }
+  #pw-app p { margin: 0; }
+}
+
+/* `cursor` et `box-sizing` restent hors couche : ce sont des
+   comportements, pas de l'apparence, et aucun style de jeu ne les
+   contredit. */
+#pw-app button { cursor: pointer; }
+
+/* La barre d'onglets se colle à `top: var(--header-h)`, calé sur les
+   47px de l'en-tête du jeu. Cet en-tête est retiré sur Shopify (le
+   thème a le sien) : sans remise à zéro, les onglets se figeraient
+   47px trop bas, avec une bande vide au-dessus.
+   Si ton thème a un en-tête COLLANT et que les onglets passent
+   dessous, remplace 0 par sa hauteur réelle. */
+#pw-app { --header-h: 0px; }
+#pw-app *, #pw-app *::before, #pw-app *::after { box-sizing: border-box; }
+
+/* ------------------------------------------------------------
+   BOUTONS — repris de style.css, scopés au jeu
+   ------------------------------------------------------------ */
+#pw-app .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .85rem 1.6rem;
+  font-family: "Oswald", sans-serif; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; font-size: .95rem;
+  border-radius: var(--radius);
+  transition: transform .15s var(--ease), box-shadow .25s var(--ease), background .25s;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+#pw-app .btn--primary {
+  background: linear-gradient(135deg, var(--fire), var(--red));
+  color: #fff; box-shadow: 0 6px 22px rgba(196,22,28,.4);
+}
+#pw-app .btn--primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 30px rgba(255,122,26,.55); }
+#pw-app .btn--ghost { border-color: var(--khaki); color: var(--khaki-soft); }
+#pw-app .btn--ghost:hover { background: var(--khaki); color: var(--ink); transform: translateY(-3px); }
+#pw-app .btn--olive { background: var(--olive); color: #fff; }
+#pw-app .btn--olive:hover { background: var(--olive-dark); }
+#pw-app .btn--sm { padding: .6rem 1rem; font-size: .8rem; }
+#pw-app .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+#pw-app .link-btn { color: var(--khaki); text-decoration: underline; font-size: .9rem; cursor: pointer; }
+#pw-app .link-btn:hover { color: var(--fire); }
+
+#pw-app .section__eyebrow {
+  font-family: "Oswald", sans-serif; font-size: .78rem; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--khaki);
+}
+
+/* ------------------------------------------------------------
+   ÉLÉMENTS RENDUS HORS DU CONTENEUR
+   Le toast, les modales et les calques d'effet sont ajoutés à
+   <body> : ils ne peuvent pas être scopés sous #pw-app.
+   On garde donc leurs noms d'origine, tous préfixés pw-/gg-,
+   sans risque de collision avec un thème.
+   ------------------------------------------------------------ */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--olive); color: #fff; padding: .9rem 1.4rem;
+  border-radius: var(--radius);
+  font-family: "Oswald", sans-serif; font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 300;
+  transition: transform .35s var(--ease);
+  border-left: 4px solid var(--fire-hot);
+}
+.toast--show { transform: translateX(-50%) translateY(0); }

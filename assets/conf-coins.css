@@ -1,0 +1,1662 @@
+/**
+ * Coins/Patches - Styles spécifiques
+ */
+
+/* ========================================
+   Shape Grid (Formes)
+======================================== */
+.conf-shape-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.conf-shape-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  background: #fff;
+  border: 2px solid #e5e5e5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.conf-shape-option:hover {
+  border-color: #1a1a1a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.conf-shape-option.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+.conf-shape-option svg {
+  color: currentColor;
+}
+
+.conf-shape-option span {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ========================================
+   Size Grid pour Coins
+======================================== */
+.conf-size-grid-coins {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.conf-size-option {
+  padding: 10px;
+  font-size: 12px;
+  background: #fff;
+  border: 2px solid #e5e5e5;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  font-weight: 600;
+}
+
+.conf-size-option:hover {
+  border-color: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.conf-size-option.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+/* ========================================
+   Fabrication Options
+======================================== */
+.conf-fabrication-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.conf-fabrication-option {
+  border: 2px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.conf-fabrication-option:hover {
+  border-color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.conf-fabrication-option.active {
+  border-color: #2c5aa0;
+  background: #f0f7ff;
+}
+
+.conf-fabrication-option input[type="radio"] {
+  display: none;
+}
+
+.conf-fabrication-option label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.fab-icon {
+  font-size: 28px;
+  width: 48px;
+  height: 48px;
+  background: #f5f5f5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.conf-fabrication-option.active .fab-icon {
+  background: #2c5aa0;
+  color: #fff;
+}
+
+.fab-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fab-info strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.fab-info span {
+  font-size: 10px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.fab-check {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e5e5e5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.conf-fabrication-option.active .fab-check {
+  background: #2c5aa0;
+  border-color: #2c5aa0;
+  color: #fff;
+}
+
+/* ========================================
+   Help Text
+======================================== */
+.conf-help-text {
+  font-size: 11px;
+  color: #666;
+  margin-top: 8px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conf-help-text svg {
+  align-self: flex-start;
+}
+
+.conf-help-text span {
+  font-weight: 600;
+  color: #333;
+}
+
+.conf-help-text ul {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.conf-help-text li {
+  margin: 2px 0;
+  line-height: 1.4;
+}
+
+/* ========================================
+   Canvas Circle pour Coins
+======================================== */
+.coins-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 20px;
+}
+
+/* Conteneur du patch : simple boîte TRANSPARENTE qui porte l'aspect-ratio de la
+   forme. La forme et la couleur sont désormais rendues par une IMAGE PNG
+   (#patch-shape-img), plus par du border-radius / clip-path CSS. */
+.coins-canvas-circle {
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  overflow: visible;
+  position: relative;
+  transition: aspect-ratio 0.3s ease;
+}
+
+/* Image PNG du patch entier (forme + couleur), en fond, SOUS le logo.
+   display:block !important pour échapper au `.coins-canvas-circle img { display:none }`
+   générique (destiné au LOGO) : l'image de la forme doit s'afficher AVANT tout upload. */
+.patch-shape-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* !important : la règle générique `.coins-canvas-circle img { max-width:70% }`
+     (plus spécifique) rétrécissait l'image du patch et la décalait. On force donc
+     l'image à occuper le canvas de façon contrôlée pour qu'elle coïncide avec le
+     guide SVG. */
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+  /* L'image du patch est RÉDUITE (padding intérieur) pour tenir DANS le cercle
+     pointillé rouge : le pointillé reste visible tout autour du patch.
+     13% de marge de chaque côté (image à ~74%), centrée par object-fit. */
+  padding: 13%;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  display: block !important;
+  /* Fondu au changement de couleur/forme : le client voit une transition douce,
+     pas un remplacement brut d'image. Piloté par la classe .is-swapping (JS). */
+  opacity: 1;
+  transition: opacity 0.22s ease;
+}
+
+/* Pendant le swap, l'image est masquée en fondu ; on la rétablit une fois la
+   nouvelle image chargée. */
+.patch-shape-img.is-swapping {
+  opacity: 0;
+}
+
+/* Dès qu'une image de forme est chargée (src non vide), on masque le placeholder
+   même sans logo uploadé. */
+.coins-canvas-circle .patch-shape-img[src]:not([src=""]) ~ .coins-placeholder {
+  display: none;
+}
+
+/* Anciennes classes de forme : neutralisées (la forme vient de l'image PNG). */
+.coins-canvas-circle.shape-rond,
+.coins-canvas-circle.shape-carre,
+.coins-canvas-circle.shape-rectangle,
+.coins-canvas-circle.shape-blason {
+  border-radius: 0;
+  border: none;
+  clip-path: none;
+  background: transparent;
+  box-shadow: none;
+  position: relative;
+}
+
+/* Tailles dynamiques (6cm à 10cm). --patch-max = taille max de l'aperçu ; le
+   canvas prend min(hauteur dispo, --patch-max) tout en restant carré (cf. règle
+   .patch-stage .coins-canvas-circle). max-width conservé pour les layouts non-patch. */
+/* IMPORTANT : ces valeurs doivent rester SOUS la hauteur disponible de la zone
+   grise (~420 px). Le canvas fait min(hauteur dispo, --patch-max) : au-delà,
+   toutes les tailles seraient plafonnées à la même valeur et 8/9/10 cm
+   rendraient à l'identique. Échelle proportionnelle aux cm réels. */
+.coins-canvas-circle.size-6cm {
+  --patch-max: 240px;
+  max-width: 240px;
+}
+
+.coins-canvas-circle.size-7cm {
+  --patch-max: 280px;
+  max-width: 280px;
+}
+
+.coins-canvas-circle.size-8cm {
+  --patch-max: 320px;
+  max-width: 320px;
+}
+
+.coins-canvas-circle.size-9cm {
+  --patch-max: 360px;
+  max-width: 360px;
+}
+
+.coins-canvas-circle.size-10cm {
+  --patch-max: 400px;
+  max-width: 400px;
+}
+
+/* Tailles rectangulaires : --patch-max borne la HAUTEUR (le canvas reste piloté
+   par la hauteur). Valeurs plus basses car la forme est plus large que haute
+   (aspect-ratio ~1.56 appliqué en JS), pour ne pas déborder en largeur. */
+.coins-canvas-circle.size-8x6cm {
+  --patch-max: 240px;
+  max-width: 420px;
+}
+
+.coins-canvas-circle.size-10x7-5cm {
+  --patch-max: 300px;
+  max-width: 500px;
+}
+
+/* (Ancien blason CSS + bordure ::before supprimés : la forme vient de l'image PNG.) */
+
+.coins-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: #999;
+}
+
+.coins-placeholder p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.coins-canvas-circle img {
+  max-width: 70%;
+  max-height: 70%;
+  object-fit: contain;
+  display: none;
+}
+
+/* Numéro gravé sur le verso (type "recto verso numéroté") */
+/* Numérotation du verso : discrète, en bas de la pièce.
+   Auparavant centrée à 40px, elle occupait le champ réservé au design.
+   Position et taille relatives au disque (%, em) pour rester justes quel que
+   soit le diamètre choisi (25 à 50 mm) ou le zoom. */
+.coin-verso-number {
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: 12%;                   /* dans la frappe, au-dessus du listel */
+  transform: translateX(-50%);
+  /* Courier New n'a que deux graisses (normale / bold) : au-delà de 700 le
+     rendu n'évolue plus. On passe donc sur une pile sans-serif, qui offre de
+     vraies graisses lourdes, et on épaissit le trait au-delà du bold. */
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: rgba(20, 16, 8, 0.92);
+  -webkit-text-stroke: 0.4px currentColor;   /* densifie au-delà du 900 */
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  z-index: 3;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.coins-canvas-circle img[style*="display: block"],
+.coins-canvas-circle img[style*="display:block"] {
+  display: block !important;
+}
+
+.coins-canvas-circle.has-image .coins-placeholder {
+  display: none;
+}
+
+.coins-canvas-circle.has-image img {
+  display: block;
+}
+
+/* Barre de contrôles zoom pour COINS et DRAPEAUX (pill horizontale sous le
+   canvas). Le PATCH n'utilise plus cette classe : il réutilise la colonne de
+   zoom du textile (.cv-ctrl, stylée dans la section liquid). */
+.coins-canvas-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #e5e5e5;
+  border-radius: 40px;
+  padding: 10px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  backdrop-filter: blur(8px);
+}
+
+/* ========================================
+   Responsive
+======================================== */
+@media (max-width: 968px) {
+  .conf-shape-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .conf-size-grid-coins {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .fab-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+  
+  .fab-info strong {
+    font-size: 12px;
+  }
+  
+  .fab-info span {
+    font-size: 9px;
+  }
+}
+
+
+/* ========================================
+   Récapitulatif Coins - Sections spéciales
+======================================== */
+
+/* Section Quantité */
+.rp-quantity {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.rp-qty-header {
+  margin-bottom: 10px;
+}
+
+.rp-qty-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.rp-qty-note {
+  font-size: 9px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.rp-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.qty-input {
+  width: 70px;
+  height: 36px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: #fff;
+}
+
+.qty-input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+/* Section Prix Unitaire */
+.rp-unit-price {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  flex-shrink: 0;
+}
+
+.rp-unit-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.rp-unit-value {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #1a1a1a;
+}
+
+.rp-unit-ht {
+  font-size: 11px;
+  color: #666;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.rp-unit-ttc {
+  font-size: 10px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* Bouton Contact */
+.btn-contact {
+  width: 100%;
+  padding: 9px;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.btn-contact:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .rp-qty-controls {
+    gap: 8px;
+  }
+  
+  .qty-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .qty-input {
+    width: 60px;
+    height: 32px;
+    font-size: 13px;
+  }
+}
+
+
+/* Note: Type Bar reste visible pour toutes les catégories maintenant */
+
+
+/* ========================================
+   Bouton Contact pour PVC/Tissé
+======================================== */
+.conf-contact-btn {
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 12px;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.conf-contact-btn:hover {
+  background: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.conf-contact-btn svg {
+  flex-shrink: 0;
+}
+
+.conf-contact-btn div {
+  flex: 1;
+}
+
+.conf-contact-btn strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.conf-contact-btn span {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #666;
+}
+
+/* ========================================
+   Section Besoin d'aide
+======================================== */
+.conf-help-section {
+  margin-top: 16px;
+  padding: 14px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.conf-help-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.conf-help-text {
+  flex: 1;
+}
+
+.conf-help-text strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.conf-help-text p {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ========================================
+   Icons SVG dans fabrication
+======================================== */
+.fab-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.conf-fabrication-option.active .fab-icon {
+  background: #2c5aa0;
+}
+
+.conf-fabrication-option.active .fab-icon svg {
+  color: #fff;
+  fill: #fff;
+}
+
+.conf-fabrication-option:not(.active) .fab-icon {
+  background: #f5f5f5;
+}
+
+.conf-fabrication-option:not(.active) .fab-icon svg {
+  color: #666;
+  fill: #666;
+}
+
+
+/* ========================================
+   Upload Box
+======================================== */
+.coins-upload-box {
+  border: 2px dashed #e5e5e5;
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.coins-upload-box:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.coins-upload-icon {
+  margin: 0 auto 12px;
+}
+
+.coins-upload-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.coins-upload-hint {
+  font-size: 10px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.coins-upload-tips {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.coins-tip-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.coins-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.coins-tips-list li {
+  font-size: 9px;
+  color: #666;
+  padding: 3px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+.coins-tips-list li svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ========================================
+   Shape Cards (horizontal)
+======================================== */
+.coins-shape-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.coins-shape-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.coins-shape-card:hover {
+  border-color: #1a1a1a;
+}
+
+.coins-shape-card.active {
+  border-color: #1a1a1a;
+  background: #fff;
+}
+
+.coins-shape-card svg {
+  color: #666;
+}
+
+.coins-shape-card.active svg {
+  color: #1a1a1a;
+}
+
+.coins-shape-card span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+}
+
+.coins-shape-card.active span {
+  color: #1a1a1a;
+}
+
+.coins-shape-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.coins-shape-card.active .coins-shape-check {
+  display: flex;
+}
+
+/* ========================================
+   Size Grid (circles et rectangles)
+======================================== */
+.coins-size-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.coins-size-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.coins-size-card:hover {
+  border-color: #1a1a1a;
+}
+
+.coins-size-card.active {
+  border-color: #1a1a1a;
+  background: #fff;
+}
+
+/* Cercle vide centré */
+.coins-size-card.circle .coins-size-shape {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid #999;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.coins-size-card.active.circle .coins-size-shape {
+  border-color: #1a1a1a;
+}
+
+/* Cartes rectangulaires : disposition horizontale (label gauche, rect droite) */
+.coins-size-card.rect {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px;
+}
+
+.coins-size-card.rect .coins-size-shape {
+  width: 28px;
+  height: 18px;
+  border: 1.5px solid #999;
+  border-radius: 3px;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.coins-size-card.active.rect .coins-size-shape {
+  border-color: #1a1a1a;
+}
+
+.coins-size-card p {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  margin: 0;
+  text-align: center;
+}
+
+.coins-size-card.rect p {
+  text-align: left;
+}
+
+.coins-size-card.active p {
+  color: #1a1a1a;
+}
+
+.coins-size-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.coins-size-card.active .coins-size-check {
+  display: flex;
+}
+
+.coins-size-note {
+  font-size: 10px;
+  color: #999;
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.3;
+}
+
+.coins-size-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+
+/* ========================================
+   Récapitulatif Coins - Design complet
+======================================== */
+
+/* Header avec boutons */
+.rp-hdr {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.rp-action-btn {
+  flex: 1;
+  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.rp-action-btn:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+}
+
+/* Sections */
+.rp-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.rp-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+}
+
+/* Preview du patch */
+.rp-patch-preview {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.rp-patch-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  position: relative;
+}
+
+.rp-patch-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.rp-patch-info {
+  flex: 1;
+}
+
+.rp-patch-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 6px 0;
+}
+
+.rp-patch-details p {
+  font-size: 9px;
+  color: #666;
+  margin: 2px 0;
+  line-height: 1.3;
+}
+
+.rp-patch-details span {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Quantité */
+.rp-qty-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rp-qty-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+}
+
+.rp-qty-subtitle {
+  font-size: 9px;
+  color: #666;
+}
+
+.rp-qty-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.rp-qty-btn {
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-qty-btn:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.rp-qty-input {
+  width: 44px;
+  height: 24px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.rp-qty-input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+/* Prix unitaire */
+.rp-unit-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.rp-unit-price-big {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.rp-unit-ht {
+  font-size: 11px;
+  font-weight: 400;
+  color: #666;
+  margin-left: 4px;
+}
+
+.rp-unit-price-ttc {
+  font-size: 10px;
+  color: #666;
+  margin-top: 3px;
+}
+
+/* Prix total */
+.rp-total-section {
+  background: #f8f8f8;
+}
+
+.rp-total-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #1a1a1a;
+  margin-bottom: 3px;
+}
+
+.rp-total-subtitle {
+  font-size: 9px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.rp-total-price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+.rp-total-price {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.rp-total-ht {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+
+.rp-total-ttc {
+  font-size: 10px;
+  color: #666;
+}
+
+/* Boutons d'action */
+.rp-actions-coins {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.rp-btn-primary {
+  width: 100%;
+  padding: 11px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.rp-btn-primary:hover {
+  background: #333;
+}
+
+.rp-btn-secondary {
+  width: 100%;
+  padding: 9px;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.rp-btn-secondary:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+/* Trust badges */
+.rp-trust-coins {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rp-trust-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.rp-trust-item svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+}
+
+.rp-trust-item strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1px;
+}
+
+.rp-trust-item p {
+  font-size: 9px;
+  color: #666;
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* ========================================
+   Palette de couleurs du patch
+======================================== */
+/* Petites pastilles couleur (même style que le sweatshirt) */
+.patch-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.patch-color-sw {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+  transition: transform 0.13s ease, box-shadow 0.12s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.patch-color-sw:hover {
+  transform: scale(1.12);
+}
+
+.patch-color-sw.active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1a1a1a;
+}
+
+.patch-color-sw.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+/* Options de fabrication désactivées (PVC, Tissé) */
+.conf-fabrication-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f5f5f5;
+  filter: grayscale(0.6);
+}
+.conf-fabrication-option.disabled:hover {
+  border-color: #e5e5e5;
+  box-shadow: none;
+}
+
+/* Logo déplaçable / redimensionnable sur le patch */
+.patch-logo {
+  z-index: 3;
+}
+.patch-logo img {
+  width: 100%;
+  height: auto;           /* ratio naturel : le logo reste redimensionnable */
+  display: block;
+  pointer-events: none;
+}
+
+
+/* Scène du patch : l'image du patch + le logo déplaçable (logo NON coupé).
+   La scène ne force plus de ratio : c'est le canvas qui porte l'aspect-ratio de
+   la forme (appliqué en JS), et la scène le laisse simplement respirer. */
+.patch-stage {
+  position: relative;
+  /* Prend l'espace disponible dans la ligne (à côté de la colonne de zoom),
+     borné en largeur et en hauteur pour rester entièrement visible. */
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 560px;
+  height: 100%;
+  max-height: 100%;
+  /* Décalage vers la DROITE (padding gauche > droite) pour caler le centre du
+     patch au milieu visuel de la zone grise, en compensant la colonne de zoom.
+     padding-top réduit : le patch est remonté. */
+  padding-top: 50px;
+  padding-bottom: 16px;
+  padding-left: 170px;
+  padding-right: 16px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;   /* le logo peut sortir de l'image */
+}
+
+/* Le canvas reste un CARRÉ parfait, dimensionné par le PLUS PETIT entre :
+   - la hauteur disponible de la zone grise (100% de la ligne), et
+   - la taille max choisie (--patch-max, définie par les .size-*).
+   La largeur suit (width:auto + aspect-ratio 1). Résultat : jamais rogné en haut
+   (écran court), jamais déformé en ovale (écran haut), toujours centré. */
+.patch-stage .coins-canvas-circle {
+  position: relative;
+  height: min(100%, var(--patch-max, 470px));
+  width: auto;
+  z-index: 1;
+  overflow: visible;   /* le logo reste ENTIER (jamais rogné) */
+}
+
+.patch-stage .patch-logo {
+  z-index: 5;
+}
+
+/* Le logo est positionné DIRECTEMENT dans #coins-canvas, AU-DESSUS de l'image.
+   Il reste entier et est simplement borné à l'intérieur de la forme (clamp JS). */
+#coins-canvas > .patch-logo { position: absolute; z-index: 5; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PATCH VECTORIEL
+   La forme n'est plus une image PNG : elle est dessinée en CSS. Avantages :
+   nette à tout zoom, aucune image à produire par forme, et surtout elle peut
+   ROGNER le design (overflow:hidden + clip-path) pour qu'il épouse exactement
+   la silhouette au lieu de déborder.
+   ════════════════════════════════════════════════════════════════════════ */
+.patch-body {
+  position: absolute;
+  inset: 0;
+  background: #1a1a1a;           /* fond du patch, visible tant qu'il est vide */
+  overflow: hidden;              /* rogne le design à la forme */
+  z-index: 1;
+}
+
+/* — Rond — */
+.coins-canvas-circle.shape-rond .patch-body { border-radius: 50%; }
+
+/* — Carré : angles légèrement adoucis, comme un patch cousu — */
+.coins-canvas-circle.shape-carre .patch-body { border-radius: 6%; }
+
+/* — Rectangle : le canevas est carré, la forme occupe une bande centrale — */
+.coins-canvas-circle.shape-rectangle .patch-body {
+  inset: 18% 0;
+  border-radius: 5%;
+}
+
+/* — Blason : silhouette relevée sur le produit réel (montants verticaux
+     jusqu'à ~40 % de la hauteur, puis courbe vers la pointe). — */
+.coins-canvas-circle.shape-blason .patch-body {
+  border-radius: 0;
+  /* Un polygone donnerait des segments anguleux sur la courbe basse.
+     Le masque SVG accepte des courbes de Bézier : les bords restent lisses
+     à toute taille. Le tracé est celui relevé sur le produit réel. */
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0 L100 0 L100 40 C100 63 83 84 50 100 C17 84 0 63 0 40 Z' fill='black'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0 L100 0 L100 40 C100 63 83 84 50 100 C17 84 0 63 0 40 Z' fill='black'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Le logo remplit la forme ; ce qui dépasse est rogné par .patch-body.
+   Sélecteur qualifié + !important : la règle générique
+    est plus
+   spécifique et bridait le design à 70 %, calé en haut à gauche. */
+.coins-canvas-circle .patch-body .patch-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;  /* couvre toute la forme, sans déformer */
+  display: block !important;
+}
+
+/* Le design remplit toute la forme et déborde (object-fit: cover) : le faire
+   glisser RECADRE l'image, comme une photo dans un cadre. Le redimensionnement
+   reste interdit — il laisserait un vide dans la forme.
+   `inset: 0` est remplacé par les seuls bords haut/gauche : il figeait right et
+   bottom, si bien que les `left`/`top` posés par le glissement n'avaient aucun
+   effet visible. */
+.patch-logo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: auto !important;
+  bottom: auto !important;
+  /* Largeur SANS !important : elle porte le niveau de zoom, posé en style
+     inline par le redimensionnement. Un !important ici bloquait tout
+     agrandissement. 100 % n'est que la valeur de départ (couvre la forme). */
+  width: 100%;
+  /* min-height : le blason est plus HAUT que large (ratio ~0,85). Une boîte
+     strictement carrée y laissait un vide en bas. Elle couvre donc au moins
+     la hauteur de la forme, le surplus étant rogné par .patch-body. */
+  height: auto;
+  min-height: 100%;
+  aspect-ratio: 1;      /* le zoom agrandit les deux axes, sans déformer */
+  cursor: grab;
+  touch-action: none;   /* le geste tactile déplace, il ne fait pas défiler */
+}
+.patch-logo.dragging { cursor: grabbing; }
+/* ── Mode ÉDITION du design (double-clic sur le patch) ───────────────────
+   Recadrer à l'aveugle est frustrant : hors de la forme, l'image est
+   invisible et on ne sait pas ce qu'on coupe. En édition, le débordement
+   réapparaît en transparence — on voit l'image ENTIÈRE et la partie qui
+   sera réellement imprimée. */
+
+/* Le rognage est levé : c'est ce qui révèle le hors-champ. Le fond noir
+   du patch passe en transparent — il grisait sinon toute la zone visible. */
+#coins-canvas.patch-editing .patch-body {
+  overflow: visible;
+  background: transparent;
+}
+
+/* L'image ENTIÈRE est estompée : le hors-champ devient un simple repère,
+   discret, pendant que la silhouette (voir .patch-safe-zone ci-dessous)
+   marque ce qui sera réellement imprimé. */
+#coins-canvas.patch-editing .patch-logo img {
+  opacity: .35;
+}
+
+/* Doublure rognée à la forme : elle restitue la partie imprimée, nette.
+   Le contraste vient de l'écart d'opacité (0,35 contre 1) — la zone
+   imprimée se détache donc franchement du hors-champ. */
+.patch-crop-preview {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
+}
+/* L'image de la doublure échappe à `.coins-canvas-circle img`, qui la
+   masquerait (display:none) et la briderait à 70 % — d'où le rendu partiel
+   observé. Elle remplit sa boîte, exactement comme le design d'origine. */
+.patch-crop-preview img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  opacity: 1 !important;
+}
+
+/* La doublure épouse la silhouette : mêmes rayons que .patch-body. */
+.shape-rond .patch-crop-preview { border-radius: 50%; }
+.shape-carre .patch-crop-preview { border-radius: 6%; }
+.shape-rectangle .patch-crop-preview { border-radius: 4%; }
+
+/* Contour de la découpe : trait net sur la silhouette, pour voir SANS
+   ambiguïté où l'image sera coupée. */
+#coins-canvas.patch-editing .patch-crop-preview {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .9),
+              0 0 0 3px rgba(26, 26, 26, .55);
+}
+
+/* Cadre de l'image en cours d'édition : il matérialise ses bords réels,
+   ceux que les poignées d'angle déplacent. */
+#coins-canvas.patch-editing .patch-logo {
+  outline: 2px dashed rgba(220, 38, 38, .85);
+  outline-offset: 0;
+  z-index: 5;   /* SOUS la doublure (6) : la zone imprimée reste nette */
+}
+
+/* ── Poignées ──
+   HORS édition : masquées (le design couvre la forme, rien à régler).
+   EN édition   : les 4 COINS de l'image, là où on attend une prise pour
+   l'agrandir. Les 4 côtés restent cachés — ils déformeraient le cadrage. */
+.patch-logo .logo-resize { display: none !important; }
+
+#coins-canvas.patch-editing .patch-logo .logo-resize.pos-nw,
+#coins-canvas.patch-editing .patch-logo .logo-resize.pos-ne,
+#coins-canvas.patch-editing .patch-logo .logo-resize.pos-sw,
+#coins-canvas.patch-editing .patch-logo .logo-resize.pos-se {
+  display: block !important;
+  z-index: 8;
+}
+
+/* Le rond de déplacement et la croix de suppression encombrent les coins
+   pendant l'édition — ils chevauchaient les poignées. Le glissement se fait
+   de toute façon en saisissant l'image elle-même. */
+#coins-canvas.patch-editing .patch-logo .logo-ctrl {
+  display: none !important;
+}
+
+/* ── Zone imprimable : CONFONDUE avec le bord du patch ───────────────────
+   Elle ne marque pas une marge intérieure mais le contour lui-même — le
+   design est imprimé bord à bord. Chaque forme reprend donc exactement la
+   géométrie de .patch-body.
+   Pour la masquer : passer opacity à 0. */
+.patch-safe-zone {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(220, 38, 38, .65);
+  pointer-events: none;
+  z-index: 2;                    /* au-dessus du design, pour rester visible */
+  /* Visible tant que le patch est VIDE : le repère indique où déposer un
+     design. Voir .coins-canvas-circle.filled ci-dessous. */
+  opacity: 1;
+  transition: opacity .2s ease;
+}
+
+/* ── Visibilité du repère (même règle que les textiles) ──
+   Patch rempli -> effacé. Pendant un geste -> réaffiché comme guide.
+   .filled est posée par updatePatchZoneGuide() (conf-dynamic-layout.js) ;
+   .is-manipulating par conf-logo-drag.js. */
+.coins-canvas-circle.filled .patch-safe-zone { opacity: 0; }
+
+.patch-stage.is-manipulating .patch-safe-zone,
+.patch-stage.is-manipulating .coins-canvas-circle.filled .patch-safe-zone {
+  opacity: 1;
+}
+.coins-canvas-circle.shape-rond .patch-safe-zone { border-radius: 50%; }
+.coins-canvas-circle.shape-carre .patch-safe-zone { border-radius: 6%; }
+/* Rectangle : même bande centrale que .patch-body. */
+.coins-canvas-circle.shape-rectangle .patch-safe-zone {
+  inset: 18% 0;
+  border-radius: 5%;
+}
+/* Blason : contour tracé en SVG (une bordure CSS ne suit pas cette forme).
+   Le tracé est identique à celui de .patch-body, aux arrondis près. */
+.coins-canvas-circle.shape-blason .patch-safe-zone {
+  border: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M1 1 L99 1 L99 40 C99 63 82 84 50 99 C18 84 1 63 1 40 Z' fill='none' stroke='rgb(220,38,38)' stroke-opacity='0.65' stroke-width='1.4' stroke-dasharray='3 3' vector-effect='non-scaling-stroke'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/* ── Miniature du récap : même forme que le canevas, en petit ─────────────
+   La miniature porte les classes .coins-canvas-circle.shape-* pour réutiliser
+   la géométrie des formes. Il faut donc neutraliser ce que ces classes
+   imposent au canevas grand format (largeur 520px, marges auto), sinon la
+   vignette de 60px est écrasée et le design devient invisible. */
+.rp-patch-thumb.coins-canvas-circle {
+  width: 60px !important;
+  max-width: 60px !important;
+  margin: 0 !important;
+}
+/* Le design remplit la forme dans la miniature comme dans le canevas. */
+.rp-patch-thumb .patch-body img {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  display: block !important;
+}

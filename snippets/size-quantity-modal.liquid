@@ -1,0 +1,33 @@
+{% comment %}
+  Snippet: Modal de sélection de quantités par taille
+  Usage: {% render 'size-quantity-modal' %}
+{% endcomment %}
+
+<!-- MODAL : Sélection de quantités par taille -->
+<div class="size-qty-overlay" id="size-qty-overlay" onclick="if(event.target===this)closeSizeQuantityModal()">
+  <div class="size-qty-modal" role="dialog" aria-label="Sélectionner les quantités par taille">
+    
+    <!-- Header -->
+    <div class="size-qty-head">
+      <button class="size-qty-x" onclick="closeSizeQuantityModal()" title="Fermer" aria-label="Fermer">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="size-qty-body">
+      <!-- Liste des tailles avec compteurs +/- -->
+      <div class="size-qty-list" id="size-qty-list">
+        <!-- Les lignes seront injectées par JavaScript -->
+      </div>
+    </div>
+
+    <!-- Footer avec boutons d'action -->
+    <div class="size-qty-footer">
+      <!-- Boutons d'action -->
+      <div class="size-qty-actions">
+        <button class="size-qty-btn-cancel" onclick="closeSizeQuantityModal()">Annuler</button>
+        <button class="size-qty-btn-confirm" onclick="confirmSizeQuantities()">Confirmer</button>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,53 @@
+/**
+ * conf-a11y.css — Visibilité du focus clavier.
+ *
+ * conf-a11y.js rend focusables les éléments interactifs bâtis en
+ * `<div onclick>`. Le contour par défaut du navigateur convient dans la
+ * plupart des cas, mais il disparaît sur les pastilles sombres (`.cs` noir)
+ * et sur les cartes à fond coloré. On force donc un anneau à double
+ * contraste : sombre à l'extérieur, clair à l'intérieur, lisible sur
+ * n'importe quel fond.
+ *
+ * `:focus-visible` uniquement : le contour ne doit apparaître qu'à la
+ * navigation clavier, pas au clic souris — sinon chaque sélection de couleur
+ * laisserait un anneau derrière elle.
+ */
+
+/* Éléments promus par conf-a11y.js (ils portent tous data-a11y-ready). */
+[data-a11y-ready="1"]:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 2px;
+  /* Halo clair intercalé : garantit le contraste sur un fond sombre. */
+  box-shadow: 0 0 0 4px #fff, 0 0 0 6px #1a1a1a;
+  border-radius: 4px;
+  position: relative;
+  z-index: 2;   /* passe au-dessus des pastilles voisines qui se chevauchent */
+}
+
+/* Les pastilles de couleur sont rondes : l'anneau doit épouser la forme. */
+.cs[data-a11y-ready="1"]:focus-visible {
+  border-radius: 50%;
+}
+
+/* Contrôles natifs : on aligne le contour sur le même style, pour que la
+   tabulation reste cohérente d'un bout à l'autre du configurateur.
+
+   Volontairement limité à `button` et `[role="button"]`. Les champs de saisie
+   sont exclus : plusieurs feuilles posent `outline: none` sur des sélecteurs
+   plus spécifiques (`.coin-num-qty input:focus`, `.qm-field input:focus`…) et
+   remplacent le contour par un `border-color` — une règle générique
+   `input:focus-visible` (spécificité 0,1,1) perdrait de toute façon contre
+   eux, et se battre à coups de `!important` casserait ce repère visuel
+   délibéré. */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 2px;
+}
+
+/* Respect de la préférence système : pas d'animation sur le focus. */
+@media (prefers-reduced-motion: reduce) {
+  [data-a11y-ready="1"]:focus-visible {
+    transition: none;
+  }
+}

@@ -1,0 +1,593 @@
+/* ============================================================
+   POPOTE WAR — COUCHE « RESSENTI APPLICATION MOBILE »
+   ------------------------------------------------------------
+   Chargée APRÈS popote-war.css, uniquement sur popote-war.html
+   et profils.html. Ne touche à aucune autre page du site.
+
+   Objectif : que le jeu se comporte comme une app native dans
+   un navigateur — sans être une app. Ça reste un site web.
+
+   Techniques 2026 utilisées (toutes « Baseline widely available ») :
+   - unités de viewport dynamiques (dvh) : la hauteur suit la barre
+     d'adresse mobile qui se replie, au lieu de déborder ;
+   - env(safe-area-inset-*) : on évite l'encoche et la barre gestuelle ;
+   - container queries : les composants s'adaptent à LEUR conteneur,
+     plus à la largeur d'écran ;
+   - :has() : logique conditionnelle sans JavaScript ;
+   - View Transitions : géré côté JS (pw-app.js), styles ici.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   0. INTERRUPTEUR DE SECOURS (?noapp=1)
+   Neutralise les règles les plus structurantes de cette feuille :
+   barre d'onglets basse, transitions, containment. Le jeu retrouve
+   exactement son comportement d'avant.
+   ------------------------------------------------------------ */
+.pw-noapp .gg-tabs{
+  position: sticky !important;
+  inset: auto !important;
+  top: var(--header-h, 60px) !important;
+  bottom: auto !important;
+}
+.pw-noapp body{ padding-bottom: 0 !important; }
+.pw-noapp .gg-main{ container-type: normal !important; }
+
+/* ------------------------------------------------------------
+   1. BASES TACTILES
+   ------------------------------------------------------------ */
+:root{
+  /* Hauteur réelle de la barre d'onglets basse, encoche comprise. */
+  --tabbar-h: 62px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+/* Filet de sécurité : la correction de fond est dans mobile.css (`overflow-x`
+   en `clip` et non `hidden`, sans quoi html et body deviennent deux conteneurs
+   de défilement imbriqués et il faut deux doigts pour faire défiler).
+   On la réaffirme ici, cette feuille étant chargée en dernier sur les pages
+   du jeu — une modification ultérieure de mobile.css ne peut pas les casser. */
+html, body{
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+body{
+  /* Supprime le flash gris au tap sur mobile : signature n°1 du « site web ». */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Garde-fou : `.pw-prep` (compte à rebours) est un calque plein écran SANS
+   `pointer-events:none`. S'il restait dans le DOM à cause d'un minuteur
+   interrompu, il capterait tout le toucher et le doigt ne ferait plus défiler
+   la page — exactement le symptôme « il faut deux doigts ». Il n'a besoin de
+   capter aucun événement : on le rend traversant en permanence. */
+.pw-prep{ pointer-events: none; }
+
+/* Même logique pour la barre de chargement, au cas où son compteur resterait
+   bloqué à l'état actif. */
+.pw-loading{ pointer-events: none; }
+
+/* Le « tirer pour rafraîchir » n'est neutralisé QUE pendant une manche, là où
+   un rechargement accidentel ferait perdre la partie et la mise. Appliqué en
+   permanence sur `body`, il bloquait le chaînage de défilement et aggravait
+   le problème décrit ci-dessus. */
+html:has(#viewMatch.gg-view--active){
+  overscroll-behavior-y: contain;
+}
+
+/* Les éléments d'interface ne doivent pas être sélectionnables :
+   un appui long sur un bouton ouvrait le menu de sélection de texte. */
+.gg-tab, .gg-opt, .btn, .gg-arm-btn, .pw-stake, .gg-day,
+.gg-lb__scope, .gg-lb__field, .gg-pick, .gg-banner, .pw-tuto__dot{
+  -webkit-user-select: none;
+  user-select: none;
+  /* Supprime le délai de 300 ms hérité du double-tap-to-zoom. */
+  touch-action: manipulation;
+}
+
+/* Zone de tap minimale de 44 px (recommandation d'accessibilité tactile).
+   On utilise `min-height` et non un pseudo-élément : `::after` est DÉJÀ pris
+   sur .gg-tab--active et .pw-stake--active par l'effet de brillance de
+   popote-war.css, et un élément n'a qu'un seul ::after — le revendiquer ici
+   écrasait le reflet et laissait une bande blanche permanente. */
+@media (hover: none){
+  .gg-tab, .gg-arm-btn, .pw-stake, .gg-lb__scope, .gg-lb__field,
+  .gg-pick, .gg-banner, .gg-code__copy{
+    min-height: 44px;
+  }
+  /* Les pastilles de mise restent compactes visuellement mais tapables. */
+  .pw-stake{ padding-inline: 1rem; }
+}
+
+/* Retour visuel immédiat au doigt : une app réagit à l'appui, pas au relâchement. */
+@media (hover: none){
+  .btn:active, .gg-opt:active:not(:disabled), .gg-tab:active,
+  .gg-day:active, .gg-lb__row:active{
+    transform: scale(.97);
+    transition: transform .06s;
+  }
+}
+
+/* ------------------------------------------------------------
+   2. HAUTEUR & ZONES SÛRES
+   ------------------------------------------------------------ */
+
+/* `dvh` suit le repli de la barre d'adresse mobile. Avec `vh`, l'écran
+   d'authentification débordait puis « sautait » au scroll. */
+.pw-auth{ min-height: 100dvh; }
+
+/* Encoche latérale (iPhone en paysage) : on AJOUTE le retrait de sécurité à la
+   marge existante via une variable, au lieu de réécrire `padding-left/right`.
+   La version précédente écrasait les marges de popote-war.css et mobile.css :
+   sur ordinateur, le contenu se retrouvait collé aux bords. */
+/* Borné en largeur : « paysage » est vrai sur TOUT écran d'ordinateur, où
+   .gg-tabs__inner se retrouvait avec 1,2 rem de padding en trop, désaligné
+   du contenu. Seuls les appareils mobiles ont une encoche latérale. */
+@media (orientation: landscape) and (max-width: 1024px){
+  .gg-main, .p-wrap{
+    padding-left: calc(1.2rem + var(--safe-l));
+    padding-right: calc(1.2rem + var(--safe-r));
+  }
+}
+
+/* ------------------------------------------------------------
+   3. BARRE D'ONGLETS EN BAS (mobile) — accessible au pouce
+   ------------------------------------------------------------ */
+@media (max-width: 860px){
+
+  .gg-tabs{
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    /* Sous les modales (300) : à 900, la barre d'onglets restait cliquable
+       par-dessus le tutoriel et les cérémonies. */
+    z-index: 250;
+    /* `margin` doit être remis à zéro : celui hérité (.4rem en bas) décalait
+       la barre vers le haut et laissait une bande transparente sous elle.
+       `padding` idem : le padding-top hérité rendait la barre plus haute que
+       --tabbar-h, donc la réserve en bas de page était insuffisante et les
+       derniers pixels du contenu passaient dessous. */
+    margin: 0;
+    padding: 0 0 var(--safe-b);
+    background: color-mix(in srgb, var(--ink) 92%, transparent);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    border-top: 1px solid var(--line);
+    border-bottom: none;
+    box-shadow: 0 -8px 28px rgba(0,0,0,.45);
+  }
+
+  .gg-tabs__inner{
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0;
+    max-width: none;
+    padding: 0;
+    overflow: visible;
+  }
+
+  /* Icône au-dessus, libellé court en dessous : la grammaire d'une app.
+     Le contenu est restructuré en deux <span> par pw-app.js. */
+  .gg-tab{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: var(--tabbar-h);
+    min-height: 0;             /* annule le min-height tactile générique */
+    padding: 0 2px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    line-height: 1;
+    color: var(--khaki);
+    transition: color .18s;
+    /* `relative` en permanence : sans ça la pastille de notification, qui est
+       en `absolute`, se référençait à la barre entière et s'affichait au
+       milieu de l'écran au lieu de son onglet.
+       `overflow` reste visible, sinon cette même pastille serait rognée. */
+    position: relative;
+    overflow: visible;
+  }
+  .gg-tab__ico{ font-size: 1.35rem; line-height: 1; }
+  .gg-tab__lbl{
+    font-family: "Oswald", sans-serif;
+    font-size: 0;                        /* masque le libellé long du HTML */
+    letter-spacing: .04em;
+    line-height: 1;
+    white-space: nowrap;                 /* jamais de passage à 2 lignes */
+  }
+  /* …et on affiche à la place la version courte, lisible sur 1 ligne. */
+  .gg-tab__lbl::after{
+    content: attr(data-short);
+    font-size: .57rem;
+  }
+
+  .gg-tab--active{
+    color: var(--fire-hot, #f6ca66);
+    background: transparent;
+  }
+  /* Trait actif en haut, comme un onglet natif.
+     `::before` et non `::after` : ce dernier porte déjà l'effet de brillance. */
+  .gg-tab--active::before{
+    content: "";
+    position: absolute;
+    top: 0; left: 22%; right: 22%;
+    height: 2px;
+    background: var(--fire-hot, #f6ca66);
+    border-radius: 0 0 3px 3px;
+    box-shadow: 0 0 10px rgba(246,202,102,.8);
+  }
+
+  /* La pastille de notification se recale sur l'icône. */
+  .gg-tab__dot{
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    margin: 0;
+    translate: 10px 0;
+  }
+
+  /* Réserve pour la barre fixe, sur le BODY et non sur .gg-main : le pied de
+     page est hors du conteneur de jeu et sa dernière ligne passait dessous.
+     Conditionné à la présence réelle d'une barre d'onglets : sinon la page
+     Profil, qui charge la même feuille sans en avoir, gagnait 62 px de vide. */
+  body:has(.gg-tabs){
+    padding-bottom: calc(var(--tabbar-h) + var(--safe-b));
+  }
+  .gg-main{ padding-bottom: 1.5rem; }
+
+  /* Le lecteur de musique remonte au-dessus de la barre d'onglets. */
+  body:has(.gg-tabs) .mx-player{
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + .6rem) !important;
+  }
+}
+
+/* ------------------------------------------------------------
+   4. TRANSITIONS DE VUES (View Transitions API)
+   ------------------------------------------------------------ */
+@view-transition{ navigation: none; }
+
+::view-transition-old(root),
+::view-transition-new(root){
+  animation-duration: .26s;
+  animation-timing-function: cubic-bezier(.2,.9,.3,1);
+}
+::view-transition-old(root){ animation-name: pwFadeOut; }
+::view-transition-new(root){ animation-name: pwFadeIn; }
+
+@keyframes pwFadeOut{
+  to{ opacity: 0; transform: translateY(-6px) scale(.995); }
+}
+@keyframes pwFadeIn{
+  from{ opacity: 0; transform: translateY(8px) scale(.995); }
+}
+
+/* NOTE : on n'attribue volontairement AUCUN `view-transition-name` au HUD ni à
+   la barre d'onglets. Nommer un élément le sort du flux pendant la transition
+   pour le placer dans une couche d'instantanés ; le moindre accroc y fige
+   visuellement la page alors que les clics continuent de passer au travers —
+   soit exactement le symptôme « je peux tout cliquer mais rien ne défile ».
+   Le fondu de la racine suffit largement à l'effet recherché. */
+
+/* ------------------------------------------------------------
+   5. COMPOSANTS ADAPTATIFS (container queries)
+   Les composants réagissent à la largeur de LEUR conteneur, donc
+   ils resteront corrects une fois insérés dans une page Shopify
+   dont la colonne principale n'a pas la largeur de l'écran.
+   ------------------------------------------------------------ */
+.gg-main{ container-type: inline-size; container-name: pwmain; }
+
+@container pwmain (max-width: 560px){
+  .gg-week{ grid-template-columns: repeat(4, 1fr); }
+  .gg-medals{ grid-template-columns: 1fr; }
+  .gg-picker{ grid-template-columns: 1fr; }
+  .gg-dossier__stats{ grid-template-columns: repeat(2, 1fr); }
+}
+@container pwmain (max-width: 380px){
+  .gg-week{ grid-template-columns: repeat(3, 1fr); }
+  .gg-lb__row{ grid-template-columns: 28px 1fr auto; }
+  .gg-lb__badge{ display: none; }
+}
+
+/* ------------------------------------------------------------
+   6. AFFINAGES « APP »
+   ------------------------------------------------------------ */
+
+/* Défilement fluide et arrêt net des chaînes de scroll dans les modales. */
+.pw-modal__box{
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/* Titres qui ne se coupent plus bêtement sur un mot isolé. */
+.pw-modal__title, .gg-section-title, .pw-auth__title{
+  text-wrap: balance;
+}
+.gg-question__text{
+  text-wrap: pretty;
+}
+
+/* Le bouton de mise sélectionné doit rester visible quand la liste défile. */
+.pw-stakes{
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 1rem;
+}
+.pw-stake{ scroll-snap-align: center; }
+
+/* :has() — MODE COMBAT.
+   Pendant une manche, tout ce qui n'est pas la question est du bruit. Le
+   bandeau promo et la grande bannière du jeu disparaissent.
+   C'était LE problème mobile : bannière (~230 px) + HUD (~200 px empilé)
+   restaient affichés au-dessus du plateau, si bien que la question et les
+   réponses n'étaient tout simplement JAMAIS visibles sans faire défiler. */
+/* On ne cible QUE les éléments du jeu (`.pw-topbar`, `.gg-hero`). L'ancien
+   sélecteur générique `.topbar` masquait, sur Shopify, la barre du THÈME
+   pendant un match (fuite hors du jeu). Le jeu n'utilise pas `.topbar`. */
+body:has(#viewMatch.gg-view--active) .pw-topbar,
+body:has(#viewMatch.gg-view--active) .gg-hero{
+  display: none;
+}
+/* Le HUD (coins, grade, XP) n'a aucune utilité pendant une manche : le
+   scoreboard affiche déjà le pot et les scores. On ne le retire que sur
+   téléphone, où chaque pixel compte. */
+@media (max-width: 860px){
+  body:has(#viewMatch.gg-view--active) .gg-hud{ display: none; }
+}
+
+/* Barre de chargement fine en haut pendant une attente réseau. */
+.pw-loading{
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--fire-hot, #f6ca66), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: pwLoad 1s linear infinite;
+}
+@keyframes pwLoad{
+  from{ background-position: -40% 0; }
+  to{ background-position: 140% 0; }
+}
+
+/* ============================================================
+   8. ADAPTATION TÉLÉPHONE
+   Règles ciblées sur les vrais points de friction constatés.
+   ============================================================ */
+
+/* ---- 8.1 MODALES QUI DÉBORDENT (correctif important) ----
+   `.pw-modal__box` n'avait ni hauteur maximale ni défilement : sur un petit
+   écran, le tutoriel, la fiche joueur ou la cérémonie de décoration étaient
+   coupés en bas — boutons compris, donc impossible de valider ou de fermer
+   autrement qu'en rechargeant. */
+.pw-modal{
+  /* Flex + `safe center` plutôt que grid+center : un contenu plus haut que
+     l'écran s'aligne alors sur le HAUT au lieu de déborder des deux côtés.
+     Avec le centrage classique, le sommet du panneau — donc la croix de
+     fermeture — devenait inatteignable, même en faisant défiler. */
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(1.2rem + var(--safe-t)) 1.2rem calc(1.2rem + var(--safe-b));
+}
+.pw-modal__box{
+  margin: auto;          /* recentre quand ça tient, sans jamais rogner le haut */
+  max-height: none;      /* c'est la modale qui défile, pas le panneau */
+}
+/* `fixed` et non `absolute` : dans un conteneur qui défile, un fond en
+   `absolute` ne couvre que la première hauteur d'écran et remonte avec le
+   contenu — le bas de l'écran se retrouvait alors non assombri. */
+.pw-modal__backdrop{ position: fixed; }
+
+@media (max-width: 560px){
+  .pw-modal__box{ padding: 1.3rem 1rem; border-radius: 16px; }
+  .pw-modal__actions{ margin-top: 1rem; }
+}
+
+/* ---- 8.2 SURBRILLANCE AU TAP ----
+   mobile.css applique un halo orange via `*`, qui l'emporte sur une règle
+   posée seulement sur `body`. On neutralise donc au même niveau. */
+@media (hover: none){
+  *{ -webkit-tap-highlight-color: transparent; }
+}
+
+/* ---- 8.3 ÉCRAN DE MATCH SUR TÉLÉPHONE ----
+   C'est l'écran le plus utilisé : question + 4 réponses + chrono doivent
+   tenir sans défilement, sinon on répond à l'aveugle en faisant défiler. */
+@media (max-width: 560px){
+  .gg-scoreboard{ margin-bottom: .7rem; }
+  .gg-timer{ margin-bottom: .9rem; }
+  .gg-question{ padding: 1rem .9rem; border-radius: 14px; }
+  .gg-question__text{ font-size: 1.1rem; line-height: 1.3; margin-bottom: .8rem; }
+  .gg-options{ gap: .5rem; }
+  .gg-opt{ padding: .8rem .85rem; font-size: .95rem; }
+  .gg-feedback{ font-size: .85rem; }
+  .gg-arsenal-bar{ margin-bottom: .7rem; }
+}
+
+/* Écrans courts (petits téléphones, ou clavier ouvert) : on comprime tout ce
+   qui n'est pas la question, pour que les 4 réponses restent visibles d'un
+   seul coup d'œil. Sur un 360×640, sans ça, la 4e réponse et l'explication
+   tombaient hors écran — on répondait donc en aveugle, chrono en cours. */
+@media (max-width: 560px) and (max-height: 720px){
+  /* scoreboard */
+  .gg-side{ padding: .4rem .2rem; }
+  .gg-side__badge{ width: 26px; height: 26px; }
+  .gg-side__score{ font-size: 1.05rem; }
+  .gg-side__name{ font-size: .64rem; }
+  .gg-side__rw{ font-size: .55rem; }
+  .gg-scoreboard{ margin-bottom: .5rem; }
+  .gg-round__num{ font-size: .92rem; }
+  .gg-pot{ font-size: .6rem; }
+
+  /* arsenal : une seule ligne compacte */
+  .gg-arsenal-bar{ margin-bottom: .5rem; gap: .3rem; }
+  .gg-arm-btn{ flex-direction: row; padding: .38rem .3rem; gap: .3rem; min-height: 40px; }
+  .gg-arm-btn img{ width: 1.35rem; height: 1.35rem; }
+  .gg-arm-btn__label{ font-size: .55rem; }
+
+  /* chrono */
+  .gg-timer{ margin-bottom: .55rem; }
+
+  /* question + réponses */
+  .gg-question{ padding: .7rem .75rem; }
+  .gg-question__head{ margin-bottom: .25rem; }
+  .gg-question__text{ font-size: .98rem; margin-bottom: .55rem; }
+  .gg-options{ gap: .36rem; }
+  .gg-opt{ padding: .58rem .7rem; font-size: .88rem; }
+  .gg-opt__key{ width: 20px; height: 20px; font-size: .7rem; }
+  .gg-feedback{ font-size: .8rem; margin-top: .5rem; }
+}
+
+/* Téléphones très courts (≤ 620 px de haut) : dernier cran. */
+@media (max-width: 560px) and (max-height: 620px){
+  .gg-arm-btn__label{ display: none; }
+  .gg-arm-btn{ min-height: 36px; }
+  .gg-question__text{ font-size: .94rem; }
+  .gg-opt{ padding: .5rem .65rem; font-size: .85rem; }
+}
+
+/* ---- 8.4 TÉLÉPHONE EN PAYSAGE ----
+   Très peu de hauteur : on repasse les réponses sur 2 colonnes et on allège
+   tout ce qui n'est pas la question. */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px){
+  .topbar{ display: none; }
+  .gg-options{ grid-template-columns: 1fr 1fr; }
+  .gg-question{ padding: .7rem .9rem; }
+  .gg-question__text{ font-size: 1rem; margin-bottom: .55rem; }
+  .gg-opt{ padding: .6rem .7rem; font-size: .88rem; }
+  .gg-scoreboard{ margin-bottom: .45rem; }
+  .gg-timer{ margin-bottom: .55rem; }
+  .gg-arsenal-bar{ margin-bottom: .45rem; }
+  .pw-prep__num{ font-size: 4rem; }
+}
+
+/* ---- 8.5 TRÈS PETITS ÉCRANS (≤ 360 px) ---- */
+@media (max-width: 360px){
+  .gg-army__row{ grid-template-columns: repeat(2, 1fr); }
+  .pw-stake{ flex: 1 1 30%; font-size: .8rem; }
+  .gg-hud__btn{ font-size: .72rem; padding: .5rem .4rem; }
+  .gg-section-title{ font-size: 1.3rem; }
+  .gg-friendbox__code{ font-size: 1.25rem; letter-spacing: .08em; }
+  .gg-tab__lbl::after{ font-size: .52rem; }
+  .gg-tab__ico{ font-size: 1.2rem; }
+}
+
+/* ---- 8.6 BARRE D'ONGLETS : 6 entrées sur un écran étroit ---- */
+@media (max-width: 860px){
+  .gg-tabs__inner{ padding-inline: 0; }
+}
+/* Sous 340 px, le libellé devient illisible : mieux vaut une icône nette
+   qu'un texte tronqué. */
+@media (max-width: 340px){
+  .gg-tab__lbl{ display: none; }
+  .gg-tab__ico{ font-size: 1.45rem; }
+}
+
+/* ---- 8.7 LISTES ET GRILLES ---- */
+@media (max-width: 560px){
+  .gg-lb__bar{ gap: .5rem; }
+  .gg-lb__fields{ display: grid; grid-template-columns: 1fr 1fr; }
+  .gg-week__cta .btn{ width: 100%; }
+  .gg-dossier__card{ text-align: center; justify-content: center; }
+  .gg-dossier__id{ align-items: center; }
+  .gg-req{ gap: .5rem; }
+  .gg-req__actions .btn{ flex: 1; }
+}
+
+/* ---- 8.8 CONFORT DE LECTURE ---- */
+@media (max-width: 560px){
+  /* Évite les mots coupés n'importe où dans les explications de réponse. */
+  .gg-feedback, .pw-modal__text, .gg-medal__desc, .gg-army__hint{
+    hyphens: auto;
+    text-wrap: pretty;
+  }
+  /* Les codes promo doivent rester sélectionnables d'un appui long. */
+  .gg-code__val, .pw-bigcode, .gg-friendbox__code{
+    -webkit-user-select: all;
+    user-select: all;
+  }
+}
+
+/* ============================================================
+   9. BARRE D'ARSENAL DÉFILANTE
+   ------------------------------------------------------------
+   Avec 7 objets, la barre ne tient plus sur une ligne : les
+   derniers (fusil, fumigène, grenade) étaient soit écrasés à
+   l'illisible, soit purement coupés hors écran.
+   On en fait une bande qui défile horizontalement, avec accroche
+   par objet — le geste naturel sur téléphone.
+   ============================================================ */
+.gg-arsenal-bar{
+  display: flex;
+  flex-wrap: nowrap;               /* une seule ligne, mais qui défile */
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: .5rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;  /* ne fait pas défiler la page derrière */
+  padding-bottom: .3rem;           /* place pour la barre de défilement */
+
+  /* Barre de défilement discrète : présente sur ordinateur, invisible
+     sur mobile où le geste suffit. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.gg-arsenal-bar::-webkit-scrollbar{ height: 4px; }
+.gg-arsenal-bar::-webkit-scrollbar-thumb{
+  background: var(--line); border-radius: 4px;
+}
+.gg-arsenal-bar::-webkit-scrollbar-track{ background: transparent; }
+
+.gg-arm-btn{
+  flex: 0 0 auto;                  /* jamais compressé */
+  min-width: 72px;
+  scroll-snap-align: center;
+}
+
+/* Dégradé sur les bords : indique qu'il reste des objets à droite.
+   Le conteneur est le parent de la barre pour ne pas défiler avec elle. */
+.gg-arsenal-wrap{
+  position: relative;
+}
+.gg-arsenal-wrap::after{
+  content: "";
+  position: absolute;
+  inset: 0 0 .3rem auto;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--ink));
+  opacity: .9;
+}
+
+@media (max-width: 560px){
+  .gg-arm-btn{ min-width: 64px; }
+}
+@media (max-width: 380px){
+  .gg-arm-btn{ min-width: 58px; }
+}
+
+/* Sur grand écran, tout tient : on recentre et on retire le dégradé. */
+@media (min-width: 900px){
+  .gg-arsenal-bar{ justify-content: center; overflow-x: visible; }
+  .gg-arsenal-wrap::after{ display: none; }
+}
+
+/* ------------------------------------------------------------
+   7. RESPECT DES PRÉFÉRENCES SYSTÈME
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce){
+  ::view-transition-old(root),
+  ::view-transition-new(root){ animation: none !important; }
+  .pw-loading{ animation: none; background-position: 50% 0; }
+}

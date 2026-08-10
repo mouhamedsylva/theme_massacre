@@ -1,0 +1,222 @@
+/* ══════════════════════════════════════════════════════════════
+   MODAL SÉLECTION QUANTITÉS PAR TAILLE - VERSION ULTRA COMPACTE
+   Design simple avec boutons +/- pour chaque taille
+   ══════════════════════════════════════════════════════════════ */
+
+/* Overlay */
+.size-qty-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.size-qty-overlay.open {
+  display: flex;
+}
+
+/* Modal - VERSION ULTRA COMPACTE */
+.size-qty-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: min(340px, 90vw);
+  max-height: 65vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* Header avec bouton fermer */
+.size-qty-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 8px 0;
+}
+
+.size-qty-x {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.size-qty-x:hover {
+  background: #f0f0f0;
+}
+
+/* Body avec liste des tailles */
+.size-qty-body {
+  padding: 0 12px 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.size-qty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Ligne de taille - ULTRA COMPACTE */
+.size-qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.size-qty-row:last-child {
+  border-bottom: none;
+}
+
+.size-qty-size {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+  min-width: 40px;
+}
+
+.size-qty-stock-info {
+  font-size: 10px;
+  color: #999;
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+/* Compteur +/- - ULTRA COMPACT */
+.size-qty-counter {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.size-qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.size-qty-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.size-qty-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.size-qty-value {
+  width: 40px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  border-left: 1.5px solid #e0e0e0;
+  border-right: 1.5px solid #e0e0e0;
+  padding: 0 4px;
+}
+
+/* Highlight quand quantité > 0 */
+.size-qty-row.has-qty .size-qty-counter {
+  border-color: #111;
+}
+
+/* Footer avec boutons d'action */
+.size-qty-footer {
+  border-top: 1px solid #e0e0e0;
+  background: #fff;
+}
+
+/* Boutons d'action */
+.size-qty-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+}
+
+.size-qty-btn-cancel,
+.size-qty-btn-confirm {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.size-qty-btn-cancel {
+  background: #fff;
+  color: #333;
+  border: 1px solid #d1d5db;
+}
+
+.size-qty-btn-cancel:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.size-qty-btn-confirm {
+  background: #111;
+  color: #fff;
+}
+
+.size-qty-btn-confirm:hover {
+  background: #000;
+}
+
+.size-qty-btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .size-qty-modal {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 10px 10px 0 0;
+    margin-top: auto;
+  }
+
+  .size-qty-size {
+    font-size: 15px;
+  }
+
+  .size-qty-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .size-qty-value {
+    width: 36px;
+  }
+}
+
+

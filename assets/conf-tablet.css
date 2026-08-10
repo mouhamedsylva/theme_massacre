@@ -1,0 +1,484 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   LAYOUT TABLETTE — 768 à 1023 px
+   ═══════════════════════════════════════════════════════════════════════
+
+   Le desktop réclame 637px de chrome (rail 65 + panneau 320 + récap 252).
+   À 768px il ne resterait ~130px d'aperçu : inutilisable.
+
+   Le RÉCAPITULATIF est donc masqué, dans les deux orientations : c'est le
+   contenu le moins consulté pendant la personnalisation — on le regarde à
+   la fin. Il reste l'étape 2 du parcours (/pages/recapitulatif), atteignable
+   par le stepper du header. Le prix et « Ajouter au panier » sont reportés
+   dans une barre d'action sous l'aperçu.
+
+   Pour le reste, la mise en page suit l'ORIENTATION, pas seulement la
+   largeur. Découper la largeur en colonnes sur une tablette PORTRAIT
+   revient à diviser la dimension rare (768px de large) tout en gaspillant
+   la dimension généreuse (1024px de haut) : l'aperçu devient une bande
+   étroite bordée de vide, et le panneau se termine au tiers de sa hauteur.
+
+   PORTRAIT (768x1024) — on découpe la HAUTEUR :
+   ┌────────────────────────┐
+   │ aperçu large           │
+   │        👕         [f]  │
+   │                   [d]  │
+   ├────────────────────────┤
+   │ TYPES : [sw][ts][po]…  │  ← bandeau sous le produit
+   ├────────────────────────┤
+   │ 🛍 Type  ⬆️ Upload  T  │  ← rail horizontal
+   └────────────────────────┘
+
+   PAYSAGE (1024x768) — la largeur est réelle, la hauteur limitée :
+   ┌──┬────────┬────────────────┐
+   │🛍│ TYPES  │                │
+   │⬆️│[sw][ts]│   👕 aperçu    │
+   │T │[po][co]│  [face][dos]   │
+   └──┴────────┴────────────────┘
+    58   260         reste
+
+   Chargé APRÈS conf-mobile.css. Les deux ne se recouvrent jamais :
+   mobile s'arrête à 767px, celui-ci démarre à 768px.
+
+   ATTENTION — plusieurs feuilles portent des `max-width: 768px` /
+   `900px` / `968px` qui MORDENT sur cette plage (conf-sidebar-modern.css,
+   conf-coins.css, conf-canvas-single.css…). Ce sont des ajustements
+   cosmétiques (grilles, tailles de police) qu'on laisse jouer ; les
+   règles de GÉOMÉTRIE sont reprises ici pour faire autorité.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Deux conditions d'entrée :
+     • 768-1023px, quelle que soit l'orientation ;
+     • TOUT écran en PORTRAIT jusqu'à 1366px — l'iPad Pro 12,9" fait
+       exactement 1024px de large en portrait et tombait donc dans la plage
+       « laptop », qui suppose un écran en paysage. Un écran plus haut que
+       large est une tablette, quelle que soit sa largeur. */
+@media (min-width: 768px) and (max-width: 1023px),
+       (min-width: 1024px) and (max-width: 1366px) and (orientation: portrait) {
+
+  /* ─────────────────────────────────────────────────────────────────
+     1. RACINE — plein écran, seuls les panneaux défilent
+     ───────────────────────────────────────────────────────────────── */
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Le récap sort de la grille : plus besoin de sa colonne. */
+  .conf-app-root {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "typebar"
+      "main";
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Barre de types d'origine : remplacée par le panneau « Type de
+     Produit », déjà accessible dans le rail. */
+  .type-bar { display: none !important; }
+
+  /* ── Header compact ── */
+  .hdr {
+    height: 52px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+  .hdr-sub { display: none; }
+  .hdr-name { font-size: 14px; }
+
+  /* Le stepper tient encore ici, en version resserrée. */
+  .hdr-steps { gap: 6px; }
+  .step-lbl { font-size: 11px; }
+  .step-line { width: 20px; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     2. RAIL + PANNEAU — l'édition reste côte à côte
+     ───────────────────────────────────────────────────────────────── */
+
+  .app {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Rail : un peu plus étroit qu'en desktop (65px). */
+  .icon-nav {
+    flex: none;
+    width: 58px;
+    padding: 10px 0 12px;
+    gap: 6px;
+    /* Un TÉLÉPHONE EN PAYSAGE tombe dans cette plage (780×360 pour un Galaxy
+       S23, 844×390 pour un iPhone 14 : largeur ≥ 768px, donc pas le CSS mobile).
+       Le rail est vertical ici, et 5 items × min-height 58px + padding + gap
+       réclament 332px alors qu'il n'y a que 360px de hauteur d'écran, entête
+       comprise. Mesuré : le 5e bouton sortait de 22px sur un S23.
+
+       `.app` porte `overflow: hidden` (:105), donc sans overflow-y le bouton
+       était définitivement inatteignable — pas de scroll de page ni de rail.
+       Le pendant horizontal (portrait) a déjà son `overflow-x: auto` (:422). */
+    overflow-y: auto;
+    /* Défilement fluide au doigt, sans barre visible sur un rail de 58px. */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .icon-nav::-webkit-scrollbar { width: 0; height: 0; }
+  .icon-nav-item {
+    min-height: 58px;
+    padding: 8px 4px;
+    gap: 4px;
+  }
+  .icon-nav-item svg { width: 20px; height: 20px; }
+  .icon-nav-label { font-size: 7.5px; line-height: 1.15; }
+
+  /* Panneau : 260px au lieu de 320. En dessous, les grilles à deux
+     colonnes deviennent illisibles. */
+  .side-panel.open { width: 260px; }
+  html:not([data-sidebar-ready]) #panel-product { width: 260px; }
+
+  .side-panel-header { padding: 14px 14px 10px; min-height: 0; }
+  .side-panel-title { font-size: 13px; }
+  .side-panel-subtitle { font-size: 11px; }
+  .side-panel-content { padding-bottom: 16px; }
+
+  /* Grilles resserrées pour la largeur réduite. */
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .product-card { padding: 8px 6px; }
+  .product-card-icon img { max-height: 58px; }
+  .product-card-name { font-size: 10.5px; }
+  .color-grid { grid-template-columns: repeat(5, 1fr); }
+  .size-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* ─────────────────────────────────────────────────────────────────
+     3. APERÇU — tout l'espace restant
+     ───────────────────────────────────────────────────────────────── */
+
+  .canvas {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    overflow: hidden;
+  }
+
+  /* Les titres mangent de la hauteur utile ; les onglets de vue et les
+     pastilles Couleur/Taille suffisent à situer l'écran. */
+  .cv-title, .cv-sub { display: none; }
+
+  .cv-hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0 0 8px;
+    border: none;
+  }
+
+  /* Onglets de vue : en ligne, à gauche. */
+  .vtabs {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Annule la réservation desktop : ici .cv-opts est dans le flux
+       (position: static), il n'y a donc rien à réserver sous elle. */
+    padding-right: 0;
+  }
+  .vtabs::-webkit-scrollbar { display: none; }
+  .vt {
+    flex: 0 0 auto;
+    padding: 7px 11px;
+    font-size: 11px;
+  }
+
+  /* Couleur / Taille : à droite de la même ligne. */
+  .cv-opts {
+    position: static;
+    flex: none;
+    display: flex;
+    gap: 6px;
+  }
+  .cv-opt-btn { padding: 7px 10px; font-size: 11px; }
+
+  .cv-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* L'image occupe la hauteur disponible plutôt que les 60vh du desktop,
+     qui laissaient une bande vide sous le vêtement. */
+  .product-img-single {
+    height: 100%;
+    max-height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  /* La couche des logos est calée sur l'IMAGE dessinée par conf-tablet.js
+     (syncLayerToImage), qui écrit left/top/width/height en inline.
+     `inset: auto` neutralise le `inset: 0` de conf-canvas-single.css, qui
+     entrerait en conflit avec ces valeurs.
+
+     Comme en mobile : la tablette a ses propres zones (CHEST_TABLET /
+     BACK_TABLET), exprimées en % de l'image et non du conteneur. */
+  #logo-layer { inset: auto; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     4. RÉCAPITULATIF — en tiroir, ouvert par l'icône panier
+        Consulté à la fin, pas à chaque geste : il n'a pas à occuper
+        250px en permanence sur un écran de cette taille.
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Masqué, comme en mobile. Il reste dans le DOM (pas de suppression) :
+     tout le code qui écrit dedans — prix, quantité, lignes produit, et les
+     réécritures complètes de .innerHTML pour coins/drapeaux/patchs —
+     continue de fonctionner sans erreur.
+
+     Le récapitulatif complet reste l'étape 2 du parcours
+     (/pages/recapitulatif), atteignable par le stepper du header. */
+  .recap { display: none !important; }
+
+  /* ── Barre d'action permanente : prix + Ajouter au panier ──
+     Le récap étant en tiroir, l'achat doit rester accessible sans
+     l'ouvrir. Ancrée en bas de l'aperçu, hors du tiroir. */
+  .tablet-actbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid var(--border, #e5e5e5);
+    box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  }
+
+  .tablet-actbar .tab-price {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .tablet-actbar .tab-lbl {
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .tablet-actbar #rp-price-val {
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .tablet-actbar .rp-pvat { font-size: 9px; font-weight: 600; color: #888; }
+
+  .tablet-actbar #main-add-to-cart {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 42px;
+    margin: 0;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+
+  /* ─────────────────────────────────────────────────────────────────
+     5. PRODUITS À DEUX FACES — les deux visibles, l'écran le permet
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Contrairement au mobile, pas de bascule Recto/Verso : la largeur
+     suffit pour les deux faces côte à côte. */
+  .flag-stage, .coin-stage {
+    gap: clamp(10px, 2.5vw, 28px);
+    padding: 8px;
+  }
+  .flag-img-3d, .flag-wave { width: clamp(180px, 27vw, 300px); }
+  .coin-disc { width: clamp(130px, 20vw, 190px); }
+
+  /* Barre de zoom conservée (souris et trackpad y sont courants). */
+
+  /* ─────────────────────────────────────────────────────────────────
+     6. EMPILEMENT
+     ───────────────────────────────────────────────────────────────── */
+
+  .modal-overlay,
+  .sg-modal-overlay,
+  .size-qty-overlay,
+  .simple-grp-overlay,
+  .grp-overlay,
+  .grp-preview-overlay,
+  .qm-overlay,
+  .cart-overlay,
+  .ov-overlay { z-index: 70; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PORTRAIT — 768 à 1023 px de large, écran plus haut que large
+   ═══════════════════════════════════════════════════════════════════════
+
+   Surcharge le bloc ci-dessus (colonnes), qui reste en vigueur en paysage.
+   Ici on découpe la HAUTEUR : l'aperçu occupe toute la largeur en haut, le
+   panneau devient un bandeau sous le produit, le rail passe à l'horizontale
+   tout en bas.
+
+   La détection combine `orientation: portrait` et un rapport d'aspect : sur
+   un navigateur de bureau redimensionné en fenêtre étroite, `orientation`
+   suit la forme de la fenêtre — ce qui est le comportement voulu ici.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 768px) and (max-width: 1366px) and (orientation: portrait) {
+
+  /* ── Structure : trois bandes empilées ── */
+  .app {
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* 1. APERÇU en haut : il prend tout ce qui reste. */
+  .canvas {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    padding: 10px 14px 8px;
+  }
+
+  /* 2. PANNEAU en bandeau sous le produit. Hauteur bornée : il ne doit
+        jamais repousser l'aperçu hors de l'écran. */
+  .side-panel {
+    order: 2;
+    width: 100% !important;          /* annule le 260px des colonnes */
+    max-width: none;
+    height: auto;
+    max-height: 34vh;
+    flex: none;
+
+    border-left: none;
+    border-top: 1px solid var(--border, #e5e5e5);
+    overflow: hidden;
+    display: none;                   /* seul le panneau actif s'affiche */
+    flex-direction: column;
+  }
+  .side-panel.open { display: flex; }
+
+  /* Avant l'exécution du JS, « Type de produit » est déjà visible. */
+  html:not([data-sidebar-ready]) #panel-product {
+    display: flex;
+    width: 100% !important;
+  }
+
+  .side-panel-header {
+    flex: none;
+    padding: 10px 16px 6px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .side-panel-title { font-size: 12px; }
+  .side-panel-subtitle { font-size: 10px; }
+
+  .side-panel-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 16px 14px;
+  }
+
+  /* Les cartes produit défilent HORIZONTALEMENT : sur un bandeau bas, une
+     rangée qui glisse au doigt vaut mieux qu'une grille qui impose de
+     faire défiler vers le bas pour voir les trois derniers produits. */
+  .product-grid {
+    display: flex;
+    gap: 10px;
+    grid-template-columns: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .product-grid::-webkit-scrollbar { display: none; }
+  .product-card {
+    flex: 0 0 auto;
+    width: 96px;
+    padding: 8px 6px;
+  }
+  .product-card-icon img { max-height: 50px; }
+  .product-card-name { font-size: 10px; }
+
+  /* Couleurs et tailles : la largeur permet des rangées généreuses. */
+  .color-grid { grid-template-columns: repeat(10, 1fr); }
+  .size-grid { grid-template-columns: repeat(6, 1fr); }
+
+  /* 3. RAIL en bas, horizontal — le pouce y accède naturellement. */
+  .icon-nav {
+    order: 3;
+    flex: none;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    height: auto;
+    padding: 6px 4px max(6px, env(safe-area-inset-bottom));
+    gap: 2px;
+    border-right: none;
+    border-top: 1px solid rgba(255,255,255,.08);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .icon-nav::-webkit-scrollbar { display: none; }
+
+  .icon-nav-item {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 0;                   /* le desktop impose 70px */
+    padding: 5px 4px;
+    border-left: none;
+    border-radius: 8px;
+    gap: 3px;
+  }
+  .icon-nav-item svg { width: 19px; height: 19px; }
+  .icon-nav-label {
+    font-size: 9px;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  /* Le <br> des libellés (« Type de<br>Produit ») deviendrait deux lignes
+     et gonflerait la barre : on le remplace par une espace insécable. */
+  .icon-nav-label br { display: inline; font-size: 0; }
+  .icon-nav-label br::after { content: "\00a0"; font-size: 9px; }
+
+  .icon-nav-item.active { background: rgba(255,255,255,.12); }
+
+  /* ── Aperçu : l'image profite de toute la largeur ── */
+  .cv-wrap { min-height: 0; }
+
+  .product-img-single {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* ── Barre d'action : sous l'aperçu, au-dessus du bandeau ── */
+  .tablet-actbar { margin-top: 6px; }
+
+  /* ── Produits à deux faces : la largeur permet toujours les deux ── */
+  .flag-img-3d, .flag-wave { width: clamp(200px, 32vw, 320px); }
+  .coin-disc { width: clamp(140px, 22vw, 200px); }
+}

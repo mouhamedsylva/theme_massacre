@@ -1,0 +1,113 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   LAYOUT LAPTOP — 1024 à 1439 px
+   ═══════════════════════════════════════════════════════════════════════
+
+   On GARDE le design desktop : rail + panneau + aperçu + récapitulatif,
+   tous visibles simultanément. Aucune restructuration ici.
+
+   ┌──┬────────┬──────────────┬──────┐
+   │🛍│ TYPES  │              │RÉCAP │
+   │⬆️│[sw][ts]│   👕 aperçu  │ 60 € │
+   │T │[po][co]│              │[Pan.]│
+   └──┴────────┴──────────────┴──────┘
+    65   320        reste       252
+
+   Ce fichier ne corrige que ce que la réduction de largeur et de HAUTEUR
+   met à mal :
+
+     • à 1024px, le chrome fixe occupe 637px (65 + 320 + 252) et ne laisse
+       que ~387px d'aperçu — viable, mais il faut resserrer les marges
+       pour que le vêtement respire ;
+
+     • `height: 60vh` sur l'image (conf-canvas-single.css) est une valeur
+       fixe : sur un laptop peu haut (1024x768, 1366x768), elle déborde de
+       la zone réellement disponible une fois le header et les onglets
+       déduits.
+
+   Rien n'entre en conflit avec les plages précédentes : mobile s'arrête à
+   767px, tablette à 1023px, celui-ci démarre à 1024px.
+
+   Note — les `max-width: 1200px` et `1440px` de configurateur.css,
+   conf-canvas.css et conf-recap.css MORDENT sur cette plage mais ciblent
+   l'ANCIENNE nomenclature (.conf-sidebar, .conf-recap, .conf-canvas-*),
+   absente du layout actuel. Elles sont donc sans effet : ne pas s'en
+   inquiéter en cherchant d'où vient un style.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* `orientation: landscape` exclut les tablettes en portrait : l'iPad Pro
+   12,9" fait 1024px de large en portrait et entrait donc ici, alors que ce
+   layout suppose un écran plus large que haut. Elles sont prises en charge
+   par conf-tablet.css, qui couvre le portrait jusqu'à 1366px. */
+@media (min-width: 1024px) and (max-width: 1439px) and (orientation: landscape) {
+
+  /* ─────────────────────────────────────────────────────────────────
+     1. LARGEURS — on rend de la place à l'aperçu
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Récap : 252px -> 228px. Les lignes produit et le bouton d'achat
+     restent lisibles, on gagne 24px pour le vêtement.
+     Surchargé sur :root, où conf-styles.css déclare ces variables. */
+  :root { --recap-w: 228px; }
+
+  /* Panneau : 320px -> 288px. Les grilles à deux colonnes (cartes
+     produit) tiennent encore confortablement à cette largeur. */
+  .side-panel.open { width: 288px; }
+  html:not([data-sidebar-ready]) #panel-product { width: 288px; }
+
+  /* Rail : 65px -> 60px. Les libellés sur deux lignes passent toujours. */
+  .icon-nav { width: 60px; }
+  .icon-nav-item { padding: 9px 4px; }
+  .icon-nav-label { font-size: 7.5px; }
+
+  /* Total récupéré : ~61px rendus à l'aperçu (387 -> ~448px à 1024). */
+
+  /* ─────────────────────────────────────────────────────────────────
+     2. HAUTEUR — le vrai point sensible des laptops
+        Beaucoup sont en 1366x768 ou 1024x768 : la hauteur est plus
+        contrainte que la largeur.
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Header un peu plus court. */
+  :root { --header-h: 54px; }
+
+  /* L'image suit la zone RÉELLEMENT disponible au lieu des 60vh fixes :
+     `height: 100%` la borne au conteneur, quelle que soit la hauteur de
+     l'écran. `object-fit: contain` garde les proportions. */
+  .product-img-single {
+    height: 100%;
+    max-height: 100%;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  /* En-tête de l'aperçu resserré : les titres mangent de la hauteur
+     utile alors que les onglets de vue suffisent à situer l'écran. */
+  .cv-hdr { padding-bottom: 10px; }
+  .cv-title { font-size: 15px; }
+  .cv-sub { display: none; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     3. AJUSTEMENTS DE CONFORT
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Onglets de vue : légèrement plus compacts pour tenir sur une ligne
+     même quand les deux onglets de manche apparaissent. */
+  .vt { padding: 8px 12px; font-size: 12px; }
+  .cv-opt-btn { padding: 8px 11px; font-size: 12px; }
+
+  /* Cartes produit : la vignette reste lisible dans un panneau réduit. */
+  .product-card-icon img { max-height: 62px; }
+  .product-card-name { font-size: 11px; }
+
+  /* Récap : contenu resserré à la largeur réduite. */
+  .rp-hdr { font-size: 11px; }
+  .ri-name { font-size: 12px; }
+  .rp-pval { font-size: 20px; }
+  .btn-cart { min-height: 44px; font-size: 13px; }
+
+  /* Produits à deux faces : les deux restent côte à côte, resserrées. */
+  .flag-stage, .coin-stage { gap: clamp(12px, 2vw, 32px); }
+  .flag-img-3d, .flag-wave { width: clamp(190px, 20vw, 300px); }
+  .coin-disc { width: clamp(140px, 15vw, 200px); }
+}

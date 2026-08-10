@@ -1,0 +1,1040 @@
+{%- comment -%}
+  Contenu du configurateur — le <body> UNIQUEMENT.
+
+  Le document (<!DOCTYPE>, <html>, <head>) vit dans `layout/configurateur.liquid`,
+  designe par `templates/page.configurateur.json` (cle `"layout":
+  "configurateur"`). Ne PAS reintroduire ici de
+  <!DOCTYPE>, <html>, <head> ni <body> : `{% section %}` enveloppe son rendu
+  dans un <div class="shopify-section">, et un <div> avant le doctype fait
+  basculer le navigateur en mode quirks — la page devient blanche.
+{%- endcomment -%}
+  <div class="conf-app-root">
+
+  <!-- ══ HEADER ══ -->
+  <header class="hdr">
+    <div class="hdr-brand">
+      <div class="hdr-icon"><img src="{{ 'logo-massacre.png' | asset_url }}" alt="Logo personnalisé"></div>
+      <div>
+        <div class="hdr-name">TEXTILE PERSONNALISÉ</div>
+        <div class="hdr-sub">Créez votre style</div>
+      </div>
+    </div>
+
+    <div class="hdr-steps">
+      <div class="step on">
+        <div class="step-n">1</div>
+        <span class="step-lbl">Personnalisation</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <span class="step-lbl">Récapitulatif</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <span class="step-lbl">Commande</span>
+      </div>
+    </div>
+
+    <div class="hdr-btns">
+      {% comment %} <button type="button" class="obtn" onclick="shareDesign(this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>
+        Partager
+      </button> {% endcomment %}
+
+      <!-- Icône panier (cachée par défaut) -->
+      <button type="button" class="obtn obtn-cart" id="hdr-cart-btn" style="display:none" onclick="openCartDrawer()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/>
+        </svg>
+        <span id="hdr-cart-count" style="
+          background:#1a1a1a; color:#fff;
+          border-radius:50%; font-size:10px; font-weight:700;
+          width:16px; height:16px;
+          display:inline-flex; align-items:center; justify-content:center;
+          margin-left:2px;
+        ">0</span>
+      </button>
+
+      <button type="button" class="obtn" onclick="confirmReset()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        Réinitialiser
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ TYPE BAR ══ (MASQUÉ - Déplacé dans sidebar) -->
+  <div class="type-bar" style="display:none">
+    <div class="type-bar-inner">
+      <div class="type-bar-label">
+        <div class="type-bar-num">1.</div>
+        <div>
+          <div class="type-bar-title">Type de produit</div>
+          <div class="type-bar-sub">Choisissez le type</div>
+        </div>
+      </div>
+      <div class="type-bar-cards">
+
+        <div class="pt on" data-product="sweatshirt" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'sweatshirt-face.png' | asset_url }}" alt="Sweatshirt">
+          </div>
+          <span>Sweatshirt</span>
+        </div>
+
+        <div class="pt" data-product="tshirt" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'tshirt-face.png' | asset_url }}" alt="T-shirt coton">
+          </div>
+          <span>T-shirt coton</span>
+        </div>
+
+        <div class="pt" data-product="tshirt_polyester" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'tshirt-polyester-face.png' | asset_url }}" alt="T-shirt polyester">
+          </div>
+          <span>T-shirt polyester</span>
+        </div>
+
+        <div class="pt" data-product="coins" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'icon-coins.png' | asset_url }}" alt="Coins">
+          </div>
+          <span>Coins</span>
+        </div>
+
+        <div class="pt" data-product="drapeaux" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'icon-drapeaux.png' | asset_url }}" alt="Drapeaux">
+          </div>
+          <span>Drapeaux</span>
+        </div>
+
+        <div class="pt" data-product="patches" onclick="selProd(this)">
+          <span class="pt-ck">✓</span>
+          <div class="pt-ico">
+            <img class="pt-img" src="{{ 'icon-patchs.png' | asset_url }}" alt="Patchs">
+          </div>
+          <span>Patchs</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ APP ══ -->
+  <div class="app">
+
+    <!-- NOUVELLE SIDEBAR MODERNE -->
+    {% render 'sidebar-modern' %}
+
+    <!-- Inputs file cachés (nécessaires pour les uploads) -->
+    <input type="file" id="uf" style="display:none" accept="image/*" onchange="doUpload(event,'f')">
+    <input type="file" id="ufr" style="display:none" accept="image/*" onchange="doUpload(event,'fr')">
+    <input type="file" id="ub" style="display:none" accept="image/*" onchange="doUpload(event,'b')">
+    <input type="file" id="usl" style="display:none" accept="image/*" onchange="doUpload(event,'sl')">
+    <input type="file" id="usr" style="display:none" accept="image/*" onchange="doUpload(event,'sr')">
+
+    <!-- Coins : une entrée par face. Déclarées ici (et non dans le panneau)
+         pour survivre au rechargement dynamique de la sidebar. -->
+    <input type="file" id="uc-recto" style="display:none" accept="image/*,.pdf" onchange="doUpload(event,'coin-recto')">
+    <input type="file" id="uc-verso" style="display:none" accept="image/*,.pdf" onchange="doUpload(event,'coin-verso')">
+
+    <!-- Drapeaux : un design par face, mêmes raisons que ci-dessus. -->
+    <input type="file" id="uf-recto" style="display:none" accept="image/*,.pdf" onchange="doUpload(event,'flag-recto')">
+    <input type="file" id="uf-verso" style="display:none" accept="image/*,.pdf" onchange="doUpload(event,'flag-verso')">
+
+    <!-- Patchs : une seule face (zone 'c'). -->
+    <input type="file" id="uc" style="display:none" accept="image/*,.pdf" onchange="doUpload(event,'c')">
+
+    <!-- ANCIENNE SIDEBAR (masquée mais conservée temporairement pour compatibilité) -->
+    <aside class="sidebar" style="display:none">
+      <div class="sb-inner" id="sidebar-content">
+
+  <!-- 2. Couleur -->
+        <div class="sec">
+          <div class="sec-title">2. Couleur</div>
+          <div class="sec-sub">Choisissez la couleur de votre article</div>
+          <div class="cg">
+            <div class="cs" style="background:#f5a623" title="Apricot" onclick="selColor(this,'#f5a623','Apricot')"></div>
+            <div class="cs" style="background:#eff1f0;border:1.5px solid #ddd" title="Ash" onclick="selColor(this,'#eff1f0','Ash')"></div>
+            <div class="cs" style="background:#3bb9e0" title="Atoll" onclick="selColor(this,'#3bb9e0','Atoll')"></div>
+            <div class="cs on" style="background:#0a0a0a" title="Black" onclick="selColor(this,'#0a0a0a','Black')"></div>
+            <div class="cs" style="background:#143f2e" title="Bottle Green" onclick="selColor(this,'#143f2e','Bottle Green')"></div>
+            <div class="cs" style="background:#3a3130" title="Brown" onclick="selColor(this,'#3a3130','Brown')"></div>
+            <div class="cs" style="background:#3d1f35" title="Burgundy" onclick="selColor(this,'#3d1f35','Burgundy')"></div>
+            <div class="cs" style="background:#4a3830" title="Chocolate" onclick="selColor(this,'#4a3830','Chocolate')"></div>
+            <div class="cs" style="background:#1e32e6" title="Cobalt Blue" onclick="selColor(this,'#1e32e6','Cobalt Blue')"></div>
+            <div class="cs" style="background:#2e3944" title="Dark Grey" onclick="selColor(this,'#2e3944','Dark Grey')"></div>
+            <div class="cs" style="background:#1e6b78" title="Diva Blue" onclick="selColor(this,'#1e6b78','Diva Blue')"></div>
+            <div class="cs" style="background:#e01e1e" title="Fire Red" onclick="selColor(this,'#e01e1e','Fire Red')"></div>
+            <div class="cs" style="background:#f5c518" title="Gold" onclick="selColor(this,'#f5c518','Gold')"></div>
+            <div class="cs" style="background:#2fa84f" title="Kelly Green" onclick="selColor(this,'#2fa84f','Kelly Green')"></div>
+            <div class="cs" style="background:#6e7bd8" title="Millennial Lilac" onclick="selColor(this,'#6e7bd8','Millennial Lilac')"></div>
+            <div class="cs" style="background:#9ee5c4" title="Millennial Mint" onclick="selColor(this,'#9ee5c4','Millennial Mint')"></div>
+            <div class="cs" style="background:#e8e2d0;border:1.5px solid #ddd" title="Natural" onclick="selColor(this,'#e8e2d0','Natural')"></div>
+            <div class="cs" style="background:#1a2438" title="Navy" onclick="selColor(this,'#1a2438','Navy')"></div>
+            <div class="cs" style="background:#1b2a5b" title="Navy Blue" onclick="selColor(this,'#1b2a5b','Navy Blue')"></div>
+            <div class="cs" style="background:#f0500a" title="Orange" onclick="selColor(this,'#f0500a','Orange')"></div>
+            <div class="cs" style="background:#7de01e" title="Orchid Green" onclick="selColor(this,'#7de01e','Orchid Green')"></div>
+            <div class="cs" style="background:#f5c8dc;border:1.5px solid #e0afc4" title="Orchid Pink" onclick="selColor(this,'#f5c8dc','Orchid Pink')"></div>
+            <div class="cs" style="background:#8a8d91" title="Pacific Grey" onclick="selColor(this,'#8a8d91','Pacific Grey')"></div>
+            <div class="cs" style="background:#a8e020" title="Pixel Lime" onclick="selColor(this,'#a8e020','Pixel Lime')"></div>
+            <div class="cs" style="background:#3a1e9e" title="Radiant Purple" onclick="selColor(this,'#3a1e9e','Radiant Purple')"></div>
+            <div class="cs" style="background:#a81e32" title="Red" onclick="selColor(this,'#a81e32','Red')"></div>
+            <div class="cs" style="background:#1e4be0" title="Royal Blue" onclick="selColor(this,'#1e4be0','Royal Blue')"></div>
+            <div class="cs" style="background:#c4b49a" title="Sand" onclick="selColor(this,'#c4b49a','Sand')"></div>
+            <div class="cs" style="background:#9ed8f0" title="Sky" onclick="selColor(this,'#9ed8f0','Sky')"></div>
+            <div class="cs" style="background:#f5e518;border:1.5px solid #d4c518" title="Solar Yellow" onclick="selColor(this,'#f5e518','Solar Yellow')"></div>
+            <div class="cs" style="background:#b01e78" title="Sorbet" onclick="selColor(this,'#b01e78','Sorbet')"></div>
+            <div class="cs" style="background:#8a9499" title="Sport Grey" onclick="selColor(this,'#8a9499','Sport Grey')"></div>
+            <div class="cs" style="background:#3e6b85" title="Stone Blue" onclick="selColor(this,'#3e6b85','Stone Blue')"></div>
+            <div class="cs" style="background:#f5455e" title="Sunset Orange" onclick="selColor(this,'#f5455e','Sunset Orange')"></div>
+            <div class="cs" style="background:#5ed0c4" title="Swimming Pool" onclick="selColor(this,'#5ed0c4','Swimming Pool')"></div>
+            <div class="cs" style="background:#3a4130" title="Urban Khaki" onclick="selColor(this,'#3a4130','Urban Khaki')"></div>
+            <div class="cs" style="background:#c43418" title="Urban Orange" onclick="selColor(this,'#c43418','Urban Orange')"></div>
+            <div class="cs" style="background:#1e1e6e" title="Urban Purple" onclick="selColor(this,'#1e1e6e','Urban Purple')"></div>
+            <div class="cs" style="background:#2e3438" title="Used Black" onclick="selColor(this,'#2e3438','Used Black')"></div>
+            <div class="cs" style="background:#ffffff;border:1.5px solid #ddd" title="White" onclick="selColor(this,'#ffffff','White')"></div>
+          </div>
+        </div>
+
+        <!-- 3. Taille -->
+        <div class="sec">
+          <div class="sec-title">3. Taille</div>
+          <div class="sec-sub">Choisissez la taille</div>
+          <div class="sg">
+            <button type="button" class="sb" onclick="selSize(this)">XS</button>
+            <button type="button" class="sb" onclick="selSize(this)">S</button>
+            <button type="button" class="sb on" onclick="selSize(this)">M</button>
+            <button type="button" class="sb" onclick="selSize(this)">L</button>
+            <button type="button" class="sb" onclick="selSize(this)">XL</button>
+            <button type="button" class="sb" onclick="selSize(this)">XXL</button>
+            <button type="button" class="sb sb-group" onclick="openSizeQuantityModal()">Pour Groupe</button>
+          </div>
+          <a class="sgd" href="#" onclick="openSizeGuide(event)">📏 Guide des tailles</a>
+        </div>
+
+        <!-- 4. Texte : bouton -> champ inline -> panneau d'édition (façon CustomInk) -->
+        <!-- 4. Personnalisation : toutes les options de design réunies en une
+             liste dépliable. Chaque ligne ouvre sa zone de travail ; le reste
+             reste replié, ce qui garde la barre latérale courte et lisible. -->
+        <div class="sec" id="txt-sec">
+          <div class="sec-title">4. Personnalisation</div>
+          <div class="sec-sub">Composez votre design</div>
+          <div class="perso-list">
+          <div class="perso-item" id="pi-text">
+            <button type="button" class="perso-head" onclick="togglePerso('text')">
+              <span class="perso-ico">✏️</span>
+              <span class="perso-txt">
+                <span class="perso-name">Ajouter du texte</span>
+                <span class="perso-sub">Cœur, poitrine droite ou dos</span>
+              </span>
+              <span class="perso-done">✓</span>
+              <span class="perso-caret">›</span>
+            </button>
+            <div class="perso-body">
+
+          <!-- État 1 : un seul bouton. L'emplacement est choisi à l'étape
+               suivante, ce qui évite trois boutons de poids égal pour ce qui
+               n'est qu'une seule action. -->
+          <div id="txt-add-btns" class="txt-add-btns">
+            <button type="button" class="txt-add-btn" onclick="startTextInline()">✏️ Ajouter un texte</button>
+          </div>
+
+          <!-- État 2 : emplacement + saisie (remplacent le bouton). -->
+          <div class="txt-inline" id="txt-inline" style="display:none">
+            <div class="txt-where-lbl">Emplacement <span class="txt-where-hint">(côtés du porteur)</span></div>
+            <div class="txt-where" id="txt-where">
+              <!-- Côtés nommés du point de vue du PORTEUR (comme les manches).
+                   Les deux options poitrine portent leur côté : « Cœur » seul
+                   n'indiquait pas qu'il s'agit du côté gauche. -->
+              <button type="button" class="txt-where-opt on" data-zone="f"  onclick="setTextZoneChoice(this)" title="Côté cœur, à gauche du porteur">Cœur (g.)</button>
+              <button type="button" class="txt-where-opt"    data-zone="fr" onclick="setTextZoneChoice(this)" title="Poitrine, à droite du porteur">Poitrine (d.)</button>
+              <button type="button" class="txt-where-opt"    data-zone="b"  onclick="setTextZoneChoice(this)" title="Dos du vêtement">Dos</button>
+            </div>
+            <input type="text" id="txt-inline-input" maxlength="40" placeholder="Saisissez votre texte…">
+            <div class="txt-inline-acts">
+              <button type="button" class="txt-inline-btn sec" onclick="cancelTextInline()">Annuler</button>
+              <button type="button" class="txt-inline-btn pri" onclick="confirmTextInline()">Insérer</button>
+            </div>
+          </div>
+
+          <!-- Aperçu du texte FACE / DOS (chips) -->
+          <div class="txt-chip" id="txt-chip-f">
+            <span class="txt-chip-val" id="txt-chip-val-f"></span>
+            <button type="button" class="rmv" title="Modifier" onclick="editText('f')">✎</button>
+            <button type="button" class="rmv" title="Supprimer" onclick="removeText('f')">🗑</button>
+          </div>
+          <div class="txt-chip" id="txt-chip-fr">
+            <span class="txt-chip-val" id="txt-chip-val-fr"></span>
+            <button type="button" class="rmv" title="Modifier" onclick="editText('fr')">✎</button>
+            <button type="button" class="rmv" title="Supprimer" onclick="removeText('fr')">🗑</button>
+          </div>
+          <div class="txt-chip" id="txt-chip-b">
+            <span class="txt-chip-val" id="txt-chip-val-b"></span>
+            <button type="button" class="rmv" title="Modifier" onclick="editText('b')">✎</button>
+            <button type="button" class="rmv" title="Supprimer" onclick="removeText('b')">🗑</button>
+          </div>
+            </div>
+          </div>
+          <div class="perso-item" id="pi-logo">
+            <button type="button" class="perso-head" onclick="togglePerso('logo')">
+              <span class="perso-ico">🖼️</span>
+              <span class="perso-txt">
+                <span class="perso-name">Ajouter un logo</span>
+                <span class="perso-sub">Poitrine droite et/ou cœur</span>
+              </span>
+              <span class="perso-done">✓</span>
+              <span class="perso-caret">›</span>
+            </button>
+            <div class="perso-body">
+          <div class="slvg" style="margin-top:6px">
+            <div>
+              <label>Poitrine droite</label>
+              <div class="uz" id="uz-fr" style="padding:5px 4px;flex-direction:column;gap:3px" onclick="document.getElementById('ufr').click()">
+                <div class="uz-ico" style="width:18px;height:18px;margin:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="#999"><path d="M9 16V10H5l7-7 7 7h-4v6H9zm-4 4v-2h14v2H5z"/></svg></div>
+                <p style="font-size:8px;text-align:center">Cliquez ou glissez<br><em>PNG, JPG, SVG</em></p>
+              </div>
+              <div class="uprev" id="pfr"><img id="ifr" src="" alt="" style="height:24px"></div>
+              <div class="uprev-lbl" id="lfr">
+                <span>Aperçu</span>
+                <span class="uprev-actions">
+                  <button type="button" class="ctr" onclick="centerLogo('fr')" title="Recentrer le logo dans sa zone">⊹</button>
+                  <button type="button" class="rmv" onclick="rmUp('fr')">🗑</button>
+                </span>
+              </div>
+            </div>
+            <div>
+              <label>Cœur (gauche)</label>
+              <div class="uz" id="uz-f" style="padding:5px 4px;flex-direction:column;gap:3px" onclick="document.getElementById('uf').click()">
+                <div class="uz-ico" style="width:18px;height:18px;margin:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="#999"><path d="M9 16V10H5l7-7 7 7h-4v6H9zm-4 4v-2h14v2H5z"/></svg></div>
+                <p style="font-size:8px;text-align:center">Cliquez ou glissez<br><em>PNG, JPG, SVG</em></p>
+              </div>
+              <div class="uprev" id="pf"><img id="if" src="" alt="" style="height:24px"></div>
+              <div class="uprev-lbl" id="lf">
+                <span>Aperçu</span>
+                <span class="uprev-actions">
+                  <button type="button" class="ctr" onclick="centerLogo('f')" title="Recentrer le logo dans sa zone">⊹</button>
+                  <button type="button" class="rmv" onclick="rmUp('f')">🗑</button>
+                </span>
+              </div>
+            </div>
+          </div>
+            </div>
+          </div>
+          <div class="perso-item" id="pi-names">
+            <button type="button" class="perso-head" onclick="togglePerso('names')">
+              <span class="perso-ico">👥</span>
+              <span class="perso-txt">
+                <span class="perso-name">Ajouter plusieurs surnoms</span>
+                <span class="perso-sub">Un nom floqué par personne</span>
+              </span>
+              <span class="perso-done">✓</span>
+              <span class="perso-caret">›</span>
+            </button>
+            <div class="perso-body">
+              <p class="sec-sub" style="margin:0 0 8px">Même design pour tous, une ligne par personne.</p>
+              <button type="button" class="txt-add-btn" id="txt-multi-btn" onclick="openGroupOrder()" style="display:none">👥 Ouvrir la liste</button>
+            </div>
+          </div>
+          <div class="perso-item" id="pi-back">
+            <button type="button" class="perso-head" onclick="togglePerso('back')">
+              <span class="perso-ico">👕</span>
+              <span class="perso-txt">
+                <span class="perso-name">Ajouter un logo dos</span>
+                <span class="perso-sub">Grand format, centré</span>
+              </span>
+              <span class="perso-done">✓</span>
+              <span class="perso-caret">›</span>
+            </button>
+            <div class="perso-body">
+<!-- Dos : pleine largeur, sous les deux emplacements poitrine. -->
+          <label style="display:block;margin-top:10px">Dos</label>
+          <div class="uz" onclick="document.getElementById('ub').click()">
+            <div class="uz-ico"><svg width="12" height="12" viewBox="0 0 24 24" fill="#999"><path d="M9 16V10H5l7-7 7 7h-4v6H9zm-4 4v-2h14v2H5z"/></svg></div>
+            <p><strong>Cliquez ou glissez votre logo ici</strong><br>PNG, JPG, SVG (max. 5Mo)</p>
+          </div>
+          <div class="uprev" id="pb">
+            <img id="ib" src="" alt="" style="height:28px">
+          </div>
+          <div class="uprev-lbl" id="lb">
+            <span>Aperçu du logo</span>
+            <span class="uprev-actions">
+              <button type="button" class="ctr" onclick="centerLogo('b')" title="Recentrer le logo dans sa zone">⊹ Centrer</button>
+              <button type="button" class="rmv" onclick="rmUp('b')">🗑 Supprimer</button>
+            </span>
+          </div>
+            </div>
+          </div>
+          <div class="perso-item" id="pi-sleeve">
+            <button type="button" class="perso-head" onclick="togglePerso('sleeve')">
+              <span class="perso-ico">🧵</span>
+              <span class="perso-txt">
+                <span class="perso-name">Logo sur les manches</span>
+                <span class="perso-sub">Option supplémentaire</span>
+              </span>
+              <span class="perso-done">✓</span>
+              <span class="perso-caret">›</span>
+            </button>
+            <div class="perso-body">
+          <!-- Carte d'option : intitulé, prix, bascule. Design professionnel
+               avec badge de prix bien visible. Repliée tant que l'option n'est
+               pas activée — on ne montre pas des zones d'upload pour une
+               prestation que le client n'a pas choisie. -->
+          <div class="opt-card" id="slv-opt">
+            <button type="button" class="opt-row" id="slv-toggle-row"
+                    onclick="toggleSleeveOption()" aria-expanded="false" aria-controls="slv-body">
+              <span class="opt-txt">
+                <span class="opt-name">
+                  Ajouter un logo sur les manches
+                  <span class="opt-badge" id="slv-price-badge">+ 4,00 €/manche</span>
+                </span>
+                <span class="opt-desc">Logo imprimé sur manche gauche et/ou droite</span>
+              </span>
+              <span class="opt-switch" id="slv-switch"><span class="opt-knob"></span></span>
+            </button>
+          </div>
+
+          <div id="slv-body" style="display:none">
+          <div class="note">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            Position : à 5 cm de la couture de l'épaule
+          </div>
+          <div class="slvg" style="margin-top:6px">
+            <div>
+              <label>Manche gauche</label>
+              <div class="uz" style="padding:5px 4px;flex-direction:column;gap:3px" onclick="document.getElementById('usl').click()">
+                <div class="uz-ico" style="width:18px;height:18px;margin:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="#999"><path d="M9 16V10H5l7-7 7 7h-4v6H9zm-4 4v-2h14v2H5z"/></svg></div>
+                <p style="font-size:8px;text-align:center">Cliquez ou glissez<br><em>PNG, JPG, SVG</em></p>
+              </div>
+              <div class="uprev" id="psl"><img id="isl" src="" alt="" style="height:24px"></div>
+              <div class="uprev-lbl" id="lsl">
+                <span>Aperçu</span>
+                <button type="button" class="rmv" onclick="rmUp('sl')">🗑 Suppr.</button>
+              </div>
+            </div>
+            <div>
+              <label>Manche droite</label>
+              <div class="uz" style="padding:5px 4px;flex-direction:column;gap:3px" onclick="document.getElementById('usr').click()">
+                <div class="uz-ico" style="width:18px;height:18px;margin:0"><svg width="10" height="10" viewBox="0 0 24 24" fill="#999"><path d="M9 16V10H5l7-7 7 7h-4v6H9zm-4 4v-2h14v2H5z"/></svg></div>
+                <p style="font-size:8px;text-align:center">Cliquez ou glissez<br><em>PNG, JPG, SVG</em></p>
+              </div>
+              <div class="uprev" id="psr"><img id="isr" src="" alt="" style="height:24px"></div>
+              <div class="uprev-lbl" id="lsr">
+                <span>Aperçu</span>
+                <button type="button" class="rmv" onclick="rmUp('sr')">🗑 Suppr.</button>
+              </div>
+            </div>
+          </div>
+          </div><!-- /slv-body -->
+            </div>
+          </div>
+          </div>
+        </div>
+
+      </div><!-- /sb-inner -->
+
+      <!-- PANNEAU D'ÉDITION TEXTE (remplace le sidebar, façon CustomInk) -->
+      <div class="txt-panel" id="txt-panel" style="display:none">
+        <div class="txt-panel-head">
+          <button type="button" class="txt-panel-back" onclick="closeTextPanel(false)" title="Retour">‹</button>
+          <span class="txt-panel-title">Modifier le texte</span>
+          <button type="button" class="txt-panel-x" onclick="closeTextPanel(false)" title="Fermer">✕</button>
+        </div>
+
+        <div class="txt-panel-body">
+          <!-- Champ texte (limité : un texte trop long déborde du vêtement) -->
+          <input type="text" class="txt-panel-input" id="txt-panel-input" maxlength="25"
+                 placeholder="Votre texte" oninput="onPanelTextChange()">
+          <div class="txt-panel-count"><span id="txt-panel-count">0</span>/25 caractères</div>
+
+          <!-- Style : gras / italique / souligné -->
+          <div class="txt-panel-row txt-style-row">
+            <span class="txt-panel-lbl">Style</span>
+            <div class="txt-style-btns">
+              <button type="button" class="txt-style-btn" id="txt-style-b" title="Gras"
+                      onclick="toggleTextStyle('bold')" style="font-weight:800">B</button>
+              <button type="button" class="txt-style-btn" id="txt-style-i" title="Italique"
+                      onclick="toggleTextStyle('italic')" style="font-style:italic">I</button>
+              <button type="button" class="txt-style-btn" id="txt-style-u" title="Souligné"
+                      onclick="toggleTextStyle('underline')" style="text-decoration:underline">U</button>
+            </div>
+          </div>
+
+          <!-- Taille du texte -->
+          <div class="txt-panel-row txt-size-row">
+            <span class="txt-panel-lbl">Taille</span>
+            <!-- Bornes = celles appliquées par clampTextToZone() : plancher
+                 8px, plafond MAX_TEXT_SIZE (28, imposé par l'atelier).
+                 min était à 12 alors que le clamp descend à 8 : le curseur
+                 s'arrêtait avant la limite réelle. Mêmes bornes que la barre
+                 horizontale (conf-text-toolbar.js). -->
+            <input type="range" class="txt-size-range" id="txt-size-range"
+                   min="8" max="28" step="1" value="20" oninput="onTextSizeChange()">
+            <span class="txt-size-val" id="txt-size-val">20</span>
+          </div>
+
+          <!-- Change Font -->
+          <div class="txt-panel-row" onclick="toggleFontPicker()">
+            <span class="txt-panel-lbl">Police</span>
+            <span class="txt-panel-val" id="txt-panel-font-val" style="font-size:16px">Arial</span>
+            <span class="txt-panel-caret">›</span>
+          </div>
+          <div class="txt-font-picker" id="txt-font-picker" style="display:none">
+            <input type="text" class="txt-font-search" id="txt-font-search" placeholder="Rechercher une police…" oninput="filterFonts()">
+            <div class="txt-font-scroll" id="txt-font-scroll"></div>
+          </div>
+
+          <!-- Edit Color -->
+          <div class="txt-panel-row">
+            <span class="txt-panel-lbl">Couleur</span>
+            <div class="txt-color-swatches" id="txt-color-swatches"></div>
+          </div>
+
+          <!-- Text Shape -->
+          <div class="txt-panel-row" onclick="toggleShapePicker()">
+            <span class="txt-panel-lbl">Forme du texte</span>
+            <span class="txt-panel-val" id="txt-panel-shape-val">Normal</span>
+            <span class="txt-panel-caret">›</span>
+          </div>
+          <div class="txt-shape-picker" id="txt-shape-picker" style="display:none">
+            <div class="txt-shape-grid" id="txt-shape-grid"></div>
+          </div>
+        </div>
+
+        <div class="txt-panel-foot">
+          <button type="button" class="txt-panel-save" onclick="closeTextPanel(true)">✓ Enregistrer</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══ CANVAS ══ -->
+    <main class="canvas">
+      <div class="cv-hdr">
+        <h2 class="cv-title">Personnalisez votre article</h2>
+        <p class="cv-sub">Visualisez votre design en temps réel</p>
+        <div class="vtabs">
+          <!-- Chaque onglet porte une ICÔNE + un libellé dans .vt-txt.
+               Desktop : le libellé s'affiche, l'icône est masquée (la place ne
+               manque pas, et le mot est plus explicite).
+               Mobile  : l'inverse — la colonne d'onglets est étroite et se
+               superpose à l'aperçu ; cinq pavés de texte le recouvraient.
+               `aria-label` porte le sens quand le texte est masqué : le
+               lecteur d'écran annonce toujours la vue, jamais « bouton ».
+               Les icônes reprennent la silhouette du vêtement vu sous chaque
+               angle — plus lisible à 46 px qu'un pictogramme abstrait. -->
+          <button type="button" class="vt on" onclick="selView(this,'face')" aria-label="Vue de face">
+            <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3 4 5.5 5.5 10 7 9.5V21h10V9.5L18.5 10 20 5.5 15 3"/>
+              <path d="M9 3a3 3 0 0 0 6 0"/>
+            </svg>
+            <span class="vt-txt">Vue de face</span>
+          </button>
+          <button type="button" class="vt" onclick="selView(this,'dos')" aria-label="Vue de dos">
+            <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3 4 5.5 5.5 10 7 9.5V21h10V9.5L18.5 10 20 5.5 15 3z"/>
+              <path d="M9 3h6"/>
+            </svg>
+            <span class="vt-txt">Vue de dos</span>
+          </button>
+          <!-- Le point signale que l'option manches est active : l'onglet
+               devient utile, il faut que ça se voie sans le survoler.
+               Affiché par applySleeveOption(). -->
+          <button type="button" class="vt" id="cote-view-btn" onclick="selView(this,'cote')" disabled aria-label="Vue de côté">
+            <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 3 7 5v16h7V5l-3-2z"/>
+              <path d="M14 7h3v10h-3"/>
+            </svg>
+            <span class="vt-txt">Vue de côté</span><span class="vt-dot" id="cote-view-dot" style="display:none"></span>
+          </button>
+          <!-- Option manches ACTIVE : « Vue de côté » est remplacé par deux
+               onglets explicites, un par manche — la bascule flottante
+               Gauche/Droite devenait redondante et se lisait mal.
+               Bascule gérée par applySleeveOption() / setSleeveSide().
+               L'icône est la même des deux côtés, retournée en miroir par le
+               CSS (.vt-ico-flip) : la manche pointe vers la gauche ou vers la
+               droite, ce qui distingue les deux onglets d'un coup d'œil. -->
+          <!-- Le point orange rappelle que la manche est PAYANTE (+ 4 €/manche
+               au prix unitaire dès qu'un logo y est posé). -->
+          <button type="button" class="vt" id="sleeve-l-btn" onclick="selectSleeveView('l')" style="display:none" aria-label="Manche gauche">
+            <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 4h5v16h-5z"/>
+              <path d="M13 6 6 8.5 7.5 13 10 12"/>
+            </svg>
+            <span class="vt-txt">Manche gauche</span><span class="vt-dot"></span>
+          </button>
+          <button type="button" class="vt" id="sleeve-r-btn" onclick="selectSleeveView('r')" style="display:none" aria-label="Manche droite">
+            <svg class="vt-ico vt-ico-flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 4h5v16h-5z"/>
+              <path d="M13 6 6 8.5 7.5 13 10 12"/>
+            </svg>
+            <span class="vt-txt">Manche droite</span><span class="vt-dot"></span>
+          </button>
+          <!-- Synthèse visuelle (pas une vue de plus) : couleur distincte,
+               textiles uniquement. Voir conf-overview.js. -->
+          <button type="button" class="vt vt-overview" id="overview-btn" onclick="showOverview()" aria-label="Vue d'ensemble">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span class="vt-txt">Vue d'ensemble</span>
+          </button>
+        </div>
+
+        <!-- Couleur / Taille en haut à droite de l'aperçu. Chaque bouton
+             déroule son propre menu juste en dessous. Le contenu n'est PAS
+             recopié ici : il est cloné au premier affichage depuis les blocs
+             .cg / .sg de l'ancienne sidebar, qui restent la source unique
+             (mêmes pastilles, mêmes onclick selColor/selSize). -->
+        <div class="cv-opts" id="cv-opts">
+          <div class="cv-opt">
+            <button type="button" class="cv-opt-btn" id="cv-color-btn"
+                    onclick="toggleCanvasOpt('color')"
+                    aria-haspopup="true" aria-expanded="false">
+              <span class="cv-opt-swatch" id="cv-color-swatch"></span>
+              <span class="cv-opt-lbl">Couleur</span>
+              <span class="cv-opt-val" id="cv-color-val">Black</span>
+              <svg class="cv-opt-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="cv-opt-pop" id="cv-color-pop">
+              <div class="cv-opt-pop-title">Choisissez la couleur</div>
+              <div class="cv-opt-pop-body" id="cv-color-body"><!-- cloné depuis .cg --></div>
+            </div>
+          </div>
+
+          <div class="cv-opt">
+            <button type="button" class="cv-opt-btn" id="cv-size-btn"
+                    onclick="toggleCanvasOpt('size')"
+                    aria-haspopup="true" aria-expanded="false">
+              <span class="cv-opt-lbl">Taille</span>
+              <span class="cv-opt-val" id="cv-size-val">M</span>
+              <svg class="cv-opt-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="cv-opt-pop" id="cv-size-pop">
+              <div class="cv-opt-pop-title">Choisissez la taille</div>
+              <div class="cv-opt-pop-body" id="cv-size-body"><!-- cloné depuis .sg --></div>
+              <a class="cv-opt-guide" href="#" onclick="closeCanvasOpts();openSizeGuide(event)">📏 Guide des tailles</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+            <div class="cv-wrap">
+        <!-- Bascule gauche/droite : ancrée en haut à droite de l'aperçu, hors
+             du flux pour ne pas décaler les onglets de vue. Visible seulement
+             en vue de côté. Le profil droit est le profil gauche en miroir
+             (le vêtement est symétrique) : aucune image supplémentaire. -->
+        <div class="side-toggle" id="side-toggle" style="display:none">
+          <button type="button" class="st-btn on" id="st-l" onclick="setSleeveSide('l')" title="Voir la manche gauche">
+            <span class="st-ico">◀</span> Gauche
+          </button>
+          <button type="button" class="st-btn" id="st-r" onclick="setSleeveSide('r')" title="Voir la manche droite">
+            Droite <span class="st-ico">▶</span>
+          </button>
+        </div>
+
+        <div class="cv-canvas-row">
+          <!-- UNE SEULE grande image qui change -->
+          <div class="cv-single-view">
+            <div class="mlbl">
+              <div class="mline"></div>
+              <span>5 cm</span>
+            </div>
+            
+            <!-- Vue de face (visible par défaut) -->
+            <img class="product-img-single on" id="view-face"
+              src="{{ 'sweatshirt-face.png' | asset_url }}"
+              alt="Sweatshirt vue de face">
+
+            <!-- Vue de dos (cachée) -->
+            <img class="product-img-single" id="view-dos"
+              src="{{ 'sweatshirt-dos.png' | asset_url }}"
+              alt="Sweatshirt vue de dos">
+
+            <!-- Vue de côté (cachée) -->
+            <img class="product-img-single" id="view-cote"
+              src="{{ 'sweatshirt-cote.png' | asset_url }}"
+              alt="Sweatshirt vue de côté">
+            
+            <!-- Couche des logos déplaçables (par-dessus le vêtement) -->
+            <div class="logo-layer" id="logo-layer" data-view="face" data-side="l">
+              <!-- ZONES GUIDES (pointillés rouges) : délimitent où poser l'asset.
+                   Visibles tant que la zone est vide. left/top/width/height en %.
+                   VUE FACE : Zone poitrine unifiée pour les logos gauche (cœur) et droit.
+                   Le client peut positionner librement ses logos dans cette zone élargie. -->
+              <!-- Valeurs alignées sur la constante CHEST de buildZones() :
+                   elles servent d'état initial avant le premier recalcul. -->
+              <div class="logo-zone for-face" id="zone-chest" data-zone="chest" style="left:38%; top:31%; width:24%; height:9%;"></div>
+              <!-- Valeurs alignées sur DOS_W_PCT / DOS_TOP_PCT (buildZones) :
+                   état initial avant le premier recalcul. left = 49.8 - 22/2. -->
+              <div class="logo-zone for-dos"  id="zone-b"  data-zone="b"  style="left:38.8%; top:22%; width:22%; height:46%;"></div>
+              <!-- Manches : une zone par côté. L'image de profil est la même,
+                   retournée en miroir pour la droite : la zone l'est aussi
+                   (48% -> 46% = 100 - 48 - 6, la largeur de la zone). -->
+              <!-- Valeurs alignées sur SLV_* (buildZones) : état initial avant
+                   le premier recalcul. La zone droite est le miroir de la
+                   gauche (100 - left - width). -->
+              <!-- Valeurs de SLEEVE.sweat (buildZones) : le sweat est le
+                   produit affiché au chargement. left droit = 100 - 46.5 - 9. -->
+              <div class="logo-zone for-cote side-l" id="zone-sl" data-zone="sl" style="left:46.5%; top:34%; width:9%; height:29%;"></div>
+              <div class="logo-zone for-cote side-r" id="zone-sr" data-zone="sr" style="left:44.5%; top:34%; width:9%; height:29%;"></div>
+
+              <!-- Textes déplaçables + redimensionnables (face / dos) -->
+              <div class="design-text for-face" id="text-f" style="display:none; left:44%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-f"></span></div>
+              <div class="design-text for-face" id="text-fr" style="display:none; left:34%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-fr"></span></div>
+              <div class="design-text for-dos"  id="text-b" style="display:none; left:36%; top:27%; width:28%; font-size:26px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-b"></span></div>
+
+              <!-- Zone poitrine unifiée : visible sur la vue de face -->
+              <!-- Logo cœur (gauche) : uploadé via le bouton "Cœur (gauche)" -->
+              <div class="design-logo for-face" id="logo-f" data-zone="chest" style="display:none; left:38%; top:30%; width:18%;">
+                <img src="" alt="Logo cœur (gauche)" draggable="false">
+                <span class="logo-resize" data-resize="f"></span>
+              </div>
+              <!-- Logo poitrine droite : uploadé via le bouton "Poitrine droite" -->
+              <div class="design-logo for-face" id="logo-fr" data-zone="chest" style="display:none; left:44%; top:30%; width:18%;">
+                <img src="" alt="Logo poitrine droite" draggable="false">
+                <span class="logo-resize" data-resize="fr"></span>
+              </div>
+              <!-- Logo dos : visible sur la vue de dos -->
+              <div class="design-logo for-dos" id="logo-b" data-zone="b" style="display:none; left:32%; top:30%; width:34%;">
+                <img src="" alt="Logo dos" draggable="false">
+                <span class="logo-resize" data-resize="b"></span>
+              </div>
+              <!-- Logos manches : visibles sur la vue de côté, un par côté.
+                   side-l / side-r : n'apparaissent que sur le côté affiché. -->
+              <div class="design-logo for-cote side-l" id="logo-sl" data-zone="sl" style="display:none; left:48%; top:31%; width:6%;">
+                <img src="" alt="Logo manche gauche" draggable="false">
+                <span class="logo-resize" data-resize="sl"></span>
+              </div>
+              <div class="design-logo for-cote side-r" id="logo-sr" data-zone="sr" style="display:none; left:46%; top:31%; width:6%;">
+                <img src="" alt="Logo manche droite" draggable="false">
+                <span class="logo-resize" data-resize="sr"></span>
+              </div>
+              <!-- Logos manches : affichés en VUE CÔTÉ uniquement (retirés de la
+                   vue face à la demande). Conservés pour compat mais en for-cote. -->
+              <div class="design-logo for-cote" id="logo-sl-face" data-zone="sl-face" style="display:none; left:42%; top:30%; width:12%;">
+                <img src="" alt="Logo manche gauche" draggable="false">
+                <span class="logo-resize" data-resize="sl-face"></span>
+              </div>
+              <div class="design-logo for-cote" id="logo-sr-face" data-zone="sr-face" style="display:none; left:42%; top:46%; width:12%;">
+                <img src="" alt="Logo manche droite" draggable="false">
+                <span class="logo-resize" data-resize="sr-face"></span>
+              </div>
+            </div>
+
+            <div class="mlbl mlbl-r">
+              <span>5 cm</span>
+              <div class="mline"></div>
+            </div>
+          </div>
+
+          <!-- Zoom à droite de l'image, en colonne verticale -->
+          <div class="cv-ctrl">
+            <button type="button" class="cbtn" onclick="zoom(-10)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
+            </button>
+            <span class="zlvl" id="zlvl">100%</span>
+            <button type="button" class="cbtn" onclick="zoom(10)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+            <div class="cdiv"></div>
+            <button type="button" class="cbtn" onclick="resetZoom()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            </button>
+          </div>
+        </div><!-- /cv-canvas-row -->
+
+      </div><!-- /cv-wrap -->
+    </main>
+
+  </div><!-- /app -->
+
+    <!-- ══ RECAP ══ -->
+    <aside class="recap">
+      <div class="rp-hdr">Récapitulatif</div>
+
+      <div class="rp-items">
+        <!-- Product row (always visible) -->
+        <div class="ri">
+          <div class="ri-thumb" style="position:relative;">
+            <img id="rc-prod-img" src="{{ 'sweatshirt-face.png' | asset_url }}" alt="Produit" style="width:38px;height:38px;object-fit:contain;display:block;">
+            <!-- Overlay logo cœur (aperçu temps réel dans la vignette récap) -->
+            <img id="rc-prod-logo" src="" alt="" style="display:none;position:absolute;object-fit:contain;pointer-events:none;">
+          </div>
+          <div class="ri-info">
+            <div class="ri-name" id="rc-prod">Sweatshirt</div>
+            <div class="ri-det" id="rc-color">Couleur : Black</div>
+            <div class="ri-det" id="rc-size">Taille : M</div>
+          </div>
+        </div>
+
+        <!-- Logo cœur row -->
+        <div class="ri" id="rc-front" style="display:none">
+          <div class="ri-thumb"><img id="rc-img-f" src="" alt="Logo cœur"></div>
+          <div class="ri-info">
+            <div class="ri-name">Logo cœur</div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+        </div>
+
+        <!-- Logo dos row -->
+        <div class="ri" id="rc-back" style="display:none">
+          <div class="ri-thumb"><img id="rc-img-b" src="" alt="Logo dos"></div>
+          <div class="ri-info">
+            <div class="ri-name">Logo dos</div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+        </div>
+
+        <!-- Manches row -->
+        <div class="ri" id="rc-sleeves" style="display:none">
+          <div class="ri-thumb">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#888"><path d="M16 5v2h-3V3H11v4H8V5L3 8v3h2v9h14V11h2V8l-5-3z"/></svg>
+          </div>
+          <div class="ri-info">
+            <div class="ri-name">Manches <span id="rc-sleeves-qty" class="ri-qty"></span></div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+          <!-- Supplément : renseigné par updateSleeveSurcharge(). -->
+          <div class="ri-extra" id="rc-sleeves-extra"></div>
+        </div>
+      </div><!-- /rp-items -->
+
+      <!-- QUANTITÉ (textiles) : même principe que les drapeaux. Le prix total
+           suit la quantité, et l'ajout au panier utilise cette valeur. -->
+      <div class="rp-section" id="rp-qty-textile">
+        <div class="rp-qty-section">
+          <div class="rp-qty-title">QUANTITÉ</div>
+          <div class="rp-qty-subtitle">Minimum de commande : 1 unité</div>
+          <div class="rp-qty-controls">
+            <button type="button" class="rp-qty-btn" onclick="changeTextileQty(-1)">−</button>
+            <input type="number" id="textile-qty-input" class="rp-qty-input"
+                   value="1" min="1" onchange="handleTextileQtyInput()">
+            <button type="button" class="rp-qty-btn" onclick="changeTextileQty(1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rp-price">
+        <div class="rp-plbl">Prix Total</div>
+        <div class="rp-pval" id="rp-price-val">45,00 € <span class="rp-pvat">TTC</span></div>
+      </div>
+
+      <!-- Option payante activée : rappel sous le prix, pour que le supplément
+           inclus dans le total soit explicite. Piloté par applySleeveOption(). -->
+      <div class="rp-opt-flag" id="rp-sleeve-flag" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+        <span>Option manches activée <b id="rp-sleeve-amount"></b></span>
+      </div>
+
+      <div class="rp-acts">
+        <!-- Rappel de la liste de groupe validée : l'ajout au panier créera
+             une ligne par personne. Rempli par refreshGroupBadge(). -->
+        <!-- Deux actions : le libellé rouvre la liste préremplie, la croix la
+             supprime. Rempli par refreshGroupBadge(). -->
+        <div id="grp-badge" class="grp-badge" style="display:none"></div>
+        <button type="button" class="btn-cart" id="main-add-to-cart" onclick="addToCart()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/></svg>
+          Ajouter au panier
+        </button>
+        <!-- Commande de groupe : le point d'entrée est désormais « Ajouter
+             plusieurs noms », dans la section Texte personnalisé. Ce bouton est
+             conservé (masqué) : le JS le référence encore pour la logique
+             textile, et la modale reste la même. -->
+        {% comment %} <button type="button" class="btn-group" id="btn-group-order" onclick="openGroupOrder()" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          Commander pour un groupe
+        </button> {% endcomment %}
+
+      </div>
+
+      <div class="rp-trust">
+        <div class="ti">
+          <div class="ti-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="#666"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></div>
+          <div class="ti-txt">Paiement sécurisé<span>Transactions 100% sécurisées</span></div>
+        </div>
+        <div class="ti">
+          <div class="ti-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="#666"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div>
+          <div class="ti-txt">Service client<span>À votre écoute 7j/7</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MODALE : Guide des tailles -->
+    <div class="sg-modal-overlay" id="sg-modal-overlay" onclick="if(event.target===this)closeSizeGuide()">
+      <div class="sg-modal">
+        <div class="sg-modal-head">
+          <h3>Guide des tailles</h3>
+          <button type="button" class="sg-modal-x" onclick="closeSizeGuide()" title="Fermer">✕</button>
+        </div>
+        <div class="sg-modal-body">
+          <div class="sg-figure">
+            <svg viewBox="0 0 120 130" width="110" height="120" fill="none" stroke="#333" stroke-width="2">
+              <path d="M40 18 L30 26 L18 38 L26 48 L34 42 L34 112 L86 112 L86 42 L94 48 L102 38 L90 26 L80 18 Q60 30 40 18 Z"/>
+              <line x1="46" y1="40" x2="46" y2="60" stroke="#e02424" stroke-width="1.5"/>
+              <text x="49" y="54" font-size="12" fill="#e02424" stroke="none" font-weight="700">A</text>
+              <line x1="46" y1="70" x2="46" y2="105" stroke="#e02424" stroke-width="1.5"/>
+              <text x="49" y="92" font-size="12" fill="#e02424" stroke="none" font-weight="700">B</text>
+            </svg>
+          </div>
+          <div class="sg-table-wrap">
+            <table class="sg-table">
+              <thead>
+                <tr>
+                  <th></th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th>
+                  <th>XXL</th><th>3XL</th><th>4XL</th><th>5XL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="sg-row-lbl">A — Largeur (cm)</td>
+                  <td>47</td><td>50</td><td>53</td><td>56</td><td>59</td>
+                  <td>62</td><td>65</td><td>70</td><td>75</td></tr>
+                <tr><td class="sg-row-lbl">B — Hauteur (cm)</td>
+                  <td>68</td><td>70</td><td>72</td><td>74</td><td>76</td>
+                  <td>78</td><td>80</td><td>82</td><td>84</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="sg-note">Mesures approximatives à plat. A = largeur poitrine, B = longueur du vêtement.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALE : Commande de groupe (textiles) -->
+    <div class="grp-overlay" id="grp-overlay" onclick="if(event.target===this)closeGroupOrder()">
+      <div class="grp-modal" role="dialog" aria-label="Commande pour un groupe">
+        <div class="grp-head">
+          <div>
+            <h3>Commande pour un groupe</h3>
+            <p class="grp-sub">Même design pour tous. Ajoutez une ligne par personne : taille, couleur et, si besoin, un nom/numéro floqué.</p>
+          </div>
+          <button type="button" class="grp-x" onclick="closeGroupOrder()" title="Fermer" aria-label="Fermer">✕</button>
+        </div>
+
+        <div class="grp-body">
+          <!-- Import d'une liste existante : en tête de modale, avant le tableau. -->
+          <div class="grp-import-bar">
+            <input type="file" id="grp-file" accept=".csv,.txt,.xlsx,.xls"
+                   onchange="grpImportFile(this)" hidden>
+            <button type="button" class="grp-btn-import" onclick="document.getElementById('grp-file').click()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+              Importer un fichier CSV / Excel
+            </button>
+            <p class="grp-import-hint" id="grp-import-hint">
+              Vous avez déjà la liste ? Importez-la. Colonnes :
+              <strong>Nom floqué, Taille, Couleur, Qté</strong>.
+            </p>
+          </div>
+
+          <div class="grp-table-wrap">
+            <table class="grp-table">
+              <thead>
+                <tr>
+                  {% comment %} <th class="grp-c-name">Nom / réf.</th> {% endcomment %}
+                  <th class="grp-c-flock">Nom floqué <span class="grp-opt">(option)</span></th>
+                  <th class="grp-c-size">Taille</th>
+                  <th class="grp-c-color">Couleur</th>
+                  <th class="grp-c-qty">Qté</th>
+                  <th class="grp-c-act"></th>
+                </tr>
+              </thead>
+              <tbody id="grp-rows"><!-- lignes injectées en JS --></tbody>
+            </table>
+          </div>
+
+          <button type="button" class="grp-add" onclick="grpAddRow()">＋ Ajouter une ligne</button>
+
+          <div class="grp-summary">
+            <span id="grp-total-lines">0 ligne</span>
+            <strong id="grp-total-qty">0 pièce</strong>
+          </div>
+
+          <p class="grp-note">
+            💡 Même design pour tous. En validant, votre liste est enregistrée :
+            « Ajouter au panier » créera ensuite <strong>une ligne par personne</strong>
+            (taille, couleur et nom floqué propres à chacune).
+          </p>
+        </div>
+
+        <div class="grp-foot">
+          <button type="button" class="grp-btn-secondary" onclick="closeGroupOrder()">Annuler</button>
+          <button type="button" class="grp-btn-primary" id="grp-submit" onclick="submitGroupOrder(this)">
+            Confirmer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aperçu d'une ligne (couleur + design) -->
+    <div class="grp-preview-overlay" id="grp-preview-overlay" onclick="if(event.target===this)closeGroupPreview()">
+      <div class="grp-preview-box">
+        <button type="button" class="grp-x" onclick="closeGroupPreview()" title="Fermer">✕</button>
+        <div class="grp-preview-title" id="grp-preview-title">Aperçu</div>
+        <div class="grp-preview-stage" id="grp-preview-stage"></div>
+      </div>
+    </div>
+
+    <!-- NOUVEAU MODAL : Sélection quantités par taille -->
+    {% render 'size-quantity-modal' %}
+
+  <script src="{{ 'conf-main-inline.js' | asset_url }}" defer></script>
+  </div><!-- /conf-app-root -->
+
+  <!-- ══ VUE D'ENSEMBLE ══ Composée par captureAllViews() : mêmes images que
+       la planche de production (voir conf-overview.js). -->
+  <div class="ov-overlay" id="ov-overlay" onclick="closeOverview()"></div>
+  <div class="ov-modal" id="ov-modal" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <div class="ov-hdr">
+      <div>
+        <span class="ov-title" id="ov-title">Vue d'ensemble</span>
+        <span class="ov-sub">Votre personnalisation, vue par vue</span>
+      </div>
+      <button type="button" class="ov-close" onclick="closeOverview()" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="ov-body" id="ov-body"></div>
+  </div>
+
+  <!-- ══ CART DRAWER ══ -->
+  <div class="cart-overlay" id="cart-overlay" onclick="closeCartDrawer()"></div>
+  <div class="cart-drawer" id="cart-drawer">
+    <div class="cd-hdr">
+      <div>
+        <span class="cd-title">Panier</span>
+        <span class="cd-count" id="cd-count"></span>
+      </div>
+      <button type="button" class="cd-close" onclick="closeCartDrawer()" aria-label="Fermer">×</button>
+    </div>
+
+    <div class="cd-items" id="cd-items">
+      <div class="cd-empty" id="cd-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+        <p>Votre panier est vide</p>
+      </div>
+    </div>
+
+    <div class="cd-footer" id="cd-footer" style="display:none">
+      <div class="cd-subtotal" id="cd-subtotal">
+        <span class="cd-subtotal-lbl">Total estimé</span>
+        <span class="cd-subtotal-val" id="cd-total">0,00 €</span>
+      </div>
+      <p class="cd-tax-note" id="cd-tax-note">Taxes incluses. Livraison calculée à l'étape suivante.</p>
+      <button type="button" class="cd-checkout" id="cd-checkout-btn" onclick="goToRecap()">
+        Continuer
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
+    </div>
+  </div>
+
+

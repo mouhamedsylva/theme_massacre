@@ -1,0 +1,1769 @@
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #1a1a1a;
+      --white: #ffffff;
+      --border: #e5e5e5;
+      --bg-light: #f8f8f8;
+      --stage: #f1f1f3;   /* fond de la scène d'aperçu produit (gris doux) */
+      --muted: #666;
+      --faint: #999;
+      --blue: #2c5aa0;
+      --r: 7px;
+      --header-h: 58px;
+      --typebar-h: 132px;
+      --sidebar-w: 320px;
+      --recap-w: 252px;
+    }
+
+    .conf-app-root {
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--black);
+      background: var(--white);
+      font-size: 12px;
+      display: grid;
+      grid-template-columns: 1fr var(--recap-w);
+      grid-template-rows: var(--header-h) var(--typebar-h) 1fr;
+      grid-template-areas:
+        "header  header"
+        "typebar recap"
+        "main    recap";
+    }
+
+    /* ══ HEADER ══ */
+    .hdr {
+      display: flex;
+      align-items: center;
+      height: var(--header-h);
+      /* Retrait gauche plus large que les 20px d'origine : le logo se trouve
+         au-dessus du rail d'icônes (65px de large), et un retrait trop court
+         le collait au bord de la fenêtre. */
+      padding: 0 20px 0 36px;
+      border-bottom: 1px solid var(--border);
+      background: var(--white);
+      flex-shrink: 0;
+      gap: 12px;
+      position: relative;
+      z-index: 10;
+      grid-area: header;
+      border-right: 1px solid var(--border);
+    }
+    .hdr-brand {
+      display: flex; align-items: center; gap: 10px;
+      min-width: 190px;
+    }
+    .hdr-icon {
+      width: 34px; height: 34px;
+      /* Pas de fond : le logo est un « M » noir sur transparent. Un fond noir
+         le ferait disparaître et ne laisserait voir que la cagoule blanche,
+         le carré débordant alors autour du dessin. */
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 17px; flex-shrink: 0;
+      overflow: hidden;
+    }
+    .hdr-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .hdr-name { font-size: 13px; font-weight: 700; letter-spacing: .4px; line-height: 1.1; }
+    .hdr-sub  { font-size: 10px; color: var(--muted); }
+    .hdr-steps {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .step { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    .step-n {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; background: var(--white);
+    }
+    .step.on .step-n { background: var(--black); border-color: var(--black); color: #fff; }
+    .step.on .step-lbl { color: var(--black); font-weight: 600; }
+    .step-line { width: 36px; height: 1px; background: var(--border); }
+    .hdr-btns { display: flex; gap: 8px; min-width: 190px; justify-content: flex-end; }
+    .obtn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 13px;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--white); font-size: 12px; font-weight: 500;
+      cursor: pointer; color: var(--black); transition: border-color .15s;
+    }
+    .obtn:hover { border-color: var(--black); }
+
+    /* ══ BODY ══ */
+    .app {
+      display: flex;
+      height: 100%;
+      overflow: hidden;
+      grid-area: main;
+    }
+
+    /* ══ SIDEBAR ══ */
+    .sidebar {
+      width: var(--sidebar-w);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;   /* ancre le panneau d'édition texte (inset:0) */
+    }
+    /* inner scroll only if needed but designed to NOT need it */
+    .sb-inner {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .sb-inner::-webkit-scrollbar { width: 3px; }
+    .sb-inner::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+    .sec {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sec-title {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 2px; color: var(--black);
+    }
+    /* ── Option tarifée (bascule) ──────────────────────────────────────────
+       Présente un supplément comme un choix désirable, pas comme un
+       avertissement : intitulé, prix, interrupteur. Le corps de la section
+       ne se déplie qu'une fois l'option activée. */
+    .opt-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--white); overflow: hidden; transition: .15s;
+    }
+    .opt-card.on { border-color: var(--black); background: #fafafa; }
+    .opt-row {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 10px; background: none; border: none; cursor: pointer;
+      font-family: inherit; text-align: left;
+    }
+    .opt-txt { flex: 1; min-width: 0; }
+    .opt-name {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      font-size: 11px; font-weight: 600; color: var(--black);
+    }
+    
+    /* Badge de prix : design professionnel et clair */
+    .opt-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 6px; border-radius: 4px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; font-size: 9px; font-weight: 700;
+      letter-spacing: 0.02em; text-transform: uppercase;
+      box-shadow: 0 1px 3px rgba(102, 126, 234, 0.3);
+      white-space: nowrap;
+    }
+    .opt-card.on .opt-badge {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      box-shadow: 0 1px 3px rgba(17, 153, 142, 0.3);
+    }
+    
+    .opt-desc {
+      display: block; margin-top: 2px;
+      font-size: 9px; color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .opt-card.on .opt-desc { color: var(--black); }
+    /* Interrupteur : affordance universelle « activable », sans texte. */
+    .opt-switch {
+      flex: 0 0 34px; width: 34px; height: 20px; border-radius: 10px;
+      background: #d4d4d4; position: relative; transition: background .18s;
+    }
+    .opt-card.on .opt-switch { background: var(--black); }
+    .opt-knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; transition: transform .18s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    }
+    .opt-card.on .opt-knob { transform: translateX(14px); }
+    .sec-sub {
+      font-size: 10px; color: var(--faint); margin-bottom: 8px;
+    }
+
+    /* Product type grid */
+    .pg {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .pc {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 4px 7px;
+      border: 2px solid var(--border); border-radius: 6px;
+      cursor: pointer; transition: all .15s;
+      font-size: 9px; font-weight: 600; color: var(--black);
+      text-align: center; line-height: 1.2; gap: 4px;
+      position: relative; background: var(--white);
+    }
+    .pc:hover { border-color: #999; }
+    .pc.on { background: var(--black); border-color: var(--black); color: #fff; }
+    .pc.on .pc-ico { background: rgba(255,255,255,.15); }
+    .pc-ico {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--bg-light);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pc-ico svg { width: 18px; height: 18px; }
+    .ck {
+      position: absolute; top: 3px; right: 3px;
+      width: 14px; height: 14px; background: var(--white);
+      border-radius: 50%; display: none; align-items: center;
+      justify-content: center; font-size: 8px; color: var(--black); font-weight: 900;
+    }
+    .pc.on .ck { display: flex; }
+
+    /* Color grid */
+    .cg {
+      display: flex;
+      flex-wrap: wrap;
+      row-gap: 7px;
+      column-gap: 7px;
+    }
+    .cg-row {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+    }
+    .cs {
+      width: 18px; height: 18px; border-radius: 4px;
+      cursor: pointer; border: 2px solid transparent;
+      transition: transform .13s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .cs:hover { transform: scale(1.12); }
+    .cs.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--black); }
+    .cs.on::after {
+      content: '✓'; position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 9px; font-weight: 700;
+      text-shadow: 0 1px 3px rgba(0,0,0,.6);
+    }
+
+    /* Size */
+    .sg { display: flex; gap: 4px; flex-wrap: nowrap; align-items: center; }
+    .sb {
+      padding: 3px 8px;
+      border: 1.5px solid var(--border); border-radius: 4px;
+      font-size: 10px; font-weight: 600; cursor: pointer;
+      background: var(--white); color: var(--black); transition: all .13s;
+      min-width: 26px; text-align: center;
+    }
+    .sb:hover { border-color: var(--black); }
+    .sb.on { background: var(--black); border-color: var(--black); color: #fff; }
+    .sb-group {
+      min-width: auto;
+      padding: 3px 10px;
+      white-space: nowrap;
+      background: var(--black);
+      border-color: var(--black);
+      color: #fff;
+    }
+    .sb-group:hover {
+      background: #333;
+      border-color: #333;
+    }
+    .sgd { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--muted); margin-top: 5px; cursor: pointer; text-decoration: underline; }
+
+    /* Upload */
+    .uz {
+      border: 2px dashed var(--border); border-radius: 6px;
+      padding: 7px 8px; text-align: center; cursor: pointer;
+      background: #fafafa; transition: all .15s;
+      display: flex; align-items: center; gap: 8px;
+      justify-content: center;
+    }
+    .uz:hover { border-color: #999; background: #f3f3f3; }
+    .uz-ico {
+      width: 22px; height: 22px; background: #eee; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .uz p { font-size: 9px; color: var(--muted); line-height: 1.3; text-align: left; }
+    .uz strong { color: var(--muted); }
+
+    /* ── Bouton « Ajouter un texte » ── */
+    .txt-add-btn {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1.5px solid var(--black); background: #fff; color: var(--black);
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .4px; cursor: pointer; transition: .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .txt-add-btn:hover { background: var(--black); color: #fff; }
+    /* Trois emplacements de texte (cœur gauche / poitrine droite / dos) :
+       empilés, avec un léger espacement. */
+    .txt-add-btns { display: flex; flex-direction: column; gap: 5px; }
+    .txt-add-btns .txt-add-btn { font-size: 9.5px; padding: 7px 8px; }
+    .txt-add-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .txt-add-btn:disabled:hover { background: #fff; color: var(--black); }
+    /* Aperçu du texte ajouté (chip) dans le sidebar */
+    .txt-chip {
+      display: none; align-items: center; gap: 8px; margin-top: 6px;
+      padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+      background: #fafafa; font-size: 11px;
+    }
+    .txt-chip .txt-chip-val { flex: 1; font-weight: 600; color: var(--black);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .txt-chip .rmv { border: none; background: none; cursor: pointer; font-size: 11px; }
+
+    /* ── Texte déplaçable sur le canvas ── */
+    .design-text {
+      position: absolute; cursor: grab; pointer-events: auto;
+      user-select: none; touch-action: none;
+      border: 1.5px dashed transparent; border-radius: 4px;
+      line-height: 1.1; transition: border-color .15s ease;
+      padding: 0px 2px;  /* Padding minimal : 0px vertical, 2px horizontal */
+      /* La boîte épouse le TEXTE, elle n'occupe plus toute la largeur de zone :
+         le cadre de sélection flottait sinon très au large des lettres.
+         La largeur en % venue du JS est convertie en max-width par
+         fitTextBox() (conf-text-editor.js) : elle reste un plafond, sans
+         imposer une boîte vide autour du texte. */
+      width: max-content;
+      max-width: 100%;
+    }
+    /* Cadre visible seulement en dragging ou resizing, PAS au survol */
+    .design-text.dragging, .design-text.resizing { border-color: #1a1a1a; }
+    .design-text.dragging { cursor: grabbing; }
+    /* TEXTE SÉLECTIONNÉ (clic) : cadre net + 2 boutons seulement (style
+       CustomInk) — ✕ supprimer (haut gauche) et ⤢ redimensionner (bas droite).
+       Les 8 poignées classiques sont masquées au profit de ces 2 contrôles. */
+    .design-text.is-selected {
+      border-style: solid; border-color: #fff; border-width: 2px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+    }
+    /* Masque les poignées classiques, MAIS pas nos 2 contrôles (.dt-ctrl). */
+    .design-text.is-selected .logo-resize:not(.dt-ctrl) { display: none !important; }
+    .design-text .dt-ctrl { display: none; }
+    .design-text.is-selected .dt-ctrl { display: flex; }
+    /* Contrôles du texte sélectionné : petits et posés HORS de la boîte.
+       À 26px décalés de 13px, ils empiétaient de moitié sur les lettres et
+       rendaient le texte illisible. 18px décalés de 18px les placent
+       entièrement à l'extérieur, aux coins opposés. */
+    .dt-ctrl {
+      position: absolute; width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff; border: 1px solid rgba(0,0,0,.15);
+      box-shadow: 0 1px 4px rgba(0,0,0,.22);
+      cursor: pointer; z-index: 12; padding: 0; line-height: 1;
+      transition: transform .12s ease;
+    }
+    /* Agrandi au survol : la cible reste facile à viser malgré sa taille. */
+    .dt-ctrl:hover { transform: scale(1.15); }
+    .dt-ctrl svg { width: 9px; height: 9px; display: block; }
+    .dt-ctrl-del { top: -18px; left: -18px; color: #d92d20; }
+    .dt-ctrl-del:hover { background: #d92d20; color: #fff; }
+    .dt-ctrl-size { bottom: -18px; right: -18px; color: #1a56db; cursor: nwse-resize; }
+    .dt-ctrl-size:hover { background: #1a56db; color: #fff; }
+
+    /* ── Contrôles pour les LOGOS (similaire aux textes) ── */
+    .design-logo.is-selected {
+      outline: 2px solid #fff;
+      box-shadow: 0 0 0 3px rgba(26,86,219,.5);
+    }
+    /* Masque les poignées classiques au profit des 2 boutons */
+    .design-logo.is-selected .logo-resize:not(.logo-ctrl) { display: none !important; }
+    .design-logo .logo-ctrl { display: none; }
+    .design-logo.is-selected .logo-ctrl { display: flex; }
+    /* Mêmes dimensions que les contrôles de texte (voir .dt-ctrl) : posés
+       entièrement hors de la boîte, ils ne masquent plus le visuel. */
+    .logo-ctrl {
+      position: absolute; width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff; border: 1px solid rgba(0,0,0,.15);
+      box-shadow: 0 1px 4px rgba(0,0,0,.22);
+      cursor: pointer; z-index: 12; padding: 0; line-height: 1;
+      transition: transform .12s ease;
+    }
+    .logo-ctrl:hover { transform: scale(1.15); }
+    .logo-ctrl svg { width: 9px; height: 9px; display: block; }
+    .logo-ctrl-del { top: -18px; left: -18px; color: #d92d20; }
+    .logo-ctrl-del:hover { background: #d92d20; color: #fff; }
+    .logo-ctrl-resize { bottom: -18px; right: -18px; color: #1a56db; cursor: nwse-resize; }
+    .logo-ctrl-resize:hover { background: #1a56db; color: #fff; }
+
+    /* Contenu texte : sur une ligne, dimensionné PAR LE TEXTE.
+       width:100% (et la largeur en % posée sur .design-text) donnait une boîte
+       bien plus large que les lettres : le cadre de sélection flottait loin du
+       texte. En display:inline-block sans largeur imposée, la boîte épouse le
+       contenu — le cadre colle donc au texte.
+       overflow visible : rien à rogner puisque la boîte suit le texte ; la
+       taille est déjà bornée par clampTextToZone. */
+    .design-text .dt-content { display: block; width: 100%; text-align: center;
+      white-space: nowrap; overflow: hidden; line-height: 1.1; }
+    /* Texte courbé (SVG) : occupe la largeur de son conteneur. */
+    .design-text.is-shaped { padding: 0; white-space: normal; }
+    .design-text.is-shaped .dt-content { white-space: normal; }
+    .design-text.is-shaped svg { display: block; width: 100%; height: auto; }
+    /* Poignée de resize visible seulement pendant resize, PAS au survol */
+    .design-text .logo-resize { display: none; }
+    .design-text.resizing .logo-resize { display: block; }
+
+    /* Zone pointillée en mode TEXTE : bandeau horizontal. */
+    .logo-zone.text-mode { border-style: dashed; }
+
+    /* ── Champ inline (remplace le bouton) ── */
+    .txt-inline { margin-top: 2px; }
+    /* Sélecteur d'emplacement : segmented control (3 segments jointifs).
+       Plus léger que trois boutons pleins — c'est un choix, pas trois actions. */
+    .txt-where-lbl {
+      font-size: 9px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px;
+    }
+    /* Lève l'ambiguïté gauche/droite : côtés nommés du point de vue du porteur,
+       donc inversés à l'écran en vue de face. */
+    .txt-where-hint {
+      font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--faint);
+    }
+    .txt-where {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border); border-radius: 6px;
+      overflow: hidden; margin-bottom: 7px;
+    }
+    .txt-where-opt {
+      padding: 6px 4px; font-size: 9.5px; font-weight: 600;
+      font-family: inherit; color: var(--muted);
+      background: var(--white); border: none; cursor: pointer;
+      border-right: 1px solid var(--border); transition: .12s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .txt-where-opt:last-child { border-right: none; }
+    .txt-where-opt:hover { background: var(--bg-light); color: var(--black); }
+    .txt-where-opt.on { background: var(--black); color: #fff; }
+    .txt-inline input[type="text"] {
+      width: 100%; padding: 9px 11px; border: 1.5px solid #14181c;
+      border-radius: 7px; font-size: 13px; outline: none;
+    }
+    .txt-inline-acts { display: flex; gap: 8px; margin-top: 7px; }
+    .txt-inline-btn { flex: 1; padding: 8px; border-radius: 7px; font-size: 11px;
+      font-weight: 700; cursor: pointer; border: 1.5px solid transparent; }
+    .txt-inline-btn.sec { background: #f2f3f5; color: #333; border-color: #e5e7ea; }
+    .txt-inline-btn.pri { background: #14181c; color: #fff; }
+
+    /* ── Panneau d'édition texte (remplace le sidebar) ── */
+    .txt-panel {
+      position: absolute; inset: 0; background: #fff; z-index: 20;
+      display: flex; flex-direction: column;
+    }
+    .txt-panel-head {
+      display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .txt-panel-back, .txt-panel-x {
+      width: 28px; height: 28px; border: none; background: #f2f3f5; color: #333;
+      border-radius: 7px; font-size: 16px; cursor: pointer; line-height: 1;
+    }
+    .txt-panel-back:hover, .txt-panel-x:hover { background: #e5e7ea; }
+    .txt-panel-title { flex: 1; font-size: 13px; font-weight: 800; color: var(--black); }
+    .txt-panel-body { flex: 1; overflow-y: auto; padding: 14px; }
+    .txt-panel-input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #e5e7ea;
+      border-radius: 10px; font-size: 15px; outline: none; margin-bottom: 14px;
+    }
+    .txt-panel-input:focus { border-color: #14181c; }
+    /* Compteur de caractères sous le champ texte. */
+    .txt-panel-count { font-size: 11px; color: #9aa0a6; text-align: right;
+      margin: -10px 2px 14px; }
+    /* Ligne Style : boutons B / I / U. */
+    .txt-style-row, .txt-size-row { cursor: default; }
+    .txt-style-btns { flex: 1; display: flex; justify-content: flex-end; gap: 6px; }
+    .txt-style-btn {
+      width: 34px; height: 34px; border: 1.5px solid #e5e7ea; border-radius: 8px;
+      background: #fff; color: var(--black); font-size: 15px; cursor: pointer;
+      transition: .15s; line-height: 1;
+    }
+    .txt-style-btn:hover { border-color: #b8c0c8; }
+    .txt-style-btn.on { background: var(--black); color: #fff; border-color: var(--black); }
+    /* Ligne Taille : slider. */
+    .txt-size-range { flex: 1; accent-color: var(--black); cursor: pointer; }
+    .txt-size-val { min-width: 26px; text-align: right; font-weight: 700;
+      font-size: 13px; color: var(--black); }
+    .txt-panel-row {
+      display: flex; align-items: center; gap: 10px; padding: 13px 12px;
+      border: 1.5px solid #e5e7ea; border-radius: 10px; margin-bottom: 10px;
+      cursor: pointer; transition: .15s;
+    }
+    .txt-panel-row:hover { border-color: #b8c0c8; }
+    .txt-panel-lbl { font-size: 12px; font-weight: 700; color: #5b636c;
+      text-transform: uppercase; letter-spacing: .3px; }
+    .txt-panel-val { flex: 1; text-align: right; color: var(--black); font-weight: 600; }
+    .txt-panel-caret { color: #b8c0c8; font-size: 18px; }
+    /* Sélecteur de polices */
+    .txt-font-picker { border: 1.5px solid #e5e7ea; border-radius: 10px;
+      padding: 10px; margin: -4px 0 12px; background: #fafbfc; }
+    .txt-font-search { width: 100%; padding: 8px 10px; border: 1.5px solid #e5e7ea;
+      border-radius: 8px; font-size: 12px; outline: none; margin-bottom: 8px; }
+    .txt-font-scroll { max-height: 300px; overflow-y: auto; display: flex;
+      flex-direction: column; gap: 6px; }
+    .txt-font-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border: 1.5px solid #e5e7ea; border-radius: 9px;
+      cursor: pointer; background: #fff; transition: .12s;
+    }
+    .txt-font-item:hover { border-color: #b8c0c8; }
+    .txt-font-item.active { border-color: #14181c; box-shadow: 0 0 0 2px rgba(20,24,28,.08); }
+    .txt-font-sample { flex: 1; min-width: 0; font-size: 22px; line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #14181c; }
+    .txt-font-nm { font-size: 9px; font-weight: 700; color: #8a929b;
+      text-transform: uppercase; letter-spacing: .3px; flex-shrink: 0; }
+    /* Palette couleur dans le panneau */
+    .txt-color-swatches { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .txt-color-sw { width: 24px; height: 24px; border-radius: 6px; border: 2px solid transparent;
+      cursor: pointer; padding: 0; transition: .12s; }
+    .txt-color-sw:hover { transform: scale(1.12); }
+    .txt-color-sw.active { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #14181c; }
+    /* Grille de formes */
+    .txt-shape-picker { margin: -4px 0 12px; }
+    .txt-shape-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .txt-shape-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 6px; border: 1.5px solid #e5e7ea; border-radius: 9px;
+      cursor: pointer; background: #fafbfc; transition: .12s;
+    }
+    .txt-shape-cell:hover { border-color: #b8c0c8; }
+    .txt-shape-cell.active { border-color: #14181c; box-shadow: 0 0 0 2px rgba(20,24,28,.08); background: #fff; }
+    .txt-shape-cell span { font-size: 9px; font-weight: 700; color: #5b636c;
+      text-transform: uppercase; letter-spacing: .3px; }
+    .txt-panel-foot { padding: 12px 14px; border-top: 1px solid var(--border); }
+    .txt-panel-save {
+      width: 100%; padding: 13px; border: none; border-radius: 11px;
+      background: #14181c; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+    }
+    .txt-panel-save:hover { background: #000; }
+
+    /* ── Modale Guide des tailles ── */
+    .sg-modal-overlay {
+      position: fixed; inset: 0; z-index: 100000; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(15,18,22,.6); backdrop-filter: blur(3px);
+      animation: txt-fade .2s ease; padding: 16px;
+    }
+    .sg-modal-overlay.open { display: flex; }
+    .sg-modal {
+      background: #fff; border-radius: 18px; width: min(96vw, 720px);
+      max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 70px rgba(0,0,0,.32);
+      animation: txt-pop .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    .sg-modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid var(--border);
+    }
+    .sg-modal-head h3 { font-size: 18px; font-weight: 800; margin: 0; color: #14181c; }
+    .sg-modal-x {
+      width: 32px; height: 32px; border: none; border-radius: 50%;
+      background: #f2f3f5; color: #5b636c; font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: .15s;
+    }
+    .sg-modal-x:hover { background: #e5e7ea; color: #14181c; }
+    .sg-modal-body {
+      padding: 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
+    }
+    .sg-figure { flex-shrink: 0; }
+    /* `min-width` est un plancher DUR sur un item flex : flex-shrink ne descend
+       jamais en dessous. À 320px de viewport la modale fait `min(96vw, 720px)`
+       = 288px, le contenu réclamait 320 + 44 de padding = 364px, et `.sg-modal`
+       n'a pas d'`overflow-x` — combiné à `html, body { overflow: hidden }`
+       (conf-mobile.css:38), les 54px de droite du tableau devenaient
+       DÉFINITIVEMENT inatteignables : ni scroll de page, ni scroll de modale.
+       Mesuré : 54px perdus à 320px, 14px à 360px, correct dès 390px.
+
+       `min-width: 0` laisse le wrapper se réduire à la largeur disponible ;
+       c'est son `overflow-x: auto` qui prend alors le relais et rend le tableau
+       défilable À L'INTÉRIEUR. Le tableau garde sa largeur propre via
+       `.sg-table { min-width }` ci-dessous. */
+    .sg-table-wrap {
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      /* Défilement au doigt fluide sur iOS. */
+      -webkit-overflow-scrolling: touch;
+    }
+    /* `min-width` ici et NON sur le wrapper : c'est la construction correcte
+       (le plancher est sur le contenu, le scroll sur le parent). Le tableau a
+       ~10 colonnes de tailles ; sous 320px elles deviendraient illisibles, donc
+       il défile plutôt que de s'écraser. Même schéma que
+       `.grp-table-wrap`/`.grp-table` plus bas, qui était déjà correct. */
+    .sg-table { width: 100%; min-width: 320px; border-collapse: collapse; font-size: 13px; }
+    .sg-table th, .sg-table td {
+      padding: 9px 8px; text-align: center; border-bottom: 1px solid #eef0f2;
+    }
+    .sg-table thead th {
+      font-weight: 800; color: #14181c; background: #f7f8fa;
+      border-bottom: 2px solid #e5e7ea;
+    }
+    .sg-table thead th:first-child { background: transparent; }
+    .sg-table .sg-row-lbl { text-align: left; font-weight: 700; color: #14181c; white-space: nowrap; }
+    .sg-table tbody tr:hover td { background: #fafbfc; }
+    .sg-note { flex-basis: 100%; font-size: 11px; color: var(--faint); margin-top: 4px; }
+
+    .uprev {
+      display: none; margin-top: 4px;
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 4px 6px; position: relative;
+      /* Fond en damier : rend visibles les logos blancs / transparents */
+      background-color: #e8e8e8;
+      background-image:
+        linear-gradient(45deg, #c9c9c9 25%, transparent 25%),
+        linear-gradient(-45deg, #c9c9c9 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #c9c9c9 75%),
+        linear-gradient(-45deg, transparent 75%, #c9c9c9 75%);
+      background-size: 10px 10px;
+      background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    }
+    .uprev img { width: 100%; height: 32px; object-fit: contain; display: block; }
+    .uprev-lbl {
+      display: none; align-items: center; justify-content: space-between;
+      margin-top: 2px; font-size: 9px; color: var(--muted);
+    }
+    .rmv { color: #e33; font-size: 10px; cursor: pointer; border: none; background: none; font-family: inherit; display: flex; align-items: center; gap: 2px; }
+    /* Actions du logo (Centrer / Supprimer) : groupées à droite de l'aperçu. */
+    .uprev-actions { display: flex; align-items: center; gap: 8px; }
+    .ctr {
+      color: var(--muted); font-size: 10px; cursor: pointer; border: none;
+      background: none; font-family: inherit;
+      display: flex; align-items: center; gap: 2px;
+    }
+    .ctr:hover { color: #111; }
+
+    /* Sleeve grid */
+    .slvg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .slvg label { font-size: 9px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 3px; }
+
+    /* Info note */
+    .note {
+      display: flex; gap: 6px; background: #f5f5f5;
+      border-radius: 5px; padding: 7px 8px;
+      margin-top: 6px; font-size: 10px; color: var(--muted); line-height: 1.4;
+      align-items: flex-start;
+    }
+    .note svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ══ CANVAS ══ */
+    .canvas {
+      flex: 1;
+      display: flex; flex-direction: column;
+      background: var(--white);
+      padding: 16px 20px 0;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .cv-hdr { margin-bottom: 8px; flex-shrink: 0; }
+    .cv-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .cv-sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .vtabs { display: flex; gap: 6px; }
+    .vt {
+      padding: 6px 14px; border: 1px solid var(--border);
+      border-radius: 5px; background: #fff; font-size: 12px;
+      font-weight: 500; cursor: pointer; color: var(--black); transition: all .13s;
+    }
+    .vt.on { background: var(--black); border-color: var(--black); color: #fff; }
+    .vt:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: #f5f5f5;
+      color: #999;
+    }
+
+    .cv-wrap {
+      flex: 1;
+      background: var(--stage);   /* fond de scène gris doux (produit mis en valeur) */
+      border-radius: 0;
+      box-shadow: none;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .cv-view {
+      display: none;
+      align-items: center; justify-content: center;
+      gap: 16px; height: 100%; width: 100%;
+      padding: 16px 32px 60px;
+    }
+    .cv-view.on { display: flex; }
+
+    .pslot {
+      flex: 1; max-width: 260px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .pslot img.product-img {
+      max-width: 100%; max-height: 280px;
+      object-fit: contain; display: block;
+      transition: filter .3s;
+    }
+    .pslot svg.product-svg {
+      max-width: 100%; max-height: 280px;
+    }
+
+    /* measurement label */
+    .mlbl {
+      position: absolute; left: -36px; top: 35%;
+      display: flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 700;
+    }
+    .mline {
+      width: 1px; height: 50px; background: var(--black);
+      position: relative;
+    }
+    .mline::before, .mline::after {
+      content: ''; position: absolute; left: -3px;
+      width: 7px; height: 1px; background: var(--black);
+    }
+    .mline::before { top: 0; }
+    .mline::after { bottom: 0; }
+    .mlbl-r { left: auto; right: -36px; }
+
+    /* Canvas row : image + zoom côte à côte.
+       align-self:stretch + height:100% => la ligne occupe TOUTE la hauteur de la
+       zone grise, ce qui permet de centrer verticalement l'aperçu (et de borner
+       un grand patch par la hauteur au lieu de le rogner en haut). */
+    .cv-canvas-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+      align-self: stretch;
+      height: 100%;
+      min-height: 0;
+      width: 100%;
+    }
+
+    /* Controls zoom – colonne verticale à droite de l'image */
+    .cv-ctrl {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.95);
+      border: 1px solid var(--border); border-radius: 40px;
+      padding: 10px 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      backdrop-filter: blur(8px);
+      flex-shrink: 0;
+    }
+    .cbtn {
+      width: 28px; height: 28px; border: none; background: none;
+      cursor: pointer; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .13s; color: var(--black);
+    }
+    .cbtn:hover { background: var(--bg-light); }
+    .zlvl { font-size: 12px; font-weight: 600; min-width: 40px; text-align: center; }
+    .cdiv { width: 18px; height: 1px; background: var(--border); }
+
+    /* Info bar */
+    .cv-info {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 5px;
+      background: transparent; border: none;
+      padding: 0;
+      font-size: 10px; color: var(--faint);
+      white-space: nowrap;
+    }
+
+    /* ══ RECAP ══ */
+    .recap {
+      width: var(--recap-w);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden; flex-shrink: 0;
+      grid-area: recap;
+    }
+    .recap::-webkit-scrollbar { width: 3px; }
+    .recap::-webkit-scrollbar-thumb { background: #ddd; }
+    .rp-hdr {
+      padding: 12px 16px 10px;
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .6px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .rp-items { flex: 1; overflow-y: auto; }
+    .rp-items::-webkit-scrollbar { width: 3px; }
+    .rp-items::-webkit-scrollbar-thumb { background: #ddd; }
+
+    .ri {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+    }
+    .ri-thumb {
+      width: 40px; height: 40px; border-radius: 5px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; overflow: hidden;
+      /* Fond en damier : rend visibles les logos blancs / transparents */
+      background-color: #e8e8e8;
+      background-image:
+        linear-gradient(45deg, #c9c9c9 25%, transparent 25%),
+        linear-gradient(-45deg, #c9c9c9 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #c9c9c9 75%),
+        linear-gradient(-45deg, transparent 75%, #c9c9c9 75%);
+      background-size: 10px 10px;
+      background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    }
+    .ri-thumb img { width: 100%; height: 100%; object-fit: contain; }
+    .ri-info { flex: 1; min-width: 0; }
+    .ri-name { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+    /* Quantité de manches (×2) accolée au libellé. */
+    .ri-qty { font-size: 10px; font-weight: 500; color: var(--faint); }
+    /* Montant du supplément, aligné à droite de la ligne de récap. */
+    .ri-extra {
+      margin-left: auto; align-self: center;
+      font-size: 11px; font-weight: 700; color: var(--black);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .ri-det  { font-size: 10px; color: var(--muted); }
+    .ri-ok   { font-size: 10px; color: #16a34a; font-weight: 600; }
+
+    .rp-price {
+      padding: 14px 16px 16px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .rp-plbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .rp-pval { font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
+    .rp-pvat { font-size: 11px; color: var(--muted); font-weight: 400; }
+    /* Détail du prix unitaire quand la quantité dépasse 1 (prix dégressif). */
+    .rp-punit { font-size: 11px; color: #16a34a; font-weight: 600; white-space: nowrap; }
+
+    .rp-acts {
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    }
+    .btn-cart {
+      width: 100%; padding: 11px;
+      background: var(--black); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; letter-spacing: .3px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background .2s;
+    }
+    .btn-cart:hover { background: #333; }
+    .btn-save {
+      width: 100%; padding: 9px;
+      background: #fff; color: var(--black);
+      border: 1.5px solid var(--border); border-radius: 6px;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: border-color .15s;
+    }
+    .btn-save:hover { border-color: var(--black); }
+
+    /* ── Bouton « Commander pour un groupe » (textiles) ── */
+    .btn-group {
+      width: 100%; padding: 9px;
+      background: #fff; color: var(--black);
+      border: 1.5px solid var(--black); border-radius: 6px;
+      font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: .2px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: background .15s, color .15s;
+    }
+    .btn-group:hover { background: var(--black); color: #fff; }
+
+    /* Rappel « liste de groupe enregistrée » au-dessus du bouton panier :
+       l'ajout au panier créera une ligne par personne. */
+    /* Conteneur : le libellé (rouvre la liste) + une croix (la supprime). */
+    .grp-badge {
+      display: flex; align-items: center; gap: 4px;
+      margin-bottom: 8px; padding: 3px 4px 3px 6px;
+      background: #f0fdf4; color: #166534;
+      border: 1px solid #bbf7d0; border-radius: 6px;
+    }
+    /* Le libellé occupe toute la place restante : la zone cliquable pour
+       rouvrir la liste reste large, la croix garde sa cible propre. */
+    .grp-badge-txt {
+      flex: 1; min-width: 0;
+      padding: 5px 4px; border: none; background: none; color: inherit;
+      font: inherit; font-size: 11px; font-weight: 700;
+      text-align: center; line-height: 1.35;
+      cursor: pointer; border-radius: 4px; transition: background .15s;
+    }
+    .grp-badge-txt:hover { background: #dcfce7; }
+    /* Croix : discrète, elle ne concurrence pas l'action principale. */
+    .grp-badge-x {
+      flex: none; width: 22px; height: 22px;
+      display: grid; place-items: center;
+      border: none; border-radius: 4px; background: none;
+      color: #16653480; cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .grp-badge-x:hover { background: #fee2e2; color: #b91c1c; }
+    .grp-badge-x svg { width: 12px; height: 12px; }
+
+    /* ── Modale commande de groupe ── */
+    .grp-overlay, .grp-preview-overlay {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(15,17,20,.55); backdrop-filter: blur(2px);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .grp-overlay.open, .grp-preview-overlay.open { display: flex; }
+    .grp-modal {
+      background: #fff; border-radius: 14px; width: min(760px, 96vw);
+      max-height: 90vh; display: flex; flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden;
+    }
+    .grp-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--border);
+    }
+    .grp-head h3 { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+    .grp-sub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+    .grp-x {
+      flex: none; width: 30px; height: 30px; border: none; background: #f2f2f2;
+      border-radius: 8px; cursor: pointer; font-size: 15px; color: #555;
+    }
+    .grp-x:hover { background: #e6e6e6; }
+    .grp-body { padding: 16px 20px; overflow-y: auto; }
+
+    .grp-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    .grp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
+    .grp-table th {
+      text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .4px; color: var(--muted); padding: 9px 8px;
+      background: #fafafa; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .grp-opt { font-weight: 500; text-transform: none; letter-spacing: 0; }
+    .grp-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    .grp-table tr:last-child td { border-bottom: none; }
+    .grp-c-qty { width: 76px; }
+    .grp-c-act { width: 66px; }
+
+    .grp-inp, .grp-sel {
+      width: 100%; padding: 7px 8px; border: 1px solid var(--border);
+      border-radius: 7px; font: inherit; font-size: 12.5px; background: #fff; outline: none;
+    }
+    .grp-inp:focus, .grp-sel:focus { border-color: var(--black); }
+    .grp-qty { display: flex; align-items: center; gap: 2px; }
+    .grp-qty input {
+      width: 40px; text-align: center; padding: 6px 2px; border: 1px solid var(--border);
+      border-radius: 6px; font: inherit; font-size: 12.5px;
+    }
+    /* Pastille de couleur devant le select. */
+    .grp-color-cell { display: flex; align-items: center; gap: 6px; }
+    .grp-color-dot { width: 16px; height: 16px; border-radius: 4px; flex: none; border: 1px solid rgba(0,0,0,.15); }
+    .grp-row-btn {
+      border: none; background: none; cursor: pointer; padding: 5px; border-radius: 6px;
+      color: #888; line-height: 0;
+    }
+    .grp-row-btn:hover { background: #f2f2f2; color: var(--black); }
+    .grp-row-btn.danger:hover { color: #d33; }
+
+    .grp-add {
+      margin-top: 12px; padding: 9px 14px; background: #fff; color: var(--black);
+      border: 1.5px dashed var(--border); border-radius: 8px; font: inherit;
+      font-size: 12.5px; font-weight: 600; cursor: pointer; width: 100%;
+    }
+    .grp-add:hover { border-color: var(--black); }
+
+    /* Barre d'import : en tête de modale, au-dessus du tableau. */
+    .grp-import-bar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 12px 14px; margin-bottom: 14px;
+      background: #f7f8fa; border: 1px solid var(--border); border-radius: 10px;
+    }
+    .grp-btn-import {
+      padding: 9px 14px; border-radius: 8px; font: inherit; font-size: 12.5px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: 7px; flex-shrink: 0;
+      background: var(--black); color: #fff; border: 1.5px solid var(--black);
+    }
+    .grp-btn-import:hover { opacity: .85; }
+    .grp-import-hint {
+      margin: 0; flex: 1; min-width: 180px;
+      font-size: 11.5px; color: #6b7280; line-height: 1.5;
+    }
+    .grp-import-hint.err { color: #b42318; }
+    .grp-import-hint.ok  { color: #067647; }
+
+    @media (max-width: 768px) {
+      .grp-import-bar { flex-direction: column; align-items: stretch; }
+      .grp-btn-import { justify-content: center; }
+    }
+
+    .grp-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 14px; padding: 10px 12px; background: #f7f7f7; border-radius: 8px;
+      font-size: 13px;
+    }
+    .grp-summary strong { font-size: 15px; font-weight: 800; }
+    .grp-note {
+      margin-top: 12px; font-size: 11.5px; color: var(--muted); line-height: 1.55;
+      background: #fbf7ee; border: 1px solid #f0e6cf; border-radius: 8px; padding: 10px 12px;
+    }
+
+    .grp-foot {
+      display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border);
+    }
+    .grp-btn-secondary {
+      flex: 1; padding: 12px; background: #fff; border: 1.5px solid var(--border);
+      border-radius: 9px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .grp-btn-primary {
+      flex: 2; padding: 12px; background: var(--black); color: #fff; border: none;
+      border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .grp-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Aperçu d'une ligne */
+    .grp-preview-box {
+      position: relative; background: #fff; border-radius: 14px; padding: 18px;
+      width: min(420px, 94vw); box-shadow: 0 24px 60px rgba(0,0,0,.3);
+    }
+    .grp-preview-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; padding-right: 32px; }
+    .grp-preview-stage {
+      position: relative; background: var(--stage, #f5f5f5); border-radius: 10px;
+      min-height: 300px; display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .grp-preview-stage img { max-width: 100%; max-height: 340px; object-fit: contain; }
+
+    .rp-trust {
+      padding: 10px 16px 24px;
+      display: flex; flex-direction: column; gap: 8px;
+      border-top: 1px solid var(--border); margin-top: auto;
+    }
+    .ti { display: flex; align-items: center; gap: 8px; }
+    .ti-ico {
+      width: 28px; height: 28px; background: var(--bg-light);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ti-txt { font-size: 11px; font-weight: 600; line-height: 1; }
+    .ti-txt span { display: block; font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+    /* ══ SHOPIFY COMPAT: Reset thème parent ══ */
+    .conf-app-root *,
+    .conf-app-root *::before,
+    .conf-app-root *::after {
+      box-sizing: border-box;
+    }
+    /* Annule le padding/margin du main Shopify si présent */
+    .conf-app-root {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+    }
+    /* Sidebar scroll invisible mais fonctionnel */
+    .sb-inner { scrollbar-width: thin; scrollbar-color: #ddd transparent; }
+    /* Canvas occupe tout l'espace disponible */
+    .cv-wrap { flex: 1 1 0; min-height: 0; }
+    /* Recap: pas de scroll horizontal */
+    .recap { overflow-x: hidden; }
+    /* Assure que les hoodies SVG s'adaptent */
+    .product-svg { width: 100%; height: auto; }
+
+
+    /* ══ TYPE BAR ══ */
+    .type-bar {
+      height: var(--typebar-h);
+      border-bottom: 1px solid var(--border);
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      padding: 16px 20px 22px;
+      flex-shrink: 0;
+      grid-area: typebar;
+      border-right: 1px solid var(--border);
+    }
+    .type-bar-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+    }
+    .type-bar-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .type-bar-num {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--black);
+    }
+    .type-bar-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      line-height: 1.2;
+    }
+    .type-bar-sub {
+      font-size: 10px;
+      color: var(--faint);
+      margin-top: 1px;
+    }
+    .type-bar-cards {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      width: 100%;
+    }
+    .type-bar-cards::-webkit-scrollbar { display: none; }
+
+    /* Product type card — vertical layout with image */
+    .pt {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px 8px 8px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all .15s;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--black);
+      background: var(--white);
+      white-space: nowrap;
+      position: relative;
+      flex-shrink: 0;
+      min-width: 132px;
+    }
+    .pt:hover { border-color: #999; background: var(--bg-light); }
+    .pt.on {
+      background: var(--white);
+      border-color: var(--black);
+      color: var(--black);
+    }
+    .pt-ico {
+      width: 46px; height: 46px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .pt-img {
+      width: 38px; height: 38px;
+      object-fit: contain;
+      display: block;
+    }
+    .pt-ck {
+      position: absolute; top: -7px; right: -7px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--black);
+      color: var(--white);
+      font-size: 9px; font-weight: 900;
+      display: none;
+      align-items: center; justify-content: center;
+    }
+    .pt.on .pt-ck { display: flex; }
+
+    @keyframes cartBounce {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.25); }
+      70%  { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+
+    .obtn-cart {
+      position: relative;
+      border-color: #1a1a1a;
+      font-weight: 600;
+    }
+    .obtn-cart:hover {
+      background: #f0f0f0;
+    }
+
+
+    /* ══ CART DRAWER ══ */
+  .cart-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 99998;
+  }
+  .cart-overlay.open { display: block; }
+
+  .cart-drawer {
+    position: fixed;
+    top: 0; right: -420px;
+    width: 100%; max-width: 400px;
+    height: 100%;
+    background: #fff;
+    z-index: 99999;
+    display: flex; flex-direction: column;
+    box-shadow: -4px 0 24px rgba(0,0,0,.15);
+    transition: right .3s cubic-bezier(.4,0,.2,1);
+  }
+  .cart-drawer.open { right: 0; }
+
+  .cd-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .cd-title { font-size: 16px; font-weight: 700; }
+  .cd-count { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .cd-close {
+    width: 32px; height: 32px; border: none; background: none;
+    cursor: pointer; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--muted); transition: background .13s;
+  }
+  .cd-close:hover { background: var(--bg-light); color: var(--black); }
+
+  .cd-items { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .cd-items::-webkit-scrollbar { width: 3px; }
+  .cd-items::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+  .cd-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  /* Bouton depuis qu'un clic ramène au design de la ligne : on neutralise
+     les styles natifs (padding, fonte) pour garder l'aspect vignette. */
+  .cd-thumb {
+    width: 72px; height: 72px; border-radius: 8px;
+    background: var(--bg-light); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; overflow: hidden;
+    padding: 0; font: inherit; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  /* Affordance : rien d'autre n'indique que la vignette est cliquable. */
+  .cd-thumb:hover {
+    border-color: var(--black);
+    box-shadow: 0 0 0 3px rgba(26, 26, 26, .08);
+  }
+  .cd-thumb:focus-visible {
+    outline: 2px solid var(--black);
+    outline-offset: 2px;
+  }
+  .cd-thumb img { width: 100%; height: 100%; object-fit: contain; }
+  .cd-info { flex: 1; min-width: 0; }
+  .cd-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .cd-meta { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .cd-price { font-size: 14px; font-weight: 700; margin-top: 8px; }
+  /* Détail du prix dégressif (prix unitaire au palier + quantité). */
+  .cd-tier { font-size: 10.5px; font-weight: 600; color: #16a34a; white-space: nowrap; }
+
+  .cd-qty {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 10px;
+  }
+  .cd-qty-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: #fff;
+    font-size: 16px; font-weight: 400; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .13s;
+  }
+  .cd-qty-btn:hover { border-color: var(--black); }
+  /* Bouton « − » au minimum de commande : l'atelier ne produit pas en dessous.
+     Sans ce style, le bouton restait d'apparence cliquable alors que l'attribut
+     `disabled` ignorait le clic — le client croyait à un bug. Le `:hover` est
+     neutralisé ici, sinon la bordure noire suggérait encore une action. */
+  .cd-qty-btn:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+  }
+  .cd-qty-btn:disabled:hover { border-color: var(--border); }
+  .cd-qty-val { font-size: 13px; font-weight: 600; min-width: 20px; text-align: center; }
+  .cd-delete {
+    width: 28px; height: 28px; border: none; background: none;
+    cursor: pointer; color: #aaa; display: flex; align-items: center;
+    justify-content: center; border-radius: 50%; transition: color .13s, background .13s;
+    margin-left: auto; align-self: flex-start;
+  }
+  .cd-delete:hover { color: #e33; background: #fee2e2; }
+
+  .cd-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; gap: 12px;
+    color: var(--muted); font-size: 13px; text-align: center; padding: 40px;
+  }
+
+  .cd-footer {
+    border-top: 1px solid var(--border);
+    padding: 16px 20px 20px;
+    flex-shrink: 0;
+    background: #fff;
+  }
+  .cd-subtotal {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px;
+  }
+  .cd-subtotal-lbl { font-size: 12px; color: var(--muted); }
+  .cd-subtotal-val { font-size: 18px; font-weight: 800; }
+  .cd-tax-note { font-size: 10px; color: var(--faint); margin-bottom: 14px; }
+  .cd-checkout {
+    width: 100%; padding: 14px;
+    background: var(--black); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .2s;
+  }
+  .cd-checkout:hover { background: #333; }
+  .cd-continue {
+    width: 100%; padding: 10px;
+    background: #fff; color: var(--black);
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    margin-top: 8px; transition: border-color .15s;
+  }
+  .cd-continue:hover { border-color: var(--black); }
+
+
+  /* ══════════════════════════ MOBILE (≤ 768px) ══════════════════════════
+     Refonte en COLONNE UNIQUE : aperçu en haut, options empilées dessous,
+     récapitulatif transformé en panneau fixe repliable en bas de l'écran. */
+  @media (max-width: 768px) {
+    /* La structure est à DEUX niveaux :
+         .conf-app-root (grille)  ->  .hdr + .type-bar + .app
+         .app (flex ligne)        ->  .sidebar + .canvas + .recap
+       On aplatit tout en une colonne. */
+
+    /* Niveau racine : structure de base commune.
+       ATTENTION — le layout mobile (canvas plein écran façon CustomInk) est
+       défini dans conf-mobile.css, chargé APRÈS ce fichier. L'ancienne mise en
+       page « page qui défile » a été retirée d'ici : elle imposait
+       `overflow:visible` + `padding-bottom` au root et bridait .cv-wrap, ce qui
+       empêchait le canvas plein écran. Ne pas la réintroduire.
+       Ce qui reste ci-dessous et sert toujours : header compact, grilles
+       d'options, barre récap repliable. */
+    .hdr { order: 0; border-right: none; padding: 0 14px; }
+    .type-bar { order: 1; }
+    .app { order: 2; }
+    /* .app / .canvas : géométrie définie dans conf-mobile.css (canvas plein
+       écran). Rien ici, sinon les deux fichiers se contredisent.
+       .recap sort du flux (panneau fixe, voir plus bas). */
+
+    /* — Header : titre + actions sur une ligne ; le stepper passe DESSOUS,
+         sur sa propre ligne, comme sur les maquettes. — */
+    .hdr {
+      flex-wrap: wrap;
+      height: auto;
+      row-gap: 8px;
+      padding: 10px 14px;
+    }
+    .hdr-brand { min-width: 0; flex: 1; }
+    .hdr-name { font-size: 13px; }
+    .hdr-sub { display: none; }               /* sous-titre superflu sur mobile */
+    .hdr-btns { min-width: 0; gap: 6px; }
+    .obtn { padding: 7px 9px; font-size: 11px; }
+    .obtn svg { margin: 0; }
+    /* Le stepper : pleine largeur, sous le titre, défilable si besoin. */
+    .hdr-steps {
+      order: 3;
+      flex: 1 0 100%;
+      justify-content: center;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-top: 4px;
+    }
+    .hdr-steps::-webkit-scrollbar { display: none; }
+    .step-lbl { font-size: 11px; }
+
+    /* .sidebar = ANCIENNE sidebar, déjà masquée (style="display:none") dans le
+       HTML. Aucune règle nécessaire ici.
+       L'aperçu (.cv-wrap) n'est plus bridé en hauteur : il occupe tout l'espace
+       disponible, voir conf-mobile.css. */
+
+    /* — Barre de types de produit : défilement horizontal — */
+    .type-bar {
+      height: auto;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 10px 14px;
+    }
+    .type-bar::-webkit-scrollbar { display: none; }
+    /* Les 6 cartes produit défilent horizontalement (elles ne tiennent pas). */
+    .type-bar-cards {
+      display: flex;
+      gap: 8px;
+      grid-template-columns: none;
+      min-width: min-content;
+    }
+    .type-bar-cards > .pt { flex: 0 0 auto; }
+    /* L'en-tête « 1. Type de produit » reste au-dessus, sur sa ligne. */
+    .type-bar-inner { flex-wrap: wrap; }
+
+    /* — Sélecteurs d'options : grilles plus compactes — */
+    .txt-shape-grid,
+    .conf-shape-grid,
+    .coins-shape-row { grid-template-columns: repeat(4, 1fr) !important; }
+
+    /* — Récapitulatif : panneau FIXE repliable en bas —
+         REPLIÉ  : on voit la poignée + le bloc prix + les boutons d'action.
+         DÉPLIÉ  : le détail (produit, options, confiance) apparaît en défilant.
+         Deux structures de récap coexistent :
+           • textile : .rp-hdr / .rp-items / .rp-price / .rp-acts / .rp-trust
+           • coins/drapeaux/patchs : .rp-section… / .rp-actions-coins / .rp-trust-coins
+         D'où les sélecteurs doublés ci-dessous. */
+    .recap {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      width: 100%;
+      height: 88vh;                            /* hauteur du panneau déployé */
+      background: var(--white);
+      border-left: none;
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -6px 24px rgba(0,0,0,.14);
+      border-radius: 16px 16px 0 0;
+      z-index: 40;
+      /* Replié : on remonte le panneau juste assez pour voir poignée + prix +
+         boutons. --recap-peek dimensionne cette hauteur visible ; elle est
+         ajustée en JS selon le nombre de boutons (textile : 2, patch/coin : 3). */
+      transform: translateY(calc(88vh - var(--recap-peek, 260px)));
+      transition: transform .28s ease;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .recap.open { transform: translateY(0); }
+
+    /* Poignée de tirage (ajoutée en JS) tout en haut du panneau. */
+    .recap-handle {
+      flex: none;
+      display: flex; align-items: center; justify-content: center;
+      padding: 8px 0 4px; cursor: pointer;
+    }
+    .recap-handle::before {
+      content: ''; width: 40px; height: 4px; border-radius: 3px;
+      background: #d0d0d0;
+    }
+
+    /* Ordre d'empilement du panneau, indépendant du DOM (grâce à `order`) :
+         1) poignée
+         2) tout le DÉTAIL qui défile (récap produit, options, ET la zone de
+            confiance) — order:1
+         3) prix — order:2
+         4) boutons d'action — order:3   ← calés tout en bas = la « barre »
+       La zone de confiance passe ainsi DANS la partie déroulante, au-dessus du
+       bloc prix+boutons, comme demandé. */
+    .recap-handle { order: 0; }
+    .rp-hdr, .rp-items, .rp-content,
+    .rp-section, .rp-qty-section,
+    .rp-trust, .rp-trust-coins { order: 1; }
+
+    .rp-hdr { flex: none; padding: 4px 16px 8px; }
+    .rp-items,
+    .rp-content { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+    /* Le détail des produits coins/drapeaux/patchs (plusieurs .rp-section) doit
+       aussi pouvoir défiler : on les regroupe visuellement dans la zone 1. */
+    .rp-section, .rp-qty-section { flex: none; }
+
+    /* Zones de confiance : dans le flux déroulant, au-dessus du bloc d'action. */
+    .rp-trust, .rp-trust-coins { flex: none; }
+
+    /* Prix : juste au-dessus des boutons. */
+    .rp-price, .rp-total-section {
+      order: 2; flex: none; background: var(--white);
+      border-top: 1px solid var(--border);
+    }
+
+    /* Boutons : tout en bas, toujours visibles (= la barre en position repliée). */
+    .rp-acts, .rp-actions-coins {
+      order: 3; flex: none; background: var(--white);
+      padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* Boutons pleine largeur, faciles au doigt. */
+    .rp-btn-primary, .rp-btn-secondary,
+    .btn-cart, .btn-save {
+      width: 100%; min-height: 46px; justify-content: center; font-size: 14px;
+    }
+    .rp-acts { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+
+    /* Boutons plus grands, faciles au doigt. */
+    .btn-cart, .btn-save { min-height: 46px; font-size: 14px; }
+  }
+
+  /* Très petits écrans : sélecteurs de forme sur 4 colonnes serrées. */
+  @media (max-width: 380px) {
+    .txt-shape-grid,
+    .conf-shape-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+
+/* ── Section « Personnalisation » : liste d'options dépliables ────────────
+   Cinq entrées (texte, logo, surnoms, logo dos, manches) sous une seule
+   section. Chaque ligne se déplie au clic pour révéler sa zone de travail :
+   la barre latérale reste courte au repos, tout en gardant les aperçus et les
+   boutons Supprimer visibles une fois une zone remplie. */
+.perso-list { border-top: 1px solid var(--border); }
+.perso-item { border-bottom: 1px solid var(--border); }
+.perso-head {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 11px 2px; background: none; border: none; cursor: pointer;
+  font-family: inherit; text-align: left; color: var(--black);
+}
+.perso-head:hover .perso-name { color: var(--blue); }
+.perso-ico { flex: 0 0 20px; font-size: 15px; line-height: 1; text-align: center; }
+.perso-txt { flex: 1; min-width: 0; }
+.perso-name { display: block; font-size: 11.5px; font-weight: 600; }
+.perso-sub  { display: block; margin-top: 1px; font-size: 9.5px; color: var(--faint); }
+/* Chevron : pivote quand la ligne est ouverte. */
+.perso-caret {
+  flex: 0 0 auto; font-size: 11px; color: var(--faint);
+  transition: transform .18s;
+}
+.perso-item.open .perso-caret { transform: rotate(90deg); }
+.perso-body { display: none; padding: 0 2px 12px; }
+.perso-item.open .perso-body { display: block; }
+/* Pastille « rempli » : le client repère d'un coup d'œil ce qui est déjà fait. */
+.perso-done {
+  flex: 0 0 auto; font-size: 9px; font-weight: 700; color: var(--ok, #16a34a);
+  display: none;
+}
+.perso-item.filled .perso-done { display: inline; }
+
+    /* ══ BARRE D'OUTILS TEXTE (au-dessus de l'aperçu produit) ══
+       Remplace le basculement de la sidebar : le client personnalise son texte
+       sans perdre ses repères ni masquer l'aperçu. */
+    .txt-tb {
+      display: none; align-items: center; gap: 0;
+      /* HORS DU FLUX : flotte au-dessus de l'apercu sans le retrecir. */
+      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+      background: #fff; border-radius: 999px;
+      box-shadow: 0 3px 14px rgba(0,0,0,.13), 0 0 0 1px rgba(0,0,0,.05);
+      padding: 3px; z-index: 30; white-space: nowrap; max-width: 96%;
+    }
+    .txt-tb-grp {
+      display: flex; align-items: center; gap: 1px;
+      padding: 0 7px; position: relative;
+      border-right: 1px solid #e8e8e8;
+    }
+    .txt-tb-grp:last-child { border-right: none; }
+    .txt-tb-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      min-width: 27px; height: 27px; padding: 0 6px;
+      border: none; background: none; border-radius: 8px;
+      font: inherit; font-size: 12px; font-weight: 700; color: #1a1a1a;
+      cursor: pointer; transition: background .15s;
+    }
+    .txt-tb-btn:hover { background: #f2f2f2; }
+    .txt-tb-btn.on { background: #1a1a1a; color: #fff; }
+    .txt-tb-label { font-weight: 800; white-space: nowrap; }
+    /* Chevron du bouton Police : signale qu'une liste s'ouvre. */
+    .txt-tb-label[data-act="font"] { display: inline-flex; align-items: center; gap: 5px; }
+    .txt-tb-caret { flex-shrink: 0; opacity: .55; }
+    .txt-tb-del { color: #d92d20; }
+    .txt-tb-del:hover { background: #fdecea; }
+    /* Curseur de taille */
+    .txt-tb-size { gap: 8px; }
+    .txt-tb-cap { font-size: 10.5px; color: #777; font-weight: 600; white-space: nowrap; }
+    .txt-tb-range { width: 92px; accent-color: #1a1a1a; cursor: pointer; }
+    /* Valeur courante : sans elle, la plage élargie (6–72) ne dit rien.
+       Largeur fixe + tabular-nums pour que la barre ne tressaute pas quand
+       on passe de 9 à 10. */
+    .txt-tb-size-val {
+      font-size: 10.5px; font-weight: 700; color: #1a1a1a;
+      min-width: 18px; text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Pastille de couleur courante */
+    .txt-tb-dot {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.18); flex: none;
+    }
+    /* Menus déroulants (police / couleur) */
+    .txt-tb-pop {
+      display: none; position: absolute; top: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%); background: #fff; border-radius: 14px;
+      /* Ombre en deux couches : un halo large pour détacher le menu de
+         l'aperçu produit, un liseré net pour en dessiner le bord. */
+      box-shadow: 0 10px 30px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.08),
+                  0 0 0 1px rgba(0,0,0,.05);
+      padding: 8px; z-index: 40;
+    }
+    .txt-tb-pop.on { display: block; }
+    
+    /* Scroller pour le menu des polices */
+    .txt-tb-font-scroll {
+      max-height: 280px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+    }
+    
+    /* Barre de scroll personnalisée */
+    .txt-tb-font-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    .txt-tb-font-scroll::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    .txt-tb-font-scroll::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 10px;
+    }
+    .txt-tb-font-scroll::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+    
+    .txt-tb-fitem {
+      display: block; width: 100%; text-align: left; white-space: nowrap;
+      padding: 7px 12px; border: none; background: none; border-radius: 7px;
+      font-size: 13px; cursor: pointer; color: #1a1a1a;
+    }
+    .txt-tb-fitem:hover { background: #f2f2f2; }
+    /* Nuancier.
+
+       La grille porte sur les PASTILLES seules, via .txt-tb-sw-grid : quand
+       elle était posée sur le menu entier, le bloc « Couleur personnalisée »
+       comptait comme une 17e case et cassait l'alignement des rangées. */
+    .txt-tb-pop[data-pop="color"] { display: none; width: auto; }
+    .txt-tb-pop[data-pop="color"].on {
+      display: flex; flex-direction: column; gap: 10px; padding: 12px;
+    }
+    .txt-tb-sw-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 26px);
+      gap: 8px;
+    }
+    .txt-tb-sw {
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      padding: 0; cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.10);
+      transition: transform .14s ease, box-shadow .14s ease;
+    }
+    .txt-tb-sw:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.18);
+    }
+    .txt-tb-sw:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1a1a1a;
+    }
+    /* Couleur active : anneau sombre détaché de la pastille, lisible aussi
+       bien sur le blanc que sur le noir du nuancier. */
+    .txt-tb-sw[aria-pressed="true"] {
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1a1a1a;
+    }
+    @media (max-width: 900px) {
+      .txt-tb { overflow-x: auto; width: 100%; border-radius: 14px; }
+      .txt-tb-range { width: 80px; }
+    }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SÉLECTEUR DE COULEUR PERSONNALISÉE - Barre d'outils texte
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Le séparateur est porté par le bloc lui-même (pas de marge externe) :
+   le `gap` du menu suffit à l'espacer des pastilles. */
+.txt-tb-custom-color {
+  padding-top: 10px;
+  border-top: 1px solid #ececec;
+}
+
+/* Cible de clic pleine largeur, avec un état survolé visible : le libellé
+   seul ne se lisait pas comme un bouton. */
+.txt-tb-custom-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px;
+  margin: -6px;                 /* compense le padding, garde l'alignement */
+  box-sizing: border-box;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #444;
+  position: relative;
+  transition: background .15s ease, color .15s ease;
+}
+
+.txt-tb-custom-label:hover {
+  color: #111;
+  background: #f4f4f5;
+}
+
+.txt-tb-custom-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.txt-tb-custom-icon:hover {
+  transform: scale(1.1);
+}
+
+.txt-tb-custom-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Clic sur le label ouvre le color picker */
+.txt-tb-custom-label {
+  cursor: pointer;
+}
+
+.txt-tb-custom-label:hover .txt-tb-custom-icon {
+  transform: scale(1.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SÉLECTEUR DE COULEUR PERSONNALISÉE - Panneau d'édition texte
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.txt-custom-color {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  width: 100%;
+}
+
+.txt-custom-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: color 0.2s ease;
+  position: relative;
+}
+
+.txt-custom-label:hover {
+  color: #000;
+}
+
+.txt-custom-icon {
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.txt-custom-icon:hover {
+  transform: scale(1.1);
+}
+
+.txt-custom-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.txt-custom-label span {
+  font-weight: 500;
+}

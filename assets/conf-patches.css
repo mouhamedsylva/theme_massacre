@@ -1,0 +1,939 @@
+/**
+ * Patchs / Coins métalliques (CUSTOM COINS) - Styles
+ */
+
+/* ========================================
+   SIDEBAR
+======================================== */
+
+/* 1. Type de personnalisation */
+.coin-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coin-type-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.coin-type-card:hover { border-color: #1a1a1a; }
+
+.coin-type-card.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.coin-type-icon { flex-shrink: 0; }
+
+.coin-type-info { flex: 1; }
+
+.coin-type-info strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 3px;
+}
+
+.coin-type-info span {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.coin-type-check {
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid #d5d8dd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 12px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.coin-type-card.active .coin-type-check {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+/* Numérotation */
+.coin-numbering-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.coin-num-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+
+.coin-num-qty {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.coin-num-btn {
+  width: 30px;
+  height: 34px;
+  border: none;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  color: #1a1a1a;
+}
+
+.coin-num-btn:hover { background: #f3f3f3; }
+
+.coin-num-qty input {
+  flex: 1;
+  width: 100%;
+  height: 34px;
+  border: none;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.coin-num-qty input:focus { outline: none; }
+
+.coin-num-note {
+  display: block;
+  font-size: 9px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.coin-num-start {
+  width: 100%;
+  height: 34px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.coin-num-start:focus { outline: none; border-color: #1a1a1a; }
+
+/* Upload logos */
+.coin-upload-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.coin-upload-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coin-upload-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.coin-upload-box {
+  border: 1.5px dashed #d5d8dd;
+  border-radius: 10px;
+  padding: 16px 10px;
+  text-align: center;
+  cursor: pointer;
+  background: #fafafa;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.coin-upload-box:hover { border-color: #1a1a1a; background: #f5f5f5; }
+
+.coin-upload-box p {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.coin-upload-box span {
+  font-size: 8px;
+  color: #888;
+  line-height: 1.3;
+}
+
+/* Forme & Taille */
+.coin-shape-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.coin-shape-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.coin-shape-card:hover { border-color: #1a1a1a; }
+
+.coin-shape-card.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.coin-shape-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1a1a1a;
+}
+
+.coin-size-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.coin-size-card {
+  padding: 10px 4px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.coin-size-card:hover { border-color: #1a1a1a; }
+
+.coin-size-card.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+/* Finition métallique */
+.coin-finish-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.coin-finish-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 2px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.coin-finish-card:hover { border-color: #1a1a1a; }
+
+.coin-finish-card.active { border-color: #1a1a1a; border-width: 2px; }
+
+.coin-finish-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.coin-finish-card span {
+  font-size: 8px;
+  font-weight: 600;
+  color: #555;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Surface */
+.coin-surface-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.coin-surface-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #c9a227;
+}
+
+.coin-surface-card:hover { border-color: #1a1a1a; }
+
+.coin-surface-card.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.coin-surface-card svg { flex-shrink: 0; }
+
+.coin-surface-card strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.coin-surface-card span {
+  display: block;
+  font-size: 9px;
+  color: #666;
+  line-height: 1.3;
+}
+
+/* ========================================
+   CANVAS : pièce métallique 3 vues
+======================================== */
+.coin-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Onglets 3D / 2D */
+.coin-view-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f2f4;
+  padding: 4px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.coin-view-btn {
+  padding: 8px 22px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.coin-view-btn.active { background: #1a1a1a; color: #fff; }
+
+/* Scène 3 vues */
+.coin-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 4vw, 60px);
+  flex-wrap: wrap;
+  padding: 10px 0;
+}
+
+.coin-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.coin-view-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #6b7280;
+}
+
+/* Le disque (recto / verso) — image de pièce réelle */
+.coin-disc {
+  position: relative;
+  width: clamp(150px, 17vw, 220px);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Zone imprimable de la pièce (INVISIBLE) ────────────────────────────
+   L'élément matérialise les bornes du motif — le pourtour est occupé par le
+   listel, bord relevé de la frappe — mais il n'est PAS montré au client :
+   l'aperçu de la pièce doit rester net. La contrainte, elle, reste appliquée
+   au logo (COIN_INSET / COIN_OFFSET_Y dans conf-logo-drag.js) au déplacement,
+   au redimensionnement et à l'upload.
+   Pour réafficher le repère en développement : passer opacity à 1. */
+.coin-safe-zone {
+  position: absolute;
+  /* = COIN_INSET, décalé de COIN_OFFSET_Y vers le bas : le rendu 3D donne à
+     la pièce une épaisseur visible en partie basse, et un motif centré sur
+     l'image paraît trop haut sur la frappe. */
+  /* Valeurs en % de l IMAGE. Le disque n en occupe pas la totalite, et pas
+     dans les memes proportions horizontalement et verticalement — mesure
+     sur patch-recto.png / patch-verso.png : 78,6 % de large, 81 % de haut.
+     Le calcul precedent appliquait 79,4 % dans les DEUX sens, d ou une
+     marge trop grande en hauteur et un anneau blanc visible entre le
+     pointille et le bord de la piece.
+
+       marge_x = (100 - 78,6)/2 + 78,6 x COIN_INSET/100
+       marge_y = (100 - 81,0)/2 + 81,0 x COIN_INSET/100
+
+     COIN_INSET ramene de 3 % a 1 % : la zone doit epouser le contour de la
+     frappe, en ne reservant que le listel (le bord releve, ou le motif ne
+     s imprime pas). */
+  left: 11.5%;
+  right: 11.5%;
+  top: 13.3%;                    /* 11.8 + 1.5 (COIN_OFFSET_Y) */
+  bottom: 10.3%;                 /* 11.8 - 1.5 */
+  border: 1px dashed rgba(220, 38, 38, .6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;                    /* au-dessus de l'image (0), sous le logo (3) */
+  /* Visible tant que la face est VIDE : le repère indique où déposer un
+     design. Voir .coin-disc.filled plus bas pour la suite du cycle. */
+  opacity: 1;
+  transition: opacity .2s ease;
+}
+
+/* ── Visibilité du repère (même règle que les textiles) ──
+   Face remplie -> le repère s'efface, le design occupe la place.
+   Pendant un déplacement/redimensionnement -> il réapparaît comme guide.
+   .filled est posée par updateCoinZoneGuides() (conf-patches.js) ;
+   .is-manipulating par conf-logo-drag.js le temps du geste. */
+.coin-disc.filled .coin-safe-zone { opacity: 0; }
+
+.coin-stage.is-manipulating .coin-safe-zone,
+.coin-stage.is-manipulating .coin-disc.filled .coin-safe-zone {
+  opacity: 1;
+}
+
+/* Image de base de la pièce */
+.coin-base-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 0;
+  pointer-events: none;
+  transition: filter 0.25s ease;
+}
+
+/* ── Découpé à la forme ─────────────────────────────────────────────────
+   La pièce épouse le contour du visuel fourni : le disque métallique
+   disparaît, seul le design détouré reste, avec la finition métallique
+   appliquée dessus. Suppose une image à canal alpha (PNG/SVG transparent) ;
+   à défaut, le configurateur propose le détourage automatique.
+
+   Le clip-path « dents de scie » de l'ancienne version est retiré : il
+   imposait une forme arbitraire, sans rapport avec le design. */
+.coin-disc.shape-decoupe .coin-base-img {
+  opacity: 0;                    /* le disque s'efface */
+}
+/* Le visuel occupe la pièce entière et porte l'effet métal. */
+.coin-disc.shape-decoupe .coin-logo {
+  filter: var(--coin-finish-filter, none)
+          drop-shadow(0 2px 3px rgba(0,0,0,.28));
+}
+/* Sans disque, le repère de zone n'a plus de sens. */
+.coin-disc.shape-decoupe .coin-safe-zone { display: none; }
+
+/* Vue de côté MASQUÉE — pour les COINS uniquement (.coin-stage.is-coin).
+   Elle montrait le motif du recto étalé sur la tranche, sans le rognage ni le
+   cadrage désormais appliqués au disque : le visuel y débordait et ne
+   correspondait plus à ce que le client avait réglé. Un aperçu faux vaut
+   moins que pas d'aperçu — la colonne entière est retirée, sinon un espace
+   vide subsisterait entre RECTO et VERSO.
+   Le markup et sa logique restent en place : rétablir cette vue ne demandera
+   que de retirer cette règle, une fois la tranche rendue fidèlement.
+   Le marqueur est nécessaire car les deux canvas (patchs et coins) partagent
+   ce markup — voir le mapping inversé de categoryMap. */
+.coin-stage.is-coin .coin-view[data-view="cote"] { display: none !important; }
+
+/* Pièce épousant le contour du design : la tranche d'un disque n'a plus de
+   sens. (Règle d'origine, conservée pour l'autre canvas.) */
+.coin-stage.shape-decoupe .coin-view[data-view="cote"] { display: none; }
+
+/* Vue de côté (tranche) — image de pièce réelle */
+.coin-edge {
+  position: relative;
+  width: clamp(60px, 8vw, 120px);
+  height: clamp(150px, 17vw, 220px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Placeholder + design dans le disque */
+.coin-placeholder {
+  text-align: center;
+  color: #6b7075;
+  z-index: 1;
+  padding: 14px;
+}
+
+.coin-placeholder p {
+  font-size: 11px;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}
+
+.coin-design-img {
+  position: absolute;
+  inset: 22%;
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  z-index: 2;
+}
+
+/* Bouton supprimer sous une zone d'upload de coin */
+.coin-remove-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #c0392b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.coin-remove-btn:hover {
+  background: #fdf0ee;
+  border-color: #c0392b;
+}
+
+/* Logo déplaçable/redimensionnable sur la pièce (recto/verso) */
+.coin-logo {
+  z-index: 3;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   DESIGN EN COUVERTURE (comme les patchs et les drapeaux)
+   Le motif REMPLIT la zone frappée et déborde : le surplus est rogné par
+   le disque. On recadre en glissant, on agrandit au double-clic.
+   Le mode « découpé à la forme » en est exclu : la pièce épouse alors le
+   contour du design, il n'y a plus de zone à couvrir.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Cadre de rognage, posé en pixels par syncCoinCrop() sur la zone frappée.
+   Rond : le motif suit le pourtour de la pièce, pas un carré. */
+.coin-crop {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 50%;
+  pointer-events: none;   /* le geste passe au logo, à l'intérieur */
+  z-index: 3;
+}
+.coin-crop .coin-logo { pointer-events: auto; }
+
+.coin-logo.is-cover img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.coin-logo.is-cover {
+  cursor: grab;
+  touch-action: none;
+}
+.coin-logo.is-cover.dragging { cursor: grabbing; }
+
+/* ── Mode ÉDITION (double-clic) ── */
+.coin-disc.coin-editing .coin-crop { overflow: visible; }
+.coin-disc.coin-editing .coin-logo img { opacity: .35; }
+
+/* Doublure rognée : restitue la zone frappée en pleine opacité. */
+.coin-crop-preview {
+  position: absolute;
+  overflow: hidden;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 6;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .9),
+              0 0 0 3px rgba(26, 26, 26, .55);
+}
+/* Échappe aux règles génériques qui masqueraient ou brideraient l'image. */
+.coin-crop-preview img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  opacity: 1 !important;
+}
+
+/* Cadre de l'image éditée : ses bords réels, ceux que les coins déplacent. */
+.coin-disc.coin-editing .coin-logo {
+  outline: 2px dashed rgba(220, 38, 38, .85);
+  z-index: 5;   /* SOUS la doublure : la zone frappée reste nette */
+}
+
+/* ── Poignées : les 4 COINS en édition, rien sinon ── */
+.coin-logo.is-cover .logo-resize { display: none !important; }
+
+.coin-disc.coin-editing .coin-logo .logo-resize.pos-nw,
+.coin-disc.coin-editing .coin-logo .logo-resize.pos-ne,
+.coin-disc.coin-editing .coin-logo .logo-resize.pos-sw,
+.coin-disc.coin-editing .coin-logo .logo-resize.pos-se {
+  display: block !important;
+  z-index: 8;
+}
+.coin-disc.coin-editing .coin-logo .logo-ctrl { display: none !important; }
+.coin-logo img {
+  width: 100%;
+  height: auto;
+  display: block;
+  pointer-events: none;
+}
+
+/* Logo affiché sur la tranche (vue de côté) - non déplaçable, vu en perspective */
+.coin-cote-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* rotateY donne l'effet "vu de profil" ; --coin-logo-scale reflète la taille du recto */
+  transform: translate(-50%, -50%) perspective(400px) rotateY(78deg) scale(var(--coin-logo-scale, 1));
+  width: 55%;
+  object-fit: contain;
+  z-index: 2;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+/* Or brillant */
+.coin-disc.finish-or .coin-base-img,
+.coin-edge.finish-or .coin-base-img {
+  filter: sepia(0.75) saturate(2.2) hue-rotate(-8deg) brightness(1.08);
+}
+
+/* Argent brillant */
+.coin-disc.finish-argent .coin-base-img,
+.coin-edge.finish-argent .coin-base-img {
+  filter: grayscale(0.15) brightness(1.12) contrast(1.02);
+}
+
+/* Nickel noir */
+.coin-disc.finish-nickel .coin-base-img,
+.coin-edge.finish-nickel .coin-base-img {
+  filter: grayscale(1) brightness(0.45) contrast(1.2);
+}
+
+/* Bronze antique */
+.coin-disc.finish-bronze .coin-base-img,
+.coin-edge.finish-bronze .coin-base-img {
+  filter: sepia(0.85) saturate(1.8) hue-rotate(-18deg) brightness(0.92);
+}
+
+/* Cuivre antique */
+.coin-disc.finish-cuivre .coin-base-img,
+.coin-edge.finish-cuivre .coin-base-img {
+  filter: sepia(0.9) saturate(2.6) hue-rotate(-28deg) brightness(0.98);
+}
+
+/* Nickel noir */
+.coin-disc.finish-nickel .coin-base-img,
+.coin-edge.finish-nickel .coin-base-img {
+  filter: grayscale(1) brightness(0.45) contrast(1.2);
+}
+
+/* Bronze antique */
+.coin-disc.finish-bronze .coin-base-img,
+.coin-edge.finish-bronze .coin-base-img {
+  filter: sepia(0.85) saturate(1.8) hue-rotate(-18deg) brightness(0.92);
+}
+
+/* Cuivre antique */
+.coin-disc.finish-cuivre .coin-base-img,
+.coin-edge.finish-cuivre .coin-base-img {
+  filter: sepia(0.9) saturate(2.6) hue-rotate(-28deg) brightness(0.98);
+}
+
+/* Vue 2D : vue de côté masquée */
+.coin-stage.view-2d .coin-view[data-view="cote"] { display: none; }
+
+/* ========================================
+   RÉCAP : faces recto / verso
+======================================== */
+.rp-coin-faces {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rp-coin-face {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rp-coin-face strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.rp-coin-face span {
+  font-size: 10px;
+  color: #888;
+}
+
+.coin-thumb {
+  background: radial-gradient(circle at 38% 32%, #f2f3f4, #d6d9dc 45%, #b3b7bb 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ========================================
+   Modal Demande de devis (Coins)
+======================================== */
+.qm-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: qmFade 0.2s ease;
+}
+@keyframes qmFade { from { opacity: 0; } to { opacity: 1; } }
+
+.qm-box {
+  position: relative;
+  background: #fff; border-radius: 16px;
+  width: 100%; max-width: 760px; max-height: 90vh; overflow-y: auto;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.qm-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px; border: none; border-radius: 50%;
+  background: #f2f2f2; cursor: pointer; font-size: 15px; color: #555;
+  display: flex; align-items: center; justify-content: center;
+}
+.qm-close:hover { background: #e5e5e5; }
+
+.qm-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.qm-sub { font-size: 13px; color: #888; margin-bottom: 22px; }
+
+.qm-content {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+@media (max-width: 640px) { .qm-content { grid-template-columns: 1fr; } }
+
+/* Design du coin */
+.qm-design-title, .qm-specs-title {
+  font-size: 12px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 12px;
+}
+.qm-previews { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+.qm-preview { text-align: center; }
+.qm-preview-disc {
+  position: relative; width: 130px; height: 130px;
+  margin: 0 auto 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+/* La pièce (image de base) remplit tout le disque */
+.qm-preview-base { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Le logo client se superpose au centre de la pièce */
+.qm-preview-logo {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 52%; height: 52%; object-fit: contain; z-index: 2;
+}
+.qm-preview span { font-size: 10px; font-weight: 700; color: #6b7280; letter-spacing: .5px; }
+
+.qm-specs {
+  background: #fafafa; border: 1px solid #eee; border-radius: 10px; padding: 14px;
+}
+.qm-specs ul { margin: 0; padding-left: 18px; }
+.qm-specs li { font-size: 12px; color: #555; line-height: 1.6; }
+
+/* Formulaire */
+.qm-form { display: flex; flex-direction: column; gap: 12px; }
+.qm-field label {
+  display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #444;
+}
+.qm-field label span { color: #c0392b; }
+.qm-field input, .qm-field textarea {
+  width: 100%; padding: 10px 12px; border: 1.5px solid #e5e5e5;
+  border-radius: 8px; font-size: 13px; font-family: inherit; color: #1a1a1a;
+}
+.qm-field input:focus, .qm-field textarea:focus { outline: none; border-color: #1a1a1a; }
+.qm-field textarea { resize: vertical; }
+
+.qm-submit {
+  margin-top: 6px; padding: 13px; background: #1a1a1a; color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: background .2s;
+}
+.qm-submit:hover { background: #333; }
+
+/* Confirmation */
+.qm-success { text-align: center; padding: 30px 10px; }
+.qm-success-icon {
+  width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
+  background: #e8f7ee; color: #16a34a; display: flex; align-items: center; justify-content: center;
+}
+.qm-success h2 { font-size: 20px; margin-bottom: 8px; }
+.qm-success p { font-size: 14px; color: #666; margin-bottom: 20px; }
+
+/* ── Finitions : exposées en variable ───────────────────────────────────
+   Le même filtre sert au disque (.coin-base-img) et, en mode « découpé à la
+   forme », au visuel détouré qui remplace le disque. Déclarer la valeur une
+   fois par finition évite que les deux rendus divergent. */
+.coin-disc.finish-or     { --coin-finish-filter: sepia(0.75) saturate(2.2) hue-rotate(-8deg) brightness(1.08); }
+.coin-disc.finish-argent { --coin-finish-filter: grayscale(0.15) brightness(1.12) contrast(1.02); }
+.coin-disc.finish-nickel { --coin-finish-filter: grayscale(1) brightness(0.45) contrast(1.2); }
+.coin-disc.finish-bronze { --coin-finish-filter: sepia(0.85) saturate(1.8) hue-rotate(-18deg) brightness(0.92); }
+.coin-disc.finish-cuivre { --coin-finish-filter: sepia(0.9) saturate(2.6) hue-rotate(-28deg) brightness(0.98); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BARRE D'OUTILS DU LOGO (coins)
+   Actions de cadrage sur l'image posée sur la pièce. Reprend le langage
+   visuel de la barre texte (.txt-tb) : pilule blanche, ombre douce.
+   Ancrée en position:fixed par conf-coin-toolbar.js, qui la place sous
+   la pièce — elle échappe ainsi à l'overflow du canvas.
+   ═══════════════════════════════════════════════════════════════════ */
+.coin-toolbar {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .13), 0 0 0 1px rgba(0, 0, 0, .05);
+  padding: 4px 6px;
+  /* Au-dessus du canvas, mais SOUS la barre d'icônes (z-index:1000) et les
+     panneaux latéraux : la barre flotte au-dessus de l'aperçu et ne doit
+     jamais intercepter les clics sur la navigation. */
+  z-index: 90;
+  white-space: nowrap;
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  /* Barre de défilement masquée : sur petit écran la barre défile
+     horizontalement, mais une scrollbar visible alourdirait la pilule. */
+  scrollbar-width: none;
+}
+
+.coin-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.coin-toolbar.on {
+  display: flex;
+}
+
+.coin-tb-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 52px;
+  height: 44px;
+  padding: 0 8px;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.coin-tb-btn svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.coin-tb-btn:hover {
+  background: #f2f2f2;
+}
+
+.coin-tb-btn:active {
+  background: #e8e8e8;
+}
+
+/* Action destructrice : signalée en rouge, comme .txt-tb-del. */
+.coin-tb-btn.is-danger {
+  color: #d92d20;
+}
+
+.coin-tb-btn.is-danger:hover {
+  background: #fdecea;
+}
+
+.coin-tb-sep {
+  width: 1px;
+  height: 26px;
+  background: #e8e8e8;
+  flex: none;
+  margin: 0 3px;
+}

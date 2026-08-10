@@ -1,0 +1,466 @@
+{% comment %}
+  Snippet pour le sélecteur de tailles
+  Usage: {% render 'conf-size-selector', sizes: sizes_array, selected: 'M' %}
+{% endcomment %}
+
+{%- liquid
+  assign sizes = sizes | default: blank
+  assign selected = selected | default: 'M'
+  assign label = label | default: 'Choisissez une taille'
+  assign show_guide = show_guide | default: true
+-%}
+
+<div class="conf-size-selector" data-size-selector>
+  {%- if label != blank -%}
+    <div class="conf-size-header">
+      <label class="conf-size-label">{{ label }}</label>
+      {%- if show_guide -%}
+        <a href="#" class="conf-size-guide-link" data-size-guide-toggle>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M21 6H3C2.45 6 2 6.45 2 7V17C2 17.55 2.45 18 3 18H21C21.55 18 22 17.55 22 17V7C22 6.45 21.55 6 21 6ZM20 16H4V8H20V16Z" fill="currentColor"/>
+            <path d="M6 10H8V14H6V10Z" fill="currentColor"/>
+            <path d="M10 10H12V14H10V10Z" fill="currentColor"/>
+            <path d="M14 10H16V14H14V10Z" fill="currentColor"/>
+          </svg>
+          <span>📏 Guide des tailles</span>
+        </a>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+  
+  <div class="conf-size-grid">
+    {%- if sizes == blank -%}
+      {%- comment -%} Tailles par défaut si aucune n'est fournie {%- endcomment -%}
+      {%- assign default_sizes = 'XS,S,M,L,XL,XXL,XXXL' | split: ',' -%}
+      
+      {%- for size in default_sizes -%}
+        {%- assign is_selected = false -%}
+        {%- if size == selected -%}
+          {%- assign is_selected = true -%}
+        {%- endif -%}
+        
+        <button 
+          class="conf-size-btn{% if is_selected %} active{% endif %}" 
+          data-size="{{ size }}"
+          aria-label="Sélectionner la taille {{ size }}"
+        >
+          {{ size }}
+        </button>
+      {%- endfor -%}
+    {%- else -%}
+      {%- comment -%} Utiliser les tailles fournies {%- endcomment -%}
+      {%- for size in sizes -%}
+        {%- assign is_selected = false -%}
+        {%- assign size_value = size.value | default: size -%}
+        
+        {%- if size_value == selected -%}
+          {%- assign is_selected = true -%}
+        {%- endif -%}
+        
+        <button 
+          class="conf-size-btn{% if is_selected %} active{% endif %}{% if size.available == false %} disabled{% endif %}" 
+          data-size="{{ size_value }}"
+          {% if size.available == false %}disabled{% endif %}
+          aria-label="Sélectionner la taille {{ size_value }}"
+        >
+          {{ size_value }}
+          {%- if size.available == false -%}
+            <span class="conf-size-unavailable">✕</span>
+          {%- endif -%}
+        </button>
+      {%- endfor -%}
+    {%- endif -%}
+  </div>
+  
+  {%- comment -%} Affichage de la taille sélectionnée {%- endcomment -%}
+  <div class="conf-size-selected">
+    <span class="conf-size-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M16 20H8V14H16V20ZM18 12H6C4.9 12 4 12.9 4 14V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V14C20 12.9 19.1 12 18 12Z" fill="currentColor"/>
+        <path d="M12 2L4 7V11H20V7L12 2Z" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="conf-size-text">Taille sélectionnée : <strong data-selected-size>{{ selected }}</strong></span>
+  </div>
+  
+  {%- comment -%} Guide des tailles (popup) {%- endcomment -%}
+  {%- if show_guide -%}
+    <div class="conf-size-guide-modal" data-size-guide-modal style="display: none;">
+      <div class="conf-size-guide-overlay" data-size-guide-close></div>
+      <div class="conf-size-guide-content">
+        <div class="conf-size-guide-header">
+          <h3>Guide des tailles</h3>
+          <button class="conf-size-guide-close" data-size-guide-close>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+        <div class="conf-size-guide-body">
+          <table class="conf-size-table">
+            <thead>
+              <tr>
+                <th>Taille</th>
+                <th>Tour de poitrine (cm)</th>
+                <th>Longueur (cm)</th>
+                <th>Largeur épaules (cm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>XS</strong></td>
+                <td>84-89</td>
+                <td>66</td>
+                <td>41</td>
+              </tr>
+              <tr>
+                <td><strong>S</strong></td>
+                <td>89-94</td>
+                <td>69</td>
+                <td>43</td>
+              </tr>
+              <tr>
+                <td><strong>M</strong></td>
+                <td>94-99</td>
+                <td>72</td>
+                <td>45</td>
+              </tr>
+              <tr>
+                <td><strong>L</strong></td>
+                <td>99-104</td>
+                <td>75</td>
+                <td>47</td>
+              </tr>
+              <tr>
+                <td><strong>XL</strong></td>
+                <td>104-109</td>
+                <td>78</td>
+                <td>49</td>
+              </tr>
+              <tr>
+                <td><strong>XXL</strong></td>
+                <td>109-114</td>
+                <td>81</td>
+                <td>51</td>
+              </tr>
+              <tr>
+                <td><strong>XXXL</strong></td>
+                <td>114-119</td>
+                <td>84</td>
+                <td>53</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="conf-size-guide-note">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+            </svg>
+            <p>Ces mesures sont données à titre indicatif. Pour un ajustement optimal, prenez vos mesures et comparez-les avec le tableau ci-dessus.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+</div>
+
+{% stylesheet %}
+  .conf-size-selector {
+    width: 100%;
+  }
+  
+  .conf-size-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .conf-size-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+  }
+  
+  .conf-size-guide-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #2c5aa0;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  
+  .conf-size-guide-link:hover {
+    color: #1e3a8a;
+  }
+  
+  .conf-size-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .conf-size-btn {
+    height: 48px;
+    border: 2px solid #d1d5db;
+    background: #fff;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    color: #374151;
+  }
+  
+  .conf-size-btn:hover:not(.disabled) {
+    border-color: #2c5aa0;
+    background: #f0f4ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(44, 90, 160, 0.15);
+  }
+  
+  .conf-size-btn.active {
+    border-color: #2c5aa0;
+    background: #2c5aa0;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+  }
+  
+  .conf-size-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    position: relative;
+  }
+  
+  .conf-size-unavailable {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 10px;
+    color: #dc2626;
+  }
+  
+  .conf-size-selected {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  
+  .conf-size-icon {
+    color: #2c5aa0;
+  }
+  
+  .conf-size-text {
+    color: #374151;
+  }
+  
+  .conf-size-text strong {
+    color: #2c5aa0;
+  }
+  
+  /* Modal Guide des tailles */
+  .conf-size-guide-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+  }
+  
+  .conf-size-guide-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+  }
+  
+  .conf-size-guide-content {
+    position: relative;
+    max-width: 800px;
+    margin: 40px auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: calc(100vh - 80px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .conf-size-guide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .conf-size-guide-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  
+  .conf-size-guide-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #6b7280;
+    transition: color 0.2s;
+  }
+  
+  .conf-size-guide-close:hover {
+    color: #374151;
+  }
+  
+  .conf-size-guide-body {
+    padding: 24px;
+    overflow-y: auto;
+  }
+  
+  .conf-size-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  
+  .conf-size-table th,
+  .conf-size-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .conf-size-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+  }
+  
+  .conf-size-table td {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .conf-size-table tbody tr:hover {
+    background: #f9fafb;
+  }
+  
+  .conf-size-guide-note {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: #eff6ff;
+    border-radius: 8px;
+    border-left: 4px solid #2c5aa0;
+  }
+  
+  .conf-size-guide-note svg {
+    flex-shrink: 0;
+    color: #2c5aa0;
+  }
+  
+  .conf-size-guide-note p {
+    margin: 0;
+    font-size: 13px;
+    color: #374151;
+  }
+  
+  @media (max-width: 768px) {
+    .conf-size-grid {
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 8px;
+    }
+    
+    .conf-size-btn {
+      height: 44px;
+      font-size: 14px;
+    }
+    
+    .conf-size-guide-content {
+      margin: 20px;
+      max-height: calc(100vh - 40px);
+    }
+    
+    .conf-size-table {
+      font-size: 12px;
+    }
+    
+    .conf-size-table th,
+    .conf-size-table td {
+      padding: 8px;
+    }
+  }
+{% endstylesheet %}
+
+{% javascript %}
+  document.addEventListener('DOMContentLoaded', function() {
+    const sizeSelectors = document.querySelectorAll('[data-size-selector]');
+    
+    sizeSelectors.forEach(selector => {
+      const sizeButtons = selector.querySelectorAll('.conf-size-btn:not(.disabled)');
+      const selectedSizeDisplay = selector.querySelector('[data-selected-size]');
+      const guideToggle = selector.querySelector('[data-size-guide-toggle]');
+      const guideModal = selector.querySelector('[data-size-guide-modal]');
+      const guideCloseButtons = selector.querySelectorAll('[data-size-guide-close]');
+      
+      // Gestion de la sélection de taille
+      sizeButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // Retirer la classe active des autres boutons
+          sizeButtons.forEach(btn => btn.classList.remove('active'));
+          
+          // Ajouter la classe active au bouton cliqué
+          this.classList.add('active');
+          
+          // Mettre à jour l'affichage
+          const size = this.dataset.size;
+          
+          if (selectedSizeDisplay) {
+            selectedSizeDisplay.textContent = size;
+          }
+          
+          // Déclencher un événement personnalisé
+          selector.dispatchEvent(new CustomEvent('sizeChange', {
+            detail: { size },
+            bubbles: true
+          }));
+        });
+      });
+      
+      // Gestion de l'ouverture du guide des tailles
+      if (guideToggle && guideModal) {
+        guideToggle.addEventListener('click', function(e) {
+          e.preventDefault();
+          guideModal.style.display = 'block';
+          document.body.style.overflow = 'hidden';
+        });
+      }
+      
+      // Gestion de la fermeture du guide des tailles
+      guideCloseButtons.forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+          if (guideModal) {
+            guideModal.style.display = 'none';
+            document.body.style.overflow = '';
+          }
+        });
+      });
+    });
+  });
+{% endjavascript %}

@@ -1,0 +1,448 @@
+{% comment %}
+============================================================
+POPOTE WAR — SECTION SHOPIFY
+------------------------------------------------------------
+Insère le jeu complet dans une page de la boutique.
+
+INSTALLATION — voir shopify/LISEZ-MOI.md
+
+Deux points de vigilance propres à Liquid :
+
+1. Les fichiers JS/CSS sont dans `assets/` (à plat, sans
+   sous-dossier) et référencés par `asset_url`.
+
+2. Un bloc "raw" (la balise raw, puis endraw) empêche Liquid
+   d'interpréter son contenu. Indispensable dès qu'un script
+   inline contient des accolades doubles, que Liquid prendrait
+   pour ses propres balises. Ici les scripts sont externes,
+   mais la règle vaut pour toute modification future.
+
+   ATTENTION : ne jamais réécrire cette balise en toutes
+   lettres, même ici. Liquid repère les blocs raw AVANT de
+   traiter les commentaires : une balise raw écrite littéralement
+   dans ce bloc est prise au sérieux, Liquid cherche son endraw,
+   ne le trouve pas, et Shopify refuse d'enregistrer le fichier
+   avec « 'raw' tag was never closed ».
+============================================================
+{% endcomment %}
+
+{{ 'pw-base.css'     | asset_url | stylesheet_tag }}
+{{ 'popote-war.css'  | asset_url | stylesheet_tag }}
+{{ 'pw-mobile.css'   | asset_url | stylesheet_tag }}
+{{ 'pw-music.css'    | asset_url | stylesheet_tag }}
+{{ 'pw-app.css'      | asset_url | stylesheet_tag }}
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Cinzel:wght@500;700&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+
+{% comment %}
+  Les images sont servies par le CDN Shopify avec une URL signée :
+  on fournit la table de correspondance au jeu, qui l'utilise si
+  elle existe et retombe sinon sur /assets (site MASSACRE).
+{% endcomment %}
+<script>
+  window.PW_ASSETS = {
+    "coin-massacre.png": {{ 'coin-massacre.png' | asset_url | json }},
+    "item-fusil.png":    {{ 'item-fusil.png'    | asset_url | json }},
+    "item-casque.png":   {{ 'item-casque.png'   | asset_url | json }},
+    "item-montre.png":   {{ 'item-montre.png'   | asset_url | json }},
+    "item-jumelles.png": {{ 'item-jumelles.png' | asset_url | json }},
+    "item-ration.png":   {{ 'item-ration.png'   | asset_url | json }},
+    "item-fumigene.png": {{ 'item-fumigene.png' | asset_url | json }},
+    "item-grenade.png":  {{ 'item-grenade.png'  | asset_url | json }},
+    "logo-massacre.avif":{{ 'logo-massacre.avif'| asset_url | json }},
+
+    {% comment %}
+      Écussons de grade. Si l'un n'est pas téléversé, `asset_url` rend
+      malgré tout une URL, l'image renvoie 404, et le `onerror` du jeu
+      la retire pour laisser réapparaître l'insigne SVG. Panne visible
+      dans la console, jamais à l'écran.
+    {% endcomment %}
+    "grade-1re-classe.webp":   {{ 'grade-1re-classe.webp'   | asset_url | json }},
+    "grade-caporal.webp":      {{ 'grade-caporal.webp'      | asset_url | json }},
+    "grade-caporal-chef.webp": {{ 'grade-caporal-chef.webp' | asset_url | json }},
+    "grade-sergent.webp":      {{ 'grade-sergent.webp'      | asset_url | json }},
+    "grade-sergent-chef.webp": {{ 'grade-sergent-chef.webp' | asset_url | json }},
+    "grade-adjudant.webp":     {{ 'grade-adjudant.webp'     | asset_url | json }},
+    "grade-adjudant-chef.webp":{{ 'grade-adjudant-chef.webp'| asset_url | json }},
+    "grade-lieutenant.webp":   {{ 'grade-lieutenant.webp'   | asset_url | json }}
+  };
+  {%- comment -%}
+    PLAYLIST — fichiers de Contenu > Fichiers, servis par le CDN Shopify
+    à l'adresse relative /cdn/shop/files/<nom>. Cette adresse fonctionne
+    aussi bien sur le domaine .myshopify.com que sur un domaine
+    personnalisé, sans réglage à remplir.
+
+    Tous ces mp3 ont été réencodés en AUDIO PUR. Un « mp3 » qui embarque
+    une pochette encodée comme piste vidéo n'est pas décodé par les
+    navigateurs : les boutons du lecteur s'affichent et aucun son ne
+    sort. C'était la panne rencontrée sur les deux premières pistes.
+
+    POUR AJOUTER UN MORCEAU : téléverse-le dans Contenu > Fichiers
+    (Shopify n'accepte le mp3 QUE là, pas dans le dossier assets d'un
+    thème), puis ajoute une ligne ci-dessous avec son nom de fichier.
+  {%- endcomment -%}
+  window.PW_MUSIC = [
+    { src: "/cdn/shop/files/music-journeys.mp3",       name: "Journeys Reflection" },
+    { src: "/cdn/shop/files/music-rising-tyranny.mp3", name: "Rising Tyranny" },
+    { src: "/cdn/shop/files/music-asimov.mp3",         name: "Asimov" },
+    { src: "/cdn/shop/files/music-arising.mp3",        name: "Arising" },
+    { src: "/cdn/shop/files/track-awakening.mp3",      name: "Awakening" },
+    { src: "/cdn/shop/files/track-star-bounce.mp3",    name: "Star Bounce" }
+  ];
+  {% comment %} Lien de retour boutique, configurable dans l'éditeur de thème. {% endcomment %}
+  window.PW_SHOP_URL = {{ section.settings.shop_url | default: routes.all_products_collection_url | json }};
+</script>
+
+<div id="pw-app">
+
+  {% comment %}
+    PAS D'EN-TÊTE ICI — VOULU.
+    Le jeu avait sa propre barre (logo, titre, bouton BOUTIQUE),
+    reprise du site autonome. Dans une page Shopify elle fait
+    doublon avec l'en-tête du thème : deux logos, deux liens
+    boutique, deux barres empilées qui mangent la hauteur utile
+    sur mobile. Le retour à la boutique est déjà assuré par le
+    thème. Le réglage `titre` reste dans le schema pour ceux qui
+    voudraient réintroduire une barre : il n'est plus utilisé.
+  {% endcomment %}
+
+  {% comment %}
+    ============================================================
+    À PARTIR D'ICI : le corps du jeu, copié tel quel depuis
+    popote-war.html (de <section class="pw-auth"> jusqu'au
+    </div> fermant #gameShell), puis les modales et le toast.
+
+    Il n'est pas reproduit dans ce fichier pour éviter deux
+    copies du même balisage qui divergeraient à la première
+    modification. La marche à suivre exacte — quelles lignes
+    copier — est dans shopify/LISEZ-MOI.md, avec la commande
+    qui génère le fichier complet automatiquement.
+    ============================================================
+  {% endcomment %}
+  <section class="pw-auth" id="viewAuth" hidden>
+    <canvas class="gg-hero__embers" id="authEmbers"></canvas>
+    <div class="pw-auth__box">
+      <p class="section__eyebrow">// CONTRÔLE AU POSTE DE GARDE</p>
+      <h1 class="pw-auth__title">POPOTE <span class="gg-hero__accent">WAR</span></h1>
+      <p class="pw-auth__sub" id="authSub">Crée ton matricule pour entrer à la popote.<br>Compte local, sauvegardé sur cet appareil.</p>
+      <div class="pw-auth__fields">
+        <input id="authName" class="gg-input" placeholder="Pseudo (3 a 16 car.)" maxlength="16" autocomplete="off" hidden />
+        <input id="authPseudo" class="gg-input" placeholder="Blaze de caserne (3–16 car.)" maxlength="16" autocomplete="off" />
+        <input id="authMat" class="gg-input" placeholder="Matricule — 4 chiffres" maxlength="4" inputmode="numeric" autocomplete="off" />
+      </div>
+      <p class="pw-auth__err" id="authErr"></p>
+      <div class="pw-auth__actions">
+        <button class="btn btn--primary" id="btnAuthGo">S'ENRÔLER</button>
+      </div>
+      <button class="link-btn pw-auth__toggle" id="btnAuthToggle">J'ai déjà un matricule → me connecter</button>
+      <p class="pw-auth__bonus" id="authBonus">🎁 +500 COINS OFFERTS À L'ENRÔLEMENT</p>
+    </div>
+  </section>
+
+  <!-- Bouton flottant clair/sombre : hors des conteneurs masqués, toujours visible -->
+  <button class="pw-mode-fab" id="btnThemeMode" type="button" aria-label="Basculer clair / sombre" title="Clair / sombre">🌙</button>
+
+  <!-- ============ LE JEU (visible si connecté) ============ -->
+  <div id="gameShell" hidden>
+
+    <section class="gg-hero">
+      <canvas class="gg-hero__embers" id="ggEmbers"></canvas>
+      <div class="gg-hero__overlay"></div>
+      <div class="gg-hero__content">
+        <p class="section__eyebrow">// OPÉRATION QCM — À LA POPOTE</p>
+        <h1 class="gg-hero__title">POPOTE <span class="gg-hero__accent">WAR</span></h1>
+        <p class="gg-hero__lead">Mise tes <strong>MASSACRE Coins</strong>, réponds aux QCM de chambrée et rafle le pot. Le gagnant double sa mise, le perdant la laisse sur la table. 🍲</p>
+      </div>
+    </section>
+
+    <!-- HUD / barre de profil (injecté par JS) -->
+    <section class="gg-hud" id="ggHud"></section>
+
+    <!-- onglets internes (sticky) -->
+    <nav class="gg-tabs">
+      <div class="gg-tabs__inner">
+        <button class="gg-tab gg-tab--active" data-view="viewLobby">⚔️ LES SALONS</button>
+        <button class="gg-tab" data-view="viewWeek">🎁 L'ORDINAIRE<span class="gg-tab__dot" id="weekDot" hidden></span></button>
+        <button class="gg-tab" data-view="viewCareer">🎖️ MA CARRIÈRE</button>
+        <button class="gg-tab" data-view="viewRank">🏆 CLASSEMENT</button>
+        <button class="gg-tab" data-view="viewShop">🛒 L'INTENDANCE</button>
+        <button class="gg-tab" data-view="viewDossier">👤 MON PROFIL</button>
+      </div>
+    </nav>
+
+    <main class="gg-main">
+
+      <!-- ===== LOBBY ===== -->
+      <section class="gg-view gg-view--active" id="viewLobby">
+        <p class="gg-lobby-intro">
+          <span class="step">1</span> Choisis ton <b>corps</b> et ta <b>mise</b>.
+          <span class="step">2</span> Lance une <b>Partie rapide</b> (adversaire automatique) ou <b>crée un salon</b>.
+          <span class="step">3</span> Réponds plus vite et mieux : le gagnant rafle la mise des deux. 🍲
+        </p>
+        <!-- Choix de l'armée : filtre les questions ET l'appariement -->
+        <div class="gg-army" id="armyPicker"><!-- injecté par popote-war.js --></div>
+        <div class="pw-stakes" id="quickStakes"><span class="pw-stakes__lbl">MISE :</span></div>
+        <div class="gg-quick">
+          <button class="btn btn--primary gg-quick__btn" id="btnQuick">⚡ PARTIE RAPIDE</button>
+          <button class="btn btn--ghost gg-quick__btn" id="btnCreate">➕ CRÉER UN SALON</button>
+          <div class="gg-join">
+            <span class="gg-join__lbl">Un code d'ami ?</span>
+            <input type="text" id="joinCode" class="gg-input" placeholder="CODE DU SALON (ex : MSCR-7F3A)" maxlength="9" />
+            <button class="btn btn--olive btn--sm" id="btnJoin">REJOINDRE</button>
+          </div>
+        </div>
+
+        <div class="gg-salons">
+          <div class="gg-salons__head">
+            <h2 class="gg-section-title">SALONS OUVERTS</h2>
+            <div class="gg-search">
+              <input type="text" id="salonSearch" class="gg-input" placeholder="🔍 Rechercher (pseudo, grade, mise, code…)" />
+              <button class="btn btn--ghost btn--sm" id="btnRefresh">↻</button>
+            </div>
+          </div>
+          <div class="gg-salons__list" id="salonList"></div>
+          <p class="gg-salons__empty" id="salonEmpty" hidden>Aucun salon ne correspond, recrue. Crée le tien. 🫡</p>
+        </div>
+      </section>
+
+      <!-- ===== SALON D'ATTENTE ===== -->
+      <section class="gg-view" id="viewWait" hidden>
+        <div class="gg-wait">
+          <p class="section__eyebrow">// SALON SÉCURISÉ</p>
+          <h2 class="gg-wait__code" id="waitCode">MSCR-0000</h2>
+          <p class="gg-wait__sub">Partage le code à un pote, ou lance contre un adversaire de la caserne.</p>
+          <div class="gg-wait__players" id="waitPlayers"></div>
+          <div class="gg-wait__rounds">
+            <span>MANCHES :</span>
+            <button class="gg-chip gg-chip--active" data-rounds="5">5</button>
+            <button class="gg-chip" data-rounds="7">7</button>
+            <button class="gg-chip" data-rounds="3">3</button>
+          </div>
+          <div class="pw-stakes" id="waitStakes" style="justify-content:center"><span class="pw-stakes__lbl">MISE :</span></div>
+          <p class="gg-wait__pot" id="waitPot">POT : 200 coins</p>
+          <div class="gg-wait__actions">
+            <button class="btn btn--ghost" id="btnInvite">🔗 INVITER UN POTE (copier le code)</button>
+            <button class="btn btn--primary" id="btnLaunch">🥊 LANCER LE COMBAT</button>
+          </div>
+          <button class="link-btn" id="btnLeaveWait">↩ Quitter le salon</button>
+        </div>
+      </section>
+
+      <!-- ===== MATCH / QCM ===== -->
+      <section class="gg-view" id="viewMatch" hidden>
+        <div class="gg-match">
+          <div class="gg-scoreboard">
+            <div class="gg-side gg-side--me">
+              <div class="gg-side__badge" id="meBadge"></div>
+              <div class="gg-side__name" id="meName">TOI</div>
+              <div class="gg-side__score" id="meScore">0</div>
+              <div class="gg-side__rw" id="rwMe">0 manche</div>
+            </div>
+            <div class="gg-round">
+              <span class="gg-round__label">MANCHE</span>
+              <span class="gg-round__num" id="roundNum">1/5</span>
+              <span class="gg-pot" id="matchPot">POT 200</span>
+            </div>
+            <div class="gg-side gg-side--foe">
+              <div class="gg-side__badge" id="foeBadge"></div>
+              <div class="gg-side__name" id="foeName">ADVERSAIRE</div>
+              <div class="gg-side__score" id="foeScore">0</div>
+              <div class="gg-side__rw" id="rwFoe">0 manche</div>
+            </div>
+          </div>
+
+          <!-- ARSENAL : objets utilisables pendant le match.
+               Le conteneur porte le dégradé de bord ; la barre elle-même
+               défile horizontalement (7 objets ne tiennent pas sur un
+               écran de téléphone). -->
+          <div class="gg-arsenal-wrap">
+          <div class="gg-arsenal-bar" id="matchArsenal">
+            <button class="gg-arm-btn" id="btnUseFusil" data-item="fusil" title="Annule une manche gagnée par l'adversaire" disabled>
+              <img src="{{ 'item-fusil.png' | asset_url }}" alt="Fusil" onerror="this.outerHTML='🔫'" />
+              <span class="gg-arm-btn__label">FUSIL</span>
+              <span class="gg-arm-btn__count" id="cntFusil">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseCasque" data-item="casque" title="Bloque le prochain tir de fusil adverse" disabled>
+              <img src="{{ 'item-casque.png' | asset_url }}" alt="Casque" onerror="this.outerHTML='🪖'" />
+              <span class="gg-arm-btn__label">CASQUE</span>
+              <span class="gg-arm-btn__count" id="cntCasque">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseMontre" data-item="montre" title="+5 secondes sur le chrono" disabled>
+              <img src="{{ 'item-montre.png' | asset_url }}" alt="Montre" onerror="this.outerHTML='⌚'" />
+              <span class="gg-arm-btn__label">MONTRE</span>
+              <span class="gg-arm-btn__count" id="cntMontre">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseJumelles" data-item="jumelles" title="Élimine 2 mauvaises réponses" disabled>
+              <img src="{{ 'item-jumelles.png' | asset_url }}" alt="Jumelles" onerror="this.outerHTML='🔭'" />
+              <span class="gg-arm-btn__label">JUMELLES</span>
+              <span class="gg-arm-btn__count" id="cntJumelles">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseRation" data-item="ration" title="Double les points de ta prochaine bonne réponse" disabled>
+              <img src="{{ 'item-ration.png' | asset_url }}" alt="Ration" onerror="this.outerHTML='🥫'" />
+              <span class="gg-arm-btn__label">RATION</span>
+              <span class="gg-arm-btn__count" id="cntRation">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseFumigene" data-item="fumigene" title="Aveugle l'adversaire pendant 4 secondes" disabled>
+              <img src="{{ 'item-fumigene.png' | asset_url }}" alt="Fumigène" onerror="this.outerHTML='💨'" />
+              <span class="gg-arm-btn__label">FUMIGÈNE</span>
+              <span class="gg-arm-btn__count" id="cntFumigene">0</span>
+            </button>
+            <button class="gg-arm-btn" id="btnUseGrenade" data-item="grenade" title="Ampute de moitié le temps de l'adversaire" disabled>
+              <img src="{{ 'item-grenade.png' | asset_url }}" alt="Grenade" onerror="this.outerHTML='💣'" />
+              <span class="gg-arm-btn__label">GRENADE</span>
+              <span class="gg-arm-btn__count" id="cntGrenade">0</span>
+            </button>
+          </div>
+          </div><!-- /.gg-arsenal-wrap -->
+
+          <div class="gg-timer"><div class="gg-timer__fill" id="timerFill"></div></div>
+          <div class="gg-question">
+            <div class="gg-question__head">
+              <p class="gg-question__tag" id="qTag">// ADAGE DE CHAMBRÉE</p>
+              <div class="gg-diff" id="qDiff"></div>
+            </div>
+            <h2 class="gg-question__text" id="qText">…</h2>
+            <div class="gg-options" id="qOptions"></div>
+            <p class="gg-feedback" id="qFeedback"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== RÉSULTAT ===== -->
+      <section class="gg-view" id="viewResult" hidden>
+        <div class="gg-result" id="resultBox">
+          <h2 class="gg-result__title" id="resultTitle">VICTOIRE</h2>
+          <p class="gg-result__pot gg-result__pot--win" id="resultPot">+200 coins</p>
+          <p class="gg-result__score" id="resultScore">3 — 1</p>
+          <div class="gg-result__gains" id="resultGains"></div>
+          <div class="gg-result__rankup" id="resultRankup" hidden></div>
+          <div class="gg-result__actions">
+            <button class="btn btn--primary" id="btnRematch">⚔️ REJOUER (même mise)</button>
+            <button class="btn btn--ghost" id="btnBackLobby">↩ RETOUR AUX SALONS</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CARRIÈRE ===== -->
+      <section class="gg-view" id="viewCareer" hidden>
+        <div class="gg-prog" id="progress"><!-- injecté par popote-war.js --></div>
+
+        <div class="gg-career">
+          <h2 class="gg-section-title">L'ÉCHELLE DES GRADES</h2>
+          <p class="gg-career__sub">14 grades, de <strong>Soldat</strong> à <strong style="color:#ffd23f">Colonel</strong>. Pour monter : gagne assez d'<strong>XP de carrière</strong> (temps de jeu) au combat, PUIS paie la promotion en <strong style="color:#ffd23f">coins</strong>. L'adversaire que tu croises est de <strong>ton grade</strong>, et les questions s'adaptent à ton niveau. ⚠️ Chaque mois, l'<strong>XP et les niveaux</strong> repartent à zéro — mais tes <strong>grades</strong> et tes <strong>coins</strong> restent.</p>
+          <div class="gg-ladder" id="ggLadder"></div>
+        </div>
+      </section>
+
+      <!-- ===== ORDINAIRE DE LA SEMAINE (récompenses de présence) ===== -->
+      <section class="gg-view" id="viewWeek" hidden>
+        <div class="gg-weekwrap" id="weekly"><!-- injecté par popote-war.js --></div>
+      </section>
+
+      <!-- ===== DOSSIER MILITAIRE (titres / bannières / décorations) ===== -->
+      <!-- PROFIL : regroupe l'identité, la personnalisation, les décorations,
+           les codes promo et le compte. Remplace l'ancienne page profils.html,
+           pour que le jeu tienne dans une seule page insérable dans Shopify. -->
+      <section class="gg-view" id="viewDossier" hidden>
+        <div class="gg-dossier" id="dossier"><!-- injecté par popote-war.js --></div>
+
+        <h2 class="gg-section-title">🎟️ MON BARDA <small>(codes promo débloqués)</small></h2>
+        <div class="gg-codes" id="profilCodes"><!-- injecté par popote-war.js --></div>
+
+        <h2 class="gg-section-title">⚙️ MON COMPTE</h2>
+        <div class="gg-account" id="profilAccount"><!-- injecté par popote-war.js --></div>
+      </section>
+
+      <!-- ===== CLASSEMENT (mondial + amis) ===== -->
+      <section class="gg-view" id="viewRank" hidden>
+        <div class="gg-lb" id="leaderboard"><!-- injecté par popote-war.js --></div>
+      </section>
+
+      <!-- ===== INTENDANCE ===== -->
+      <section class="gg-view" id="viewShop" hidden>
+        <div class="gg-shop">
+          <h2 class="gg-section-title">L'INTENDANCE</h2>
+          <p class="gg-career__sub">Claque tes <strong style="color:var(--fire-hot)">MASSACRE Coins</strong> contre de <strong>vrais codes promo</strong> uniques, utilisables directement en boutique.</p>
+          <div class="gg-shop__grid" id="shopGrid"></div>
+          <h3 class="gg-section-title gg-section-title--sm">MON ARSENAL (objets achetés)</h3>
+          <div class="gg-arsenal" id="ownedItems"></div>
+          <h3 class="gg-section-title gg-section-title--sm">MON BARDA (codes débloqués)</h3>
+          <div class="gg-codes" id="ownedCodes"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="pw-foot">© 2026 MASSACRE — POPOTE WAR</footer>
+
+  <!-- Modale générique (roue, offres, caisse vide) -->
+  <div class="pw-modal" id="modal" hidden>
+    <div class="pw-modal__backdrop" id="modalBackdrop"></div>
+    <div class="pw-modal__box" id="modalBox"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+</div>
+
+{% comment %}
+  SDK Firebase — À CHARGER AVANT TOUT LE RESTE.
+  Ces quatre scripts viennent du CDN Google, pas de assets/ : ils sont
+  volumineux et mis à jour par Google. Sans eux, `window.firebase`
+  n'existe pas, pw-firebase.js ne s'initialise pas, et le jeu bascule
+  sur son mode de repli « compte local / matricule » au lieu de
+  l'authentification email + mot de passe.
+  Version alignée sur popote-war.html : garder les deux identiques.
+  Ils sont volontairement SANS `defer` : popote-war.js lit `firebase`
+  au chargement, l'ordre d'exécution doit être garanti.
+{% endcomment %}
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-check-compat.js"></script>
+
+{{ 'firebase-config.js'      | asset_url | script_tag }}
+{{ 'pw-firebase.js'          | asset_url | script_tag }}
+{{ 'pw-questions-loader.js'  | asset_url | script_tag }}
+{{ 'pw-app.js'               | asset_url | script_tag }}
+{{ 'popote-war.js'           | asset_url | script_tag }}
+{{ 'pw-music.js'             | asset_url | script_tag }}
+
+{% schema %}
+{
+  "name": "Popote War",
+  "tag": "section",
+  "class": "pw-section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "titre",
+      "label": "Titre affiché dans la barre",
+      "default": "POPOTE <b>WAR</b>"
+    },
+    {
+      "type": "url",
+      "id": "shop_url",
+      "label": "Lien du bouton BOUTIQUE",
+      "info": "Laisser vide pour pointer vers tous les produits."
+    },
+    {
+      "type": "header",
+      "content": "Musique d'ambiance"
+    },
+    {
+      "type": "paragraph",
+      "content": "La liste des morceaux est gérée dans le code de la section (bloc window.PW_MUSIC). Pour en ajouter un : Contenu > Fichiers, téléverse le mp3, puis ajoute une ligne dans ce bloc avec son nom de fichier."
+    }
+  ],
+  "presets": [
+    { "name": "Popote War" }
+  ]
+}
+{% endschema %}

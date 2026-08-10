@@ -1,0 +1,929 @@
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #1a1a1a;
+    --muted: #888;
+    --faint: #aaa;
+    --border: #e8e8e8;
+    --bg-light: #fafafa;
+  }
+  .recap-page {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: var(--black);
+    background: #fff;
+    min-height: 100vh;
+  }
+
+  /* Header + étapes (repris du configurateur) */
+  .rcp-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; gap: 16px;
+  }
+  /* Bloc marque MASQUÉ : cette page passe par theme.liquid (pas de clé
+     "layout" dans page.recapitulatif.json, contrairement au configurateur),
+     donc l'en-tête Horizon de la boutique s'affiche au-dessus — logo « M »
+     compris. Le nôtre faisait doublon à quelques pixels d'écart.
+
+     `visibility` et non `display: none` : .rcp-hdr est un flex en
+     `space-between` à trois enfants (.rcp-brand, .rcp-steps, .rcp-back).
+     Retirer le premier du flux ferait glisser le stepper 1-2-3 contre le bord
+     gauche ; en gardant la place réservée, il reste centré.
+
+     Conservé dans le HTML plutôt que supprimé : si la page adopte un jour un
+     layout dédié, il suffira de retirer cette règle. */
+  .rcp-brand {
+    display: flex; align-items: center; gap: 12px;
+    visibility: hidden;
+  }
+  .rcp-brand-icon {
+    /* Sans fond noir, comme .hdr-icon : le logo est un « M » noir sur
+       transparent, un fond sombre le masquerait. */
+    width: 40px; height: 40px; border-radius: 8px;
+    color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px;
+    overflow: hidden;
+  }
+  .rcp-brand-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .rcp-brand-name { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
+  .rcp-brand-sub { font-size: 11px; color: var(--muted); }
+
+  .rcp-steps { display: flex; align-items: center; gap: 8px; }
+  .rcp-step { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .rcp-step-n {
+    width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+  }
+  .rcp-step.on .rcp-step-n { background: var(--black); border-color: var(--black); color: #fff; }
+  .rcp-step.on .rcp-step-lbl { color: var(--black); font-weight: 600; }
+  .rcp-step-line { width: 36px; height: 1px; background: var(--border); }
+
+  .rcp-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px;
+    background: #fff; font-size: 12px; font-weight: 600; color: var(--black);
+    cursor: pointer; text-decoration: none;
+  }
+  .rcp-back:hover { background: var(--bg-light); }
+
+  /* Corps */
+  .rcp-body {
+    max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px;
+    display: grid; grid-template-columns: 1fr 340px; gap: 32px;
+  }
+  @media (max-width: 900px) { .rcp-body { grid-template-columns: 1fr; } }
+
+  .rcp-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .rcp-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* Liste des produits */
+  .rcp-items { display: flex; flex-direction: column; gap: 14px; }
+  .rcp-item {
+    display: flex; gap: 16px; align-items: center;
+    padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff;
+  }
+  .rcp-item-img {
+    width: 84px; height: 84px; border-radius: 8px; flex-shrink: 0;
+    background: var(--bg-light); border: 1px solid var(--border);
+    object-fit: contain;
+  }
+  .rcp-item-noimg {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rcp-item-info { flex: 1; min-width: 0; }
+  .rcp-item-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .rcp-item-props { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .rcp-item-props span { display: inline-block; margin-right: 10px; }
+  .rcp-item-right { text-align: right; flex-shrink: 0; }
+  .rcp-item-price { font-size: 15px; font-weight: 800; }
+  .rcp-item-qty { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .rcp-item-remove {
+    margin-top: 8px; font-size: 11px; color: #c0392b; background: none; border: none;
+    cursor: pointer; font-weight: 600;
+  }
+  .rcp-item-remove:hover { text-decoration: underline; }
+
+  .rcp-empty {
+    text-align: center; padding: 60px 20px; color: var(--muted);
+    border: 1px dashed var(--border); border-radius: 12px;
+  }
+  .rcp-empty a { color: var(--black); font-weight: 700; }
+
+  /* Récap prix (colonne droite) */
+  .rcp-summary {
+    border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+    position: sticky; top: 24px; height: fit-content;
+  }
+  .rcp-summary-title {
+    font-size: 12px; font-weight: 800; letter-spacing: .5px;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .rcp-line { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px; color: #444; }
+  .rcp-line-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 18px; font-weight: 800; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .rcp-total-vat { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .rcp-note { font-size: 10px; color: var(--faint); margin-top: 4px; }
+
+  /* Consentement (au-dessus du bouton Commander). */
+  .rcp-consent {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-top: 18px; padding: 12px 14px;
+    background: #f8f8f8; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 12px; line-height: 1.5; color: #444; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .rcp-consent:hover { border-color: #bbb; }
+  .rcp-consent input {
+    flex: none; width: 17px; height: 17px; margin-top: 1px;
+    accent-color: var(--black); cursor: pointer;
+  }
+  .rcp-consent a { color: var(--black); text-decoration: underline; }
+  /* Mise en avant discrète tant que ce n'est pas coché. */
+  .rcp-consent:has(input:not(:checked)) { border-color: #e0c088; background: #fdf8ee; }
+
+  .rcp-continue {
+    width: 100%; margin-top: 14px; padding: 14px; background: var(--black); color: #fff;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .2s, opacity .2s;
+  }
+  .rcp-continue:hover:not(:disabled) { background: #333; }
+  .rcp-continue:disabled { opacity: .45; cursor: not-allowed; }
+
+  .rcp-return {
+    width: 100%; margin-top: 10px; padding: 12px; background: #fff; color: var(--black);
+    border: 1px solid var(--border); border-radius: 10px; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background .2s;
+  }
+  .rcp-return:hover { background: var(--bg-light); }
+
+  .rcp-trust { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .rcp-trust-item { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; color: #555; }
+  .rcp-trust-item svg { flex-shrink: 0; margin-top: 1px; }
+</style>
+
+<div class="recap-page">
+  <!-- Header + étapes -->
+  <header class="rcp-hdr">
+    <div class="rcp-brand">
+      <div class="rcp-brand-icon"><img src="{{ 'logo-massacre.png' | asset_url }}" alt="Logo personnalisé"></div>
+      <div>
+        <div class="rcp-brand-name">RÉCAPITULATIF</div>
+        <div class="rcp-brand-sub">Vérifiez votre commande</div>
+      </div>
+    </div>
+
+    <div class="rcp-steps">
+      <div class="rcp-step">
+        <div class="rcp-step-n">1</div>
+        <span class="rcp-step-lbl">Personnalisation</span>
+      </div>
+      <div class="rcp-step-line"></div>
+      <div class="rcp-step on">
+        <div class="rcp-step-n">2</div>
+        <span class="rcp-step-lbl">Récapitulatif</span>
+      </div>
+      <div class="rcp-step-line"></div>
+      <div class="rcp-step">
+        <div class="rcp-step-n">3</div>
+        <span class="rcp-step-lbl">Commande</span>
+      </div>
+    </div>
+
+    <!-- ?cart=1 : le configurateur rouvre le drawer à l'arrivée. « Modifier »
+         doit ramener à l'écran qu'on vient de quitter — panier visible — et
+         non à un configurateur d'apparence vierge. Les designs, eux, sont
+         déjà restaurés depuis sessionStorage. -->
+    <a href="/pages/configurateur?cart=1" class="rcp-back">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      Modifier
+    </a>
+  </header>
+
+  <!-- Corps -->
+  <div class="rcp-body">
+    <div>
+      <h1 class="rcp-title">Votre récapitulatif</h1>
+      <p class="rcp-subtitle">Vérifiez les produits et les prix avant de passer commande.</p>
+      <div class="rcp-items" id="rcp-items">
+        <!-- Rempli par JS depuis /cart.js -->
+        <div class="rcp-empty">Chargement du panier…</div>
+      </div>
+    </div>
+
+    <!-- Récap prix -->
+    <aside class="rcp-summary">
+      <div class="rcp-summary-title">Récapitulatif du prix</div>
+      <div class="rcp-line">
+        <span>Sous-total</span>
+        <span id="rcp-subtotal">—</span>
+      </div>
+      <div class="rcp-line">
+        <span>Livraison</span>
+        <span>Calculée à l'étape suivante</span>
+      </div>
+      <div class="rcp-line-total">
+        <span>Total</span>
+        <span><span id="rcp-total">—</span> <span class="rcp-total-vat">TTC</span></span>
+      </div>
+      <p class="rcp-note">Taxes incluses. Livraison calculée à l'étape suivante.</p>
+
+      <!-- Consentement : le bouton Commander reste bloqué tant que la case
+           n'est pas cochée. Article personnalisé = pas de retour possible,
+           d'où l'acceptation explicite avant paiement. -->
+      <label class="rcp-consent" for="rcp-consent-chk">
+        <input type="checkbox" id="rcp-consent-chk" onchange="onConsentChange()">
+        <span>
+          J'ai vérifié mon design (texte, couleurs, placement) et j'accepte les
+          <a href="/policies/terms-of-service" target="_blank" rel="noopener">conditions générales de vente</a>.
+          Les articles personnalisés ne sont ni repris ni échangés.
+        </span>
+      </label>
+
+      <button type="button" class="rcp-continue" id="rcp-continue" onclick="goToCheckout(this)" disabled>
+        Commander
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
+      <!-- Même destination que « Modifier » en en-tête : les deux ramènent au
+           configurateur, ils doivent y trouver le même écran. -->
+      <button type="button" class="rcp-return" onclick="window.location.href='/pages/configurateur?cart=1'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        Retour au configurateur
+      </button>
+
+      <div class="rcp-trust">
+        <div class="rcp-trust-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#666"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+          Paiement 100% sécurisé
+        </div>
+        {% comment %} <div class="rcp-trust-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#666"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg>
+          Livraison rapide sous 5 à 7 jours
+        </div> {% endcomment %}
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="{{ 'conf-alert.js' | asset_url }}"></script>
+<!-- Grille dégressive + helpers (tierUnitPrice, effectiveUnitPrice).
+     Cette page les utilisait SANS charger l'asset : elle retombait sur le
+     repli « prix de la ligne » et ignorait donc les paliers. -->
+<script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
+<script>
+  /* Même résolution d'URL que le configurateur : le réglage de thème prime,
+     l'URL en dur ne sert que de repli. */
+  {%- assign api_setting = settings.api_endpoint | default: '' -%}
+  {%- if api_setting == '' or api_setting contains 'localhost' -%}
+    window.API_BASE = "https://customizer-backend-production-4c83.up.railway.app/api";
+  {%- else -%}
+    window.API_BASE = {{ api_setting | json }};
+  {%- endif -%}
+
+  /* Grilles définies dans l'admin : elles remplacent la table de repli.
+     Le récapitulatif recalcule ses totaux dès qu'elles arrivent, sinon il
+     afficherait les anciens paliers jusqu'au prochain rechargement. */
+  fetch(window.API_BASE + '/pricing')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.ok) return;
+      if (d.prices) window.PRICES = Object.assign({}, window.PRICES, d.prices);
+      /* Validée avant application — même raison que dans configurateur.liquid :
+         un prix ≤ 0 venant du backend ne doit pas écraser la grille de repli.
+         C'est la page qui déclenche le paiement, donc celle où un prix faux
+         coûte le plus cher. */
+      if (d.tiers && typeof d.tiers === 'object') {
+        if (typeof window.applyTiersFromBackend === 'function') {
+          window.applyTiersFromBackend(d.tiers);
+        } else {
+          window.QTY_TIERS = d.tiers;
+        }
+      }
+      document.dispatchEvent(new CustomEvent('conf:prices-loaded'));
+    })
+    .catch(function () {});   // repli silencieux : la table locale reste en place
+</script>
+<script>
+  /* Variants Shopify pour le panier natif (produits à prix fixe).
+
+     Nommage interne INVERSÉ (voir configurateur.liquid) :
+       'coins'   = PATCHS codés -> « Patch personnalisé » (achetable en ligne)
+       'patches' = COINS réels  -> « Coin métal » (SUR DEVIS UNIQUEMENT)
+
+     LES COINS N'ONT VOLONTAIREMENT PAS DE VARIANT. Ils sont chiffrés au cas par
+     cas (finition, gravure, quantité) : aucun prix fixe ne peut leur être
+     attribué, donc aucun variant ne doit permettre de les payer en ligne.
+
+     C'est `variantForItem()` renvoyant `undefined` pour eux qui alimente
+     `skipped` dans buildShopifyItems(), et qui déclenche les deux garde-fous de
+     goToCheckout(). Un ID avait été câblé ici pour `patches` : il rendait ces
+     garde-fous inatteignables (`skipped` restait toujours vide) et laissait les
+     coins partir au paiement à un prix jamais validé par le commerçant.
+     NE PAS le rétablir sans retirer d'abord la bascule devis. */
+  var CONF_VARIANTS = {
+    sweatshirt:       60327512342862,
+    tshirt:           60327514669390,
+    tshirt_polyester: 60327519224142,
+    drapeaux:         60327528563022,
+    coins:            60327529939278   // « Patch personnalisé » (patchs codés)
+    // patches (= COINS réels) : pas de variant, sur devis uniquement.
+    // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
+    // de clé ici sans retirer d'abord la bascule.
+  };
+
+  // Variants par COULEUR (produits textiles avec option Couleur dans Shopify).
+  // Permet à la vignette du checkout Shopify de prendre la bonne couleur.
+  // Les produits/couleurs absents ici retombent sur CONF_VARIANTS (variant de base).
+  var CONF_COLOR_VARIANTS = {
+    sweatshirt: {
+      'Apricot':          60327512342862,
+      'Ash':              60327512375630,
+      'Atoll':            60327512408398,
+      'Black':            60327512441166,
+      'Bottle Green':     60327512473934,
+      'Brown':            60327512506702,
+      'Burgundy':         60327512539470,
+      'Chocolate':        60327512572238,
+      'Cobalt Blue':      60327512605006,
+      'Dark Grey':        60327512637774,
+      'Diva Blue':        60327512670542,
+      'Fire Red':         60327512703310,
+      'Gold':             60327512736078,
+      'Kelly Green':      60327512768846,
+      'Millennial Lilac': 60327512801614,
+      'Millennial Mint':  60327512834382,
+      'Natural':          60327512867150,
+      'Navy':             60327512899918,
+      'Navy Blue':        60327512932686,
+      'Orange':           60327512965454,
+      'Orchid Green':     60327512998222,
+      'Orchid Pink':      60327513030990,
+      'Pacific Grey':     60327513063758,
+      'Pixel Lime':       60327513096526,
+      'Radiant Purple':   60327513129294,
+      'Red':              60327513162062,
+      'Royal Blue':       60327513194830,
+      'Sand':             60327513227598,
+      'Sky':              60327513260366,
+      'Solar Yellow':     60327513293134,
+      'Sorbet':           60327513325902,
+      'Sport Grey':       60327513358670,
+      'Stone Blue':       60327513391438,
+      'Sunset Orange':    60327513424206,
+      'Swimming Pool':    60327513456974,
+      'Urban Khaki':      60327513489742,
+      'Urban Orange':     60327513522510,
+      'Urban Purple':     60327513555278,
+      'Used Black':       60327513588046,
+      'White':            60327513620814
+    },
+    tshirt: {
+      'Apricot':          60327514669390,
+      'Ash':              60327514702158,
+      'Atoll':            60327514734926,
+      'Black':            60327514767694,
+      'Bottle Green':     60327514800462,
+      'Brown':            60327514833230,
+      'Burgundy':         60327514865998,
+      'Chocolate':        60327514898766,
+      'Cobalt Blue':      60327514931534,
+      'Dark Grey':        60327514964302,
+      'Diva Blue':        60327514997070,
+      'Fire Red':         60327515029838,
+      'Gold':             60327515062606,
+      'Kelly Green':      60327515095374,
+      'Millennial Lilac': 60327515128142,
+      'Millennial Mint':  60327515160910,
+      'Natural':          60327515193678,
+      'Navy':             60327515226446,
+      'Navy Blue':        60327515259214,
+      'Orange':           60327515291982,
+      'Orchid Green':     60327515324750,
+      'Orchid Pink':      60327515357518,
+      'Pacific Grey':     60327515390286,
+      'Pixel Lime':       60327515423054,
+      'Radiant Purple':   60327515455822,
+      'Red':              60327515488590,
+      'Royal Blue':       60327515521358,
+      'Sand':             60327515554126,
+      'Sky':              60327515586894,
+      'Solar Yellow':     60327515619662,
+      'Sorbet':           60327515652430,
+      'Sport Grey':       60327515685198,
+      'Stone Blue':       60327515717966,
+      'Sunset Orange':    60327515750734,
+      'Swimming Pool':    60327515783502,
+      'Urban Khaki':      60327515816270,
+      'Urban Orange':     60327515849038,
+      'Urban Purple':     60327515881806,
+      'Used Black':       60327515914574,
+      'White':            60327515947342
+    },
+    tshirt_polyester: {
+      'Apricot':          60327519224142,
+      'Ash':              60327519256910,
+      'Atoll':            60327519289678,
+      'Black':            60327519322446,
+      'Bottle Green':     60327519355214,
+      'Brown':            60327519387982,
+      'Burgundy':         60327519420750,
+      'Chocolate':        60327519453518,
+      'Cobalt Blue':      60327519486286,
+      'Dark Grey':        60327519519054,
+      'Diva Blue':        60327519551822,
+      'Fire Red':         60327519584590,
+      'Gold':             60327519617358,
+      'Kelly Green':      60327519650126,
+      'Millennial Lilac': 60327519682894,
+      'Millennial Mint':  60327519715662,
+      'Natural':          60327519748430,
+      'Navy':             60327519781198,
+      'Navy Blue':        60327519813966,
+      'Orange':           60327519846734,
+      'Orchid Green':     60327519879502,
+      'Orchid Pink':      60327519912270,
+      'Pacific Grey':     60327519945038,
+      'Pixel Lime':       60327519977806,
+      'Radiant Purple':   60327520010574,
+      'Red':              60327520043342,
+      'Royal Blue':       60327520076110,
+      'Sand':             60327520108878,
+      'Sky':              60327520141646,
+      'Solar Yellow':     60327520174414,
+      'Sorbet':           60327520207182,
+      'Sport Grey':       60327520239950,
+      'Stone Blue':       60327520272718,
+      'Sunset Orange':    60327520305486,
+      'Swimming Pool':    60327520338254,
+      'Urban Khaki':      60327520371022,
+      'Urban Orange':     60327520403790,
+      'Urban Purple':     60327520436558,
+      'Used Black':       60327520469326,
+      'White':            60327520502094
+    }
+  };
+
+  // Correspondance : nouvelle couleur (palette 40, EN) -> couleur FR qui a un
+  // variant Shopify existant. Tant que les 40 vrais variants ne sont pas créés,
+  // on rattache la commande au variant FR le plus proche (la couleur RÉELLE
+  // choisie reste dans les propriétés de la ligne, visible en production).
+  var COLOR_EN_TO_FR = {
+    'black': 'Noir', 'used black': 'Noir',
+    'white': 'Blanc cassé', 'ash': 'Blanc cassé', 'natural': 'Blanc cassé', 'sand': 'Blanc cassé',
+    'navy': 'Bleu marine', 'navy blue': 'Bleu marine', 'cobalt blue': 'Bleu marine',
+    'royal blue': 'Bleu marine', 'urban purple': 'Bleu marine', 'stone blue': 'Bleu marine',
+    'diva blue': 'Bleu marine',
+    'sky': 'Bleu ciel', 'atoll': 'Bleu ciel', 'swimming pool': 'Bleu ciel',
+    'millennial mint': 'Bleu ciel', 'millennial lilac': 'Bleu ciel',
+    'red': 'Rouge', 'fire red': 'Rouge', 'burgundy': 'Rouge',
+    'orange': 'Orange', 'urban orange': 'Orange', 'sunset orange': 'Orange', 'apricot': 'Orange',
+    'gold': 'Jaune', 'solar yellow': 'Jaune',
+    'brown': 'Marron', 'chocolate': 'Marron',
+    'bottle green': 'Vert foncé', 'kelly green': 'Vert foncé', 'urban khaki': 'Vert foncé',
+    'orchid green': 'Vert foncé', 'pixel lime': 'Vert foncé',
+    'radiant purple': 'Violet',
+    'orchid pink': 'Rose clair', 'sorbet': 'Rose',
+    'dark grey': 'Gris foncé', 'pacific grey': 'Gris', 'sport grey': 'Gris ardoise'
+  };
+
+  // Extrait le nom de couleur depuis le champ "color" d'un item.
+  // - Textiles : "Couleur : Violet" -> "Violet"
+  // - Drapeaux/patchs : les détails sont concaténés
+  //   ("Type : Recto verso · Couleur : Rouge · Taille : …") -> on isole la couleur.
+  function colorNameFromItem(it) {
+    if (!it || !it.color) return '';
+    var raw = String(it.color);
+    var m = raw.match(/Couleur\s*:\s*([^·|]+)/i);
+    if (m) return m[1].trim();
+    return raw.replace(/^\s*Couleur\s*:\s*/i, '').trim();
+  }
+
+  // Normalise un nom de couleur pour un matching robuste : minuscules, sans
+  // accents, espaces compactés. Évite les échecs dus à la casse / aux accents
+  // (ex. "Vert foncé" encodé différemment) qui feraient retomber sur le variant
+  // de base (donc la mauvaise couleur au checkout).
+  function normColor(s) {
+    return String(s == null ? '' : s)
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+
+  // Choisit le variant : d'abord par couleur (matching normalisé) si dispo,
+  // sinon variant de base.
+  function variantForItem(it) {
+    var byColor = CONF_COLOR_VARIANTS[it.productType];
+    if (byColor) {
+      var rawName = colorNameFromItem(it);
+      var target = normColor(rawName);
+      if (target) {
+        // 1) Correspondance directe avec un variant FR existant.
+        for (var label in byColor) {
+          if (Object.prototype.hasOwnProperty.call(byColor, label) &&
+              normColor(label) === target) {
+            return byColor[label];
+          }
+        }
+        // 2) Nouvelle couleur (palette 40) -> variant FR le plus proche.
+        var frName = COLOR_EN_TO_FR[target];
+        if (frName && byColor[frName]) {
+          return byColor[frName];
+        }
+        /* 3) Repli sûr : premier variant du produit (évite « Cannot find
+              variant » et un checkout impossible).
+
+              Ce repli est SIGNALÉ : la couleur choisie n'existe pas comme
+              variant Shopify, donc la commande partira sur une autre teinte
+              (généralement Noir, premier de la table). Le prix est identique —
+              tous les variants couleur d'un produit valent le même montant —
+              mais la confirmation de commande et la facture afficheront la
+              mauvaise couleur. La couleur réelle reste dans les propriétés de
+              ligne, donc l'atelier peut la lire ; le client, lui, ne le voit
+              pas. Sans cette trace, l'écart était totalement invisible. */
+        for (var k in byColor) {
+          if (Object.prototype.hasOwnProperty.call(byColor, k)) {
+            console.warn('Couleur « ' + rawName + ' » sans variant Shopify : ' +
+                         'la ligne partira sur « ' + k + ' » (prix identique, ' +
+                         'libellé de commande différent).');
+            if (Array.isArray(window.__variantColorFallbacks)) {
+              window.__variantColorFallbacks.push({ asked: rawName, used: k });
+            }
+            return byColor[k];
+          }
+        }
+      }
+    }
+    return CONF_VARIANTS[it.productType];
+  }
+
+  (function () {
+    function money(val) {
+      return (Number(val) || 0).toFixed(2).replace('.', ',') + ' €';
+    }
+
+    /* Prix DÉGRESSIF par quantité : grille + helpers déportés dans l'asset
+       partagé conf-pricing-tiers.js (chargé plus haut). On délègue aux globals
+       window.* ; repli local minimal si l'asset n'a pas chargé. */
+    function effectiveUnitPrice(item, totalsByType) {
+      var base;
+      if (typeof window.effectiveUnitPrice === 'function') {
+        base = window.effectiveUnitPrice(item, totalsByType);
+      } else {
+        base = Number(item && item.price) || 0;   // repli : prix de la ligne
+      }
+      /* Supplément manches : effectiveUnitPrice() ne renvoie que le prix du
+         palier dégressif. Sans cet ajout, la page affichait 60 € sur un
+         article facturé 64 €, et le sous-total était faux d'autant.
+         (Le supplément part vers Shopify comme article distinct — voir plus
+         bas — mais l'AFFICHAGE doit montrer le prix réellement payé.) */
+      var n = Math.max(0, parseInt(item && item.sleeveCount, 10) || 0);
+      var slv = (typeof window.sleeveUnitPrice === 'function')
+        ? window.sleeveUnitPrice()
+        : ((window.PRICES || {}).sleeve || 4);
+      return base + slv * n;
+    }
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function getCart() {
+      try { return JSON.parse(sessionStorage.getItem('conf_cart')) || []; }
+      catch (e) { return []; }
+    }
+    function saveCart(items) {
+      try { sessionStorage.setItem('conf_cart', JSON.stringify(items)); } catch (e) {}
+    }
+
+    /* Construit les line items Shopify à partir du panier local.
+       Chaque item est rattaché à son variant via productType. Les propriétés
+       de personnalisation (détails, taille, aperçu) sont jointes à la ligne.
+       Les coins n'ont pas de variant : ils passent par une demande de devis
+       et sont ignorés ici. */
+    function buildShopifyItems(cart) {
+      var items = [], skipped = [];
+      /* Réinitialisé à chaque construction : variantForItem() y consigne les
+         couleurs sans variant, pour que le checkout puisse en avertir le client
+         au lieu de substituer une teinte en silence (A17). */
+      window.__variantColorFallbacks = [];
+      cart.forEach(function (it) {
+        var variantId = variantForItem(it);
+        if (!variantId) { skipped.push(it); return; }
+
+        var properties = {};
+        // Visibles au checkout (utiles au client) : personne + couleur + taille.
+        // « Personne » vient d'une liste de groupe : chaque ligne de la commande
+        // indique alors à qui le vêtement est destiné (nécessaire à l'atelier).
+        if (it.personName) properties['Personne'] = it.personName;
+        // Rattache la ligne à sa liste de groupe : les lignes d'une même
+        // commande restent lisibles comme un ensemble (« 2/5 »).
+        if (it.groupLabel) properties['Liste'] = it.groupLabel;
+        if (it.groupIndex) properties['Ligne'] = it.groupIndex;
+        if (it.color) properties['Détails'] = it.color;
+        if (it.size)  properties['Taille'] = it.size;
+
+        // 🆕 Résumé groupe par tailles (ex: "2×M, 3×L") pour l'admin
+        if (it._sizeGroupSummary) properties['_sizeGroupSummary'] = it._sizeGroupSummary;
+
+        // N'accepte QUE des URLs http(s) hébergées comme valeur de propriété.
+        // Une data-URL (base64) ferait des milliers de caractères -> Shopify
+        // REJETTE /cart/add.js (propriété trop longue) et le checkout échoue.
+        var httpUrl = function (u) {
+          return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null;
+        };
+
+        // URLs techniques (aperçu + logos) : préfixe "_" -> cachées au checkout,
+        // visibles dans l'admin. Aperçu = planche (sheet) si dispo, sinon vignette.
+        var apercu = httpUrl(it.sheet) || httpUrl(it.img);
+        if (apercu) properties['_Aperçu'] = apercu;
+        if (Array.isArray(it.assets)) {
+          it.assets.forEach(function (a) {
+            if (a && a.label && httpUrl(a.url)) properties['_' + a.label] = a.url;
+          });
+        }
+
+        var qty = Math.max(1, parseInt(it.qty, 10) || 1);
+        items.push({
+          id: variantId,
+          quantity: qty,
+          properties: Object.keys(properties).length ? properties : undefined
+        });
+
+        // Supplément « personnalisation manches » : ligne de panier distincte.
+        // Le variant textile a un prix fixe et une line item property ne porte
+        // aucun prix — le supplément doit donc être un vrai article (produit
+        // add-on masqué). Quantité = nb de manches × quantité de l'article.
+        var sleeves = Math.max(0, parseInt(it.sleeveCount, 10) || 0);
+        if (sleeves > 0 && window.CONF_SLEEVE_VARIANT) {
+          items.push({
+            id: window.CONF_SLEEVE_VARIANT,
+            quantity: sleeves * qty,
+            properties: {
+              'Article': (it.name || 'Textile') + (it.size ? ' — ' + it.size : ''),
+              'Manches': sleeves > 1 ? 'Gauche + droite' : 'Une manche'
+            }
+          });
+        }
+      });
+      return { items: items, skipped: skipped };
+    }
+
+    /* Synchronise le panier local vers le panier natif Shopify puis redirige
+       vers le checkout Shopify (où le client saisit ses coordonnées et paie). */
+    /* Active/désactive le bouton Commander selon la case de consentement.
+       Exposé sur window : l'attribut onchange="..." s'exécute dans le scope
+       GLOBAL, pas dans cette IIFE. Sans ça, la case ne débloquait rien. */
+    function onConsentChange() {
+      var chk = document.getElementById('rcp-consent-chk');
+      var btn = document.getElementById('rcp-continue');
+      if (!btn) return;
+      var ok = !!(chk && chk.checked);
+      btn.disabled = !ok;
+      // render() peut avoir posé ces styles inline pour un panier vide :
+      // on les nettoie pour ne pas laisser le bouton inerte.
+      btn.style.pointerEvents = ok ? '' : 'none';
+      btn.style.opacity = ok ? '' : '';
+    }
+    window.onConsentChange = onConsentChange;
+
+    async function goToCheckout(btnEl) {
+      // Garde-fou : consentement obligatoire (au cas où le bouton serait forcé).
+      var consent = document.getElementById('rcp-consent-chk');
+      if (!consent || !consent.checked) {
+        await confAlert(
+          'Merci d\'accepter les conditions avant de commander.',
+          { icon: 'info', title: 'Consentement requis' }
+        );
+        return;
+      }
+
+      var cart = getCart();
+      if (!cart.length) { await confAlert('Votre panier est vide.', { icon: 'info', title: 'Panier vide' }); return; }
+
+      var built = buildShopifyItems(cart);
+      var items = built.items, skipped = built.skipped;
+
+      /* Ces deux garde-fous reposent ENTIÈREMENT sur `skipped`, donc sur le fait
+         que variantForItem() renvoie `undefined` pour les coins. Ils étaient
+         inatteignables tant qu'un variant était câblé pour `patches` : les coins
+         partaient au paiement à un prix jamais validé. Voir CONF_VARIANTS. */
+
+      // Panier composé uniquement d'articles sur devis (coins) : pas de checkout.
+      if (!items.length) {
+        await confAlert(
+          "Votre panier ne contient que des articles sur devis (coins). " +
+          "Utilisez le bouton « Faire une demande de devis » depuis le configurateur.",
+          { icon: 'info', title: 'Articles sur devis' }
+        );
+        return;
+      }
+      if (skipped.length) {
+        var ok = await confConfirm(
+          skipped.length + " article(s) sur devis (coins) ne peuvent pas être payés en ligne " +
+          "et seront retirés. Continuer avec les " + items.length + " autre(s) article(s) ?",
+          { icon: 'warning', title: 'Articles retirés', confirmText: 'Continuer' }
+        );
+        if (!ok) return;
+      }
+
+      /* Couleurs substituées : le client doit le savoir AVANT de payer. Le prix
+         est le bon, mais la commande et la facture porteront une autre teinte —
+         sur du textile personnalisé, donc non revendable, c'est un motif de
+         litige. On demande confirmation plutôt que d'informer après coup. */
+      var subs = window.__variantColorFallbacks || [];
+      if (subs.length) {
+        var liste = subs.slice(0, 3).map(function (s) {
+          return '« ' + s.asked + ' » → « ' + s.used + ' »';
+        }).join(', ');
+        var okColor = await confConfirm(
+          subs.length + ' couleur(s) ne sont pas disponibles à la commande et seront ' +
+          'remplacées : ' + liste + (subs.length > 3 ? ' …' : '') + '. ' +
+          'Le prix ne change pas. Continuer ?',
+          { icon: 'warning', title: 'Couleur remplacée', confirmText: 'Continuer' }
+        );
+        if (!okColor) return;
+      }
+
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Redirection…'; }
+
+      try {
+        /* 1) VÉRIFIER l'ajout AVANT de vider.
+
+           L'ordre était inversé : `/cart/clear.js` puis `/cart/add.js`. Si
+           l'ajout échouait (variant épuisé, propriété refusée, réseau), le
+           panier Shopify avait déjà été détruit et rien ne le restaurait — le
+           client se retrouvait avec un panier vide ET une erreur.
+
+           On ajoute donc d'abord, et on ne nettoie qu'ensuite : Shopify cumule
+           les quantités sur un même variant, d'où le retrait des lignes
+           préexistantes une fois l'ajout confirmé. `conf_cart` reste la source
+           de vérité côté client, donc l'état affiché ne dépend pas de ce
+           nettoyage. */
+        var before = null;
+        try {
+          var cur = await fetch('/cart.js', { headers: { 'Accept': 'application/json' } });
+          if (cur.ok) {
+            var curCart = await cur.json();
+            before = (curCart.items || []).map(function (it) { return it.key; });
+          }
+        } catch (e) { before = null; }
+
+        var res = await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: items })
+        });
+        if (!res.ok) {
+          var txt = await res.text().catch(function () { return ''; });
+          throw new Error('Ajout au panier Shopify échoué (' + res.status + '). ' + txt);
+        }
+
+        /* 2) L'ajout a réussi : on retire les lignes qui préexistaient, pour
+              éviter les doublons au retour depuis le checkout. Un échec ici est
+              sans gravité (au pire un doublon), d'où le catch silencieux — il
+              ne doit surtout pas empêcher le paiement. */
+        if (before && before.length) {
+          var updates = {};
+          before.forEach(function (key) { updates[key] = 0; });
+          try {
+            await fetch('/cart/update.js', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ updates: updates })
+            });
+          } catch (e) {
+            console.warn('Nettoyage des lignes précédentes échoué (doublon possible) :', e);
+          }
+        }
+
+        // 3) Marque qu'un checkout est en cours. Au retour sur le configurateur,
+        //    si le panier Shopify natif est vide (commande finalisée), on purge le
+        //    design. On NE purge PAS ici : le client peut revenir en arrière et
+        //    doit retrouver son panier tant que le paiement n'est pas confirmé.
+        try { localStorage.setItem('conf_checkout_pending', String(Date.now())); } catch (e) {}
+        window.location.href = '/checkout';
+      } catch (err) {
+        console.error('Erreur checkout :', err);
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Commander'; }
+        confAlert("Une erreur est survenue lors du passage au paiement.\n" + err.message, { icon: 'error', title: 'Erreur' });
+      }
+    }
+
+    // Exposé pour le onclick inline du bouton "Commander".
+    window.goToCheckout = goToCheckout;
+
+    /* Écrit un montant dans un élément, s'il existe. Les quatre conteneurs de
+       cette page sont statiques, mais render() est rappelée sur l'événement
+       conf:prices-loaded : une garde évite qu'un rendu tardif, après une
+       navigation, ne lève une TypeError qui interromprait le recalcul. */
+    function setMoney(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = money(value);
+    }
+
+    function render() {
+      const items = getCart();
+      const itemsEl = document.getElementById('rcp-items');
+      const contBtn = document.getElementById('rcp-continue');
+      if (!itemsEl || !contBtn) return;   // page partiellement montée
+
+      if (!items.length) {
+        itemsEl.innerHTML = `
+          <div class="rcp-empty">
+            Votre récapitulatif est vide.<br>
+            <a href="/pages/configurateur">← Retour au configurateur</a>
+          </div>`;
+        setMoney('rcp-subtotal', 0);
+        setMoney('rcp-total', 0);
+        contBtn.disabled = true;
+        contBtn.style.opacity = '0.5';
+        contBtn.style.pointerEvents = 'none';
+        return;
+      }
+
+      // Panier non vide : on lève le verrou « panier vide » posé plus haut.
+      // Le bouton reste toutefois soumis à la case de consentement.
+      contBtn.style.opacity = '';
+      contBtn.style.pointerEvents = '';
+      if (typeof onConsentChange === 'function') onConsentChange();
+
+      // Quantité totale par type -> palier dégressif appliqué à l'affichage.
+      var totalsByType = {};
+      items.forEach(function (i) {
+        totalsByType[i.productType] = (totalsByType[i.productType] || 0) + (i.qty || 1);
+      });
+
+      let subtotal = 0;
+      itemsEl.innerHTML = items.map((item, idx) => {
+        const unit = effectiveUnitPrice(item, totalsByType);
+        const lineTotal = unit * (item.qty || 1);
+        subtotal += lineTotal;
+
+        // Propriétés : textile = couleur + taille séparés ; custom = détails bruts
+        let propsHtml = '';
+        if (item.size) {
+          const parts = [];
+          if (item.color) parts.push(`<span><strong>Couleur :</strong> ${esc(item.color)}</span>`);
+          parts.push(`<span><strong>Taille :</strong> ${esc(item.size)}</span>`);
+          propsHtml = parts.join('');
+        } else if (item.color) {
+          // Custom (drapeau/patch) : les détails sont déjà formatés
+          propsHtml = `<span>${esc(item.color)}</span>`;
+        }
+
+        const img = item.img
+          ? `<img class="rcp-item-img" src="${esc(item.img)}" alt="${esc(item.name)}">`
+          : `<div class="rcp-item-img rcp-item-noimg">
+               <svg width="32" height="32" viewBox="0 0 24 24" fill="#c9ccd1"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+             </div>`;
+        return `
+          <div class="rcp-item">
+            ${img}
+            <div class="rcp-item-info">
+              <div class="rcp-item-name">${esc(item.name)}</div>
+              <div class="rcp-item-props">${propsHtml}</div>
+            </div>
+            <div class="rcp-item-right">
+              <div class="rcp-item-price">${money(lineTotal)}</div>
+              <div class="rcp-item-qty">Qté : ${item.qty || 1}</div>
+              <button type="button" class="rcp-item-remove" data-idx="${idx}">Retirer</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      setMoney('rcp-subtotal', subtotal);
+      setMoney('rcp-total', subtotal);
+
+      // Boutons "Retirer"
+      itemsEl.querySelectorAll('.rcp-item-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const list = getCart();
+          list.splice(parseInt(btn.dataset.idx, 10), 1);
+          saveCart(list);
+          render();
+        });
+      });
+    }
+
+    render();
+
+    /* Les prix et grilles arrivent APRÈS ce premier rendu : on recalcule les
+       totaux à leur réception, sinon la page resterait sur les valeurs de
+       repli jusqu'au prochain rechargement. */
+    document.addEventListener('conf:prices-loaded', render);
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Récapitulatif",
+  "settings": []
+}
+{% endschema %}

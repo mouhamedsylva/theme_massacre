@@ -1,0 +1,1446 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   LAYOUT MOBILE — 0 à 767 px
+   ═══════════════════════════════════════════════════════════════════════
+
+   Modèle CustomInk : le produit occupe l'écran, tout le reste vient
+   PAR-DESSUS lui. La page ne défile pas ; seuls les panneaux défilent.
+
+   ┌─────────────────────┐
+   │  header (compact)   │
+   ├─────────────────────┤
+   │  [P] [U] [T]        │  ← 3 boutons flottants SUR le produit
+   │                     │
+   │      👕 produit     │  [face]  ← vues en colonne verticale
+   │                     │  [dos]      (remplacent le zoom)
+   │                     │  [côté]
+   ├─────────────────────┤
+   │ ═══ poignée ═══     │
+   │ 60,00 €  [Panier]   │  ← barre récap fixe (déjà en place)
+   └─────────────────────┘
+
+   Ce fichier est chargé EN DERNIER : il fait autorité sur la géométrie.
+   Les règles de layout concurrentes de conf-styles.css ont été retirées
+   (voir le commentaire à @media 768 là-bas) — ne pas les réintroduire.
+
+   Convention : ce fichier ne touche QUE sous 768 px. Aucune règle hors
+   media query, pour ne rien casser en desktop.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+
+  /* ─────────────────────────────────────────────────────────────────
+     1. RACINE — écran fixe, pas de défilement de page
+     ───────────────────────────────────────────────────────────────── */
+
+  /* 100dvh suit la barre d'URL des navigateurs mobiles (elle se rétracte
+     au défilement) ; 100vh seul laisse un trou en bas sur iOS Safari.
+     Le fallback 100vh reste pour les navigateurs sans dvh. */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;      /* pas de rebond élastique iOS */
+  }
+
+  .conf-app-root {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+  }
+
+  /* La barre de types de produit d'origine est remplacée par le panneau
+     « Type de Produit » de la feuille montante. */
+  .type-bar { display: none !important; }
+
+  /* Stepper (1 Personnalisation — 2 Récapitulatif — 3 Commande) : masqué.
+     Il prenait une ligne entière sous le titre (conf-styles.css le passe en
+     `flex: 1 0 100%`), au détriment du produit. La progression reste lisible
+     dans le parcours lui-même : on N'EST à cette page QUE pour l'étape 1. */
+  .hdr-steps { display: none !important; }
+
+  /* Header réduit à sa seule ligne utile : marque + Réinitialiser. */
+  .hdr {
+    flex-wrap: nowrap;
+    height: auto;
+    min-height: 0;
+    padding: 8px 12px;
+    row-gap: 0;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     2. ZONE PRODUIT — occupe tout l'espace restant
+     ───────────────────────────────────────────────────────────────── */
+
+  .app {
+    flex: 1 1 auto;
+    display: block;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* `inset` (et non `inset: 0`) : le padding-bottom de .app ne réduit pas
+     la boîte d'un enfant en position absolue — .canvas descendait donc SOUS
+     la barre d'options, et le bouton flottant s'y retrouvait coupé. On borne
+     explicitement le bas à la hauteur de la barre. */
+  .canvas {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: var(--nav-h, 56px);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* En-tête du canvas : les titres desktop ne servent à rien ici, l'écran
+     est déjà entièrement dédié au produit.
+     `static` est VOULU : ses enfants absolus (.cv-opts, .vt-overview) se
+     rattachent alors à .canvas, qui couvre tout l'aperçu. Ils se placent
+     ainsi par rapport à l'écran et non à un en-tête de hauteur nulle. */
+  .cv-hdr { position: static; padding: 0; border: none; }
+  .cv-title, .cv-sub { display: none; }
+
+  /* Couleur / Taille : posés en haut du produit, compacts. */
+  /* Pastilles Couleur / Taille, en haut à gauche. Elles s'arrêtent avant
+     « Vue d'ensemble », posé en haut à droite (voir §4). */
+  /* Rangée d'actions du haut : Couleur, Taille, puis « Vue d'ensemble »
+     (que conf-mobile.js déplace ici). Toute la largeur, le bouton étant en
+     bout de ligne via `margin-left: auto`. */
+  .cv-opts {
+    position: absolute;
+    top: 8px; left: 8px;
+    right: 8px;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    /* `nowrap` explicite : avec « Vue d'ensemble » ajouté à la rangée, les
+       trois éléments peuvent dépasser la largeur sur un écran étroit — sans
+       cela le bouton repassait à la ligne, sous les pastilles. */
+    flex-wrap: nowrap;
+    gap: 6px;
+    /* Hauteur bornée à celle des boutons : le conteneur ne doit pas grandir
+       et pousser l'aperçu. */
+    height: 30px;
+  }
+  /* Les pastilles se compriment si la place manque ; « Vue d'ensemble »,
+     lui, garde sa taille (flex: none) — son libellé ne se tronque pas. */
+  .cv-opt { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  /* Hauteur fixe, la même que « Vue d'ensemble » : les trois boutons du haut
+     forment une rangée alignée. */
+  .cv-opt-btn {
+    height: 30px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 9px;
+    font-size: 11px;
+    border-radius: 9px;
+    background: rgba(255,255,255,.95);
+    box-shadow: 0 1px 6px rgba(0,0,0,.12);
+    max-width: 100%;
+  }
+  .cv-opt-lbl { display: none; }    /* « Couleur »/« Taille » : la valeur suffit */
+  .cv-opt-val { font-size: 11px; }
+
+  /* Les menus déroulants restent dans l'écran. */
+  .cv-opt-pop {
+    position: fixed;
+    left: 8px; right: 8px;
+    top: auto;
+    width: auto;
+    max-height: 52vh;
+    overflow-y: auto;
+    z-index: 60;
+  }
+
+  /* Zone d'aperçu : tout l'espace disponible, sans bride de hauteur. */
+  .cv-wrap {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* La ligne de canvas sert DEUX structures très différentes :
+       • textile : .cv-single-view en position absolue, couvre la ligne ;
+       • patch / coins / drapeaux : la scène est un ENFANT FLEX
+         (.patch-stage porte `flex: 1 1 auto`).
+     Un `display:block` uniforme cassait le second cas — le patch débordait
+     à droite au lieu de se centrer.
+
+     Le discriminant est l'attribut `data-canvas` posé par conf-mobile.js
+     (et non :has(), pour ne pas dépendre de son support). */
+  .cv-canvas-row {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+  }
+
+  /* Textile. */
+  .cv-canvas-row[data-canvas="single"] {
+    display: block;
+    position: relative;
+  }
+
+  /* Patch, coins, drapeaux : flex d'origine conservé, simplement centré. */
+  .cv-canvas-row[data-canvas="stage"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* La scène ne doit pas déborder de la largeur de l'écran : le desktop la
+     borne à 560px, ce qui dépasse un téléphone. */
+  .patch-stage,
+  .coin-canvas-container,
+  .flag-canvas-container {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Le patch est un carré (`aspect-ratio: 1`) en `width: 100%` : sur un
+     écran étroit il prend toute la largeur et déborde donc en HAUTEUR.
+     On le borne aussi par la hauteur disponible — c'est la plus petite des
+     deux dimensions qui doit commander. */
+  .patch-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 8px;
+  }
+
+  /* Côté du carré = la plus petite des deux dimensions disponibles.
+     `min()` l'exprime directement, sans dépendre de la résolution d'un
+     `width:auto` sous aspect-ratio (qui peut se réduire à zéro). */
+  .coins-canvas-circle {
+    width: min(100%, calc(100vh - var(--nav-h, 56px) - 150px));
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  /* L'image du produit remplit la zone en gardant ses proportions.
+     Les zones (logo-layer) sont en % de ce conteneur : elles suivent donc
+     automatiquement, sans recalcul. */
+  /* Padding réduit au strict nécessaire : le produit doit occuper le plus
+     d'espace possible.
+       • haut  : les pastilles Couleur/Taille (le rail est passé en bas) ;
+       • côtés : la colonne de vues, à droite — symétrique pour que l'image
+                 reste centrée, sinon elle ET les zones se décalent chacune
+                 de leur côté (le calage JS corrige un décalage régulier,
+                 pas un centrage faussé). */
+  /* Padding libre : le layer suit l'IMAGE, pas ce conteneur — sa géométrie
+     n'a donc plus d'effet sur la position des zones. On peut réserver la
+     place des pastilles (en haut) et de la colonne de vues (à droite) sans
+     décaler quoi que ce soit.
+     Latéral symétrique quand même : l'image reste centrée, ce qui évite un
+     déséquilibre visuel. */
+  /* Le padding est la SEULE bride sur la taille du produit : l'image occupe
+     déjà 100% de ce qu'on lui laisse (voir .product-img-single).
+
+     Il ne sert qu'à dégager les éléments flottants du haut (bascule de face
+     à gauche, « Vue d'ensemble » à droite, tous deux `top: 8px` sur ~34px de
+     haut). 40px était plus large que nécessaire ; 26px sur les côtés ne
+     protégeaient rien, le rail des vues étant lui aussi en absolu.
+
+     Réduit au strict besoin : le produit gagne nettement en surface.
+
+     Côtés et bas à 0 — le produit occupe toute la largeur. Les éléments qui
+     flottent sur l'aperçu (rail des vues à droite, bascule à gauche) sont en
+     `absolute` et passent PAR-DESSUS : ils ne réclament aucune marge.
+     Seul le haut en garde une, pour la rangée bascule + « Vue d'ensemble ». */
+  .cv-single-view {
+    position: absolute;
+    inset: 0;
+    /* 40px = la rangée .cv-opts (top: 8px + height: 30px) au ras. */
+    padding: 40px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* L'image occupe tout l'espace disponible : le layer étant calé sur elle
+     (et non sur le conteneur), sa taille n'influe plus sur la position des
+     zones — elles suivent l'image quelle qu'en soit l'échelle.
+     `contain` conserve les proportions ; le vide éventuel est exclu du
+     layer par le calcul de syncLayerToImage(). */
+  .product-img-single {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* Repères « 5 cm » : superflus sur petit écran, ils encombrent. */
+  .mlbl { display: none; }
+
+  /* La couche des logos est calée sur l'IMAGE dessinée par conf-mobile.js
+     (syncLayerToImage), qui écrit left/top/width/height en inline.
+     `inset: auto` neutralise le `inset: 0` de conf-canvas-single.css, qui
+     entrerait en conflit avec ces valeurs. */
+  #logo-layer { inset: auto; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     3. BARRE D'OPTIONS EN BAS (façon CustomInk)
+        Reprend .icon-nav (les mêmes boutons qu'en desktop) : les items
+        conditionnels coin/flag/patch continuent donc de s'afficher tout
+        seuls selon la catégorie, sans JS supplémentaire.
+
+        En bas plutôt qu'au-dessus du produit : posée sur l'image, elle
+        obligeait à réserver ~56px de padding en haut, ce qui rapetissait
+        d'autant le vêtement. Ancrée sous le canvas, elle ne mange plus
+        l'aperçu et tombe sous le pouce.
+     ───────────────────────────────────────────────────────────────── */
+
+  .icon-nav {
+    position: fixed;
+    left: 0; right: 0;
+    /* Collée au bord bas de l'écran : c'est le menu de l'app. */
+    bottom: 0;
+    z-index: 46;
+    /* Rangée horizontale pleine largeur, compacte : ~52px de haut au total.
+       Le padding bas absorbe l'encoche / la barre d'accueil iOS — mais avec
+       une valeur PLANCHER faible, sinon la barre regagne la hauteur qu'on
+       vient de lui retirer. */
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    height: auto;
+    padding: 5px 2px max(5px, env(safe-area-inset-bottom));
+    gap: 0;
+
+    border: none;
+    border-right: none;
+    border-top: 1px solid rgba(255,255,255,.08);
+    border-radius: 0;
+    background: #1f1f1f;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.18);
+
+    /* Si une catégorie ajoute un 4e bouton (coin/drapeau/patch), la barre
+       défile horizontalement plutôt que de tasser les libellés. */
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .icon-nav::-webkit-scrollbar { display: none; }
+
+  /* Chaque item : icône au-dessus, libellé dessous, sur UNE ligne.
+     `flex: 1` répartit la largeur également — les items gardent la même
+     taille quel que soit leur libellé. */
+  .icon-nav-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Ancre le libellé masqué (position: absolute) : sans référent, il se
+       rattacherait à la barre et pourrait rouvrir un débordement. */
+    position: relative;
+    width: auto;
+    min-width: 0;                    /* autorise la compression sous 62px */
+    /* Le desktop impose min-height:70px (conf-sidebar-modern.css) : c'est
+       LUI qui gonflait la barre, pas le padding. */
+    min-height: 0;
+    padding: 8px 2px;
+    border-radius: 7px;
+    border-left: none;               /* desktop : barre d'état à gauche */
+    background: transparent;
+    color: #fff;
+    gap: 0;
+    transition: background .15s ease;
+  }
+
+  /* Icônes seules : plus grandes, puisqu'elles portent seules le sens. */
+  .icon-nav-item svg {
+    width: 24px;
+    height: 24px;
+    color: #fff;
+    flex: none;
+    stroke-width: 1.8;               /* trait plus fin = plus net en petit */
+  }
+
+  /* Libellés masqués : sur un téléphone, « Type de Produit » ou « Options
+     Drapeau » se tassaient en 8,5px à peine lisibles et gonflaient la barre.
+     Les icônes suffisent — c'est aussi ce que fait CustomInk.
+
+     Le libellé reste dans le DOM (et non `display:none` sur le bouton) : il
+     sert de nom accessible au lecteur d'écran. `clip` le retire de l'affichage
+     sans le retirer de l'arbre d'accessibilité. */
+  .icon-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Actif : sans libellé visible, le seul repère est l'icône — le fond doit
+     donc être plus franc qu'avant pour rester lisible d'un coup d'œil. */
+  .icon-nav-item.active {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border-left: none;
+  }
+  .icon-nav-item.active svg { color: #fff; }
+  /* Sans effet visuel (le libellé est masqué), conservé pour l'a11y. */
+  .icon-nav-item.active .icon-nav-label {
+    color: #fff;
+    font-weight: 700;
+  }
+
+  /* Retour tactile : l'item s'assombrit brièvement au doigt. */
+  .icon-nav-item:active { background: rgba(255,255,255,.06); }
+
+  /* ─────────────────────────────────────────────────────────────────
+     3bis. DRAPEAUX / COINS / PATCHS — une seule face à la fois
+        Ces produits affichent RECTO et VERSO côte à côte : deux visuels
+        pour une largeur d'écran, chacun devenait minuscule et débordait.
+
+        En mobile on n'en montre qu'UN, choisi par une bascule posée en
+        haut de l'aperçu (créée par conf-mobile.js).
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Les deux scènes passent en pile : une seule face visible à la fois. */
+  .flag-stage,
+  .coin-stage {
+    flex-wrap: nowrap;
+    gap: 0;
+    padding: 8px 4px;
+  }
+
+  /* Face masquée. `data-face-active` est posé sur la scène par le JS ;
+     l'attribut porte la face à montrer (recto | verso). */
+  .flag-stage[data-face-active="recto"] #flag-verso,
+  .flag-stage[data-face-active="verso"] #flag-recto,
+  .coin-stage[data-face-active="recto"] .coin-view[data-view="verso"],
+  .coin-stage[data-face-active="verso"] .coin-view[data-view="recto"] {
+    display: none !important;
+  }
+
+  /* La face affichée prend toute la largeur disponible. */
+  .flag-stage > .flag-mock,
+  .coin-stage > .coin-view {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  /* Les libellés RECTO/VERSO sous les visuels font doublon avec la
+     bascule : on les retire pour gagner de la hauteur. */
+  .flag-face-label,
+  .coin-view-label { display: none; }
+
+  /* ── Retournement de la pièce ───────────────────────────────────────
+     La bascule Recto/Verso permutait les deux faces d'un coup, sans que
+     rien ne relie l'une à l'autre : on ne voyait pas qu'il s'agit des
+     deux côtés d'un même objet. La pièce pivote donc sur son axe
+     vertical, comme une médaille qu'on retourne entre les doigts.
+
+     La face entrante joue la seconde moitié du tour (de -90° à 0°) :
+     l'ancienne a « disparu » de profil, la nouvelle revient de profil.
+     Enchaînées par le changement de `data-face-active`, les deux moitiés
+     se lisent comme une seule rotation continue.
+
+     `perspective` donne la profondeur — sans elle, un rotateY reste un
+     simple écrasement horizontal. La valeur est large (900px) : la pièce
+     occupe presque toute la largeur, une perspective courte la
+     déformerait exagérément sur les bords.
+
+     .coin-flipping est posée le temps de l'animation par le JS
+     (buildFaceSwitch) ; elle retombe à la fin, sans quoi l'animation
+     rejouerait à chaque recalcul de style. */
+  @keyframes coinFlipIn {
+    0%   { transform: perspective(900px) rotateY(-90deg); opacity: .25; }
+    100% { transform: perspective(900px) rotateY(0deg);   opacity: 1; }
+  }
+
+  .coin-stage.coin-flipping > .coin-view,
+  .flag-stage.coin-flipping > .flag-mock {
+    animation: coinFlipIn .34s cubic-bezier(.34, .8, .38, 1) both;
+    transform-origin: center center;
+    /* Le rendu 3D du disque bave sur les bords pendant la rotation sans
+       cette promotion en couche propre. */
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  /* Mouvement réduit demandé par le système : la bascule reste instantanée.
+     L'information (quelle face est affichée) passe par la bascule elle-même,
+     pas par l'animation — la retirer ne retire donc aucun repère. */
+  @media (prefers-reduced-motion: reduce) {
+    .coin-stage.coin-flipping > .coin-view,
+    .flag-stage.coin-flipping > .flag-mock { animation: none; }
+  }
+
+  /* ── Taille des visuels : une seule face à l'écran ──────────────────
+     Les largeurs d'origine sont des clamp() calibrés pour DEUX faces côte
+     à côte :
+       • coins    : clamp(150px, 17vw, 220px)
+       • drapeaux : clamp(250px, 30vw, 380px)
+     Sur un téléphone, la part en vw est trop petite et c'est le minimum
+     qui s'applique — un visuel riquiqui au milieu du vide, alors qu'on
+     n'en affiche plus qu'un. On repart donc de la largeur disponible.  */
+
+  .coin-disc {
+    width: min(88%, calc(100vh - var(--nav-h, 56px) - 200px));
+    max-width: 88%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .flag-mock {
+    width: 100%;
+    gap: 0;
+  }
+
+  /* Les deux rendus possibles du drapeau : .flag-img-3d (image réelle) et
+     .flag-wave (toile ondulée). Tous deux portent un clamp() calibré pour
+     deux drapeaux côte à côte. */
+  .flag-img-3d,
+  .flag-wave {
+    width: 94%;
+    max-width: 94%;
+  }
+
+  .flag-base-img,
+  .flag-img-3d img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* ── La boîte de bascule, en haut de l'aperçu ──
+     Calée à GAUCHE (et non centrée) : « Vue d'ensemble » occupe le coin
+     droit, et une bascule centrée venait mordre dessus. */
+  .face-switch {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    transform: none;
+    z-index: 24;
+
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0,0,0,.14);
+  }
+
+  .face-switch-btn {
+    padding: 6px 18px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    color: #666;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+
+  .face-switch-btn.active {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  /* Le zoom flottant de ces produits (drapeaux, coins, patchs) prend une
+     bande entière en bas de l'aperçu : le pincement du doigt fait le même
+     travail, comme pour le zoom des textiles (.cv-ctrl, masqué plus bas). */
+  .coins-canvas-controls { display: none !important; }
+
+  /* Avertissement « Le rendu est une approximation… » : il porte
+     `white-space: nowrap` et débordait donc des deux côtés de l'écran. Il
+     occupe la place du prix, pour une mention qui a sa place sur la fiche
+     produit, pas en surimpression d'un aperçu de téléphone. */
+  .cv-info { display: none; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     4. VUES EN COLONNE VERTICALE (à la place du zoom)
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Le zoom disparaît : le pincement du doigt le remplace naturellement,
+     et la place sert aux vues (demande explicite). */
+  .cv-ctrl { display: none !important; }
+
+  .vtabs {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    z-index: 22;
+    /* Annule la réservation desktop (place des pastilles Couleur/Taille) :
+       ici la colonne est hors du flux, elle décalerait les boutons. */
+    padding-right: 0;
+
+    display: flex;
+    flex-direction: column;          /* ← vertical, comme demandé */
+    gap: 5px;
+    width: auto;
+    padding: 0;
+    border: none;
+    background: none;
+    overflow: visible;
+
+    /* Beaucoup de vues possibles (face/dos/côté/2 manches/ensemble) :
+       la colonne défile au besoin plutôt que de dépasser de l'écran. */
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .vtabs::-webkit-scrollbar { display: none; }
+
+  /* Onglets réduits à leur ICÔNE : la colonne se pose SUR l'aperçu, et
+     cinq pavés de texte (« Manche gauche » tenait sur deux lignes)
+     recouvraient le vêtement. Un carré de 40 px reste confortable au doigt
+     tout en libérant la vue. Le libellé demeure dans le DOM, porté par
+     `aria-label` pour les lecteurs d'écran (voir .vt-txt plus bas). */
+  .vt {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    min-height: 0;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,.08);
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 1px 6px rgba(0,0,0,.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Le texte cède la place à l'icône. `display:none` plutôt qu'une astuce
+     de masquage visuel : `aria-label` sur le bouton porte déjà le sens, et
+     un texte hors écran s'ajouterait à lui en double annonce.
+
+     `:not(.vt-overview)` : « Vue d'ensemble » quitte la colonne pour la
+     rangée d'actions en haut (voir plus bas) — là, la place ne manque pas
+     et son libellé reste affiché, comme sur les pastilles voisines. */
+  .vt:not(.vt-overview) .vt-txt { display: none; }
+
+  .vt:not(.vt-overview) .vt-ico {
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+
+  /* Manche droite : même dessin que la gauche, retourné. Le vêtement est
+     symétrique — dessiner deux icônes distinctes n'apporterait rien et
+     risquerait de les rendre moins cohérentes. */
+  .vt .vt-ico-flip { transform: scaleX(-1); }
+
+  /* Les onglets manche réservaient 20 px à droite pour que la pastille ne
+     chevauche pas leur libellé (conf-sidebar-modern.css). Sans texte, ce
+     retrait décentrerait l'icône dans son carré. */
+  #sleeve-l-btn,
+  #sleeve-r-btn { padding-right: 0; }
+
+  .vt.on {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  .vt:disabled { opacity: .4; }
+
+  /* « Vue d'ensemble » n'est PAS une vue de plus : c'est une synthèse, et
+     elle ouvre une modale. Sortie de la colonne des vues, elle se pose en
+     haut à droite — sur la même ligne que les pastilles Couleur/Taille,
+     avec qui elle forme la rangée des actions d'aperçu.
+
+     `position: absolute` dans .cv-hdr, comme .cv-opts : même référent, donc
+     les deux s'alignent sans avoir à mesurer la hauteur du header. */
+  /* « Vue d'ensemble » : posé en haut à droite de l'aperçu, sur la même
+     ligne que les pastilles Couleur/Taille.
+
+     conf-mobile.js le sort du DOM de .vtabs pour l'attacher à .canvas —
+     indispensable : .vtabs est elle-même `position: absolute`, donc un
+     enfant absolu s'y ancrait et restait collé à la colonne des vues.
+
+     Sélecteur doublé (.vt.vt-overview) pour passer devant les règles .vt
+     déclarées plus bas, notamment `width: 46px`. */
+  /* `.cv-hdr` en tête : conf-canvas-options.css cible désormais
+     `.cv-hdr:not(.cv-hdr-row) .vt.vt-overview` (0,4,0), plus spécifique que
+     `.vt.vt-overview` seul (0,2,0) — sans ce préfixe, la règle desktop
+     l'emporterait ici malgré la media query. */
+  /* Sélecteur calqué sur celui de conf-canvas-options.css
+     (`.cv-hdr:not(.cv-hdr-row) .vt.vt-overview`, 0,4,0) pour le dépasser :
+     le bouton vit maintenant dans .cv-opts, LUI-MÊME dans .cv-hdr — la règle
+     desktop s'appliquait donc encore et le repassait en `absolute; top:44px`,
+     d'où le bouton qui retombait sous les pastilles. */
+  .cv-hdr:not(.cv-hdr-row) .cv-opts .vt.vt-overview,
+  .cv-hdr:not(.cv-hdr-row) .vt.vt-overview,
+  .cv-opts .vt.vt-overview,
+  .vt.vt-overview {
+    /* Enfant flex de .cv-opts (conf-mobile.js l'y déplace) : aligné avec les
+       pastilles Couleur/Taille par construction, sans positionnement absolu
+       à accorder. `margin-left: auto` le pousse en bout de rangée. */
+    position: static;
+    top: auto;
+    right: auto;
+    margin-left: auto;
+    z-index: 24;
+
+    width: auto;
+    max-width: none;
+    /* Hauteur ALIGNÉE sur les pastilles Couleur/Taille (.cv-opt-btn) : les
+       trois boutons forment une rangée. Une hauteur fixe plutôt qu'un
+       padding — les polices diffèrent (10px ici, 11px là), donc à padding
+       égal les hauteurs ne l'étaient pas, et le bouton retombait plus bas. */
+    height: 30px;
+    min-height: 30px;
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 10px;
+    font-size: 10px;
+    border-radius: 9px;
+    white-space: nowrap;
+  }
+
+  .vt-overview svg { width: 14px; height: 14px; flex: none; }
+
+  /* Coins / drapeaux / patchs : ces canvas n'ont pas de rangée .cv-opts
+     (pas de pastilles Couleur/Taille). moveOverviewBtn() rattache alors le
+     bouton à .cv-wrap et pose .ov-in-wrap — il retombait sinon tout en bas
+     de l'aperçu, à l'opposé de la bascule Recto/Verso.
+
+     `top: 8px` est celui de .face-switch : les deux vivent dans .cv-wrap,
+     donc partagent la même origine et s'alignent sans mesure. La bascule
+     tient la gauche, ce bouton la droite.
+
+     Sélecteur doublé (.vt.vt-overview.ov-in-wrap) pour passer devant le bloc
+     `position: static` déclaré plus haut, qui vaut pour le cas .cv-opts. */
+  .vt.vt-overview.ov-in-wrap {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    left: auto;
+    bottom: auto;
+    margin-left: 0;
+    /* Au-dessus de la scène, comme .face-switch (z-index: 24). */
+    z-index: 24;
+  }
+
+  /* La colonne des vues ne contient plus « Vue d'ensemble » : elle reste
+     centrée sur ce qui subsiste (face / dos / côté). */
+  .vtabs { top: 50%; }
+
+  /* Pastille « option manches active » : recentrée sur le petit bouton.
+     `:not(.vt-overview)` est indispensable — cette règle vient APRÈS le bloc
+     .vt-overview et son `position: relative` écrasait le `absolute` qui sort
+     « Vue d'ensemble » de la colonne. Le bouton restait donc dans la pile et
+     débordait à droite. */
+  .vt-dot { position: absolute; top: 4px; right: 4px; }
+  .vt:not(.vt-overview) { position: relative; }
+
+  /* Bascule gauche/droite des manches : sous la colonne de vues. */
+  .side-toggle {
+    top: auto;
+    bottom: 10px;
+    right: 8px;
+    left: auto;
+    transform: none;
+    z-index: 22;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .st-btn { font-size: 9px; padding: 5px 7px; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     5. FEUILLE MONTANTE (les panneaux d'options)
+        Aucun JS à écrire : conf-sidebar-modern.js pose déjà .open sur
+        .side-panel. On ne fait que redéfinir ce que « open » veut dire.
+     ───────────────────────────────────────────────────────────────── */
+
+  .side-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: none;
+    height: 72vh;
+    height: 72dvh;
+    /* z-index défini plus bas, avec la barre d'action (section 6) : les deux
+       se répondent, autant les lire au même endroit. */
+
+    background: #fff;
+    border-left: none;
+    border-top: 1px solid var(--border, #e5e5e5);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 28px rgba(0,0,0,.18);
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    /* Fermée : entièrement hors écran, sous le bord bas. */
+    transform: translateY(101%);
+    transition: transform .3s cubic-bezier(.32, .72, 0, 1);
+    visibility: hidden;
+  }
+
+  .side-panel.open {
+    transform: translateY(0);
+    visibility: visible;
+  }
+
+  /* Poignée de fermeture, injectée par conf-mobile.js. */
+  .sheet-handle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 0 5px;
+    cursor: pointer;
+    touch-action: none;              /* le glissement est géré en JS */
+  }
+  .sheet-handle::before {
+    content: '';
+    width: 40px; height: 4px;
+    border-radius: 3px;
+    background: #d0d0d0;
+  }
+
+  /* En-tête compact : le padding desktop (40px en haut) poussait tout le
+     contenu vers le bas, sur un écran où la place est comptée. */
+  .side-panel-header {
+    flex: none;
+    padding: 2px 14px 8px;
+    min-height: 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .side-panel-title {
+    font-size: 12px;
+    letter-spacing: .02em;
+    margin: 0;
+  }
+  .side-panel-subtitle { font-size: 10px; margin: 2px 0 0; }
+
+  /* ── Textes du panneau : calibrés pour le mobile ──────────────────
+     Les tailles desktop rendaient les cartes produit hautes et le contenu
+     peu dense, obligeant à défiler pour trois lignes d'options. */
+  .side-panel-content { font-size: 11px; }
+
+  .panel-section-title { font-size: 11px; }
+  .panel-section-sub { font-size: 10px; }
+
+  /* Cartes produit : vignette plus petite, libellé plus court. */
+  .product-card { padding: 8px 6px; }
+  .product-card-icon img { max-height: 52px; }
+  .product-card-name { font-size: 10.5px; line-height: 1.2; }
+
+  /* Tailles / couleurs : pastilles confortables mais compactes. */
+  .size-btn { font-size: 11px; padding: 8px 4px; }
+  .color-swatch { width: 28px; height: 28px; }
+
+  /* Boutons et champs du panneau. */
+  .side-panel-content button,
+  .side-panel-content input,
+  .side-panel-content select,
+  .side-panel-content textarea { font-size: 11.5px; }
+
+  /* Le rail : libellés très compacts, ils tiennent sur une ligne. */
+  .icon-nav-label { font-size: 8px; }
+
+  /* Seul le contenu défile. */
+  .side-panel-content {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;    /* le scroll ne fuit pas vers la page */
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  /* Grilles : 2 colonnes, confortables au doigt. */
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .color-grid   { grid-template-columns: repeat(6, 1fr); }
+  .size-grid    { grid-template-columns: repeat(4, 1fr); }
+
+  /* Voile derrière la feuille : ferme au tap, et signale que le panneau
+     est modal. Injecté par conf-mobile.js. */
+  .sheet-scrim {
+    position: fixed;
+    inset: 0;
+    /* z-index avec la barre d'action (section 6). */
+    background: rgba(0,0,0,.32);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .3s ease, visibility .3s ease;
+  }
+  .sheet-scrim.show { opacity: 1; visibility: visible; }
+
+  /* ─────────────────────────────────────────────────────────────────
+     6. RÉCAPITULATIF — masqué
+        Le produit doit être visible EN ENTIER : le panneau récap, même
+        replié, mangeait un tiers de la hauteur (--recap-peek vaut 260px
+        par défaut dans conf-styles.css).
+
+        Il reste dans le DOM (display:none, pas de suppression) : tout le
+        code qui écrit dedans — prix, quantité, lignes produit, et les
+        réécritures complètes de .innerHTML pour coins/drapeaux/patchs —
+        continue de fonctionner sans erreur. Il est simplement invisible.
+
+        Le récapitulatif complet reste accessible : c'est l'étape 2 du
+        parcours (page /pages/recapitulatif).
+     ───────────────────────────────────────────────────────────────── */
+
+  .recap { display: none !important; }
+
+  /* ── Header : uniquement panier (si non vide) et Réinitialiser ──────
+     Le prix et le bouton d'ajout descendent au-dessus de l'aperçu (voir
+     plus bas). Le header ne garde que les deux icônes.
+
+     #hdr-cart-btn porte DÉJÀ sa propre logique d'affichage : il est en
+     `display:none` dans le HTML et n'apparaît qu'une fois un article
+     ajouté (conf-main-inline.js). On n'y touche pas — il suffisait de ne
+     plus y déplacer #main-add-to-cart, qui, lui, est toujours visible et
+     se faisait passer pour un panier plein. */
+  .hdr-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Les deux boutons du header : icône seule, les libellés mangeaient la
+     ligne sur un écran étroit. */
+  .hdr-btns .obtn { font-size: 0; padding: 7px 9px; }
+  .hdr-btns .obtn svg { width: 15px; height: 15px; margin: 0; }
+  /* Le compteur du panier garde sa taille (il porte un font-size inline). */
+  .hdr-btns #hdr-cart-count { font-size: 10px !important; }
+
+  /* ── Prix total : en bas à GAUCHE de l'aperçu ────────────────────── */
+  /* Même hauteur et même arrondi que le bouton d'ajout, à sa gauche : les
+     deux forment une seule ligne d'action. z-index supérieur — le bouton
+     s'étend sous lui (voir margin-left) et ne doit pas le recouvrir. */
+  .mobile-price {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    z-index: 24;
+
+    height: 48px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0,0,0,.13);
+    pointer-events: none;            /* purement informatif */
+  }
+
+  .mobile-price .mp-lbl {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #888;
+    line-height: 1;
+  }
+
+  /* Le prix garde son nœud d'origine ; on ne fait que le redimensionner. */
+  .mobile-price #rp-price-val {
+    font-size: 15px;
+    font-weight: 800;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+  .mobile-price .rp-pvat { font-size: 8px; font-weight: 600; color: #888; }
+
+  /* ── Ajouter au panier : bouton plein, à DROITE du prix ───────────
+     Le bouton rond n'affichait qu'une icône : l'action principale du
+     configurateur méritait d'être nommée. Il occupe donc toute la largeur
+     restante à droite du prix, sur la même ligne. */
+  /* Cible la CLASSE, pas l'identifiant : conf-mobile.js déplace ici le bouton
+     du produit courant, et ce n'est #main-add-to-cart que pour le textile. Les
+     patchs, drapeaux et coins utilisent .rp-btn-primary (gabarits injectés par
+     conf-dynamic-layout.js). Avec un sélecteur par ID, ces trois-là recevaient
+     bien la classe mais AUCUN style : pas de pastille, donc pas de bouton
+     visible — et aucun moyen d'ajouter au panier en mobile. */
+  .mobile-fab {
+    position: absolute;
+    left: 10px;                      /* la ligne part du prix… */
+    right: 10px;                     /* …et va jusqu'au bord opposé */
+    bottom: 10px;
+    z-index: 23;
+
+    /* Réserve la place du bloc prix, posé par-dessus (left: 10px) : sans
+       cette marge, le libellé passerait dessous. La largeur du prix varie
+       avec le montant — elle est mesurée en JS (--mp-w). */
+    margin-left: calc(var(--mp-w, 96px) + 8px);
+
+    width: auto;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 12px;
+    box-shadow: 0 3px 14px rgba(0,0,0,.28);
+    white-space: nowrap;
+  }
+
+  .mobile-fab svg {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex: none;
+  }
+
+  .mobile-fab:active { transform: scale(.98); }
+
+  /* Le récap des COINS n'a pas de bloc prix (produit sur devis) : le bouton
+     occupe alors toute la largeur, sans réserver la place du montant. */
+  .mobile-fab.mobile-fab-solo { margin-left: 0; }
+  /* Le compteur du panier garde sa taille (il porte un font-size inline). */
+  .hdr-btns #hdr-cart-count { font-size: 10px !important; }
+
+  /* La feuille montante passe AU-DESSUS du menu : quand un panneau est
+     ouvert, c'est lui l'action en cours. */
+  .side-panel { z-index: 55; }
+  .sheet-scrim { z-index: 54; }
+
+  /* La place de la barre du bas est réservée par `bottom: var(--nav-h)` sur
+     .canvas (voir §2). Pas de padding ici : il s'ajouterait à ce décalage et
+     la hauteur serait retirée DEUX fois. */
+
+  /* ─────────────────────────────────────────────────────────────────
+     7. DIVERS
+     ───────────────────────────────────────────────────────────────── */
+
+  /* Barres d'outils flottantes (texte, logo, coin) : au-dessus du produit
+     mais sous les panneaux, et jamais masquées par la barre récap. */
+  /* Barre d'outils du texte : descendue sous les pastilles Couleur/Taille
+     et « Vue d'ensemble », qui occupent le haut de l'aperçu (top: 8px dans
+     .canvas). À sa position d'origine (top: 6px dans .cv-wrap) elle passait
+     DERRIÈRE elles : ses boutons — dont la croix de suppression — ne
+     recevaient plus le clic.
+
+     z-index au-dessus de tout ce qui flotte sur l'aperçu (vues 22, bascule
+     24, rail 25) : quand un texte est sélectionné, sa barre prime. */
+  .txt-tb {
+    top: 56px;
+    z-index: 42;
+    max-width: calc(100% - 16px);
+    /* `overflow-x: auto` (conf-styles.css, media 768) permet de faire défiler
+       la barre quand elle déborde — mais il ROGNE aussi ses menus, qui
+       s'ouvrent en dessous. Les menus sont donc sortis du flux en `fixed`
+       (voir .txt-tb-pop) ; la barre garde son défilement. */
+  }
+
+  /* Menus « Police » et couleur : au-dessus de leur propre barre.
+     Le CSS d'origine leur donne z-index 40, or la barre est à 42 en mobile —
+     ils s'ouvraient donc DERRIÈRE elle et paraissaient ne pas répondre.
+
+     Repositionnés par rapport à la BARRE (et non au bouton, qui est en bout
+     de ligne) : centrés, bornés à la largeur de l'écran. */
+  /* `fixed` : la barre porte `overflow-x: auto`, qui rognerait un menu
+     positionné en absolu à l'intérieur. Sorti du flux, il échappe à ce
+     rognage — sa position verticale est posée en JS (conf-mobile.js,
+     placeTextPops), la seule chose qu'un `fixed` ne peut pas hériter.
+
+     Sélecteur d'attribut RÉPÉTÉ pour la spécificité : conf-styles.css
+     déclare `.txt-tb-pop[data-pop="color"] { width: 168px }` (0,2,0), qui
+     l'emportait sur un simple `.txt-tb-pop` (0,1,0) — le menu couleur
+     gardait sa largeur fixe et sa position d'origine, donc restait rogné. */
+  .txt-tb-pop,
+  .txt-tb-pop[data-pop],
+  .txt-tb-pop[data-pop].on {
+    /* Le menu est déplacé dans <body> par conf-text-toolbar.js, qui pose
+       `position: fixed` et calcule son `top` sous le bouton. On ne touche
+       donc PAS au `top` ici — ce serait écraser la mesure.
+
+       En mobile on impose en revanche la pleine largeur : plus confortable
+       au doigt qu'un menu étroit centré. Le `!important` prime sur le `left`
+       en pixels posé par le script, qui ne vaut que pour le desktop. */
+    z-index: 60;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: auto;
+    transform: none !important;
+    width: auto !important;
+    max-width: none;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  /* Nuancier : la grille porte sur les pastilles seules (.txt-tb-sw-grid),
+     jamais sur le menu — sinon le bloc « Couleur personnalisée » y entre
+     comme une 17e case. Les colonnes s'étirent sur la largeur disponible et
+     les pastilles passent à 34px, confortables au doigt. */
+  .txt-tb-pop[data-pop="color"].on {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+  .txt-tb-sw-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    justify-items: center;
+  }
+  .txt-tb-sw { width: 34px; height: 34px; }
+  .txt-tb-custom-label { font-size: 13px; padding: 8px; margin: -8px; }
+  .txt-tb-custom-icon { width: 30px; height: 30px; }
+
+  /* Liste des polices : items plus hauts, lisibles au doigt. */
+  .txt-tb-fitem { padding: 11px 14px; font-size: 14px; }
+
+  /* Boutons de la barre : au tap, le navigateur SÉLECTIONNAIT leur libellé
+     (« Police » apparaissait surligné en bleu) au lieu de déclencher le
+     clic — le menu ne s'ouvrait donc jamais.
+
+     `user-select: none` empêche la sélection, `touch-action: manipulation`
+     supprime le délai de double-tap, et `-webkit-tap-highlight-color`
+     retire le voile gris d'iOS. */
+  .txt-tb-btn,
+  .txt-tb-label,
+  .txt-tb-fitem,
+  .txt-tb-sw {
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Cibles tactiles confortables. */
+  .txt-tb-btn { min-height: 34px; }
+
+  .txt-tb-font-scroll { max-height: 38vh; }
+
+  /* Modales plein écran : au-dessus de tout (feuille, récap, toolbars). */
+  .modal-overlay,
+  .sg-modal-overlay,
+  /* Les overlays doivent passer AU-DESSUS de `.conf-app-root`, qui porte
+     `z-index: 9999` en mobile (§1). À 70 ils étaient dessous : la modale
+     existait, occupait bien 390×844, mais restait invisible — le configurateur
+     la recouvrait entièrement.
+
+     Défaut mesuré sur la demande de devis depuis le tiroir : en desktop la
+     modale sort à z-index 10000 et s'affiche ; en mobile elle sortait à 70.
+     `elementFromPoint(195, 420)` renvoyait `#view-face` (le canvas produit) au
+     lieu de la modale. Le client voyait le tiroir se fermer, puis plus rien.
+
+     10001 : au-dessus de `.conf-app-root` (9999) et de `#cart-drawer` (99999
+     n'est pas concerné, il se ferme avant). Même valeur que `#ov-modal`, qui
+     fonctionnait déjà. */
+  .size-qty-overlay,
+  .simple-grp-overlay,
+  .grp-overlay,
+  .grp-preview-overlay,
+  .qm-overlay,
+  .cart-overlay,
+  .ov-overlay { z-index: 10001; }
+
+  /* ── Demande de devis : plein écran ────────────────────────────────
+     La modale n'avait AUCUN style mobile. Ses valeurs desktop la rendaient
+     inutilisable sur un téléphone :
+
+       .qm-overlay  padding 20px
+       .qm-box      max-height 90vh + padding 28px
+
+     Soit 96 px de marges horizontales sur un écran de 390 px, et une boîte
+     bornée à 90vh pour un contenu qui empile deux aperçus, le bloc specs,
+     cinq champs, un textarea et un bouton. Avec `html, body { overflow:
+     hidden; overscroll-behavior: none }` (plus haut dans ce fichier), le
+     scroll interne ne répondait pas : le formulaire semblait ne pas s'ouvrir.
+
+     On passe donc en feuille plein écran, comme les autres modales du
+     parcours mobile. */
+  /* La modale est ajoutée à `document.body`, donc HORS de .conf-app-root.
+     On ne s'appuie sur aucun calcul flex : `inset: 0` + `display: block`
+     donnent une feuille pleine page quelles que soient les règles héritées.
+     (Une version flex avec `align-items: stretch` laissait la boîte sans
+     hauteur résolue sur certains navigateurs mobiles : la modale était dans
+     le DOM, visible pour le JS, mais haute de 0 px.) */
+  .qm-overlay {
+    display: block !important;
+    padding: 0;
+    /* Le scroll vit sur l'overlay : le body est verrouillé en mobile
+       (html, body { overflow: hidden }). */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .qm-box {
+    width: 100%;
+    max-width: none;
+    /* Hauteur MINIMALE, pas fixe : le contenu peut être plus haut que l'écran
+       et l'overlay le fait défiler. `min-height` évite la boîte écrasée. */
+    min-height: 100%;
+    max-height: none;
+    height: auto;
+    border-radius: 0;
+    padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    /* Le scroll est porté par l'overlay ci-dessus, pas ici : deux zones de
+       défilement imbriquées se disputaient le geste. */
+    overflow: visible;
+  }
+
+  /* Fermeture : FIXE, pas absolue. Le scroll étant porté par l'overlay, un
+     bouton `absolute` ancré à .qm-box défilerait hors de l'écran dès que le
+     client descend dans le formulaire — il n'aurait plus aucun moyen de
+     refermer la feuille. */
+  .qm-close {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    z-index: 3;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+  }
+
+  /* Titre plus compact : il mangeait un tiers de la hauteur utile. */
+  .qm-title { font-size: 18px; margin-right: 44px; }
+  .qm-sub { font-size: 12px; }
+
+  /* Une seule colonne dès 767px (le CSS de base ne bascule qu'à 640px, or le
+     thème passe en mobile à 767px : entre les deux, deux colonnes se
+     partageaient 294px). */
+  .qm-content { grid-template-columns: 1fr; gap: 16px; }
+
+  /* Aperçus du design : deux vignettes côte à côte plutôt qu'empilées, pour
+     laisser la place au formulaire. */
+  .qm-previews { display: flex; gap: 10px; }
+  .qm-preview { flex: 1; min-width: 0; }
+
+  /* Champs à 16px : en dessous, iOS zoome automatiquement au focus et le
+     client perd le cadrage de la page. */
+  .qm-field input,
+  .qm-field textarea { font-size: 16px; }
+  .qm-field textarea { min-height: 72px; }
+
+  /* Bouton d'envoi : dans le flux, en fin de formulaire.
+     Pas de `position: sticky` — le scroll est porté par .qm-overlay, or un
+     élément sticky ne se colle qu'au conteneur de défilement qui le CONTIENT.
+     Placé ici, il resterait figé au milieu de la feuille. */
+  .qm-submit {
+    margin-top: 12px;
+    padding: 14px;
+    font-size: 15px;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Guide des tailles — empilement vertical
+
+     `.sg-modal-body` est un flex `wrap` qui posait le schéma corporel et le
+     tableau CÔTE À CÔTE. À 320px de large, la modale fait 288px : le tableau
+     n'obtenait que 114px, soit ~11px par colonne sur 10 tailles. Illisible.
+
+     `flex-direction: column` les empile : le tableau prend toute la largeur et
+     défile horizontalement dans son wrapper (`overflow-x: auto`,
+     conf-styles.css:565). Le plancher est porté par `.sg-table`, pas par le
+     wrapper — voir le commentaire là-bas.
+     ══════════════════════════════════════════════════════════════════════ */
+  .sg-modal-body {
+    flex-direction: column;
+    align-items: stretch;
+    /* 22px de chaque côté sur 288px de modale, c'était 15% de la largeur. */
+    padding: 16px;
+    gap: 14px;
+  }
+  /* Le schéma est décoratif : il cède la priorité au tableau, qui porte
+     l'information. `flex-shrink: 0` (conf-styles.css:564) le figeait. */
+  .sg-figure {
+    flex-shrink: 1;
+    align-self: center;
+    max-width: 100%;
+  }
+  .sg-figure svg { max-width: 100%; height: auto; }
+  /* `max-height: 90vh` (conf-styles.css:547) est faux sur iOS : la barre
+     d'adresse fausse `vh`. `dvh` suit la hauteur réellement visible. */
+  .sg-modal { max-height: 90dvh; }
+  .grp-modal { max-height: 90dvh; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Zones tactiles — plancher WCAG 2.5.5 (44×44 px CSS)
+
+     Mesures relevées AVANT correctif, à 390×844 dans Chromium :
+
+       .cv-opt-btn     59×30   (Couleur / Taille)
+       .vt-overview    40×30   (Vue d'ensemble)
+       .icon-nav-item 386×40   (menu principal de l'application)
+       .face-switch-btn  ~25   (Recto/Verso — seul accès au verso)
+       .st-btn           ~21   (bascule des manches)
+       .color-swatch    28×28  (sélection de couleur produit)
+
+     Sur ~15 familles de cibles, deux seulement atteignaient 44px. La rangée à
+     30px est la plus problématique : elle est posée SUR l'image du produit
+     (`position: absolute; top: 8px`), donc voisine des zones de glisser de
+     logo — un tap raté déplace un design.
+
+     Méthode : on agrandit la ZONE CLIQUABLE sans grossir le visuel, via
+     `min-height` + padding, ou un pseudo-élément quand la hauteur est
+     contrainte par un conteneur (cas de .cv-opts, figé à 30px pour ne pas
+     recouvrir l'aperçu).
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Menu principal : 40 → 44px. Le libellé est hors flux (`position: absolute`,
+     :385), donc seuls padding + icône décidaient de la hauteur. */
+  .icon-nav-item { min-height: 44px; }
+
+  /* Boutons du header (panier, Réinitialiser). « Réinitialiser » est
+     destructif : une cible de 29×33px sur une action irréversible est un
+     défaut d'ergonomie doublé d'un risque. Le padding grandit, l'icône non. */
+  .hdr-btns .obtn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Bascule Recto/Verso : ~25 → 44px de zone utile. C'est le SEUL moyen de
+     voir le verso d'un drapeau ou d'une pièce (la face inactive est masquée,
+     :433). Le visuel garde sa finesse : seul le padding vertical augmente. */
+  .face-switch-btn { min-height: 44px; padding: 8px 18px; }
+  .face-switch { padding: 2px; }
+
+  /* Bascule gauche/droite des manches : ~21px, la plus petite du fichier.
+     `font-size: 9px` était aussi sous le confort de lecture. */
+  /* Largeur ET hauteur : mesuré 27px de large, le padding horizontal ne
+     suffisait pas sur un libellé d'une lettre (« G » / « D »). */
+  .st-btn { min-width: 44px; min-height: 44px; padding: 5px 10px; font-size: 10px; }
+
+  /* Nuancier : 28 → 40px. C'est l'une des interactions les plus fréquentes.
+     La grille (conf-sidebar-modern.css:1112) laisse la place. */
+  .color-swatch { width: 44px; height: 44px; }
+  /* Tailles : 30 → 44px de haut. */
+  .size-btn { min-height: 44px; }
+
+  /* Onglets de vue : 40 → 44px, avec `gap: 5px` (:600) une erreur de 5px
+     touchait l'onglet voisin. */
+  /* `width: 40px` est posé à :622 : on l'élargit aussi, sinon la cible reste
+     40px dans une dimension. Le rail est en `right: 8px` (:588), il y a la
+     place. */
+  .vt { min-height: 44px; }
+  .vt:not(.vt-overview) { width: 44px; height: 44px; }
+
+  /* Barre d'outils texte : 34 → 44px. `.txt-tb-btn` inclut la croix de
+     suppression du texte, action destructive. */
+  /* `min-width` aussi : mesuré 27px de large sur un libellé d'un caractère
+     (« B », « I »). La hauteur seule ne suffit pas à faire une cible de 44². */
+  .txt-tb-btn { min-width: 44px; min-height: 44px; }
+  /* Nuancier de la barre texte : 34 → 44px, comme .color-swatch du panneau.
+     La grille est en `repeat(6, 1fr)` (:1119) : 6×44 + 5×10 de gap = 314px, et
+     le menu n'offre que 276px à 320px de viewport. Mesuré : débordement de
+     38px. Le passage à 5 colonnes sous 360px est plus bas. */
+  .txt-tb-sw { width: 44px; height: 44px; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Widget de chat (Shopify Inbox) — remonté au-dessus de la barre du bas
+
+     Il se posait à 20px du bas et masquait le bouton « Ajouter au panier »
+     ainsi que la barre de navigation.
+
+     Pourquoi cette règle et pas un z-index : le widget vit dans un SHADOW DOM
+     avec `z-index: 2147483000` — la valeur maximale d'un entier 32 bits signé.
+     Rien ne peut passer devant, et le CSS du thème n'entre pas dans son shadow
+     root. Sa variable `--shopify-chat-activator-offset` ne sert à rien non
+     plus : mesuré, le widget la lit une seule fois au démarrage et ignore les
+     changements ultérieurs.
+
+     En revanche l'ÉLÉMENT HÔTE `<shopify-chat>` est un élément normal du
+     document : on peut le déplacer. Mesuré — `bottom: 116px` fait remonter le
+     bouton de chat de 20px à 116px du bas, sans rien casser.
+
+     116px = barre de navigation (56) + bouton flottant (10 + 48) + 2px de
+     marge. Si `--nav-h` change, ajuster ici.
+
+     `!important` nécessaire : l'app pose ses propres styles en ligne. */
+  shopify-chat {
+    bottom: 116px !important;
+  }
+
+  /* ── Rangée Couleur / Taille / Vue d'ensemble ──────────────────────────
+     Cas particulier : `.cv-opts` est figée à 30px de haut (:130) à dessein —
+     elle flotte sur l'aperçu et ne doit pas le recouvrir. On ne peut donc pas
+     grandir le visuel.
+
+     On étend la zone tactile SOUS le bouton avec un pseudo-élément : le bouton
+     reste visuellement à 30px, mais capte les taps sur 44px. `top: -7px;
+     bottom: -7px` centre l'extension, donc elle mord de 7px au-dessus (sur
+     l'espace vide entre le haut de l'aperçu et la rangée) et 7px en dessous. */
+  .cv-opt-btn, .vt.vt-overview { position: relative; }
+  .cv-opt-btn::after,
+  .vt.vt-overview::after {
+    content: '';
+    position: absolute;
+    top: -7px; bottom: -7px; left: 0; right: 0;
+    /* Purement tactile : invisible, et n'intercepte rien d'autre. */
+    background: transparent;
+  }
+  /* Le pseudo-élément ne doit pas voler le clic au bouton lui-même : il fait
+     partie du bouton, donc l'événement remonte naturellement. Aucun
+     `pointer-events` à poser. */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TRÈS PETITS ÉCRANS — 0 à 359 px
+
+   Bloc séparé, APRÈS le @media 767 : il doit gagner sur lui, et l'imbriquer
+   dedans exigerait l'imbrication CSS native (Chrome 112+), que ce projet
+   n'utilise nulle part ailleurs.
+
+   Cible : iPhone SE 1re génération (320 px) et Galaxy Fold fermé (280 px).
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 359px) {
+  /* Les pastilles portées à 44px (WCAG 2.5.5) ne tiennent plus à 6 par ligne :
+     6×44 + 5×10 de gap = 314px, alors que le menu n'offre que 276px à 320px de
+     viewport (mesuré : 38px de débordement). Cinq colonnes tiennent —
+     5×44 + 4×10 = 260px — et la cible tactile reste conforme.
+     Les 16 teintes passent alors sur 4 lignes au lieu de 3 : le menu a déjà
+     `overflow-y: auto` (:1105). */
+  .txt-tb-sw-grid { grid-template-columns: repeat(5, 1fr); }
+
+  /* Même arithmétique pour le nuancier du panneau produit : la grille de
+     conf-sidebar-modern.css:1112 est en 5 colonnes, ce qui donne
+     5×44 + 4×gap. À 320px le panneau est pleine largeur, donc ça tient — mais
+     on borne la pastille pour absorber un padding plus large sans déborder. */
+  .color-swatch { width: 40px; height: 40px; }
+}

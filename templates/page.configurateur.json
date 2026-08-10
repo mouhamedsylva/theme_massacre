@@ -1,0 +1,25 @@
+/*
+ * Template du configurateur.
+ *
+ * La cle "layout" designe layout/configurateur.liquid, qui porte le document
+ * complet (<!DOCTYPE>, <html>, <head>). Elle est INDISPENSABLE : sans elle,
+ * theme.liquid enveloppe la page et le HTML servi contient des <head>
+ * imbriques — le <meta viewport> du configurateur se retrouve dans le <body>,
+ * ou le navigateur l'ignore, et la mise en page mobile casse.
+ *
+ * Ne pas remplacer par "layout": false : la section serait alors seule, et
+ * Shopify l'enveloppe dans un <div class="shopify-section"> place AVANT le
+ * <!DOCTYPE> — mode quirks, page blanche.
+ */
+{
+  "layout": "configurateur",
+  "sections": {
+    "main": {
+      "type": "configurateur",
+      "settings": {}
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

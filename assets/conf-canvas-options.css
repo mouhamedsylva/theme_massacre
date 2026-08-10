@@ -1,0 +1,372 @@
+/* ═══════════════════════════════════════════════════════════
+   COULEUR / TAILLE — boutons au-dessus de l'aperçu
+   Chaque bouton déplie son menu juste en dessous (ancré à droite).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Le header du canvas devient le repère de positionnement. */
+.cv-hdr {
+  position: relative;
+}
+
+.cv-opts {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  z-index: 60;
+}
+
+/* Conteneur par option : sert d'ancre au menu déroulant. */
+.cv-opt {
+  position: relative;
+}
+
+.cv-opt-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.cv-opt-btn:hover {
+  border-color: #c2410c;
+}
+
+.cv-opt-btn.on {
+  border-color: #c2410c;
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.1);
+}
+
+/* Pastille de la couleur courante. */
+.cv-opt-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 0, 0, 0.14);
+  flex-shrink: 0;
+}
+
+.cv-opt-lbl {
+  color: #6b7280;
+}
+
+/* Valeur courante : c'est l'information utile, elle porte le contraste. */
+.cv-opt-val {
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.cv-opt-caret {
+  width: 13px;
+  height: 13px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.cv-opt-btn.on .cv-opt-caret {
+  transform: rotate(180deg);
+}
+
+/* ── Menu déroulant ── */
+.cv-opt-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  min-width: 250px;
+  padding: 13px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.13);
+}
+
+.cv-opt-pop.open {
+  display: block;
+  animation: cvOptIn 0.15s ease;
+}
+
+@keyframes cvOptIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cv-opt-pop-title {
+  margin-bottom: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+/* La liste clonée peut être longue (35+ couleurs) : on la borne et on scrolle
+   plutôt que de laisser le menu dépasser de l'écran. */
+.cv-opt-pop-body {
+  max-height: 265px;
+  overflow-y: auto;
+}
+
+/* ── Grilles clonées ──
+   Le clone reprend les classes .cg / .sg de la sidebar d'origine, dont les
+   styles sont pensés pour une colonne étroite. On les redispose ici, sans
+   toucher aux règles d'origine (la sidebar reste intacte). */
+.cv-opt-clone.cg {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 7px;
+}
+
+.cv-opt-clone.cg .cs {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cv-opt-clone.cg .cs:hover {
+  transform: scale(1.14);
+}
+
+/* Sélection : double anneau, lisible même sur une pastille très claire. */
+.cv-opt-clone.cg .cs.on {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #c2410c;
+}
+
+.cv-opt-clone.sg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.cv-opt-clone.sg .sb {
+  padding: 9px 4px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  transition: all 0.15s ease;
+}
+
+.cv-opt-clone.sg .sb:hover {
+  border-color: #c2410c;
+}
+
+.cv-opt-clone.sg .sb.on {
+  border-color: #c2410c;
+  background: #c2410c;
+  color: #ffffff;
+}
+
+/* « Pour Groupe » : action distincte, sur toute la largeur. */
+.cv-opt-clone.sg .sb-group {
+  grid-column: 1 / -1;
+  border-style: dashed;
+  color: #c2410c;
+  font-size: 11px;
+}
+
+.cv-opt-clone.sg .sb-group.on {
+  background: #ffffff;
+  color: #c2410c;
+}
+
+.cv-opt-guide {
+  display: block;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.cv-opt-guide:hover {
+  color: #c2410c;
+}
+
+/* Scrollbar discrète, alignée sur celle de la sidebar moderne. */
+.cv-opt-pop-body::-webkit-scrollbar { width: 6px; }
+.cv-opt-pop-body::-webkit-scrollbar-track { background: transparent; }
+.cv-opt-pop-body::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+.cv-opt-pop-body::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ── Mobile : les boutons repassent dans le flux, sous les onglets de vue. ── */
+@media (max-width: 768px) {
+  .cv-opts {
+    position: static;
+    margin-top: 10px;
+    justify-content: flex-start;
+  }
+
+  .cv-opt-pop {
+    right: auto;
+    left: 0;
+    min-width: 230px;
+  }
+
+  .cv-opt-clone.cg {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VUE D'ENSEMBLE
+   Onglet distinct (ce n'est pas une vue de plus, mais une synthèse)
+   + modale présentant toutes les vues personnalisées.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Onglet : violet plutôt que le noir des vues, pour le distinguer d'emblée.
+
+   Positionné en haut à DROITE de l'aperçu, sous les pastilles
+   Couleur/Taille : ce n'est pas une vue de plus (il ouvre une modale de
+   synthèse), il n'a donc pas sa place dans la rangée des onglets.
+
+   `position: absolute` dans .cv-hdr (déjà `relative`) plutôt qu'un
+   déplacement DOM : le canvas est reconstruit à chaque changement de
+   produit, un déplacement serait à refaire à chaque fois. */
+.vt.vt-overview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  border-color: #7c3aed;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+/* TEXTILES uniquement : l'en-tête porte une barre d'onglets (.vtabs), et le
+   bouton en sort pour se poser en haut à droite de l'aperçu.
+   Les canvas coins/drapeaux/patchs utilisent .cv-hdr-row, une ligne flex où
+   le bouton est un enfant normal — `absolute` y casserait la mise en page,
+   d'où le `:not(.cv-hdr-row)`. */
+.cv-hdr:not(.cv-hdr-row) .vt.vt-overview {
+  position: absolute;
+  top: 44px;                  /* sous .cv-opts, ancrée à top: 0 */
+  right: 0;
+  z-index: 55;                /* sous .cv-opts (60), au-dessus de l'aperçu */
+  margin-left: 0;
+}
+.vt.vt-overview svg { width: 14px; height: 14px; flex: none; }
+.vt.vt-overview:hover { background: #f5f1ff; border-color: #6d28d9; color: #6d28d9; }
+/* Actif : rempli, pour rester lisible s'il prend la classe .on. */
+.vt.vt-overview.on { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+
+/* La barre d'onglets doit permettre le margin-left:auto ci-dessus. */
+/* Plus de réservation à droite : « Vue d'ensemble » est sorti du flux
+   (position: absolute, voir plus haut), la rangée n'accueille donc que les
+   onglets de vue. */
+.vtabs {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+/* ── Modale ── */
+.ov-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(17, 17, 17, .5);
+  opacity: 0; pointer-events: none; transition: opacity .18s ease;
+}
+.ov-overlay.open { opacity: 1; pointer-events: auto; }
+
+.ov-modal {
+  position: fixed; z-index: 10001;
+  left: 50%; top: 50%; transform: translate(-50%, -48%) scale(.98);
+  /* Deux colonnes : une modale de 1040px étirerait chaque vue. */
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  display: none; flex-direction: column;
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .28);
+  opacity: 0; transition: opacity .18s ease, transform .18s ease;
+}
+.ov-modal.open {
+  display: flex; opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.ov-hdr {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: 18px 20px; border-bottom: 1px solid #eee;
+}
+.ov-title { display: block; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+.ov-sub { display: block; margin-top: 2px; font-size: 12px; color: #8a8a8a; }
+.ov-close {
+  flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+  border: 1px solid #e5e5e5; border-radius: 9px; background: #fff;
+  color: #6b7280; cursor: pointer; transition: all .15s;
+}
+.ov-close:hover { border-color: #1a1a1a; color: #1a1a1a; }
+.ov-close svg { width: 15px; height: 15px; }
+
+/* DEUX vues par ligne : en auto-fit, les quatre s'alignaient sur une seule
+   rangée et chaque vêtement devenait trop petit pour juger du placement. */
+.ov-body {
+  padding: 20px; overflow-y: auto;
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.ov-card { margin: 0; }
+/* La scène porte le ratio : les calques sont positionnés en % de l'image. */
+.ov-stage {
+  position: relative; border-radius: 10px; overflow: hidden;
+  background: #f6f6f6; border: 1px solid #ececec;
+}
+.ov-bg { display: block; width: 100%; height: auto; }
+/* Les calques suivent exactement la boîte de l'image de fond. */
+.ov-layers { position: absolute; inset: 0; }
+.ov-layer { position: absolute; height: auto; display: block; }
+/* Manche droite : le FOND est retourné, jamais les calques — le design du
+   client apparaîtrait inversé (même règle que le canvas). */
+.ov-stage.is-mirror .ov-bg { transform: scaleX(-1); }
+
+.ov-card figcaption {
+  margin-top: 8px; text-align: center;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: #6b7280;
+}
+
+.ov-loading, .ov-empty {
+  grid-column: 1 / -1; text-align: center; padding: 40px 16px;
+  font-size: 13px; color: #8a8a8a; line-height: 1.6;
+}
+
+@media (max-width: 560px) {
+  .ov-body { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
+  .ov-modal { width: calc(100vw - 16px); max-height: calc(100vh - 32px); }
+}
+
+/* En-tête des canvas NON textiles : titre à gauche, bouton « Vue d'ensemble »
+   à droite. Ces canvas n'ont pas de barre d'onglets — le bouton y est injecté
+   par conf-dynamic-layout.js. */
+.cv-hdr-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cv-hdr-row .vt-overview { margin-left: 0; flex: none; }
+
+/* Drapeaux : le bouton suit les titres, la barre de couleurs reste à droite. */
+.flag-cv-titles .vt-overview { margin-top: 10px; }

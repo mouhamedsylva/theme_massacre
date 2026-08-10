@@ -1,0 +1,1225 @@
+{% comment %}
+  Sidebar Moderne avec Navigation Verticale par Icônes
+  Design inspiré de CustomInk/Canva
+{% endcomment %}
+
+<!-- BARRE D'ICÔNES VERTICALE -->
+<nav class="icon-nav">
+  <!-- Type de produit -->
+  <button class="icon-nav-item active" data-panel="panel-product">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <path d="M16 10a4 4 0 0 1-8 0"/>
+    </svg>
+    <span class="icon-nav-label">Type de<br>Produit</span>
+  </button>
+
+  <!-- Upload Image -->
+  <button class="icon-nav-item" data-panel="panel-upload">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <span class="icon-nav-label">Upload<br>Image</span>
+  </button>
+
+  <!-- Options du coin : visible uniquement pour la catégorie « coins ».
+       modernSidebar.refreshCategoryUI() gère son affichage. -->
+  <button class="icon-nav-item" id="coin-nav-item" data-panel="panel-coin" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/>
+      <circle cx="12" cy="12" r="4"/>
+    </svg>
+    <span class="icon-nav-label">Options<br>Coin</span>
+  </button>
+
+  <!-- Options du drapeau : visible uniquement pour la catégorie « drapeaux ». -->
+  <button class="icon-nav-item" id="flag-nav-item" data-panel="panel-flag" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+      <line x1="4" y1="22" x2="4" y2="15"/>
+    </svg>
+    <span class="icon-nav-label">Options<br>Drapeau</span>
+  </button>
+
+  <!-- Options du patch : visible uniquement pour la catégorie « patchs ». -->
+  <button class="icon-nav-item" id="patch-nav-item" data-panel="panel-patch" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9" stroke-dasharray="3 2"/>
+      <circle cx="12" cy="12" r="4.5"/>
+    </svg>
+    <span class="icon-nav-label">Options<br>Patch</span>
+  </button>
+
+  <!-- Ajouter Texte -->
+  <button class="icon-nav-item" id="text-nav-item" data-panel="panel-text">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="4 7 4 4 20 4 20 7"/>
+      <line x1="9" y1="20" x2="15" y2="20"/>
+      <line x1="12" y1="4" x2="12" y2="20"/>
+    </svg>
+    <span class="icon-nav-label">Ajout<br>Texte</span>
+  </button>
+</nav>
+
+<!-- PANNEAU : TYPE DE PRODUIT -->
+<aside class="side-panel" id="panel-product">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">TYPES DE PRODUIT</h2>
+      <p class="side-panel-subtitle">Choisissez votre produit</p>
+    </div>
+  </div>
+  
+  <div class="side-panel-content">
+    <div class="panel-section">
+      <div class="product-grid">
+        <div class="product-card selected" data-product="sweatshirt" onclick="modernSidebar.selectProduct(this, 'sweatshirt')">
+          <div class="product-card-icon">
+            <img src="{{ 'sweatshirt-face.png' | asset_url }}" alt="Sweatshirt">
+          </div>
+          <div class="product-card-name">Sweatshirt</div>
+        </div>
+
+        <div class="product-card" data-product="tshirt" onclick="modernSidebar.selectProduct(this, 'tshirt')">
+          <div class="product-card-icon">
+            <img src="{{ 'tshirt-face.png' | asset_url }}" alt="T-shirt coton">
+          </div>
+          <div class="product-card-name">T-shirt coton</div>
+        </div>
+
+        <div class="product-card" data-product="tshirt_polyester" onclick="modernSidebar.selectProduct(this, 'tshirt_polyester')">
+          <div class="product-card-icon">
+            <img src="{{ 'tshirt-polyester-face.png' | asset_url }}" alt="T-shirt polyester">
+          </div>
+          <div class="product-card-name">T-shirt polyester</div>
+        </div>
+
+        <div class="product-card" data-product="coins" onclick="modernSidebar.selectProduct(this, 'coins')">
+          <div class="product-card-icon">
+            <img src="{{ 'icon-coins.png' | asset_url }}" alt="Coins">
+          </div>
+          <div class="product-card-name">Coins</div>
+        </div>
+
+        <div class="product-card" data-product="drapeaux" onclick="modernSidebar.selectProduct(this, 'drapeaux')">
+          <div class="product-card-icon">
+            <img src="{{ 'icon-drapeaux.png' | asset_url }}" alt="Drapeaux">
+          </div>
+          <div class="product-card-name">Drapeaux</div>
+        </div>
+
+        <div class="product-card" data-product="patches" onclick="modernSidebar.selectProduct(this, 'patches')">
+          <div class="product-card-icon">
+            <img src="{{ 'icon-patchs.png' | asset_url }}" alt="Patchs">
+          </div>
+          <div class="product-card-name">Patchs</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</aside>
+
+
+<!-- PANNEAU : UPLOAD IMAGE -->
+<aside class="side-panel" id="panel-upload">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">AJOUTER UN LOGO</h2>
+      <p class="side-panel-subtitle">Choisissez la vue</p>
+    </div>
+  </div>
+  
+  <div class="side-panel-content">
+    <!-- ══════════════════════════════════════════════════════════
+         VUE COINS — recto / verso.
+         Une pièce métallique n'a ni dos ni manches : ce bloc remplace
+         les vues textiles ci-dessous quand la catégorie est « coins ».
+         Géré par modernSidebar.refreshCategoryUI().
+         ══════════════════════════════════════════════════════════ -->
+    <div class="upload-view" id="upload-view-coin">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Téléchargez un visuel pour chaque face de votre coin. Formats PNG, JPG, SVG ou PDF — 10 Mo max.</p>
+      </div>
+
+      <div class="upload-zones-row" id="coin-upload-zones">
+        <button class="upload-zone-btn" data-upzone="coin-recto" onclick="document.getElementById('uc-recto').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+
+        <button class="upload-zone-btn" id="coin-upload-btn-verso" data-upzone="coin-verso" onclick="document.getElementById('uc-verso').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels" id="coin-upload-labels">
+        <span>RECTO</span>
+        <span id="coin-upload-label-verso">VERSO</span>
+      </div>
+
+      <!-- Aperçus des fichiers envoyés, une ligne par face.
+           Affichés par applyUpload(), masqués par removeCoinLogo(). -->
+      <div class="up-preview" id="coin-preview-recto" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="coin-preview-img-recto" src="" alt="Aperçu du logo recto">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Logo recto</span>
+          <button type="button" class="up-preview-del" id="coin-remove-recto"
+                  onclick="removeCoinLogo('recto')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="up-preview" id="coin-preview-verso" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="coin-preview-img-verso" src="" alt="Aperçu du logo verso">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Logo verso</span>
+          <button type="button" class="up-preview-del" id="coin-remove-verso"
+                  onclick="removeCoinLogo('verso')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE DRAPEAUX — design recto / verso.
+         Même principe que la vue coins : un drapeau n'a ni dos ni
+         manches. Le verso est masqué en « recto simple ».
+         ══════════════════════════════════════════════════════════ -->
+    <div class="upload-view" id="upload-view-flag">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Ajoutez vos logos, textes ou visuels pour chaque face. Formats PNG, JPG, SVG ou PDF — 50 Mo max.</p>
+      </div>
+
+      <div class="upload-zones-row">
+        <button class="upload-zone-btn" data-upzone="flag-recto" onclick="document.getElementById('uf-recto').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+
+        <button class="upload-zone-btn" id="flag-upload-btn-verso" data-upzone="flag-verso" onclick="document.getElementById('uf-verso').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels">
+        <span>DESIGN RECTO</span>
+        <span id="flag-upload-label-verso">DESIGN VERSO</span>
+      </div>
+
+      <!-- Aperçus des fichiers envoyés, une ligne par face.
+           Affichés par applyUpload(), masqués par removeFlagDesign(). -->
+      <div class="up-preview" id="flag-preview-recto" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="flag-preview-img-recto" src="" alt="Aperçu du design recto">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Design recto</span>
+          <button type="button" class="up-preview-del" id="flag-remove-recto"
+                  onclick="removeFlagDesign('recto')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="up-preview" id="flag-preview-verso" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="flag-preview-img-verso" src="" alt="Aperçu du design verso">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Design verso</span>
+          <button type="button" class="up-preview-del" id="flag-remove-verso"
+                  onclick="removeFlagDesign('verso')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="flag-design-tips">
+        <p>Conseils pour un rendu optimal</p>
+        <ul>
+          <li>Utilisez des fichiers en haute résolution</li>
+          <li>Les couleurs vives rendent mieux en sublimation</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE PATCHS — une seule face.
+         Un patch se personnalise sur une face unique : pas de
+         recto/verso ici, une seule zone d'upload (#uc, zone 'c').
+         ══════════════════════════════════════════════════════════ -->
+    <div class="upload-view" id="upload-view-patch">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Téléchargez votre logo ou visuel. Il occupera toute la forme du patch. Formats PNG, JPG, SVG ou PDF — 50 Mo max.</p>
+      </div>
+
+      <div class="upload-zones-row">
+        <button class="upload-zone-btn upload-zone-single" data-upzone="c" onclick="document.getElementById('uc').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels upload-zone-labels-center">
+        <span>DESIGN DU PATCH</span>
+      </div>
+
+      <!-- Aperçu du fichier envoyé : le client doit voir CE qu'il a chargé,
+           pas seulement que « quelque chose » l'a été. Affiché par
+           applyUpload(), masqué par rmUp(). -->
+      <div class="up-preview" id="patch-preview" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="patch-preview-img" src="" alt="Aperçu du design">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name" id="patch-preview-name">Design du patch</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('c')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="flag-design-tips">
+        <p>Conseils pour un rendu optimal</p>
+        <ul>
+          <li>Utilisez des fichiers en haute résolution</li>
+          <li>Les contours simples fonctionnent mieux</li>
+          <li>Évitez les dégradés trop fins</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Vue de Face (par défaut) -->
+    <div class="upload-view active" id="upload-view-face">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Pour uploader un logo au dos, basculez vers la <strong>Vue de dos</strong> dans le canvas</p>
+      </div>
+      <div class="upload-zones-row">
+        <button class="upload-zone-btn" data-upzone="f" onclick="document.getElementById('uf').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+
+        <button class="upload-zone-btn" data-upzone="fr" onclick="document.getElementById('ufr').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels">
+        <span>GAUCHE (CŒUR)</span>
+        <span>DROITE (POITRINE)</span>
+      </div>
+
+      <!-- Aperçus des fichiers envoyés (une carte par zone de la vue).
+           Affichés par applyUpload(), masqués par rmUp(). -->
+      <div class="up-preview" id="up-preview-f" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="up-preview-img-f" src="" alt="Aperçu du logo poitrine gauche">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Poitrine gauche</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('f')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="up-preview" id="up-preview-fr" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="up-preview-img-fr" src="" alt="Aperçu du logo poitrine droite">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Poitrine droite</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('fr')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <!-- Option Manches -->
+      <div class="upload-sleeve-option premium" id="upload-sleeve-option-face">
+        <div class="upload-sleeve-row">
+          <div class="upload-sleeve-info">
+            <div class="upload-sleeve-title-row">
+              <span class="upload-sleeve-label">Logo sur les manches</span>
+              <span class="upload-sleeve-badge">Payant</span>
+            </div>
+            <span class="upload-sleeve-price-tag">+ 4,00 €/manche</span>
+          </div>
+          <button class="upload-sleeve-toggle" onclick="if (typeof handleSleeveToggle === 'function') handleSleeveToggle()" aria-label="Activer/désactiver les manches">
+            <span class="upload-sleeve-toggle-track">
+              <span class="upload-sleeve-toggle-thumb"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vue de Dos -->
+    <div class="upload-view" id="upload-view-dos">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Pour uploader des logos à l'avant, basculez vers la <strong>Vue de face</strong> dans le canvas</p>
+      </div>
+      <div class="upload-zones-row">
+        <button class="upload-zone-btn upload-zone-single" data-upzone="b" onclick="document.getElementById('ub').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels upload-zone-labels-center">
+        <span>DOS (CENTRE)</span>
+      </div>
+
+      <div class="up-preview" id="up-preview-b" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="up-preview-img-b" src="" alt="Aperçu du logo dos">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Dos (centre)</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('b')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <!-- Option Manches -->
+      <div class="upload-sleeve-option premium" id="upload-sleeve-option-dos">
+        <div class="upload-sleeve-row">
+          <div class="upload-sleeve-info">
+            <div class="upload-sleeve-title-row">
+              <span class="upload-sleeve-label">Logo sur les manches</span>
+              <span class="upload-sleeve-badge">Payant</span>
+            </div>
+            <span class="upload-sleeve-price-tag">+ 4,00 €/manche</span>
+          </div>
+          <button class="upload-sleeve-toggle" onclick="if (typeof handleSleeveToggle === 'function') handleSleeveToggle()" aria-label="Activer/désactiver les manches">
+            <span class="upload-sleeve-toggle-track">
+              <span class="upload-sleeve-toggle-thumb"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vue de Côté -->
+    <div class="upload-view" id="upload-view-cote">
+      <div class="upload-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p>Pour revenir à l'avant ou au dos, basculez vers la <strong>Vue de face</strong> ou <strong>Vue de dos</strong></p>
+      </div>
+      <div class="upload-zones-row">
+        <button class="upload-zone-btn" data-upzone="sl" onclick="document.getElementById('usl').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+
+        <button class="upload-zone-btn" data-upzone="sr" onclick="document.getElementById('usr').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Cliquer pour uploader</span>
+        </button>
+      </div>
+      <div class="upload-zone-labels">
+        <span>MANCHE GAUCHE</span>
+        <span>MANCHE DROITE</span>
+      </div>
+
+      <div class="up-preview" id="up-preview-sl" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="up-preview-img-sl" src="" alt="Aperçu du logo manche gauche">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Manche gauche</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('sl')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <div class="up-preview" id="up-preview-sr" style="display:none">
+        <div class="up-preview-thumb">
+          <img id="up-preview-img-sr" src="" alt="Aperçu du logo manche droite">
+        </div>
+        <div class="up-preview-body">
+          <span class="up-preview-name">Manche droite</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('sr')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+            </svg>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <!-- Option Manches -->
+      <div class="upload-sleeve-option premium" id="upload-sleeve-option-cote">
+        <div class="upload-sleeve-row">
+          <div class="upload-sleeve-info">
+            <div class="upload-sleeve-title-row">
+              <span class="upload-sleeve-label">Logo sur les manches</span>
+              <span class="upload-sleeve-badge">Payant</span>
+            </div>
+            <span class="upload-sleeve-price-tag">+ 4,00 €/manche</span>
+          </div>
+          <button class="upload-sleeve-toggle" onclick="if (typeof handleSleeveToggle === 'function') handleSleeveToggle()" aria-label="Activer/désactiver les manches">
+            <span class="upload-sleeve-toggle-track">
+              <span class="upload-sleeve-toggle-thumb"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PANNEAU : OPTIONS DU COIN
+     Reprend les réglages de l'ancien PATCHES_SIDEBAR_TEMPLATE
+     (conf-patches.js) au design du sidebar moderne. Les fonctions
+     appelées (selectCoinType, selectCoinShape, selectCoinSize,
+     selectCoinFinish, selectCoinSurface, changeCoinQty) sont
+     inchangées : seule la présentation est portée ici.
+     ════════════════════════════════════════════════════════════════ -->
+<aside class="side-panel" id="panel-coin">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">OPTIONS DU COIN</h2>
+      <p class="side-panel-subtitle">Personnalisez votre pièce</p>
+    </div>
+  </div>
+
+  <div class="side-panel-content">
+
+    <!-- 1. Type de personnalisation -->
+    <div class="panel-section">
+      <div class="panel-section-title">Type de personnalisation</div>
+      <div class="panel-section-subtitle">Choisissez le type de coin</div>
+
+      <div class="coin-type-options">
+        <div class="coin-type-card active" data-type="recto-verso" onclick="selectCoinType(this)">
+          <div class="coin-type-icon">
+            <svg width="44" height="26" viewBox="0 0 44 26" fill="none">
+              <circle cx="13" cy="13" r="11" fill="#f0f1f3" stroke="#c2c7cf" stroke-width="1.5"/>
+              <text x="13" y="17" font-size="9" font-weight="700" fill="#8a909a" text-anchor="middle">B</text>
+              <circle cx="31" cy="13" r="11" fill="#f0f1f3" stroke="#c2c7cf" stroke-width="1.5"/>
+              <circle cx="31" cy="13" r="5" fill="none" stroke="#8a909a" stroke-width="1.3"/>
+            </svg>
+          </div>
+          <div class="coin-type-info">
+            <strong>Recto verso</strong>
+            <span>Personnalisez les deux faces de votre coin.</span>
+          </div>
+          <div class="coin-type-check">✓</div>
+        </div>
+
+        <div class="coin-type-card" data-type="recto-simple" onclick="selectCoinType(this)">
+          <div class="coin-type-icon">
+            <svg width="44" height="26" viewBox="0 0 44 26" fill="none">
+              <circle cx="22" cy="13" r="11" fill="#f0f1f3" stroke="#c2c7cf" stroke-width="1.5"/>
+              <circle cx="22" cy="13" r="5" fill="none" stroke="#8a909a" stroke-width="1.3"/>
+            </svg>
+          </div>
+          <div class="coin-type-info">
+            <strong>Recto simple</strong>
+            <span>Personnalisez uniquement le recto.</span>
+          </div>
+          <div class="coin-type-check">✓</div>
+        </div>
+
+        <div class="coin-type-card" data-type="recto-verso-num" onclick="selectCoinType(this)">
+          <div class="coin-type-icon">
+            <svg width="44" height="26" viewBox="0 0 44 26" fill="none">
+              <circle cx="14" cy="14" r="10" fill="#e7e9ed" stroke="#c2c7cf" stroke-width="1.4"/>
+              <circle cx="19" cy="11" r="10" fill="#f0f1f3" stroke="#c2c7cf" stroke-width="1.4"/>
+              <text x="19" y="15" font-size="8" font-weight="700" fill="#8a909a" text-anchor="middle">001</text>
+            </svg>
+          </div>
+          <div class="coin-type-info">
+            <strong>Recto verso numéroté</strong>
+            <span>Personnalisez les deux faces, le verso sera numéroté.</span>
+          </div>
+          <div class="coin-type-check">✓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Numérotation : visible seulement pour « recto verso numéroté ». -->
+    <div class="panel-section" id="coin-numbering-sec" style="display:none">
+      <div class="panel-section-title">Numérotation</div>
+      <div class="panel-section-subtitle">Définissez la quantité et le numéro de départ</div>
+
+      <div class="coin-numbering-row">
+        <div class="coin-num-field">
+          <label>Quantité (min. 50)</label>
+          <div class="coin-num-qty">
+            <button class="coin-num-btn" onclick="changeCoinQty(-10)">−</button>
+            <input type="number" id="coin-num-qty-input" value="50" min="50" onchange="handleCoinQtyInput()">
+            <button class="coin-num-btn" onclick="changeCoinQty(10)">+</button>
+          </div>
+          <span class="coin-num-note">Minimum 50 unités</span>
+        </div>
+        <div class="coin-num-field">
+          <label>Numéro de départ</label>
+          <input type="text" id="coin-num-start" class="coin-num-start" value="001">
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Forme & Taille -->
+    <div class="panel-section">
+      <div class="panel-section-title">Forme &amp; Taille</div>
+      <div class="panel-section-subtitle">Choisissez la forme et la taille de votre coin</div>
+
+      <div class="coin-shape-row">
+        <div class="coin-shape-card active" data-shape="rond" onclick="selectCoinShape(this)">
+          <span class="coin-shape-dot"></span>
+          <span>Rond</span>
+        </div>
+        <div class="coin-shape-card" data-shape="decoupe" onclick="selectCoinShape(this)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M12 2l2 2 3-1 1 3 3 1-1 3 2 2-2 2 1 3-3 1-1 3-3-1-2 2-2-2-3 1-1-3-3-1 1-3-2-2 2-2-1-3 3-1 1-3 3 1z"/>
+          </svg>
+          <span>Découpé à la forme</span>
+        </div>
+      </div>
+
+      <div class="coin-size-row">
+        <div class="coin-size-card" data-size="25mm" onclick="selectCoinSize(this)">25 mm</div>
+        <div class="coin-size-card active" data-size="30mm" onclick="selectCoinSize(this)">30 mm</div>
+        <div class="coin-size-card" data-size="38mm" onclick="selectCoinSize(this)">38 mm</div>
+        <div class="coin-size-card" data-size="50mm" onclick="selectCoinSize(this)">50 mm</div>
+      </div>
+    </div>
+
+    <!-- 3. Finition métallique -->
+    <div class="panel-section">
+      <div class="panel-section-title">Finition métallique</div>
+      <div class="panel-section-subtitle">Choisissez la finition de votre coin</div>
+
+      <div class="coin-finish-row">
+        <div class="coin-finish-card" data-finish="or" data-color="#d4af37" onclick="selectCoinFinish(this)">
+          <span class="coin-finish-swatch" style="background:linear-gradient(135deg,#f5d76e,#c9a227);"></span>
+          <span>Or brillant</span>
+        </div>
+        <div class="coin-finish-card" data-finish="argent" data-color="#c8ccd0" onclick="selectCoinFinish(this)">
+          <span class="coin-finish-swatch" style="background:linear-gradient(135deg,#eef0f2,#b4b9be);"></span>
+          <span>Argent brillant</span>
+        </div>
+        <div class="coin-finish-card" data-finish="nickel" data-color="#3a3d42" onclick="selectCoinFinish(this)">
+          <span class="coin-finish-swatch" style="background:linear-gradient(135deg,#5a5e64,#2b2d31);"></span>
+          <span>Nickel noir</span>
+        </div>
+        <div class="coin-finish-card" data-finish="bronze" data-color="#a97142" onclick="selectCoinFinish(this)">
+          <span class="coin-finish-swatch" style="background:linear-gradient(135deg,#c98a4f,#8a5a2b);"></span>
+          <span>Bronze antique</span>
+        </div>
+        <div class="coin-finish-card" data-finish="cuivre" data-color="#b87333" onclick="selectCoinFinish(this)">
+          <span class="coin-finish-swatch" style="background:linear-gradient(135deg,#d98c4a,#a35a25);"></span>
+          <span>Cuivre antique</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Surface -->
+    <div class="panel-section">
+      <div class="panel-section-title">Surface</div>
+      <div class="panel-section-subtitle">Choisissez le type de surface de votre coin</div>
+
+      <div class="coin-surface-row">
+        <div class="coin-surface-card active" data-surface="plat" onclick="selectCoinSurface(this)">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="4"/>
+          </svg>
+          <div>
+            <strong>Imprimé sans relief</strong>
+            <span>Impression plate, sans relief.</span>
+          </div>
+        </div>
+        <div class="coin-surface-card" data-surface="relief" onclick="selectCoinSurface(this)">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"/>
+          </svg>
+          <div>
+            <strong>Relief 3D</strong>
+            <span>Motifs en relief avec profondeur.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PANNEAU : OPTIONS DU DRAPEAU
+     Reprend les réglages de l'ancien DRAPEAUX_SIDEBAR_TEMPLATE
+     (conf-drapeaux.js) au design du sidebar moderne. Les fonctions
+     appelées (selectFlagType, selectFlagOrientation, selFlagColor,
+     selectFlagSize, selectAnneaux) sont inchangées.
+     ════════════════════════════════════════════════════════════════ -->
+<aside class="side-panel" id="panel-flag">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">OPTIONS DU DRAPEAU</h2>
+      <p class="side-panel-subtitle">Personnalisez votre drapeau</p>
+    </div>
+  </div>
+
+  <div class="side-panel-content">
+
+    <!-- 1. Type d'impression -->
+    <div class="panel-section">
+      <div class="panel-section-title">Type d'impression</div>
+      <div class="panel-section-subtitle">Choisissez le type d'impression</div>
+
+      <div class="flag-type-options">
+        <div class="flag-type-card active" data-type="recto-verso" onclick="selectFlagType(this)">
+          <div class="flag-type-icon">
+            <svg width="46" height="40" viewBox="0 0 46 40" fill="none" stroke="currentColor" stroke-width="1.6">
+              <line x1="4" y1="6" x2="4" y2="34"/>
+              <rect x="4" y="7" width="16" height="13" rx="1"/>
+              <path d="M9 11 l2.5 2.5 L14 11" stroke-width="1.4"/>
+              <line x1="26" y1="6" x2="26" y2="34"/>
+              <rect x="26" y="7" width="16" height="13" rx="1"/>
+              <path d="M31 11 l2.5 2.5 L36 11" stroke-width="1.4"/>
+            </svg>
+          </div>
+          <div class="flag-type-info">
+            <strong>Recto verso</strong>
+            <span>Impression sublimée sur les deux faces.</span>
+          </div>
+          <div class="flag-type-check">✓</div>
+        </div>
+
+        <div class="flag-type-card" data-type="recto-simple" onclick="selectFlagType(this)">
+          <div class="flag-type-icon">
+            <svg width="46" height="40" viewBox="0 0 46 40" fill="none" stroke="currentColor" stroke-width="1.6">
+              <line x1="8" y1="6" x2="8" y2="34"/>
+              <rect x="8" y="7" width="22" height="15" rx="1"/>
+              <path d="M15 12 l3 3 L21 12" stroke-width="1.4"/>
+            </svg>
+          </div>
+          <div class="flag-type-info">
+            <strong>Recto simple</strong>
+            <span>Impression sublimée sur une seule face.</span>
+          </div>
+          <div class="flag-type-check">✓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Orientation -->
+    <div class="panel-section">
+      <div class="panel-section-title">Orientation</div>
+      <div class="panel-section-subtitle">Choisissez l'orientation de votre drapeau</div>
+
+      <div class="flag-orientation-row">
+        <div class="flag-orientation-card active" data-orientation="paysage" onclick="selectFlagOrientation(this)">
+          <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
+            <line x1="8" y1="6" x2="8" y2="44" stroke="#1a2b4a" stroke-width="2.4" stroke-linecap="round"/>
+            <rect x="8" y="9" width="44" height="26" rx="1.5" fill="#1f3a5f" stroke="#1f3a5f" stroke-width="1.5"/>
+          </svg>
+          <span>Paysage</span>
+          <span class="flag-ori-sub">(horizontal)</span>
+          <div class="flag-orientation-check">✓</div>
+        </div>
+
+        <div class="flag-orientation-card" data-orientation="portrait" onclick="selectFlagOrientation(this)">
+          <svg width="48" height="56" viewBox="0 0 48 56" fill="none">
+            <line x1="8" y1="4" x2="8" y2="52" stroke="#9aa0aa" stroke-width="2.4" stroke-linecap="round"/>
+            <rect x="8" y="7" width="30" height="40" rx="1.5" fill="#fff" stroke="#9aa0aa" stroke-width="1.8"/>
+          </svg>
+          <span>Portrait</span>
+          <span class="flag-ori-sub">(vertical)</span>
+          <div class="flag-orientation-check">✓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- La couleur du fond a migré au-dessus de l'aperçu (barre du canvas,
+         construite par loadDrapeauxCanvas dans conf-dynamic-layout.js) :
+         on juge une couleur en la regardant, pas depuis un panneau
+         qu'il faut faire défiler. -->
+
+    <!-- 3. Taille -->
+    <div class="panel-section">
+      <div class="panel-section-title">Taille</div>
+      <div class="panel-section-subtitle">Choisissez la taille de votre drapeau</div>
+
+      <div class="flag-size-options">
+        <div class="flag-size-card active" data-size="90x150" onclick="selectFlagSize(this)">
+          <strong>90 x 150 cm</strong>
+          <span>Format standard</span>
+          <div class="flag-size-check">✓</div>
+        </div>
+      </div>
+
+      <!-- Note + bouton forment UN bloc : le bouton est l'action de la note
+           qui le précède, les séparer casserait ce lien de lecture. -->
+      <div class="flag-custom-block">
+        <div class="flag-custom-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 11v5"/>
+            <circle cx="12" cy="7.8" r="0.9" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Pour une taille personnalisée, contactez-nous afin de voir ensemble les possibilités.</span>
+        </div>
+
+        <button class="flag-contact-btn" onclick="contactForCustomSize()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          CONTACTEZ-NOUS
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. Options de finition -->
+    <div class="panel-section">
+      <div class="panel-section-title">Options</div>
+      <div class="panel-section-subtitle">Personnalisez la finition de votre drapeau</div>
+
+      <div class="flag-options-section">
+        <!-- Sans anneaux : finition par défaut (fichiers flag-0an-*.png). -->
+        <div class="flag-option-item active" data-anneaux="0" onclick="selectAnneaux(this)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="4" y="6" width="16" height="12" rx="1.5"/>
+          </svg>
+          <div>
+            <strong>Sans anneaux</strong>
+            <span>Bord simple, sans œillet</span>
+          </div>
+          <div class="flag-option-check">✓</div>
+        </div>
+
+        <div class="flag-option-item" data-anneaux="2" onclick="selectAnneaux(this)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="8" cy="12" r="2.6"/>
+            <circle cx="16" cy="12" r="2.6"/>
+          </svg>
+          <div>
+            <strong>2 anneaux</strong>
+            <span>Finition par 2 anneaux</span>
+          </div>
+          <div class="flag-option-check">✓</div>
+        </div>
+
+        <div class="flag-option-item" data-anneaux="4" onclick="selectAnneaux(this)">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="7" cy="8" r="2.2"/>
+            <circle cx="17" cy="8" r="2.2"/>
+            <circle cx="7" cy="16" r="2.2"/>
+            <circle cx="17" cy="16" r="2.2"/>
+          </svg>
+          <div>
+            <strong>4 anneaux</strong>
+            <span>Finition par 4 anneaux</span>
+          </div>
+          <div class="flag-option-check">✓</div>
+        </div>
+      </div>
+
+      <div class="flag-material-section">
+        <div class="flag-material-label">Matière</div>
+        <div class="flag-material-card active">
+          <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="13" fill="#e9ebee" stroke="#c2c7cf" stroke-width="1.5"/>
+            <path d="M8 12h16M8 16h16M8 20h16" stroke="#b3b9c2" stroke-width="1.3"/>
+            <path d="M12 8v16M16 8v16M20 8v16" stroke="#b3b9c2" stroke-width="1.3"/>
+          </svg>
+          <div>
+            <strong>Maille polyester 110g/m²</strong>
+            <span>Tissu léger, parfait pour usage intérieur et extérieur</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PANNEAU : OPTIONS DU PATCH
+     Reprend les réglages de l'ancien COINS_SIDEBAR_TEMPLATE
+     (conf-dynamic-layout.js) au design du sidebar moderne. Les
+     fonctions appelées (selectShape, selectCoinSize, selectFabrication)
+     sont inchangées.
+     ════════════════════════════════════════════════════════════════ -->
+<aside class="side-panel" id="panel-patch">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">OPTIONS DU PATCH</h2>
+      <p class="side-panel-subtitle">Personnalisez votre patch</p>
+    </div>
+  </div>
+
+  <div class="side-panel-content">
+
+    <!-- 1. Forme -->
+    <div class="panel-section">
+      <div class="panel-section-title">Forme</div>
+      <div class="panel-section-subtitle">Choisissez la forme de votre patch</div>
+
+      <div class="coins-shape-row">
+        <div class="coins-shape-card active" data-shape="rond" onclick="selectShape(this)">
+          <svg viewBox="0 0 50 50" width="36" height="36">
+            <circle cx="25" cy="25" r="22" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Rond</span>
+          <div class="coins-shape-check">✓</div>
+        </div>
+        <div class="coins-shape-card" data-shape="carre" onclick="selectShape(this)">
+          <svg viewBox="0 0 50 50" width="36" height="36">
+            <rect x="3" y="3" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Carré</span>
+          <div class="coins-shape-check">✓</div>
+        </div>
+        <div class="coins-shape-card" data-shape="rectangle" onclick="selectShape(this)">
+          <svg viewBox="0 0 50 50" width="36" height="36">
+            <rect x="3" y="12" width="44" height="26" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Rectangle</span>
+          <div class="coins-shape-check">✓</div>
+        </div>
+        <div class="coins-shape-card" data-shape="blason" onclick="selectShape(this)">
+          <svg viewBox="0 0 50 50" width="36" height="36">
+            <path d="M25 3 L46 9 L46 22 Q46 35 25 47 Q4 35 4 22 L4 9 Z" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Blason</span>
+          <div class="coins-shape-check">✓</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Taille -->
+    <div class="panel-section">
+      <div class="panel-section-title">Taille</div>
+      <div class="panel-section-subtitle">Sélectionnez la taille de votre patch</div>
+
+      <div class="coins-size-grid">
+        <div class="coins-size-card circle" data-size="6cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>6 cm</p>
+        </div>
+        <div class="coins-size-card circle" data-size="7cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>7 cm</p>
+        </div>
+        <div class="coins-size-card circle active" data-size="8cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>8 cm</p>
+          <div class="coins-size-check">✓</div>
+        </div>
+        <div class="coins-size-card circle" data-size="9cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>9 cm</p>
+        </div>
+        <div class="coins-size-card circle" data-size="10cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>10 cm</p>
+        </div>
+        <div class="coins-size-card rect" data-size="8x6cm" onclick="selectCoinSize(this)">
+          <p>8 x 6 cm</p>
+          <div class="coins-size-shape"></div>
+        </div>
+        <div class="coins-size-card rect" data-size="10x7.5cm" onclick="selectCoinSize(this)">
+          <p>10 x 7.5 cm</p>
+          <div class="coins-size-shape"></div>
+        </div>
+      </div>
+      <p class="coins-size-note">Les dimensions indiquées sont approximatives</p>
+    </div>
+
+    <!-- 3. Options de fabrication -->
+    <div class="panel-section">
+      <div class="panel-section-title">Options de fabrication</div>
+      <div class="panel-section-subtitle">Choisissez le type de patch</div>
+
+      <div class="conf-fabrication-options">
+        <div class="conf-fabrication-option active" data-fabrication="sublime" onclick="selectFabrication(this)">
+          <input type="radio" name="fabrication" id="fab-sublime" checked>
+          <label for="fab-sublime">
+            <div class="fab-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 22C6.49 22 2 17.51 2 12S6.49 2 12 2s10 4.04 10 9c0 3.31-2.69 6-6 6h-1.77c-.28 0-.5.22-.5.5 0 .12.05.23.13.33.41.47.64 1.06.64 1.67 0 1.38-1.12 2.5-2.5 2.5zm0-18c-4.41 0-8 3.59-8 8s3.59 8 8 8c.28 0 .5-.22.5-.5 0-.16-.08-.28-.14-.35-.41-.46-.63-1.05-.63-1.65 0-1.38 1.12-2.5 2.5-2.5H16c2.21 0 4-1.79 4-4 0-3.86-3.59-7-8-7z"/>
+                <circle cx="6.5" cy="11.5" r="1.5"/>
+                <circle cx="9.5" cy="7.5" r="1.5"/>
+                <circle cx="14.5" cy="7.5" r="1.5"/>
+                <circle cx="17.5" cy="11.5" r="1.5"/>
+              </svg>
+            </div>
+            <div class="fab-info">
+              <strong>Sublimé</strong>
+              <span>Impression de haute qualité aux couleurs éclatantes</span>
+            </div>
+            <div class="fab-check">✓</div>
+          </label>
+        </div>
+
+        <!-- PVC et Tissé : sur devis, d'où l'état désactivé et le bouton
+             de contact juste en dessous. -->
+        <div class="conf-fabrication-option disabled" data-fabrication="pvc">
+          <input type="radio" name="fabrication" id="fab-pvc" disabled>
+          <label for="fab-pvc">
+            <div class="fab-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                <path d="M7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
+              </svg>
+            </div>
+            <div class="fab-info">
+              <strong>PVC</strong>
+              <span>Patch en PVC souple et résistant. Contactez-nous en envoyant votre design.</span>
+            </div>
+            <div class="fab-check">✓</div>
+          </label>
+        </div>
+
+        <div class="conf-fabrication-option disabled" data-fabrication="tissu">
+          <input type="radio" name="fabrication" id="fab-tissu" disabled>
+          <label for="fab-tissu">
+            <div class="fab-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23 5.5V20c0 .55-.45 1-1 1h-1.5v-2h-2v2h-2v-2h-2v2h-2v-2h-2v2h-2v-2h-2v2H3c-.55 0-1-.45-1-1V5.5C2 4.12 3.12 3 4.5 3S7 4.12 7 5.5h2c0-1.38 1.12-2.5 2.5-2.5S14 4.12 14 5.5h2c0-1.38 1.12-2.5 2.5-2.5S21 4.12 21 5.5h2z"/>
+                <circle cx="9" cy="13" r="1"/>
+                <circle cx="15" cy="13" r="1"/>
+                <circle cx="12" cy="10" r="1"/>
+                <circle cx="12" cy="16" r="1"/>
+              </svg>
+            </div>
+            <div class="fab-info">
+              <strong>Tissé</strong>
+              <span>Finition tissée fine et détaillée. Contactez-nous en envoyant votre design.</span>
+            </div>
+            <div class="fab-check">✓</div>
+          </label>
+        </div>
+      </div>
+
+      <button class="conf-contact-btn" onclick="contactPatchStyle()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+        </svg>
+        <div>
+          <strong>CONTACTEZ-NOUS POUR</strong>
+          <span>PVC OU TISSÉ</span>
+        </div>
+      </button>
+
+      <div class="conf-help-section">
+        <div class="conf-help-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#666">
+            <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h1v-8H5c0-3.87 3.13-7 7-7s7 3.13 7 7h-1v8h1c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z"/>
+          </svg>
+        </div>
+        <div class="conf-help-text">
+          <strong>Besoin d'aide ?</strong>
+          <p>Contactez-nous, nous sommes là pour vous accompagner.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- PANNEAU : TEXTE -->
+<aside class="side-panel" id="panel-text">
+  <div class="side-panel-header">
+    <div class="side-panel-header-content">
+      <h2 class="side-panel-title">AJOUTER DU TEXTE</h2>
+      <p class="side-panel-subtitle">Texte personnalisé</p>
+    </div>
+  </div>
+  
+  <div class="side-panel-content">
+    <div class="panel-section">
+
+      <!-- Rappel de navigation, même style que le panneau Upload : le texte
+           s'ajoute sur la vue affichée, il faut donc basculer soi-même.
+           Le libellé est réécrit selon la vue par modernSidebar.refreshTextForm(). -->
+      <div class="upload-view-info" id="mtxt-view-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <p id="mtxt-view-info-text">
+          Pour ajouter du texte au dos, basculez vers la <strong>Vue de dos</strong> dans le canvas
+        </p>
+      </div>
+
+      <!-- Saisie directe, façon CustomInk : un champ + un bouton, sans étape
+           intermédiaire. L'emplacement est choisi juste en dessous ; le texte
+           est ensuite clampé dans la zone pointillée par conf-text-editor.js. -->
+      <input
+        type="text"
+        id="mtxt-input"
+        class="mtxt-input"
+        maxlength="40"
+        placeholder="Saisissez votre texte ici"
+        autocomplete="off"
+        oninput="modernSidebar.refreshTextForm()"
+        onkeydown="if (event.key === 'Enter') { event.preventDefault(); modernSidebar.addTextToDesign(); }">
+
+      <!-- Emplacement. Côtés nommés du point de vue du PORTEUR, comme les
+           manches et le panneau Upload : « gauche » = son cœur. -->
+      {% comment %} <div class="mtxt-where-label">Emplacement</div>
+      <div class="mtxt-where" id="mtxt-where">
+        <button type="button" class="mtxt-where-opt on" data-zone="f"
+                onclick="modernSidebar.setTextPlacement(this)"
+                title="Poitrine, côté cœur (gauche du porteur)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M8 3l4 2 4-2 4 3-2 4h-2v11H8V10H6L4 6z"/>
+            <rect x="8.5" y="9.5" width="4" height="3" rx="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Poitrine gauche</span>
+        </button>
+        <button type="button" class="mtxt-where-opt" data-zone="fr"
+                onclick="modernSidebar.setTextPlacement(this)"
+                title="Poitrine, côté droit du porteur">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M8 3l4 2 4-2 4 3-2 4h-2v11H8V10H6L4 6z"/>
+            <rect x="11.5" y="9.5" width="4" height="3" rx="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+          <span>Poitrine droite</span>
+        </button>
+      </div> {% endcomment %}
+
+      <!-- Bouton principal. Désactivé tant que le champ est vide : cliquer
+           sans texte n'a rien à insérer. -->
+      <button type="button" class="mtxt-add-btn" id="mtxt-add-btn" disabled
+              onclick="modernSidebar.addTextToDesign()">
+        Ajouter au design
+      </button>
+
+      <p class="mtxt-hint" id="mtxt-hint">
+        Le texte reste dans la zone pointillée et pourra être déplacé et mis en forme
+        une fois ajouté.
+      </p>
+
+      <!-- Séparateur : commande de groupe = autre intention, autre couleur. -->
+      <div class="mtxt-sep"><span>ou</span></div>
+
+      <!-- Visible uniquement pour les textiles (un coin n'a pas de surnom
+           floqué par personne) : modernSidebar.refreshMultiNameBtn() le gère. -->
+      <button type="button" class="mtxt-multi-btn" id="mtxt-multi-btn"
+              onclick="modernSidebar.openMultiNames()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Ajouter plusieurs surnoms</span>
+      </button>
+
+    </div>
+  </div>
+</aside>

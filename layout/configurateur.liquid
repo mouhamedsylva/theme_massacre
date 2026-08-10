@@ -1,0 +1,705 @@
+{%- comment -%}
+  Layout dedie au configurateur. NE PAS fusionner avec theme.liquid.
+
+  Pourquoi ce fichier existe
+  --------------------------
+  `sections/configurateur.liquid` rendait elle-meme un document complet
+  (<!DOCTYPE>, <html>, <head>, <body>) en s'appuyant sur `{% layout none %}`.
+  Deux problemes, tous deux constates sur la boutique reelle :
+
+    1. Shopify n'honore `layout` que dans un TEMPLATE, jamais dans une section :
+       le tag etait ignore et theme.liquid enveloppait la page. Le HTML servi
+       contenait 3 <head> imbriques, et le <meta viewport> du configurateur se
+       retrouvait dans le <body> — donc ignore par le navigateur. Un mobile
+       appliquait sa largeur de repli (~980px), au-dessus de la borne de 767px :
+       conf-mobile.css ne s'appliquait pas et conf-mobile.js prenait sa branche
+       desktop, qui force l'ouverture du panneau « Type de produit ».
+
+    2. `{% section %}` enveloppe TOUJOURS son rendu dans un
+       <div class="shopify-section">, non supprimable. Un <div> avant le
+       <!DOCTYPE> fait basculer le navigateur en mode quirks : il ignore les
+       <html>/<head> qui suivent. Resultat : page entierement blanche.
+
+  D'ou ce layout : le document vit ICI, ou rien ne l'enveloppe. La section ne
+  fournit plus que le contenu du <body>, et le <div> ajoute par Shopify tombe
+  a l'interieur du <body> — ou il est parfaitement legal.
+{%- endcomment -%}
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+    <meta charset="UTF-8">
+    {%- comment -%}
+      `viewport-fit=cover` est INDISPENSABLE : sans lui, `env(safe-area-inset-*)`
+      vaut 0 sur iOS Safari. Le projet s'en sert 7 fois (conf-mobile.css:324 pour
+      la barre de navigation, :1203 et :1215 pour la modale de devis,
+      conf-styles.css:1446, conf-tablet.css:418). Toutes ces protections
+      d'encoche étaient donc inertes, et la barre de navigation — `fixed;
+      bottom: 0` (conf-mobile.css:309) — passait sous la barre d'accueil des
+      iPhone X et ultérieurs.
+
+      Ni `user-scalable=no` ni `maximum-scale` : le zoom pinch doit rester
+      disponible (WCAG 1.4.4).
+    {%- endcomment -%}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    {%- comment -%}
+      Obligatoire dans tout <head> Shopify : scripts de la plateforme,
+      donnees de boutique, balises analytiques. Cette page n'utilise PAS
+      layout/theme.liquid, qui le fournirait sinon : c'est donc ici qu'il
+      figure.
+
+      Le mecanisme exact : templates/page.configurateur.json porte la cle
+      `"layout": "configurateur"`, qui designe CE fichier. Ce n'est PAS
+      `layout none`, et le fichier templates/page.configurateur.liquid que
+      citait ce commentaire n'existe pas — il decrivait le montage defectueux
+      d'avant le correctif du 2026-08-07.
+    {%- endcomment -%}
+    {{ content_for_header }}
+
+    {%- comment -%}
+      SEO : ces balises manquaient alors que layout/theme.liquid les fournit
+      toutes. Le <title> etait STATIQUE (« Configurateur Custom Textile ») :
+      renommer la page dans l'admin Shopify n'avait aucun effet, et le nom de
+      la boutique n'apparaissait pas.
+
+      Le canonical compte particulierement ici : la page accepte des parametres
+      (?debug=1) et conf-share.js genere des liens de partage — sans lui, chaque
+      variante devient une URL indexable distincte (contenu duplique).
+    {%- endcomment -%}
+    <title>
+      {{ page_title | default: 'Configurateur' }}
+      {%- unless page_title contains shop.name %} – {{ shop.name }}{% endunless -%}
+    </title>
+    <link rel="canonical" href="{{ canonical_url }}">
+    {%- if page_description != blank -%}
+      <meta name="description" content="{{ page_description | escape }}">
+    {%- endif -%}
+
+    {%- comment -%}
+      Open Graph : conf-share.js existe pour faire partager des designs, mais un
+      lien colle sur WhatsApp ou Facebook s'affichait sans titre ni image.
+    {%- endcomment -%}
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ page_title | default: 'Configurateur' | escape }}">
+    <meta property="og:url" content="{{ canonical_url }}">
+    <meta property="og:site_name" content="{{ shop.name | escape }}">
+    {%- if page_description != blank -%}
+      <meta property="og:description" content="{{ page_description | escape }}">
+    {%- endif -%}
+    <meta property="og:image" content="{{ 'logo-massacre.png' | asset_url | prepend: 'https:' }}">
+    <meta name="twitter:card" content="summary_large_image">
+
+    {%- comment -%}
+      configurateur.css NE PLUS CHARGER — retire le 2026-08-07.
+
+      Ses 47 classes (`.conf-body`, `.conf-header`, `.conf-canvas-area`,
+      `.configurateur-container`…) n'apparaissent NULLE PART dans le code rendu :
+      ni ce layout, ni sections/configurateur.liquid, ni les deux snippets
+      effectivement rendus, ni les 36 assets JS. Verifie classe par classe.
+
+      C'est une generation abandonnee : le vrai conteneur est `.conf-app-root`,
+      defini dans conf-styles.css, et les deux feuilles n'ont AUCUNE classe en
+      commun (47 contre 256). Les seules occurrences de ces classes vivent dans
+      des snippets jamais rendus (snippets/conf-recap.liquid,
+      snippets/conf-stepper.liquid).
+
+      C'etait la PREMIERE requete CSS de la page, en tete de cascade, pour
+      10,7 Ko telecharges et parses sans qu'une seule regle ne s'applique.
+      Le fichier est conserve dans assets/ (rien ne casse s'il reste), mais il
+      n'est plus demande.
+    {%- endcomment -%}
+    {%- comment -%}
+      conf-canvas-single.css : AJOUTÉ le 2026-08-05 — il manquait.
+
+      layout/theme.liquid n'est JAMAIS rendu pour cette page (le template JSON
+      designe ce layout-ci via sa cle "layout"), et son bloc
+      `{% if template.suffix == 'configurateur' %}` ne s'execute donc jamais.
+      NB : ni cette section ni ce layout ne declarent `{% layout none %}` — le
+      commentaire d'origine l'affirmait, c'etait le montage d'avant correctif.
+      Or c'était le seul endroit qui référençait cette feuille — elle n'était
+      chargée nulle part, alors qu'elle porte la géométrie de l'aperçu produit :
+
+        • .cv-single-view      conteneur de la vue unique
+        • .logo-layer          couche des logos déplaçables (18 règles)
+        • .product-img-single  image produit + miroir de la vue de côté
+
+      Sans elle, les règles qui masquent les logos des vues inactives
+      (`.logo-layer[data-view=…] .for-… { display:none }`) et celles qui
+      n'affichent qu'un profil à la fois en vue de côté ne s'appliquaient pas.
+      conf-mobile/tablet/laptop.css n'en redéfinissent qu'une partie, et
+      uniquement dans leurs media queries.
+
+      À charger AVANT conf-styles.css et les feuilles responsives (plus bas),
+      qui l'affinent : c'est la base de la cascade, pas une surcharge.
+    {%- endcomment -%}
+    {{ 'conf-canvas-single.css' | asset_url | stylesheet_tag }}
+    {{ 'conf-coins.css' | asset_url | stylesheet_tag }}
+    {{ 'conf-drapeaux.css' | asset_url | stylesheet_tag }}
+    {{ 'conf-patches.css' | asset_url | stylesheet_tag }}
+
+    {%- comment -%}
+      Les 8 feuilles suivantes etaient declarees APRES les 36 <script> (a la fin
+      du <head>). La cascade etait correcte, mais la DECOUVERTE etait tardive :
+      le prechargeur du navigateur voyait d'abord 774 Ko de JS, et les CSS
+      bloquants du rendu — dont conf-styles.css (68 Ko), conf-mobile.css (49 Ko)
+      et conf-sidebar-modern.css (40 Ko) — entraient en concurrence de bande
+      passante avec eux. Resultat : FOUC et First Contentful Paint retarde.
+
+      Remontees ici, avant le premier <script>. Leur ORDRE RELATIF est inchange,
+      donc la cascade est identique : conf-mobile (767) puis conf-tablet
+      (768-1023) puis conf-laptop (1024-1439) — plages disjointes — et
+      conf-a11y en dernier pour que l'anneau de focus batte tout `outline: none`.
+    {%- endcomment -%}
+    {{ "conf-styles.css" | asset_url | stylesheet_tag }}
+    {{ "conf-sidebar-modern.css" | asset_url | stylesheet_tag }}
+    {{ "conf-size-quantity-modal.css" | asset_url | stylesheet_tag }}
+    {{ "conf-canvas-options.css" | asset_url | stylesheet_tag }}
+    {%- comment -%}
+    Layout mobile (0-767px) : chargé EN DERNIER pour faire autorité sur la
+    géométrie. Voir l'en-tête de conf-mobile.css.
+    {%- endcomment -%}
+    {{ "conf-mobile.css" | asset_url | stylesheet_tag }}
+    {%- comment -%}
+    Layout tablette (768-1023px). Après conf-mobile.css, dont il ne
+    recouvre jamais la plage (mobile s'arrête à 767px).
+    {%- endcomment -%}
+    {{ "conf-tablet.css" | asset_url | stylesheet_tag }}
+    {%- comment -%}
+    Layout laptop (1024-1439px) : garde le design desktop, ajuste seulement
+    les largeurs fixes et la hauteur de l'aperçu.
+    {%- endcomment -%}
+    {{ "conf-laptop.css" | asset_url | stylesheet_tag }}
+    {%- comment -%}
+    Visibilité du focus clavier. EN DERNIER, après les feuilles responsives :
+    l'anneau de focus doit l'emporter sur tout `outline: none` posé plus haut.
+    {%- endcomment -%}
+    {{ "conf-a11y.css" | asset_url | stylesheet_tag }}
+    <!-- confLog() : traces de développement, silencieuses en production.
+         SYNCHRONE et en PREMIER — les scripts `defer` l'appellent dès leur
+         niveau racine, elle doit donc déjà exister. Traces visibles avec
+         ?debug=1 dans l'URL. -->
+    <script src="{{ 'conf-debug.js' | asset_url }}"></script>
+    <!-- Prix dégressif par quantité (QTY_TIERS + helpers). Chargé en SYNCHRONE
+         avant les scripts inline : ils utilisent window.QTY_TIERS dès le départ. -->
+    <script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
+    <script>
+      /* URL de base du backend NestJS (déployé sur Railway).
+         Pilotée par le réglage de thème « API Endpoint » (settings.api_endpoint),
+         modifiable dans Personnaliser > Paramètres du thème sans toucher au code.
+         La valeur en dur ne sert que de repli si le réglage est vide ou resté sur
+         le localhost par défaut — une URL codée en dur ici avait déjà provoqué
+         l'envoi des devis vers une ancienne instance pendant plusieurs jours. */
+      {%- assign api_setting = settings.api_endpoint | default: '' -%}
+      {%- if api_setting == '' or api_setting contains 'localhost' -%}
+        window.API_BASE = "https://customizer-backend-production-4c83.up.railway.app/api";
+      {%- else -%}
+        window.API_BASE = {{ api_setting | json }};
+      {%- endif -%}
+
+      /* ── PRIX UNITAIRES (définis par l'admin) ──────────────────────────────
+         Source de vérité : GET /api/pricing (dashboard admin -> BDD).
+         Les valeurs ci-dessous ne sont qu'un REPLI, utilisé si le backend est
+         injoignable : l'affichage reste correct au lieu de tomber à 0.
+         window.PRICES est renseigné dès la réponse, puis prixUnitaire() l'utilise. */
+      window.PRICES = {
+        sweatshirt: 60, tshirt: 29.50, tshirt_polyester: 29.50,
+        /* NOMS INVERSÉS (cf. CONF_VARIANTS) :
+             coins   = vos PATCHS  -> 20 € = 1er palier de leur grille (10 min.)
+             patches = vos COINS   -> 0 €, vendus sur devis, chiffrés à la main
+           Les deux valeurs étaient permutées : le configurateur annonçait 2,45 €
+           pour des patchs facturés 20 € au premier palier. */
+        coins: 20.00, drapeaux: 19.90, patches: 0
+      };
+
+      /** Prix unitaire TTC d'un produit (clé de window.PRICES).
+          TTC pour TOUS les produits — la mention « HT » qui figurait ici (et sur
+          les badges patchs/drapeaux) était fausse et contredisait le
+          récapitulatif, qui totalise « Taxes incluses ». */
+      window.prixUnitaire = function (key) {
+        var p = window.PRICES || {};
+        var v = Number(p[key]);
+        return isNaN(v) ? 0 : v;
+      };
+
+      /* Prix DÉGRESSIF par quantité (window.QTY_TIERS, tierUnitPrice,
+         effectiveUnitPrice, tierMinQty) : déporté dans l'asset partagé
+         conf-pricing-tiers.js (chargé plus bas), pour libérer de la marge
+         template et éviter la duplication avec recapitulatif.liquid. */
+
+      /** Formate un prix à la française : 2.45 -> "2,45 €". */
+      window.formatPrix = function (n) {
+        return Number(n || 0).toFixed(2).replace('.', ',') + ' €';
+      };
+
+      /* Applique une réponse de /pricing et notifie l'interface.
+         Extrait en fonction pour être REJOUÉ par le sondage ci-dessous : le
+         premier chargement et les rafraîchissements suivent le même chemin.
+         @param premier  au tout premier appel, on notifie même si les valeurs
+                         égalent le repli — les écrans rendus avant la réponse
+                         doivent se réafficher dans tous les cas. */
+      window.appliquerPricing = function (d, premier) {
+        if (!d || !d.ok || !d.prices) return false;
+
+        /* Signature des données servant à l'affichage. Comparée à la
+           précédente pour n'émettre l'événement QUE sur changement réel : un
+           re-rendu du récapitulatif à chaque sondage effacerait la saisie en
+           cours de l'utilisateur (quantité, tailles). */
+        var signature = JSON.stringify([d.prices, d.tiers || null]);
+        var change = signature !== window._pricingSignature;
+        window._pricingSignature = signature;
+
+        window.PRICES = Object.assign({}, window.PRICES, d.prices);
+        /* Grilles dégressives définies dans l'admin : elles REMPLACENT la
+           table locale de conf-pricing-tiers.js, qui n'est plus qu'un repli
+           si le backend est injoignable. Un produit absent de la réponse
+           cesse d'être dégressif — on écrase donc entièrement. */
+        /* Grille validée avant application : un prix nul ou négatif ne doit
+           pas écraser la table de repli (voir applyTiersFromBackend). Repli
+           sur l'ancien comportement si l'asset n'a pas chargé. */
+        if (d.tiers && typeof d.tiers === 'object') {
+          if (typeof window.applyTiersFromBackend === 'function') {
+            window.applyTiersFromBackend(d.tiers);
+          } else {
+            window.QTY_TIERS = d.tiers;
+          }
+        }
+        if (change || premier) {
+          document.dispatchEvent(new CustomEvent('conf:prices-loaded'));
+        }
+        return change;
+      };
+
+      /* Charge les prix réels au plus tôt. Quand ils arrivent, on notifie
+         l'interface (les écrans déjà rendus se remettent à jour). */
+      window.PRICES_READY = fetch(window.API_BASE + '/pricing')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          window.appliquerPricing(d, true);
+          return window.PRICES;
+        })
+        .catch(function () { return window.PRICES; });   // repli silencieux
+
+      /* ── Suivi des prix en direct ────────────────────────────────────────
+         L'admin change un tarif dans le dashboard : l'onglet client ouvert
+         doit le refléter sans rechargement.
+
+         Sondage et non WebSocket/SSE : le backend n'expose aucun canal
+         poussé, et la réponse pèse 676 octets pour ~370 ms — une requête par
+         minute est négligeable là où un canal permanent demanderait une
+         nouvelle brique serveur.
+
+         Le sondage s'arrête quand l'onglet passe en arrière-plan et se
+         rattrape au retour : inutile d'interroger pour un écran que personne
+         ne regarde, et l'utilisateur qui revient voit le tarif à jour. */
+      (function suivrePrix() {
+        var INTERVALLE = 60000;   // 1 min : l'admin change un prix rarement.
+        var minuteur = null;
+
+        function interroger() {
+          if (document.hidden) return;
+          fetch(window.API_BASE + '/pricing', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) { window.appliquerPricing(d, false); })
+            .catch(function () { /* réseau coupé : on retentera au tour suivant */ });
+        }
+
+        function demarrer() {
+          if (minuteur) return;
+          minuteur = setInterval(interroger, INTERVALLE);
+        }
+        function arreter() {
+          if (!minuteur) return;
+          clearInterval(minuteur);
+          minuteur = null;
+        }
+
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) { arreter(); return; }
+          interroger();   // rattrape ce qui a changé pendant l'absence
+          demarrer();
+        });
+
+        // Ne démarre qu'une fois le premier chargement acquis, pour ne pas
+        // lancer deux requêtes concurrentes au démarrage.
+        window.PRICES_READY.then(demarrer);
+      })();
+
+      /* Les prix arrivent APRÈS le premier rendu : on rafraîchit ce qui est
+         déjà affiché (prix unitaires + total selon la quantité courante). */
+      document.addEventListener('conf:prices-loaded', function () {
+        /* TTC — les prix de PRICES / QTY_TIERS sont TTC pour TOUS les produits,
+           textiles comme patchs et drapeaux. Ces deux badges affichaient « HT »,
+           ce qui contredisait le récapitulatif (« Taxes incluses ») : le client
+           voyait un prix annoncé hors taxes puis un total identique présenté
+           TTC. La table de référence le dit d'ailleurs depuis le début
+           (conf-pricing-tiers.js : « TTC sauf mention »). */
+        /* Clé `coins` : #coins-unit-price appartient à l'écran « Coins », qui
+           affiche les PATCHS (noms inversés, cf. CONF_VARIANTS). Leur tarif est
+           rangé sous `coins`. Lire `patches` renvoyait le prix des coins métal,
+           un autre produit. */
+        var unit = document.getElementById('coins-unit-price');
+        if (unit) {
+          unit.innerHTML = window.formatPrix(window.prixUnitaire('coins')) +
+                           ' <span class="rp-unit-ht">TTC</span>';
+        }
+        var flags = document.getElementById('flags-unit-price');
+        if (flags) {
+          flags.innerHTML = window.formatPrix(window.prixUnitaire('drapeaux')) +
+                            ' <span class="rp-unit-ht">TTC</span>';
+        }
+        /* Supplément MANCHES : son tarif vient de PRICES.manche, il arrive donc
+           avec cette réponse. Sans ce rappel, les étiquettes rendues avant le
+           fetch gardaient le prix de repli (4,00 €) même après que l'admin
+           l'avait changé — le badge du récap comme les trois étiquettes du
+           panneau « Upload Image ». */
+        if (typeof window.updateSleeveSurcharge === 'function') {
+          window.updateSleeveSurcharge();
+        }
+
+        /* TEXTILES (sweat, t-shirts) : leur prix vient des grilles dégressives,
+           qui changent elles aussi avec la réponse. updateSleeveSurcharge()
+           appelle déjà updateTotalPrice(), mais elle peut être absente selon
+           l'écran — on garantit le recalcul dans tous les cas. */
+        if (typeof window.updateTotalPrice === 'function') {
+          window.updateTotalPrice();
+        }
+
+        /* TIROIR DU PANIER : ses montants sont recalculés à chaque rendu par
+           cartUnitPrice() (palier + supplément manches). Sans ce redessin, un
+           tiroir DÉJÀ OUVERT gardait les anciens montants jusqu'à sa
+           réouverture. */
+        if (typeof window.renderCartDrawer === 'function') {
+          window.renderCartDrawer();
+        }
+
+        // Recalcule le total avec la quantité affichée.
+        var qtyEl = document.getElementById('coin-qty-input') ||
+                    document.getElementById('coin-recap-qty-input');
+        if (qtyEl && typeof updateCoinPrice === 'function') {
+          /* Repli aligné sur le MINIMUM de commande (10), pas sur 20 : un
+             repli plus élevé accordait le palier de 20 pièces à une commande
+             de 10, soit 12,50 € au lieu de 20,00 € l'unité. Même défaut que
+             celui corrigé dans conf-dynamic-layout.js (A5). */
+          var coinMin = (typeof window.tierMinQty === 'function')
+            ? (window.tierMinQty('coins') || 10) : 10;   // grille des patchs
+          updateCoinPrice(parseInt(qtyEl.value, 10) || coinMin);
+        }
+      });
+
+      window.ASSET_URLS = {
+        visa: "{{ 'visa.svg' | asset_url }}",
+        mastercard: "{{ 'mastercard.svg' | asset_url }}",
+        applepay: "{{ 'applepay.svg' | asset_url }}",
+        paypal: "{{ 'paypal.svg' | asset_url }}",
+        patchRecto: "{{ 'patch-recto.png' | asset_url }}",
+        patchVerso: "{{ 'patch-verso.png' | asset_url }}",
+        patchCote: "{{ 'patch-cote.png' | asset_url }}",
+        flagRecto: "{{ 'flag-recto.png' | asset_url }}",
+        flagVerso: "{{ 'flag-verso.png' | asset_url }}",
+        flag4anRecto: "{{ 'flag-4an-recto.png' | asset_url }}",
+        flag4anVerso: "{{ 'flag-4an-verso.png' | asset_url }}",
+        // Versions PORTRAIT (drapeau vertical)
+        flagRectoPortrait: "{{ 'flag-recto-portrait.png' | asset_url }}",
+        flagVersoPortrait: "{{ 'flag-verso-portrait.png' | asset_url }}",
+        flag4anRectoPortrait: "{{ 'flag-4an-recto-portrait.png' | asset_url }}",
+        flag4anVersoPortrait: "{{ 'flag-4an-verso-portrait.png' | asset_url }}",
+        logoMassacre: "{{ 'logo-massacre.png' | asset_url }}"
+      };
+
+      /* Dictionnaire des images DRAPEAU, une par combinaison.
+         Clé   : "{anneaux}-{couleur}-{face}-{orientation}"
+         Ex.   : "2an-rouge-recto-paysage"
+         Fichier attendu : flag-2an-rouge-recto-paysage.png
+
+         Finitions : 0an (sans anneaux, défaut) | 2an | 4an
+         16 couleurs × 3 finitions × 2 faces × 2 orientations = 192 images.
+
+         NOMENCLATURE À RESPECTER pour les fichiers « sans anneaux » :
+             flag-0an-{couleur}-{face}-{orientation}.png
+         couleur     : blanc, blanc-casse, noir, gris, gris-fonce, gris-ardoise,
+                       bleu-marine, bleu-ciel, vert-fonce, rouge, rose,
+                       rose-clair, orange, jaune, violet, marron
+         face        : recto | verso
+         orientation : paysage | portrait
+         Ex. : flag-0an-rouge-recto-paysage.png
+         Tant qu'une image manque, refreshFlagImages() replie sur le blanc de
+         la même finition, puis sur l'image générique — rien ne casse. */
+      window.FLAG_IMAGE_URLS = {
+        {%- assign fl_anneaux = "0an,2an,4an" | split: "," -%}
+        {%- assign fl_colors = "blanc,noir,rouge,bleu-marine" | split: "," -%}
+        {%- assign fl_faces = "recto,verso" | split: "," -%}
+        {%- assign fl_orients = "paysage,portrait" | split: "," -%}
+        {%- for a in fl_anneaux -%}
+          {%- for c in fl_colors -%}
+            {%- for f in fl_faces -%}
+              {%- for o in fl_orients -%}
+                {%- assign fname = "flag-" | append: a | append: "-" | append: c | append: "-" | append: f | append: "-" | append: o | append: ".png" -%}
+                "{{ a }}-{{ c }}-{{ f }}-{{ o }}": "{{ fname | asset_url }}",
+              {%- endfor -%}
+            {%- endfor -%}
+          {%- endfor -%}
+        {%- endfor -%}
+      };
+
+      /* Dictionnaire des images PATCH, une par (forme × couleur).
+         Clé   : "{forme}-{slug}"          Ex. : "rond-rouge"
+         Fichier attendu : patch-{forme}-{slug}.png
+         4 formes × 16 couleurs = 64 images. asset_url renvoie TOUJOURS une URL
+         (même si le fichier n'existe pas encore) : le repli réel se fait côté JS
+         par onload/onerror (comme loadFirstAvailable), avec repli sur l'image
+         BLANCHE patch-{forme}-blanc.png teintée en CSS. */
+      window.PATCH_IMAGE_URLS = {
+        {%- assign pt_shapes = "rond,carre,rectangle,blason" | split: "," -%}
+        {%- assign pt_colors = "noir,blanc-casse,gris,gris-fonce,gris-ardoise,bleu-marine,bleu-ciel,vert-fonce,rose-clair,rose,rouge,orange,jaune,violet,marron,blanc" | split: "," -%}
+        {%- for s in pt_shapes -%}
+          {%- for c in pt_colors -%}
+            {%- assign pname = "patch-" | append: s | append: "-" | append: c | append: ".png" -%}
+            "{{ s }}-{{ c }}": "{{ pname | asset_url }}",
+          {%- endfor -%}
+        {%- endfor -%}
+      };
+
+      /* URL des 4 images BLANCHES de repli (patch-{forme}-blanc.png), teintées en
+         CSS/canvas avec la couleur choisie quand la vraie image colorée n'a pas
+         été fournie. Les quatre existent bien.
+
+         Historique utile : `patch-rond-blanc.png` (500×499, 116 Ko) était présente
+         sur le thème DÉPLOYÉ mais ABSENTE du dépôt local — l'IDE la signalait
+         introuvable. Récupérée depuis le CDN le 2026-08-07. C'était un risque
+         réel : `shopify theme push` SUPPRIME les fichiers distants qui n'existent
+         pas en local, donc un push l'aurait effacée du thème en production.
+
+         Si un linter signale à nouveau une image manquante, vérifier d'abord si
+         elle répond sur le CDN
+         (`/cdn/shop/t/5/assets/<nom>.png`) avant de conclure à un oubli — et la
+         rapatrier dans assets/ le cas échéant. */
+      window.PATCH_WHITE_URLS = {
+        rond:      "{{ 'patch-rond-blanc.png'      | asset_url }}",
+        carre:     "{{ 'patch-carre-blanc.png'     | asset_url }}",
+        rectangle: "{{ 'patch-rectangle-blanc.png' | asset_url }}",
+        blason:    "{{ 'patch-blason-blanc.png'    | asset_url }}"
+      };
+
+      // Dictionnaire de toutes les images textile (clé = "produit-couleur-vue")
+      // Généré côté Liquid pour avoir les URLs CDN exactes (avec ?v=...).
+      window.PRODUCT_IMAGE_URLS = {
+        {%- assign tx_products = "sweatshirt,tshirt,tshirt-polyester" | split: "," -%}
+        {%- assign tx_colors = "apricot,ash,atoll,black,bottle-green,brown,burgundy,chocolate,cobalt-blue,dark-grey,diva-blue,fire-red,gold,kelly-green,millennial-lilac,millennial-mint,natural,navy,navy-blue,orange,orchid-green,orchid-pink,pacific-grey,pixel-lime,radiant-purple,red,royal-blue,sand,sky,solar-yellow,sorbet,sport-grey,stone-blue,sunset-orange,swimming-pool,urban-khaki,urban-orange,urban-purple,used-black,white" | split: "," -%}
+        {%- assign tx_views = "face,dos,cote" | split: "," -%}
+        {%- for p in tx_products -%}
+          {%- for c in tx_colors -%}
+            {%- for v in tx_views -%}
+              {%- assign fname = p | append: "-" | append: c | append: "-" | append: v | append: ".png" -%}
+              "{{ p }}-{{ c }}-{{ v }}": "{{ fname | asset_url }}",
+            {%- endfor -%}
+          {%- endfor -%}
+        {%- endfor -%}
+      };
+
+      window.COIN_IMAGE_URLS = {
+        'patch-recto-or':     "{{ 'patch-recto-or.png'     | asset_url }}",
+        'patch-recto-argent': "{{ 'patch-recto-argent.png' | asset_url }}",
+        'patch-recto-nickel': "{{ 'patch-recto-nickel.png' | asset_url }}",
+        'patch-recto-bronze': "{{ 'patch-recto-bronze.png' | asset_url }}",
+        'patch-recto-cuivre': "{{ 'patch-recto-cuivre.png' | asset_url }}",
+
+        'patch-verso-or':     "{{ 'patch-verso-or.png'     | asset_url }}",
+        'patch-verso-argent': "{{ 'patch-verso-argent.png' | asset_url }}",
+        'patch-verso-nickel': "{{ 'patch-verso-nickel.png' | asset_url }}",
+        'patch-verso-bronze': "{{ 'patch-verso-bronze.png' | asset_url }}",
+        'patch-verso-cuivre': "{{ 'patch-verso-cuivre.png' | asset_url }}",
+
+        'patch-cote-or':     "{{ 'patch-cote-or.png'     | asset_url }}",
+        'patch-cote-argent': "{{ 'patch-cote-argent.png' | asset_url }}",
+        'patch-cote-nickel': "{{ 'patch-cote-nickel.png' | asset_url }}",
+        'patch-cote-bronze': "{{ 'patch-cote-bronze.png' | asset_url }}",
+        'patch-cote-cuivre': "{{ 'patch-cote-cuivre.png' | asset_url }}"
+      };
+
+      // Images couleur EXISTANTES (nommées en français). Servent de repli quand
+      // l'image {produit}-{slugEN}-{vue}.png n'a pas encore été fournie.
+      window.PRODUCT_IMAGE_URLS_LEGACY = {
+        {%- assign lg_products = "sweatshirt,tshirt,tshirt-polyester" | split: "," -%}
+        {%- assign lg_colors = "blanc-casse,bleu-ciel,bleu-marine,gris,gris-ardoise,gris-fonce,jaune,marron,noir,orange,rose,rose-clair,rouge,vert-fonce,violet" | split: "," -%}
+        {%- assign lg_views = "face,dos,cote" | split: "," -%}
+        {%- for p in lg_products -%}
+          {%- for c in lg_colors -%}
+            {%- for v in lg_views -%}
+              {%- assign lname = p | append: "-" | append: c | append: "-" | append: v | append: ".png" -%}
+              "{{ p }}-{{ c }}-{{ v }}": "{{ lname | asset_url }}",
+            {%- endfor -%}
+          {%- endfor -%}
+        {%- endfor -%}
+      };
+
+      // Correspondance : nouveau slug (EN) -> ancien slug d'image (FR) le plus proche.
+      // Permet aux 15 images existantes de couvrir les 40 couleurs en attendant
+      // que les vraies images couleur soient fournies.
+      window.COLOR_SLUG_LEGACY = {
+        'black': 'noir', 'used-black': 'noir',
+        'white': 'blanc-casse', 'ash': 'blanc-casse', 'natural': 'blanc-casse', 'sand': 'blanc-casse',
+        'navy': 'bleu-marine', 'navy-blue': 'bleu-marine', 'cobalt-blue': 'bleu-marine',
+        'royal-blue': 'bleu-marine', 'urban-purple': 'bleu-marine', 'stone-blue': 'bleu-marine',
+        'diva-blue': 'bleu-marine',
+        'sky': 'bleu-ciel', 'atoll': 'bleu-ciel', 'swimming-pool': 'bleu-ciel',
+        'millennial-mint': 'bleu-ciel', 'millennial-lilac': 'bleu-ciel',
+        'red': 'rouge', 'fire-red': 'rouge', 'burgundy': 'rouge',
+        'orange': 'orange', 'urban-orange': 'orange', 'sunset-orange': 'orange', 'apricot': 'orange',
+        'gold': 'jaune', 'solar-yellow': 'jaune',
+        'brown': 'marron', 'chocolate': 'marron',
+        'bottle-green': 'vert-fonce', 'kelly-green': 'vert-fonce', 'urban-khaki': 'vert-fonce',
+        'orchid-green': 'vert-fonce', 'pixel-lime': 'vert-fonce',
+        'radiant-purple': 'violet',
+        'orchid-pink': 'rose-clair', 'sorbet': 'rose',
+        'dark-grey': 'gris-fonce', 'pacific-grey': 'gris', 'sport-grey': 'gris-ardoise'
+      };
+
+      // Images génériques (sans couleur) servant de repli si une image couleur manque
+      window.PRODUCT_FALLBACK_URLS = {
+        "sweatshirt": {
+          face: "{{ 'sweatshirt-face.png' | asset_url }}",
+          dos:  "{{ 'sweatshirt-dos.png' | asset_url }}",
+          {%- comment -%}
+            'sweatshirt-t-cote.png' n'existe pas dans assets/ (coquille : le
+            fichier réel est sweatshirt-cote.png). asset_url renvoyant une URL
+            même pour un fichier absent, l'erreur ne se voyait qu'à l'affichage
+            — et c'est ici l'image de REPLI, donc le dernier filet.
+          {%- endcomment -%}
+          cote: "{{ 'sweatshirt-cote.png' | asset_url }}"
+        },
+        "tshirt": {
+          face: "{{ 'tshirt-face.png' | asset_url }}",
+          dos:  "{{ 'tshirt-dos.png' | asset_url }}",
+          cote: "{{ 'tshirt-cote.png' | asset_url }}"
+        },
+        "tshirt-polyester": {
+          face: "{{ 'tshirt-polyester-face.png' | asset_url }}",
+          dos:  "{{ 'tshirt-polyester-dos.png' | asset_url }}",
+          cote: "{{ 'tshirt-polyester-cote.png' | asset_url }}"
+        }
+      };
+    </script>
+    {%- comment -%}
+      conf-alert.js (11 Ko) : passé en `defer`. Il était SYNCHRONE, donc bloquait
+      le parseur, sans nécessité.
+
+      Vérifié avant de changer : ses quatre exports (confAlert, confConfirm,
+      confPrompt, confToast) sont bien appelés SANS garde `typeof` en plusieurs
+      endroits de conf-main-inline.js (:448, :517, :2402, :2640) — l'audit
+      affirmait le contraire. Mais ces appels vivent tous dans le corps de
+      fonctions déclenchées par un clic (clearGroupOrder, submitGroupOrder,
+      contactPatchStyle, confirmReset), jamais au niveau racine : au premier clic,
+      le script `defer` est chargé depuis longtemps.
+
+      Si un appel au niveau racine était ajouté un jour, il faudrait le garder
+      par `typeof window.confAlert === 'function'` OU remettre ce script en
+      synchrone.
+    {%- endcomment -%}
+    <script src="{{ 'conf-alert.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-bgremoval2.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-product-images.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-dynamic-layout.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-drapeaux.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-patches.js' | asset_url }}" defer></script>
+    <!-- Devis panier (patchs ≥100 / multi-produits ≥3 familles). Déporté ici
+         pour alléger le template ; lit window.getCartItems exposé plus bas. -->
+    <script src="{{ 'conf-cart-quote.js' | asset_url }}" defer></script>
+    <!-- Barre d'outils texte au-dessus de l'aperçu (remplace le basculement
+         de sidebar). Tout est injecté par l'asset. -->
+    <script src="{{ 'conf-text-toolbar.js' | asset_url }}" defer></script>
+    <!-- Barre d'outils du logo sur les coins (couvrir, ajuster, pivoter…).
+         Après conf-logo-drag.js : elle observe la classe .is-selected que
+         celui-ci pose sur le logo. -->
+    <script src="{{ 'conf-logo-drag.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-coin-toolbar.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-sleeve-side.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-api.js' | asset_url }}" defer></script>
+    <!-- Sidebar moderne avec navigation par icônes -->
+    <script src="{{ 'conf-sidebar-modern.js' | asset_url }}" defer></script>
+    <!-- Polices Google pour l'éditeur de texte -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      {%- comment -%}
+        58 familles Google Fonts, chargees SANS BLOQUER LE RENDU.
+
+        C'etait une <link rel="stylesheet"> classique : bloquante, sur un
+        domaine tiers, et placee au milieu des <script defer> donc decouverte
+        tard. Elle retardait le premier rendu de toute la page alors que ces
+        polices ne servent QU'A L'EDITEUR DE TEXTE — ouvert sur clic, jamais
+        au chargement (verifie : aucun CSS du theme ne les reference).
+
+        `media="print"` fait telecharger la feuille en tache de fond sans
+        bloquer ; `onload` la bascule ensuite sur `all`. Le <noscript> garde le
+        comportement d'origine si JS est desactive.
+
+        `display=swap` est deja dans l'URL : le texte reste visible pendant le
+        chargement de la police.
+      {%- endcomment -%}
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Acme&family=Alfa+Slab+One&family=Allura&family=Amatic+SC:wght@700&family=Anton&family=Architects+Daughter&family=Archivo+Black&family=Bangers&family=Bebas&family=Bebas+Neue&family=Black+Ops+One&family=Bungee&family=Caveat:wght@700&family=Cinzel:wght@700&family=Cookie&family=Courgette&family=Creepster&family=Crimson+Text:wght@700&family=Dancing+Script:wght@700&family=Fjalla+One&family=Fredoka+One&family=Great+Vibes&family=Indie+Flower&family=Kalam:wght@700&family=Lato:wght@700&family=Libre+Baskerville:wght@700&family=Lobster&family=Lora:wght@700&family=Luckiest+Guy&family=Merriweather:wght@700&family=Monoton&family=Montserrat:wght@700&family=Nunito:wght@700&family=Open+Sans:wght@700&family=Oswald:wght@600&family=PT+Serif:wght@700&family=Pacifico&family=Passion+One:wght@700&family=Patua+One&family=Permanent+Marker&family=Pinyon+Script&family=Playfair+Display:wght@700&family=Poppins:wght@700&family=Press+Start+2P&family=Raleway:wght@700&family=Righteous&family=Roboto:wght@700&family=Rock+Salt&family=Russo+One&family=Sacramento&family=Satisfy&family=Shadows+Into+Light&family=Shrikhand&family=Special+Elite&family=Tangerine:wght@700&family=Teko:wght@600&family=Ubuntu:wght@700&family=Yellowtail&display=swap" media="print" onload="this.media='all'; this.onload=null;">
+      <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Acme&family=Alfa+Slab+One&family=Allura&family=Amatic+SC:wght@700&family=Anton&family=Architects+Daughter&family=Archivo+Black&family=Bangers&family=Bebas&family=Bebas+Neue&family=Black+Ops+One&family=Bungee&family=Caveat:wght@700&family=Cinzel:wght@700&family=Cookie&family=Courgette&family=Creepster&family=Crimson+Text:wght@700&family=Dancing+Script:wght@700&family=Fjalla+One&family=Fredoka+One&family=Great+Vibes&family=Indie+Flower&family=Kalam:wght@700&family=Lato:wght@700&family=Libre+Baskerville:wght@700&family=Lobster&family=Lora:wght@700&family=Luckiest+Guy&family=Merriweather:wght@700&family=Monoton&family=Montserrat:wght@700&family=Nunito:wght@700&family=Open+Sans:wght@700&family=Oswald:wght@600&family=PT+Serif:wght@700&family=Pacifico&family=Passion+One:wght@700&family=Patua+One&family=Permanent+Marker&family=Pinyon+Script&family=Playfair+Display:wght@700&family=Poppins:wght@700&family=Press+Start+2P&family=Raleway:wght@700&family=Righteous&family=Roboto:wght@700&family=Rock+Salt&family=Russo+One&family=Sacramento&family=Satisfy&family=Shadows+Into+Light&family=Shrikhand&family=Special+Elite&family=Tangerine:wght@700&family=Teko:wght@600&family=Ubuntu:wght@700&family=Yellowtail&display=swap"></noscript>
+    <script src="{{ 'conf-text-editor.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-share.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-size-quantity-modal.js' | asset_url }}" defer></script>
+    <!-- Couleur / Taille au-dessus de l'aperçu (menus clonés depuis .cg/.sg). -->
+    <script src="{{ 'conf-canvas-options.js' | asset_url }}" defer></script>
+    {%- comment -%}
+      ── Scripts AJOUTÉS le 2026-08-05 : ils n'étaient chargés NULLE PART ──
+
+      layout/theme.liquid n'est jamais rendu ici (le template JSON designe ce
+      layout-ci via sa cle "layout" ; aucun `{% layout none %}` n'intervient,
+      contrairement a ce que disait ce commentaire), et son bloc
+      `{% if template.suffix == 'configurateur' %}` — seul endroit qui
+      référençait ces fichiers — ne s'exécutait donc jamais.
+
+      Conséquences observables, toutes silencieuses jusqu'au clic :
+        • `onclick="showOverview()"` (bouton « Vue d'ensemble », ligne ~888)
+          et `onclick="openCartItemDesign(…)"` (vignette du panier, injectée
+          par conf-main-inline.js) sont des gestionnaires NON gardés :
+          sans le script, le clic lève un ReferenceError.
+        • `onchange="grpImportFile(this)"` (import CSV de la commande de
+          groupe, ligne ~1234) restait sans effet.
+        • Les recadrages coin/drapeau/patch, la restauration des logos par
+          produit et les repères de zone de texte ne s'initialisaient pas.
+
+      Placés ici pour respecter deux dépendances déclarées dans leurs en-têtes :
+      conf-text-dblclick.js suit conf-text-editor.js, et conf-coin-thumb.js
+      suit conf-logo-drag.js — tous deux chargés plus haut. Les scripts `defer`
+      s'exécutant dans l'ordre du document, cette position les satisfait.
+
+      NON réintégrés (référencés par le même bloc mort, mais sans usage
+      démontrable — voir Y6 de AUDIT-FRONTEND.md) : configurateur.js,
+      conf-canvas.js, conf-cart.js, conf-pricing.js, conf-recap.js,
+      conf-upload.js, conf-upload-state.js, conf-product-switch.js.
+      Les réintroduire ferait resurgir une génération de code concurrente
+      (window.configurateur n'est consommé nulle part, et conf-canvas.js
+      dépend de Fabric.js, retiré).
+    {%- endcomment -%}
+    <script src="{{ 'conf-logo-store.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-view-switcher.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-text-clamp.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-text-zone.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-text-dblclick.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-overview.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-group-csv.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-group-preview.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-coin-cover.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-flag-cover.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-patch-edit.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-coin-thumb.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-cart-open-design.js' | asset_url }}" defer></script>
+
+    <!-- Feuille montante mobile. APRÈS conf-sidebar-modern.js : les scripts
+         `defer` s'exécutent dans l'ordre du document, ce fichier observe donc
+         des panneaux déjà initialisés. -->
+    <script src="{{ 'conf-mobile.js' | asset_url }}" defer></script>
+    <!-- Tiroir récap + barre d'action pour la plage tablette (768-1023px). -->
+    <script src="{{ 'conf-tablet.js' | asset_url }}" defer></script>
+    <!-- Accessibilité clavier des `<div onclick>` (~101 dans l'interface) :
+         tabindex, role, Entrée/Espace et aria-pressed, posés à l'exécution.
+         EN DERNIER : il parcourt le DOM déjà bâti, puis observe les ajouts. -->
+    <script src="{{ 'conf-a11y.js' | asset_url }}" defer></script>
+  </head>
+  {% comment %} Contenu de la page : `{% section 'configurateur' %}`, via le template. {% endcomment %}
+  <body>
+  {{ content_for_layout }}
+  </body>
+  </html>

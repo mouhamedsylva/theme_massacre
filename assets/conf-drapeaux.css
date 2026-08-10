@@ -1,0 +1,1070 @@
+/**
+ * Drapeaux - Styles spécifiques
+ */
+
+/* ========================================
+   Type d'impression
+======================================== */
+.flag-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flag-type-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.flag-type-card:hover {
+  border-color: #1a1a1a;
+}
+
+.flag-type-card.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.flag-type-icon {
+  flex-shrink: 0;
+}
+
+.flag-type-info {
+  flex: 1;
+}
+
+.flag-type-info strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.flag-type-info span {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.flag-type-check {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e5e5e5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  font-size: 14px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.flag-type-card.active .flag-type-check {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+/* ========================================
+   Orientation
+======================================== */
+.flag-orientation-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.flag-orientation-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.flag-orientation-card:hover {
+  border-color: #1a1a1a;
+}
+
+.flag-orientation-card.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.flag-orientation-card svg {
+  color: #666;
+}
+
+.flag-orientation-card.active svg {
+  color: #1a1a1a;
+}
+
+.flag-orientation-card > span:first-of-type {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.flag-ori-sub {
+  font-size: 9px;
+  color: #999;
+}
+
+.flag-orientation-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag-orientation-card.active .flag-orientation-check {
+  display: flex;
+}
+
+/* ========================================
+   Taille
+======================================== */
+.flag-size-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.flag-size-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 14px 8px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.flag-size-card:hover {
+  border-color: #1a1a1a;
+}
+
+.flag-size-card.active {
+  border-color: #1a1a1a;
+  background: #fff;
+}
+
+.flag-size-card strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  display: block;
+}
+
+.flag-size-card span {
+  font-size: 9px;
+  color: #666;
+}
+
+.flag-size-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag-size-card.active .flag-size-check {
+  display: flex;
+}
+
+.flag-custom-note {
+  font-size: 10px;
+  color: #666;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.flag-custom-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.flag-contact-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.flag-contact-btn:hover {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* ========================================
+   Upload zones pour designs
+======================================== */
+.flag-upload-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.flag-upload-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flag-upload-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.flag-upload-box-small {
+  border: 2px dashed #e5e5e5;
+  border-radius: 8px;
+  padding: 16px 10px;
+  text-align: center;
+  cursor: pointer;
+  background: #fafafa;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.flag-upload-box-small:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+
+.flag-upload-box-small p {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.flag-upload-box-small span {
+  font-size: 8px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.flag-design-tips {
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.flag-design-tips p {
+  font-size: 10px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flag-design-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.flag-design-tips li {
+  font-size: 9px;
+  color: #666;
+  line-height: 1.4;
+  margin: 3px 0;
+}
+
+/* ========================================
+   Options (Anneaux et Matière)
+======================================== */
+.flag-options-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.flag-option-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.flag-option-item:hover {
+  border-color: #1a1a1a;
+}
+
+.flag-option-item.active {
+  border-color: #1a1a1a;
+  border-width: 2px;
+  background: #fff;
+}
+
+.flag-option-item svg {
+  flex-shrink: 0;
+}
+
+.flag-option-item > div:first-of-type {
+  flex: 1;
+}
+
+.flag-option-item strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.flag-option-item span {
+  display: block;
+  font-size: 10px;
+  color: #666;
+}
+
+.flag-option-check {
+  width: 20px;
+  height: 20px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag-option-item.active .flag-option-check {
+  display: flex;
+}
+
+.flag-material-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flag-material-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.flag-material-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 2px solid #1a1a1a;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.flag-material-card svg {
+  flex-shrink: 0;
+  color: #1a1a1a;
+}
+
+.flag-material-card strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 3px;
+}
+
+.flag-material-card span {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  line-height: 1.3;
+}
+
+/* ========================================
+   Canvas Drapeau (mockup réaliste)
+======================================== */
+.flag-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Onglets Aperçu 3D / 2D */
+.flag-view-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: #f1f2f4;
+  padding: 4px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.flag-view-btn {
+  padding: 8px 22px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.flag-view-btn.active {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* Scène : RECTO + VERSO toujours côte à côte (horizontal) */
+.flag-stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  /* Centré verticalement + marge autour : les drapeaux ne touchent plus les
+     bords de la zone grise. */
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 60px);
+  flex-wrap: nowrap;
+  padding: 28px 24px;
+}
+
+.flag-mock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  min-width: 0;
+}
+
+.flag-face-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #6b7280;
+  position: relative;
+  z-index: 5;
+  margin-bottom: 2px;
+}
+
+/* Mât + drapeau : le drapeau s'accroche en haut du mât, le mât dépasse en bas */
+.flag-mock-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.flag-pole {
+  width: 10px;
+  height: clamp(280px, 36vw, 380px);
+  background: linear-gradient(to right, #d4d8de 0%, #aeb4bd 30%, #7c828d 52%, #9aa0aa 70%, #c7ccd4 100%);
+  border-radius: 6px;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+  margin-top: 4px;
+}
+
+/* Boule en haut du mât */
+.flag-pole::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle at 35% 30%, #eef0f3, #9aa0aa 70%, #767c87);
+  border-radius: 50%;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+/* La toile avec effet 3D (drapé ondulé + perspective) */
+.flag-wave {
+  position: relative;
+  width: clamp(250px, 30vw, 380px);
+  aspect-ratio: 1.9 / 1;
+  /* Léger dégradé pour détacher la toile du fond blanc */
+  background: linear-gradient(135deg, #ffffff 0%, #f3f5f8 100%);
+  /* Bordure visible tout autour */
+  border: 1px solid #d7dbe1;
+  /* Ombre portée renforcée qui suit la silhouette ondulée (effet 3D) */
+  filter:
+    drop-shadow(0 18px 28px rgba(0,0,0,0.28))
+    drop-shadow(0 6px 10px rgba(0,0,0,0.18));
+  transition: aspect-ratio 0.3s ease;
+  transform-origin: left center;
+  /* Basculement perspective pour la profondeur 3D */
+  transform: perspective(1100px) rotateY(-7deg);
+  /* Drapé : silhouette aux bords haut et bas nettement ondulés */
+  clip-path: polygon(
+    0% 10%,  12% 2%,  25% 9%,  37% 2%,  50% 9%,  62% 2%,  75% 9%,  87% 2%,  100% 10%,
+    100% 90%, 87% 98%, 75% 91%, 62% 98%, 50% 91%, 37% 98%, 25% 91%, 12% 98%, 0% 90%
+  );
+  animation: flagDrift 7s ease-in-out infinite;
+}
+
+.flag-wave.orientation-portrait {
+  aspect-ratio: 1 / 1.55;
+}
+
+/* ── Ratios selon la taille (× orientation) ── */
+/* 90 x 150 cm : format drapeau standard */
+.flag-wave.size-90x150 { aspect-ratio: 1.55 / 1; }
+.flag-wave.size-90x150.orientation-portrait { aspect-ratio: 1 / 1.55; }
+
+/* 1 x 1 m : format carré */
+.flag-wave.size-100x100,
+.flag-wave.size-100x100.orientation-portrait { aspect-ratio: 1 / 1; }
+
+/* Personnalisé : format allongé par défaut */
+.flag-wave.size-custom { aspect-ratio: 1.9 / 1; }
+.flag-wave.size-custom.orientation-portrait { aspect-ratio: 1 / 1.6; }
+
+@keyframes flagDrift {
+  0%, 100% { transform: perspective(1100px) rotateY(-7deg) skewY(0deg); }
+  50%      { transform: perspective(1100px) rotateY(-9deg) skewY(0.5deg); }
+}
+
+/* Relief 3D : plis verticaux doux (lumière + ombre alternées, sans rayures dures) */
+.flag-wave::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      rgba(0,0,0,0.18) 0%,
+      rgba(0,0,0,0.04) 7%,
+      rgba(255,255,255,0.40) 20%,
+      rgba(0,0,0,0.14) 38%,
+      rgba(255,255,255,0.34) 56%,
+      rgba(0,0,0,0.12) 74%,
+      rgba(255,255,255,0.28) 90%,
+      rgba(0,0,0,0.16) 100%);
+  mix-blend-mode: soft-light;
+  z-index: 3;
+}
+
+/* Zone du design */
+.flag-design {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.flag-design-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.flag-canvas-placeholder {
+  text-align: center;
+  color: #c4c9d1;
+  padding: 10px;
+}
+
+.flag-canvas-placeholder p {
+  font-size: 12px;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}
+
+/* ── Œillets / anneaux ── */
+.flag-grommet {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3f4f6, #b9bec7 60%, #8b919b);
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35), inset 0 0 0 2.5px #fff, inset 0 0 0 3.5px #9aa0aa;
+  z-index: 4;
+}
+
+/* Mode 2 anneaux : haut + bas, côté mât (décalés pour rester dans la zone non ondulée) */
+.flag-grommet.g2.top    { top: 16px;    left: 8px; }
+.flag-grommet.g2.bottom { bottom: 16px; left: 8px; }
+
+/* Mode 4 anneaux : aux 4 coins (masqués par défaut) */
+.flag-grommet.g4 { display: none; }
+.flag-grommet.g4.tl { top: 16px;    left: 8px; }
+.flag-grommet.g4.tr { top: 16px;    right: 8px; }
+.flag-grommet.g4.bl { bottom: 16px; left: 8px; }
+.flag-grommet.g4.br { bottom: 16px; right: 8px; }
+
+/* Quand 4 anneaux : on masque les 2 anneaux et on montre les 4 coins */
+.flag-wave.grommets-4 .flag-grommet.g2 { display: none; }
+.flag-wave.grommets-4 .flag-grommet.g4 { display: block; }
+
+/* ── Vue 3D : image réelle du drapeau ── */
+.flag-img-3d {
+  position: relative;
+  /* Réduit : deux drapeaux côte à côte tenaient toute la largeur et touchaient
+     les bords de la scène. */
+  width: clamp(200px, 24vw, 330px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flag-base-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 16px 26px rgba(0,0,0,0.22));
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+/* PORTRAIT : l'image du drapeau est verticale (plus haute que large). On la
+   contraint par la HAUTEUR pour qu'elle rentre entièrement dans la scène, au
+   lieu de déborder/être coupée en bas. */
+.flag-stage.orientation-portrait .flag-img-3d {
+  display: flex;
+  justify-content: center;
+  max-height: clamp(340px, 62vh, 620px);
+}
+.flag-stage.orientation-portrait .flag-base-img {
+  width: auto;
+  height: 100%;
+  max-height: clamp(340px, 62vh, 620px);
+}
+
+/* ── Changement d'image en CROSSFADE ──
+   La nouvelle image apparaît en fondu par-dessus l'ancienne, qui reste en place.
+   Résultat : le changement de couleur (ou d'anneaux) est imperceptible — pas de
+   clignotement, pas de déplacement, pas de "trou" blanc. */
+.flag-fade-in {
+  transition: opacity .32s ease;
+  will-change: opacity;
+}
+
+/* Ancien effet (scale + rotation) : retiré, il rendait le changement très visible.
+   Conservé neutralisé pour les appels résiduels. */
+.flag-base-img.swapping { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flag-fade-in { transition: none; }
+}
+
+/* Le conteneur 3D sert de repère pour le logo déplaçable */
+.flag-img-3d { position: relative; }
+
+/* Placeholder centré sur la toile (zone à droite du mât) */
+.flag-img-3d .flag-canvas-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 55%;
+  transform: translate(-50%, -50%);
+  color: #b9c0ca;
+  text-align: center;
+  pointer-events: none;
+}
+.flag-img-3d .flag-canvas-placeholder p { font-size: 11px; margin: 6px 0 0; }
+
+/* Bouton supprimer sous une zone d'upload de drapeau */
+.flag-remove-btn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #c0392b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.flag-remove-btn:hover {
+  background: #fdf0ee;
+  border-color: #c0392b;
+}
+
+/* Logo client déplaçable / redimensionnable sur le drapeau */
+.flag-logo {
+  z-index: 4;
+}
+
+/* ── Zone imprimable (INVISIBLE) ─────────────────────────────────────────
+   L'élément est conservé — il matérialise les bornes que syncFlagSafeZones()
+   calcule en pixels sur l'image affichée, et sert de repère de débogage — mais
+   il n'est PAS montré au client : l'aperçu du drapeau doit rester net.
+   La contrainte, elle, reste bien appliquée au logo (FLAG_INSET / FLAG_INSET_Y
+   dans conf-logo-drag.js) au déplacement, au redimensionnement et à l'upload.
+   Pour réafficher le repère en développement : passer opacity à 1. */
+.flag-safe-zone {
+  position: absolute;
+  border: 1px dashed rgba(220, 38, 38, .55);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 3;                    /* sous le logo (4), au-dessus du fond */
+  /* Visible tant que la face est VIDE : le repère indique où déposer un
+     design. Voir .flag-img-3d.filled ci-dessous. */
+  opacity: 1;
+  transition: opacity .2s ease;
+}
+
+/* ── Visibilité du repère (même règle que les textiles) ──
+   Face remplie -> effacé. Pendant un geste -> réaffiché comme guide.
+   .filled est posée par updateFlagZoneGuides() (conf-drapeaux.js) ;
+   .is-manipulating par conf-logo-drag.js. */
+.flag-img-3d.filled .flag-safe-zone { opacity: 0; }
+
+.flag-stage.is-manipulating .flag-safe-zone,
+.flag-stage.is-manipulating .flag-img-3d.filled .flag-safe-zone {
+  opacity: 1;
+}
+.flag-logo .flag-design-img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   DESIGN EN COUVERTURE (comme les patchs)
+   Le design REMPLIT la zone imprimable et déborde : ce qui dépasse est
+   rogné. Le client recadre en glissant, agrandit avec les poignées.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Conteneur de rognage, calé en pixels sur la zone imprimable par
+   syncFlagCrop() : la boîte de l'image varie avec l'orientation et la
+   largeur disponible, une valeur en % serait fausse. */
+.flag-crop {
+  position: absolute;
+  overflow: hidden;      /* c'est lui qui coupe le débordement */
+  pointer-events: none;  /* le geste passe au logo, à l'intérieur */
+  z-index: 4;
+}
+.flag-crop .flag-logo { pointer-events: auto; }
+
+/* En couverture, le design remplit sa boîte au lieu d'y tenir en entier. */
+.flag-logo.is-cover .flag-design-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+.flag-logo.is-cover {
+  cursor: grab;
+  touch-action: none;
+}
+.flag-logo.is-cover.dragging { cursor: grabbing; }
+
+/* ── Mode ÉDITION (double-clic) ──
+   Le rognage est levé : on voit l'image ENTIÈRE, estompée hors de la zone
+   imprimée, et les 4 coins deviennent saisissables. */
+.flag-img-3d.flag-editing .flag-crop {
+  overflow: visible;
+}
+.flag-img-3d.flag-editing .flag-logo .flag-design-img {
+  opacity: .35;
+}
+
+/* Doublure rognée : restitue la partie imprimée en pleine opacité. Le
+   contraste vient de l'écart d'opacité, pas d'une superposition. */
+.flag-crop-preview {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .9),
+              0 0 0 3px rgba(26, 26, 26, .55);
+}
+/* Échappe aux règles génériques qui masqueraient ou brideraient l'image. */
+.flag-crop-preview img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  opacity: 1 !important;
+}
+
+/* Cadre de l'image éditée : ses bords réels, ceux que les coins déplacent. */
+.flag-img-3d.flag-editing .flag-logo {
+  outline: 2px dashed rgba(220, 38, 38, .85);
+  z-index: 5;   /* SOUS la doublure : la zone imprimée reste nette */
+}
+
+/* ── Poignées ──
+   Masquées hors édition (le design couvre la zone). En édition : les 4
+   COINS seulement — les côtés déformeraient le cadrage. */
+.flag-logo.is-cover .logo-resize { display: none !important; }
+
+.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-nw,
+.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-ne,
+.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-sw,
+.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-se {
+  display: block !important;
+  z-index: 8;
+}
+/* Rond de déplacement et croix encombreraient les coins pendant l'édition. */
+.flag-img-3d.flag-editing .flag-logo .logo-ctrl { display: none !important; }
+
+/* Affichage : on utilise TOUJOURS l'image réelle (flag-recto.png…), en 3D comme
+   en 2D. Le drapeau codé CSS (flag-mock-inner) n'est plus utilisé. */
+.flag-img-3d { display: flex; }
+.flag-mock-inner { display: none !important; }
+
+/* La vue 2D garde l'image mais SANS effet 3D (pas de perspective/drapé). */
+.flag-stage.view-2d .flag-img-3d { display: flex; }
+.flag-stage.view-2d .flag-base-img {
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.12));
+}
+
+/* ========================================
+   Récap : Paiement sécurisé
+======================================== */
+.rp-payment-sub {
+  font-size: 10px;
+  color: #666;
+  margin: -4px 0 10px 0;
+}
+
+.rp-payment-logos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rp-payment-logos img {
+  height: 34px;
+  width: 50px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  padding: 3px 5px;
+}
+
+/* ========================================
+   Couleur du fond du drapeau
+======================================== */
+.flag-color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.flag-color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: transform 0.13s;
+  flex-shrink: 0;
+}
+
+.flag-color-swatch:hover { transform: scale(1.12); }
+
+.flag-color-swatch.active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1a1a1a;
+}
+
+.flag-color-swatch.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+
+/* Calque de couleur : teinte le drapeau blanc en épousant sa silhouette.
+   Masqué par l'image de base (mask) pour ne colorer QUE le drapeau. */
+.flag-color-layer {
+  position: absolute;
+  inset: 0;
+  background: transparent;         /* défini en JS via --flag-color */
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 1;                      /* sous le design uploadé, sur l'image de base */
+  transition: background 0.2s ease;
+}
+
+/* En 3D, le calque épouse la forme réelle du drapeau via un masque = image de base. */
+.flag-img-3d .flag-color-layer {
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Le design uploadé doit rester au-dessus du calque couleur. */
+.flag-logo { z-index: 3; }
+.flag-design-img { position: relative; z-index: 2; }
+
+/* Finition « sans anneaux » : aucun œillet sur le drapeau codé (vue 2D).
+   Les images 3D, elles, portent (ou non) les anneaux selon le fichier
+   flag-{0an|2an|4an}-*.png sélectionné par refreshFlagImages(). */
+.flag-wave.grommets-0 .flag-grommet { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BARRE COULEUR DU FOND — au-dessus de l'aperçu
+   Déplacée du panneau latéral vers l'en-tête du canvas : on juge une
+   couleur en la regardant. Titre à gauche, couleurs à droite.
+   ═══════════════════════════════════════════════════════════════════ */
+.flag-cv-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Les titres gardent leur largeur naturelle ; la barre couleur est poussée
+   à droite par le space-between. */
+.flag-cv-titles {
+  min-width: 0;
+}
+
+.flag-cv-colors {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: #fff;
+  border: 1px solid #ececec;
+  border-radius: 999px;
+  /* Aligne la pilule sur la ligne du titre plutôt que sur le sous-titre. */
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.flag-cv-colors-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #5a5f66;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.flag-cv-colors .flag-color-grid {
+  display: flex;
+  gap: 7px;
+  margin: 0;
+}
+
+/* Swatches un peu plus grands qu'en sidebar : ils portent seuls le choix
+   de couleur, et sont la cible d'un clic direct au-dessus de l'aperçu. */
+.flag-cv-colors .flag-color-swatch {
+  width: 22px;
+  height: 22px;
+}
+
+.flag-cv-colors .flag-color-swatch:hover {
+  transform: scale(1.12);
+}
+
+/* Sélection : anneau extérieur, lisible même sur un swatch blanc. */
+.flag-cv-colors .flag-color-swatch.active {
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 2px #fff inset;
+}
+
+/* Étroit : la barre passe sous les titres et s'aligne à gauche. */
+@media (max-width: 900px) {
+  .flag-cv-hdr {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .flag-cv-colors {
+    align-self: flex-start;
+  }
+}
