@@ -182,15 +182,22 @@
          avant les scripts inline : ils utilisent window.QTY_TIERS dès le départ. -->
     <script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
     <script>
-      /* URL de base du backend NestJS (déployé sur Railway).
+      /* URL de base du backend NestJS (VPS OVH depuis le 11/08/2026 ; auparavant
+         Railway).
          Pilotée par le réglage de thème « API Endpoint » (settings.api_endpoint),
-         modifiable dans Personnaliser > Paramètres du thème sans toucher au code.
+         modifiable dans Personnaliser > Paramètres du thème sans toucher au code —
+         c'est l'équivalent d'un fichier d'environnement côté Shopify. Un vrai
+         `.env` serait inutilisable ici : Liquid est rendu par les serveurs de
+         Shopify, qui ne reçoivent que les fichiers poussés du thème.
+
          La valeur en dur ne sert que de repli si le réglage est vide ou resté sur
          le localhost par défaut — une URL codée en dur ici avait déjà provoqué
-         l'envoi des devis vers une ancienne instance pendant plusieurs jours. */
+         l'envoi des devis vers une ancienne instance pendant plusieurs jours.
+         La laisser vide serait pire : les appels tomberaient sur /api/… de la
+         boutique Shopify, donc en 404 silencieuse. */
       {%- assign api_setting = settings.api_endpoint | default: '' -%}
       {%- if api_setting == '' or api_setting contains 'localhost' -%}
-        window.API_BASE = "https://customizer-backend-production-4c83.up.railway.app/api";
+        window.API_BASE = "https://vps-c1a07d74.vps.ovh.net/api";
       {%- else -%}
         window.API_BASE = {{ api_setting | json }};
       {%- endif -%}

@@ -14,8 +14,8 @@
         "type": "text",
         "id": "api_endpoint",
         "label": "API Endpoint",
-        "default": "https://customizer-backend-production-4c83.up.railway.app/api",
-        "info": "URL du backend (doit se terminer par /api). Doit correspondre au dashboard admin consulté, sinon les devis partent vers une autre base."
+        "default": "https://vps-c1a07d74.vps.ovh.net/api",
+        "info": "URL du backend (doit se terminer par /api). Doit correspondre au dashboard admin consulté, sinon les devis partent vers une autre base. Modifiable ici plutôt que dans le code : c'est le réglage qui fait foi, la valeur inscrite dans le thème ne sert que de repli."
       },
       {
         "type": "text",

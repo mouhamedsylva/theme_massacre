@@ -280,10 +280,13 @@
 <script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
 <script>
   /* Même résolution d'URL que le configurateur : le réglage de thème prime,
-     l'URL en dur ne sert que de repli. */
+     l'URL en dur ne sert que de repli. VPS OVH depuis le 11/08/2026.
+     Les deux replis DOIVENT rester identiques : cette page déclenche le
+     paiement, une divergence enverrait le devis sur une autre instance que
+     celle qui a calculé le panier. */
   {%- assign api_setting = settings.api_endpoint | default: '' -%}
   {%- if api_setting == '' or api_setting contains 'localhost' -%}
-    window.API_BASE = "https://customizer-backend-production-4c83.up.railway.app/api";
+    window.API_BASE = "https://vps-c1a07d74.vps.ovh.net/api";
   {%- else -%}
     window.API_BASE = {{ api_setting | json }};
   {%- endif -%}
