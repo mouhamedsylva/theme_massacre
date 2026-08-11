@@ -70,19 +70,24 @@
        10 → 20 €, 20 → 12,50 €, 30 → 9 €, 50 → 5 €, 100 → 3,50 €.
        Au-delà de 100 : « sur demande » (bascule en devis, géré côté UI).
 
-       Rangée sous `coins` : les noms sont INVERSÉS (cf. CONF_VARIANTS), c'est
-       cette clé qui porte les patchs. Elle était sous `patches` — donc sous les
-       coins métal, qui n'ont pas de grille — si bien que la grille du backend
-       (elle aussi sous `coins` désormais) ne pouvait jamais remplacer ce repli
-       pour le bon produit. */
-    coins: [
+       Clé `patches` — vérifié par mesure : #coins-unit-price, alimenté par
+       tierUnitPrice(), appartient au template titré « Patch personnalisé »
+       (min="10"). C'est donc bien `patches` qui porte les patchs ICI, malgré
+       l'inversion des LIBELLÉS d'écran (« Coins » affiche les patchs).
+
+       Ne pas la déplacer sous `coins` : les articles COIN MÉTAL du panier
+       portent `productType = 'coins'`, et effectiveUnitPrice() les tarifierait
+       alors avec cette grille. Mesuré : un coin à 50 pièces affichait 5,00 €/u
+       et à 24 pièces 12,50 €/u — les paliers exacts de cette grille — alors
+       qu'un coin se chiffre à la main sur devis. */
+    patches: [
       { min: 100, price: 3.50 },
       { min: 50,  price: 5.00 },
       { min: 30,  price: 9.00 },
       { min: 20,  price: 12.50 },
       { min: 10,  price: 20.00 }
     ]
-    // patches (= COINS métal) : pas de grille, prix chiffré à la main sur devis.
+    // coins (= COINS métal) : pas de grille, prix chiffré à la main sur devis.
   };
 
   /**

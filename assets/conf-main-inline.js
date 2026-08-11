@@ -606,7 +606,11 @@
       sweatshirt:       60327512342862,
       tshirt:           60327514669390,
       tshirt_polyester: 60327519224142,
-      drapeaux:         60327528563022,
+      /* Variant de REPLI du drapeau : « Blanc ». Le produit a 4 variants couleur
+         depuis le 11/08/2026 ; l'ancien `Default Title` (60327528563022) a été
+         supprimé à leur création. La couleur choisie est résolue par
+         CONF_COLOR_VARIANTS (recapitulatif.liquid). */
+      drapeaux:         60352869663054,
       coins:            60327529939278   // « Patch personnalisé » (patchs codés)
       // patches (= COINS réels) : pas de variant, sur devis uniquement.
       // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
@@ -2218,7 +2222,15 @@
       const qtyInput = recap.querySelector(
         '#coin-recap-qty-input, #coin-qty-input, #flag-qty-input, input[type="number"]'
       );
-      const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 1;
+      /* Plancher au MINIMUM DE COMMANDE du produit, et non à 1 : l'attribut
+         `min` du champ (50 pour les coins, 10 pour les patchs) ne contraint que
+         la saisie au clavier — il est ignoré quand la valeur est vide ou
+         illisible. Un coin partait alors au panier à 1 pièce, sous le seuil de
+         l'atelier. */
+      const qMin = minQtyPour(currentProductType);
+      const qty = qtyInput
+        ? Math.max(qMin, parseInt(qtyInput.value) || qMin)
+        : qMin;
 
       /* Prix UNITAIRE de la ligne — même traitement que addToCart (RV6).
 
@@ -3750,12 +3762,14 @@
        ignorait — le client pouvait y redescendre à 1 avec le bouton « − »,
        et commander sous le seuil.
 
-       `patches` (= COINS MÉTAL, noms inversés) n'a pas de grille dégressive :
-       tierMinQty() y renverrait 1. Son plancher est donc écrit ici. Pour les
-       autres, la grille fait foi — un changement de palier dans le dashboard
-       déplace le minimum sans retoucher ce code. */
+       `coins` (= COINS MÉTAL) n'a pas de grille dégressive — ils se chiffrent
+       sur devis : tierMinQty() y renverrait 1. Leur plancher, 50 pièces, est
+       donc écrit ici ; c'est la valeur que porte déjà `min="50"` sur
+       #coin-recap-qty-input. Pour les autres, la grille fait foi — un changement
+       de palier dans le dashboard déplace le minimum sans retoucher ce code
+       (les patchs sont ainsi à 10, premier palier de leur grille). */
     function minQtyPour(productType) {
-      if (productType === 'patches') return 50;   // coins métal : 50 pièces
+      if (productType === 'coins') return 50;   // coins métal : 50 pièces
       var t = (typeof window.tierMinQty === 'function')
         ? window.tierMinQty(productType) : 1;
       return t > 0 ? t : 1;

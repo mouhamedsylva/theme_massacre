@@ -390,7 +390,7 @@ class DynamicLayoutManager {
         <!-- Prix unitaire DÉGRESSIF selon la quantité (grille patchs) : injecté
              par updateCoinPrice() dans #coins-unit-price. Pas de prix total
              affiché, comme pour les textiles. -->
-        <div class="rp-unit-price-big" id="coins-unit-price">${(window.tierUnitPrice && window.formatPrix) ? window.formatPrix(window.tierUnitPrice('coins', 10)) : '20,00 €'} <span class="rp-unit-ht">TTC</span></div>
+        <div class="rp-unit-price-big" id="coins-unit-price">${(window.tierUnitPrice && window.formatPrix) ? window.formatPrix(window.tierUnitPrice('patches', 10)) : '20,00 €'} <span class="rp-unit-ht">TTC</span></div>
         <div class="rp-total-subtitle" id="coins-qty-display">à partir de (10 unités)</div>
       </div>
 
@@ -1231,10 +1231,10 @@ function updateCoinPrice(qty) {
      grille ni prix fixe, la lire renvoyait le tarif d'un autre produit.
      Repli à 20 € = 1er palier de la grille (10 pièces), et non 2,45 €. */
   if (typeof window.tierUnitPrice === 'function') {
-    unitPrice = window.tierUnitPrice('coins', q);   // prix TTC du palier
+    unitPrice = window.tierUnitPrice('patches', q);   // prix TTC du palier
   }
   if (unitPrice == null) {
-    unitPrice = window.prixUnitaire ? window.prixUnitaire('coins') : 20.0;
+    unitPrice = window.prixUnitaire ? window.prixUnitaire('patches') : 20.0;
   }
   // Affichage : prix UNITAIRE du palier atteint + rappel de quantité.
   // Pas de prix total (retiré, comme pour les textiles).

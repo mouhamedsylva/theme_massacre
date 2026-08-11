@@ -296,6 +296,12 @@
     .then(function (d) {
       if (!d || !d.ok) return;
       if (d.prices) window.PRICES = Object.assign({}, window.PRICES, d.prices);
+      /* Produits SUR DEVIS forcés à 0 — même garde que configurateur.liquid.
+         C'est la page qui déclenche le paiement : un prix servi par erreur y
+         coûte plus cher qu'ailleurs. Le backend renvoie encore `coins: 2.45`
+         tant qu'il n'est pas redéployé (ligne `price_coins` héritée de la
+         boutique de développement). */
+      if (window.PRICES) window.PRICES.coins = 0;
       /* Validée avant application — même raison que dans configurateur.liquid :
          un prix ≤ 0 venant du backend ne doit pas écraser la grille de repli.
          C'est la page qui déclenche le paiement, donc celle où un prix faux
@@ -332,7 +338,13 @@
     sweatshirt:       60327512342862,
     tshirt:           60327514669390,
     tshirt_polyester: 60327519224142,
-    drapeaux:         60327528563022,
+    /* Variant de REPLI du drapeau : « Blanc », première couleur du nuancier.
+       Le produit a 4 variants couleur depuis le 11/08/2026 — l'ancien
+       `Default Title` (60327528563022) a été SUPPRIMÉ par leur création
+       (strategy REMOVE_STANDALONE_VARIANT). Le conserver ici aurait renvoyé un
+       422 « variante introuvable » à chaque ajout au panier.
+       La couleur réellement choisie est résolue par CONF_COLOR_VARIANTS. */
+    drapeaux:         60352869663054,
     coins:            60327529939278   // « Patch personnalisé » (patchs codés)
     // patches (= COINS réels) : pas de variant, sur devis uniquement.
     // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
@@ -468,6 +480,18 @@
       'Urban Purple':     60327520436558,
       'Used Black':       60327520469326,
       'White':            60327520502094
+    },
+    /* DRAPEAUX — 4 couleurs, créées le 11/08/2026.
+       Libellés identiques au nuancier du configurateur
+       (conf-dynamic-layout.js:568, attributs `title`) : c'est sur eux que
+       variantForItem() fait sa correspondance. Renommer d'un côté sans l'autre
+       ferait retomber la commande sur le variant de repli, et la couleur choisie
+       disparaîtrait de la ligne Shopify. */
+    drapeaux: {
+      'Blanc':            60352869663054,
+      'Noir':             60352869695822,
+      'Rouge':            60352869728590,
+      'Bleu':             60352869761358
     }
   };
 

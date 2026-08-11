@@ -202,12 +202,12 @@
          window.PRICES est renseigné dès la réponse, puis prixUnitaire() l'utilise. */
       window.PRICES = {
         sweatshirt: 60, tshirt: 29.50, tshirt_polyester: 29.50,
-        /* NOMS INVERSÉS (cf. CONF_VARIANTS) :
-             coins   = vos PATCHS  -> 20 € = 1er palier de leur grille (10 min.)
-             patches = vos COINS   -> 0 €, vendus sur devis, chiffrés à la main
-           Les deux valeurs étaient permutées : le configurateur annonçait 2,45 €
-           pour des patchs facturés 20 € au premier palier. */
-        coins: 20.00, drapeaux: 19.90, patches: 0
+        /* `coins` = COINS MÉTAL, vendus SUR DEVIS -> 0 €. Un tarif ici s'affichait
+           dans le tiroir du panier pour un article qu'aucune commande en ligne
+           n'honore ; la valeur précédente (2,45 €) venait de l'ancienne boutique.
+           `patches` = PATCHS -> 20 €, premier palier de leur grille (10 pièces,
+           le minimum de commande). */
+        coins: 0, drapeaux: 19.90, patches: 20.00
       };
 
       /** Prix unitaire TTC d'un produit (clé de window.PRICES).
@@ -248,6 +248,20 @@
         window._pricingSignature = signature;
 
         window.PRICES = Object.assign({}, window.PRICES, d.prices);
+
+        /* Produits SUR DEVIS : leur prix reste 0, quoi que réponde le backend.
+
+           Mesuré le 11/08/2026 : `/api/pricing` servait encore
+           `coins: 2.45` — une ligne `price_coins` restée en base depuis la
+           boutique de développement. Le tiroir du panier affichait donc
+           2,45 €/u pour un coin métal chiffré à la main sur devis.
+
+           Le backend a été corrigé pour ignorer ces lignes, mais cette garde
+           reste utile : elle protège le client tant que l'instance déployée
+           sert l'ancienne réponse, et rend l'affichage indépendant de l'état
+           de la base. Les grilles suivent la même logique dans
+           applyTiersFromBackend(). */
+        ['coins'].forEach(function (k) { window.PRICES[k] = 0; });
         /* Grilles dégressives définies dans l'admin : elles REMPLACENT la
            table locale de conf-pricing-tiers.js, qui n'est plus qu'un repli
            si le backend est injoignable. Un produit absent de la réponse
@@ -338,7 +352,7 @@
            un autre produit. */
         var unit = document.getElementById('coins-unit-price');
         if (unit) {
-          unit.innerHTML = window.formatPrix(window.prixUnitaire('coins')) +
+          unit.innerHTML = window.formatPrix(window.prixUnitaire('patches')) +
                            ' <span class="rp-unit-ht">TTC</span>';
         }
         var flags = document.getElementById('flags-unit-price');
@@ -380,7 +394,7 @@
              de 10, soit 12,50 € au lieu de 20,00 € l'unité. Même défaut que
              celui corrigé dans conf-dynamic-layout.js (A5). */
           var coinMin = (typeof window.tierMinQty === 'function')
-            ? (window.tierMinQty('coins') || 10) : 10;   // grille des patchs
+            ? (window.tierMinQty('patches') || 10) : 10;   // grille des patchs
           updateCoinPrice(parseInt(qtyEl.value, 10) || coinMin);
         }
       });
