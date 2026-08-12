@@ -35,6 +35,10 @@
   if section.index == blank
     assign eager_loading = true
   endif
+
+  if block_settings.background_color != blank or block_settings.text_color != blank
+    render 'contrast-override', background_color: block_settings.background_color, text_color: block_settings.text_color, section_id: block.id
+  endif
 %}
 
 <script
@@ -70,11 +74,13 @@
       ref="menuDrawer"
       class="
         menu-drawer
-        color-{{ block_settings.color_scheme }}
+        {% if block_settings.background_color != blank or block_settings.text_color != blank %}
+          color-custom-{{ block.id }}
+        {% endif %}
       "
     >
       <button
-        class="button close-button menu-drawer__close-button"
+        class="button close-button menu-drawer__close-button focus-inset"
         type="button"
         aria-label="{{ 'actions.close' | t }}"
         on:click="/close"
@@ -89,6 +95,7 @@
           {%- render 'menu-font-styles', settings: block_settings, menu_type: 'drawer' %}
           {%- render 'submenu-font-styles', settings: block_settings %}
         "
+        aria-label="{{ 'accessibility.header_navigation_label' | t }}"
       >
         <ul
           class="menu-drawer__menu has-submenu"
@@ -111,13 +118,13 @@
                     Accordion for links with children, in menus with fewer than 3 levels of links
                   {%- endcomment -%}
                   {% liquid
-                    assign accordion_state = ''
+                    assign should_open_first = false
                     if first_accordion_open == false and block_settings.drawer_accordion_expand_first
                       assign first_accordion_open = true
-                      assign accordion_state = 'open-by-default-on-mobile'
+                      assign should_open_first = true
                     endif
                   %}
-                  <accordion-custom {{ accordion_state }}>
+                  {% capture accordion_children %}
                     <details
                       id="Details-menu-drawer-{{ link.handle }}"
                     >
@@ -172,7 +179,11 @@
                         {%- endfor -%}
                       </ul>
                     </details>
-                  </accordion-custom>
+                  {% endcapture %}
+                  {% render 'accordion-custom-component',
+                    children: accordion_children,
+                    open_by_default_on_mobile: should_open_first
+                  %}
                 {% elsif block_settings.drawer_accordion == false and link.links != blank %}
                   {%- comment -%}
                     Flat menus for links with children, in menus with fewer than 3 levels of links
@@ -180,7 +191,7 @@
                   <a
                     id="HeaderDrawer-{{ link.handle }}"
                     href="{{ link.url }}"
-                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset{% if link.current %} menu-drawer__menu-item--active{% endif %}"
+                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset"
                     {% if link.current %}
                       aria-current="page"
                     {% endif %}
@@ -211,6 +222,9 @@
                         <a
                           href="{{ childlink.url }}"
                           class="menu-drawer__menu-item menu-drawer__menu-item--child menu-drawer__animated-element focus-inset{% if childlink.current %} menu-drawer__menu-item--active{% endif %}"
+                          {% if childlink.current %}
+                            aria-current="page"
+                          {% endif %}
                         >
                           {% if render_link_image %}
                             {% render 'link-featured-image',
@@ -231,7 +245,7 @@
                   <a
                     id="HeaderDrawer-{{ link.handle }}"
                     href="{{ link.url }}"
-                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset{% if link.current %} menu-drawer__menu-item--active{% endif %}"
+                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset"
                     {% if link.current %}
                       aria-current="page"
                     {% endif %}
@@ -280,9 +294,8 @@
                         <div class="menu-drawer__nav-buttons">
                           <button
                             class="button menu-drawer__back-button focus-inset"
-                            aria-expanded="true"
                             on:click="header-drawer/back"
-                            aria-label="{{ 'actions.back' | t }}"
+                            aria-label="{{ 'actions.back_to' | t: title: link.title }}"
                           >
                             <span class="svg-wrapper icon-caret icon-caret--backward">
                               {{- 'icon-caret.svg' | inline_asset_content -}}
@@ -290,7 +303,7 @@
                             <span class="menu-drawer__menu-item-text wrap-text">{{ link.title | escape }}</span>
                           </button>
                           <button
-                            class="button button-unstyled close-button menu-drawer__close-button"
+                            class="button button-unstyled close-button menu-drawer__close-button focus-inset"
                             type="button"
                             aria-label="{{ 'actions.close' | t }}"
                             on:click="header-drawer/close"
@@ -353,17 +366,17 @@
                                 </a>
                               {%- else -%}
                                 {% liquid
-                                  assign accordion_state = ''
+                                  assign should_open_first_nested = false
                                   if first_accordion_open == false and block_settings.drawer_accordion and block_settings.drawer_accordion_expand_first
                                     assign first_accordion_open = true
-                                    assign accordion_state = 'open-by-default-on-mobile'
+                                    assign should_open_first_nested = true
                                   endif
                                 %}
                                 {% if block_settings.drawer_accordion %}
                                   {%- comment -%}
                                     Accordion for links with children, in menus with 3 levels of links
                                   {%- endcomment -%}
-                                  <accordion-custom {{ accordion_state }}>
+                                  {% capture accordion_children_nested %}
                                     <details
                                       id="Details-menu-drawer-{{ link.handle }}-{{ childlink.handle }}"
                                     >
@@ -422,7 +435,11 @@
                                         {%- endfor -%}
                                       </ul>
                                     </details>
-                                  </accordion-custom>
+                                  {% endcapture %}
+                                  {% render 'accordion-custom-component',
+                                    children: accordion_children_nested,
+                                    open_by_default_on_mobile: should_open_first_nested
+                                  %}
                                 {% else %}
                                   {%- comment -%}
                                     Flat menus for links with children, in menus with 3 levels of links
@@ -431,6 +448,9 @@
                                     id="HeaderDrawer-{{ link.handle }}-{{ childlink.handle }}"
                                     href="{{ childlink.url }}"
                                     class="menu-drawer__menu-item menu-drawer__menu-item--parent focus-inset{% if childlink.current %} menu-drawer__menu-item--active{% endif %}"
+                                    {% if childlink.current %}
+                                      aria-current="page"
+                                    {% endif %}
                                   >
                                     <span class="menu-drawer__menu-item-text wrap-text">
                                       {{- childlink.title | escape -}}
@@ -526,7 +546,8 @@
                                         resource: product,
                                         resource_type: 'product',
                                         image_aspect_ratio: ratio,
-                                        image_sizes: 'auto, 400px'
+                                        image_sizes: 'auto, 400px',
+                                        product_view_context: 'dialog'
                                       %}
                                     </li>
                                   {%- endfor -%}
@@ -545,7 +566,7 @@
                   <a
                     id="HeaderDrawer-{{ link.handle }}"
                     href="{{ link.url }}"
-                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset{% if link.current %} menu-drawer__menu-item--active{% endif %}"
+                    class="menu-drawer__menu-item menu-drawer__menu-item--mainlist menu-drawer__animated-element focus-inset"
                     {% if link.current %}
                       aria-current="page"
                     {% endif %}
@@ -575,7 +596,7 @@
         %}
         {% if data_header_drawer_type == 'mobile-drawer' and show_country or show_language %}
           {% liquid
-            assign background_brightness = block.settings.color_scheme.settings.background | color_brightness
+            assign background_brightness = block_settings.background_color | color_brightness
             if background_brightness < 64
               assign flag_shadow_size = 4
             else
@@ -587,7 +608,7 @@
             assign form_style = localization_font | append: color_shadow
           %}
           {% if show_language and show_country == false %}
-            <div class="menu-drawer__localization color-{{ settings.popover_color_scheme }}">
+            <div class="menu-drawer__localization color-custom-popover">
               {% render 'localization-form',
                 show_country: show_country,
                 show_language: show_language,
@@ -605,14 +626,14 @@
               >
                 <summary
                   id="HeaderDrawer-localization"
-                  class="drawer-localization__button h3 link focus-inset"
+                  class="drawer-localization__button h3 focus-inset"
                   aria-expanded="false"
                   on:click="header-drawer/open/submenu"
                   style="{{ form_style }}"
                 >
                   <div class="drawer-localization__button--label h6">
                     {%- if show_country -%}
-                      <div class="mobile-localization mobile-localization--country link">
+                      <div class="mobile-localization mobile-localization--country">
                         {%- if section.settings.country_selector_style == true -%}
                           <span
                             class="icon-flag"
@@ -634,7 +655,7 @@
                     {%- endif -%}
 
                     {%- if show_language -%}
-                      <div class="mobile-localization mobile-localization--country link">
+                      <div class="mobile-localization mobile-localization--country">
                         <span>
                           {{ localization.language.iso_code | upcase }}
                         </span>
@@ -647,16 +668,14 @@
                 </summary>
 
                 <div
-                  class="menu-drawer__submenu has-submenu color-{{ settings.drawer_color_scheme }}"
-                  style=""
+                  class="menu-drawer__submenu has-submenu color-custom-drawer"
                 >
                   <div
                     class="menu-drawer__nav-buttons"
                     ref="navButtons"
                   >
                     <button
-                      class="button menu-drawer__back-button link focus-inset"
-                      aria-expanded="true"
+                      class="button menu-drawer__back-button focus-inset"
                       on:click="header-drawer/back"
                     >
                       <span class="svg-wrapper icon-caret icon-caret--backward">
@@ -665,7 +684,7 @@
                       {{ 'content.localization_region_and_language' | t }}
                     </button>
                     <button
-                      class="button close-button menu-drawer__close-button"
+                      class="button close-button menu-drawer__close-button focus-inset"
                       type="button"
                       aria-label="{{ 'actions.close' | t }}"
                       on:click="header-drawer/close"
@@ -734,7 +753,8 @@
                       resource: product,
                       resource_type: 'product',
                       image_aspect_ratio: ratio,
-                      image_sizes: 'auto, 400px'
+                      image_sizes: 'auto, 400px',
+                      product_view_context: 'dialog'
                     %}
                   </li>
                 {%- endfor -%}
@@ -770,27 +790,40 @@
     height: var(--icon-size-xs);
   }
 
-  .header__drawer {
-    --header-drawer-min-height: 60px;
+  .menu-drawer__featured-content {
+    z-index: var(--layer-base);
+    container-type: inline-size;
+  }
+
+  .menu-drawer__featured-content--childlist {
+    z-index: var(--layer-flat);
+  }
+
+  .menu-drawer__featured-content-list {
     display: flex;
-    min-height: var(--header-drawer-min-height);
-    align-items: center;
+    gap: 1em;
+    overflow-x: auto;
+    padding-block-end: var(--padding-lg);
   }
 
-  #header-component[data-menu-style='drawer'] .header__drawer {
-    display: flex;
-    min-height: var(--header-drawer-min-height);
+  .menu-drawer__featured-content-list-item {
+    flex: 0 0 auto;
   }
 
-  @media screen and (min-width: 750px) {
-    #header-component[data-menu-style='menu'] .header__drawer {
-      display: none;
-      min-height: 0;
-    }
+  .menu-drawer__featured-content-list-item--product {
+    width: 35cqi;
   }
 
-  .header--compact .header__drawer {
-    min-height: var(--minimum-touch-target);
+  .menu-drawer__featured-content-list-item--collection img.resource-card__image {
+    width: 80cqi;
+  }
+
+  .menu-drawer__featured-content-list-item:first-child {
+    margin-inline-start: var(--margin-xl);
+  }
+
+  .menu-drawer__featured-content-list-item:last-child {
+    margin-inline-end: var(--margin-xl);
   }
 
   .menu-drawer__navigation {
@@ -834,15 +867,10 @@
     overflow: auto;
     display: flex;
     border-right: var(--style-border-drawer);
-    box-shadow: var(--shadow-drawer);
     flex-direction: column;
 
     @media screen and (min-width: 750px) {
       width: 25rem;
-    }
-
-    .header__drawer--desktop & {
-      height: 100vh;
     }
   }
 
@@ -858,7 +886,7 @@
     width: 100vw;
     height: 100dvh;
     backdrop-filter: brightness(0.75);
-    z-index: var(--layer-heightened);
+    z-index: var(--layer-overlay);
     opacity: 0;
     transition: opacity var(--drawer-animation-speed) ease;
 
@@ -1158,6 +1186,11 @@
     box-shadow: none;
   }
 
+  .menu-drawer__close-button.menu-drawer__close-button,
+  .menu-drawer__back-button.menu-drawer__back-button {
+    outline-color: var(--color-foreground-subdued);
+  }
+
   .menu-drawer__menu-item-text {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1217,7 +1250,6 @@
     padding: 0;
     margin-block: auto var(--padding-sm);
     margin-inline-start: var(--padding-xl);
-    background-color: rgb(var(--color-foreground) 0.03);
   }
 
   .menu-drawer__account {
@@ -1383,6 +1415,7 @@
 
   .drawer-localization .language-selector .svg-wrapper.icon-caret {
     transform: translateY(-50%) rotate(0deg);
+    right: 20px;
   }
 
   .drawer-localization .language-selector .svg-wrapper.icon-caret svg {

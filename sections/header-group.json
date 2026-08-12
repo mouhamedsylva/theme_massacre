@@ -20,9 +20,7 @@
           "settings": {
             "hide_logo_on_home_page": false,
             "padding-block-start": 0,
-            "padding-block-end": 0,
-            "padding-inline-start": 0,
-            "padding-inline-end": 0
+            "padding-block-end": 0
           },
           "blocks": {}
         },
@@ -31,7 +29,6 @@
           "static": true,
           "settings": {
             "menu": "main-menu",
-            "color_scheme": "scheme-1",
             "type_font_primary_size": "0.875rem",
             "menu_font_style": "regular",
             "type_font_primary_link": "body",
@@ -41,7 +38,6 @@
             "featured_collections_aspect_ratio": "adapt",
             "image_border_radius": 0,
             "navigation_bar": false,
-            "color_scheme_navigation_bar": "",
             "drawer_accordion": false,
             "drawer_accordion_expand_first": true,
             "drawer_dividers": false
@@ -69,15 +65,10 @@
         "divider_width": 0,
         "divider_size": "page-width",
         "border_width": 0,
-        "color_scheme_top": "scheme-1",
-        "color_scheme_bottom": "",
-        "color_scheme_transparent": "scheme-6",
+        "background_color_top": "{{ settings.color_palette.background }}",
         "enable_transparent_header_home": false,
-        "home_color_scheme": "inverse",
         "enable_transparent_header_product": false,
-        "product_color_scheme": "default",
-        "enable_transparent_header_collection": false,
-        "collection_color_scheme": "default"
+        "enable_transparent_header_collection": false
       }
     }
   },

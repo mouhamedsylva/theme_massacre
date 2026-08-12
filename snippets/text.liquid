@@ -13,9 +13,11 @@
   assign visible_text = plain_text | strip_html
   assign text_width = width | default: block_settings.width
 
-  if block_settings.font_size contains 'heading-lg' or block_settings.font_size contains 'heading-xl'
+  assign font_size_value = block_settings.font_size | split: 'rem' | first | times: 1.0
+
+  if block_settings.font_size contains 'heading-lg' or block_settings.font_size contains 'heading-xl' or font_size_value >= 3
     assign type = 'display'
-  elsif block_settings.font_size contains 'heading'
+  elsif block_settings.font_size contains 'heading' or font_size_value >= 1.25
     assign type = 'heading'
   else
     assign type = 'body'
@@ -57,6 +59,11 @@
   style="
     {% render 'spacing-padding', settings: block_settings %}
     {% render 'typography-style', settings: block_settings %}
+    {% if block_settings.text_color != blank %}
+      --color: {{ block_settings.text_color }};
+      --color-rgb: {{ block_settings.text_color.rgb }};
+    {% endif %}
+
     --width: {{ text_width }};
     --max-width: var(--max-width--{{ type }}-{{ block_settings.max_width }});
     {% if text_width == "100%" %}
@@ -124,6 +131,7 @@
     display: flex;
     flex-direction: column;
     align-items: var(--horizontal-alignment);
+    color: var(--color, var(--color-foreground));
   }
 
   .text-block > * {
@@ -145,8 +153,14 @@
   }
 
   /* Hide underline unless text is using paragraph styles. */
-  .text-block:is(.h1, .h2, .h3, .h4, .h5, .h6) a {
-    text-decoration-color: transparent;
+  .text-block.text-block:is(.h1, .h2, .h3, .h4, .h5, .h6) a {
+    text-decoration-line: none;
+    color: currentColor;
+
+    &:hover {
+      text-decoration-line: none;
+      color: currentColor;
+    }
   }
 
   .text-block h1,
