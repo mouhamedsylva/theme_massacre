@@ -588,7 +588,7 @@
   /* Plafond de taille (px). Défini par configurateur.liquid ; la valeur ici
      n'est qu'un repli si le script est chargé hors du configurateur. */
   function maxSize() {
-    return window.MAX_TEXT_SIZE || 28;
+    return window.MAX_TEXT_SIZE || 200;
   }
 
   // ── Taille du texte ──

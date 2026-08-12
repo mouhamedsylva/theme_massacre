@@ -122,7 +122,10 @@
            clampTextToZone() : plancher 8px, plafond MAX_TEXT_SIZE (28,
            imposé par l'atelier). Un curseur qui irait au-delà donnerait
            l'impression de ne rien faire — c'est ce qui se passait avant. */
-        '<input type="range" class="txt-tb-range" data-act="size" min="8" max="28" step="1" value="20">' +
+        /* max=200 : valeur de construction, réécrite depuis window.MAX_TEXT_SIZE
+           à l'ouverture de la barre (voir plus bas). Alignée pour éviter un
+           curseur qui saute de 28 à 200 au premier affichage. */
+        '<input type="range" class="txt-tb-range" data-act="size" min="8" max="200" step="1" value="20">' +
         '<span class="txt-tb-size-val">20</span>' +
       '</div>' +
       // Couleur
@@ -285,9 +288,13 @@
     if (!curZone) return;
     /* Voie normale : l'éditeur applique ET persiste. On ne sort que s'il a
        réellement traité la demande — il renvoie false quand la zone n'a pas
-       d'état sauvegardé, cas où le repli DOM ci-dessous reste utile. */
+       d'état sauvegardé, cas où le repli DOM ci-dessous reste utile.
+
+       Le plafond du curseur est resynchronisé AVANT de sortir : c'est le
+       chemin emprunté en usage normal, et l'oublier ici laissait la plage du
+       curseur figée sur l'ancien texte. */
     if (typeof window.setTextProp === 'function') {
-      if (window.setTextProp(curZone, prop, value)) return;
+      if (window.setTextProp(curZone, prop, value)) { refreshSizeMax(); return; }
     }
     // Repli : applique directement sur l'élément (sans persistance).
     var el = textEl(curZone);
@@ -307,6 +314,44 @@
     else if (prop === 'italic') el.style.fontStyle = value ? 'italic' : 'normal';
     else if (prop === 'underline') el.style.textDecoration = value ? 'underline' : 'none';
     if (typeof window.clampTextToZone === 'function') window.clampTextToZone(curZone);
+    refreshSizeMax();
+  }
+
+  /**
+   * Resynchronise le plafond du curseur après une modification du texte.
+   *
+   * Le plafond tenable change avec le contenu et la police : « Didi » tient
+   * plus gros que vingt lettres, et le gras réduit encore la marge. Appelé
+   * sur les DEUX voies d'applyProp (éditeur et repli DOM).
+   */
+  function refreshSizeMax() {
+    var bar = document.getElementById(BAR_ID);
+    if (!bar) return;
+    syncSizeMax(bar.querySelector('[data-act="size"]'), textEl(curZone));
+  }
+
+  /**
+   * Aligne le plafond du curseur sur la taille maximale que la zone accepte.
+   *
+   * clampTextToZone() écrit cette mesure dans data-max-fit. On la relit ici
+   * plutôt que de la recalculer : elle dépend du texte saisi et de la police,
+   * et le clamp est déjà le passage obligé de toute modification.
+   *
+   * Plancher à 8 pour rester cohérent avec le clamp, et repli sur
+   * MAX_TEXT_SIZE tant qu'aucun clamp n'a encore tourné.
+   */
+  function syncSizeMax(range, el) {
+    if (!range || !el) return;
+    var fit = parseFloat(el.getAttribute('data-max-fit'));
+    if (isNaN(fit)) return;
+    range.max = Math.max(8, fit);
+    /* Le curseur ne doit pas rester au-delà du nouveau plafond : un texte
+       rallongé réduit la taille tenable, et une poignée restée à droite
+       laisserait croire à une marge qui n'existe plus. */
+    if (parseFloat(range.value) > range.max) {
+      range.value = range.max;
+      showSizeVal(range.value);
+    }
   }
 
   /** `rgb(r, g, b)` (ce que renvoie getComputedStyle) → `#rrggbb`. */
@@ -452,6 +497,12 @@
          Lu ici et non à la construction — la barre est montée avant que le
          template n'ait exposé la valeur. */
       if (window.MAX_TEXT_SIZE) range.max = window.MAX_TEXT_SIZE;
+      /* Plafond effectif : la plus grande police qui tienne dans la zone,
+         mesurée par clampTextToZone(). Le curseur s'arrête donc là où le
+         texte remplit son gabarit — au lieu d'offrir une course morte
+         jusqu'à MAX_TEXT_SIZE, qui donnait un curseur à 45 pour un texte
+         rendu à 22. */
+      syncSizeMax(range, el);
       range.value = Math.round(parseFloat(cs.fontSize) || 20);
       showSizeVal(range.value);
     }

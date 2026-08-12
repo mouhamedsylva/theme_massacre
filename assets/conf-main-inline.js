@@ -738,13 +738,24 @@
         } catch (e) {}
       }
 
-      var doRestore = function () {
+      /* @param textileDejaFait  true quand selProd() vient d'être appelé.
+         Il exécute applyColorForProduct(), qui lit déjà la couleur enregistrée du
+         produit, pose currentColorSlug, active la pastille et charge les images.
+         Rejouer la partie TEXTILE de restoreColor() par-dessus déclenchait un
+         SECOND chargement des mêmes images, 300 ms après le premier — les deux
+         couraient en parallèle et le retardataire pouvait écraser le bon.
+
+         Seule la partie textile est sautée : applyColorForProduct() ne touche ni
+         `conf_patch_color` (couleur du patch) ni `conf_coin_finish` (finition du
+         coin), que restoreColor() doit continuer de restaurer. Et le sweatshirt
+         ne passe PAS par selProd — il a besoin des deux parties. */
+      var doRestore = function (textileDejaFait) {
         /* Chaque restauration est ISOLÉE : une exception dans l'une ne doit pas
            emporter les suivantes. La couleur est la moins critique des trois —
            perdre les logos et les textes du client parce qu'une finition est
            illisible serait hors de proportion. queryByAttr couvre déjà la cause
            connue (sélecteur forgé), ces gardes couvrent le reste. */
-        try { restoreColor(); }
+        try { restoreColor({ sauterTextile: !!textileDejaFait }); }
         catch (e) { console.warn('Restauration de la couleur échouée :', e); }
         try { if (typeof restoreUploads === 'function') restoreUploads(); }
         catch (e) { console.error('Restauration des logos échouée :', e); }
@@ -764,20 +775,31 @@
                    queryByAttr('.product-card[data-product="%v"]', saved);
         if (card && typeof selProd === 'function') {
           selProd(card);
-          setTimeout(doRestore, 300);
+          /* `true` : selProd a déjà appliqué la couleur du textile. */
+          setTimeout(function () { doRestore(true); }, 300);
           return;
         }
       }
-      // Sweatshirt (ou produit inconnu) : restauration directe.
-      setTimeout(doRestore, 200);
+      /* Sweatshirt (ou produit inconnu) : selProd n'a PAS été appelé, la couleur
+         du textile est donc à restaurer ici. */
+      setTimeout(function () { doRestore(false); }, 200);
     }
 
     /* Restaure la couleur mémorisée : reclique la pastille correspondante pour
        rétablir l'état visuel + l'image/fond coloré. Gère TEXTILE (.cs) et
        PATCH/COINS (.patch-color-sw) selon le produit courant. */
-    function restoreColor() {
+    /**
+     * @param {{sauterTextile?: boolean}} [opts]
+     *   `sauterTextile` : la couleur du textile a déjà été appliquée par
+     *   applyColorForProduct() (appelée depuis selProd). La rejouer relancerait
+     *   un second chargement des mêmes images, en concurrence avec le premier.
+     *   Les parties PATCH et COIN restent toujours exécutées : elles n'ont pas
+     *   d'équivalent ailleurs.
+     */
+    function restoreColor(opts) {
+      var sauterTextile = !!(opts && opts.sauterTextile);
       // Textile : couleur mémorisée POUR LE PRODUIT COURANT -> pastilles .cs
-      var savedTx = savedColorFor(currentProductType);
+      var savedTx = sauterTextile ? null : savedColorFor(currentProductType);
       if (savedTx && savedTx.name) {
         var cs = document.querySelectorAll('.cs');
         for (var i = 0; i < cs.length; i++) {
@@ -935,12 +957,32 @@
     /* Charge la première URL candidate qui existe dans imgEl. */
     function loadFirstAvailable(imgEl, candidates) {
       if (!imgEl || !candidates.length) return;
+
+      /* JETON DE SÉQUENCE — évite qu'un chargement obsolète écrase le bon.
+
+         Sans lui, deux appels sur le même élément couraient en parallèle et le
+         dernier `onload` à se déclencher gagnait, quel que soit l'ordre d'appel.
+         Au rechargement, restoreProductThenUploads() en enchaîne justement deux :
+         selProd() demande la couleur par DÉFAUT, puis restoreColor() la couleur
+         ENREGISTRÉE. Si la première arrivait en retard — cache froid, réseau
+         lent, 360 fichiers servis par le CDN — elle écrasait la seconde et le
+         vêtement s'affichait dans la mauvaise teinte. D'où le défaut
+         intermittent : la couleur était bien en session, seule l'image perdait
+         la course.
+
+         Chaque appel s'attribue un numéro et ne écrit que s'il est toujours le
+         plus récent. `onerror` est gardé de la même façon : sans cela une chaîne
+         périmée continuait d'essayer ses candidats et finissait par écrire. */
+      var seq = (imgEl.__loadSeq || 0) + 1;
+      imgEl.__loadSeq = seq;
+
       let i = 0;
       const tryNext = () => {
+        if (imgEl.__loadSeq !== seq) return;   // un appel plus récent a pris la main
         if (i >= candidates.length) return;
         const url = candidates[i++];
         const test = new Image();
-        test.onload = () => { imgEl.src = url; };
+        test.onload = () => { if (imgEl.__loadSeq === seq) imgEl.src = url; };
         test.onerror = tryNext;
         test.src = url;
       };
@@ -1153,15 +1195,27 @@
       return {
         // Logo « Cœur (gauche) » : démarre côté DROIT du bandeau (le porteur voit
         // son cœur à sa gauche = à droite sur le rendu vu de face).
+        /* `maxW` = plafond d'AGRANDISSEMENT, `startW` = largeur à l'arrivée.
+           Les deux valaient chLogoW (7,5 %), si bien que le client ne pouvait
+           jamais dépasser 31 % de la largeur de son bandeau : le redimensionnement
+           butait bien avant que le pointillé du logo n'atteigne celui de la zone.
+           Le dos et les manches n'avaient pas ce défaut (maxW y égalait déjà
+           width) — seule la poitrine était bridée.
+
+           `maxW` monte donc à CHEST.width, et `startW` conserve les 7,5 % de
+           départ : un logo de cœur arrive petit, comme avant, mais peut désormais
+           remplir toute la zone imprimable. */
         'f':  { zoneId: 'zone-chest', logoId: 'logo-f',
                 left: CHEST.left, top: CHEST.top,
-                width: CHEST.width, height: CHEST.height, maxW: chLogoW,
+                width: CHEST.width, height: CHEST.height,
+                maxW: CHEST.width, startW: chLogoW,
                 startLeft: CHEST.left + CHEST.width - chLogoW - chPad },
         // Logo « Poitrine droite » : démarre côté GAUCHE du bandeau (droite du
         // porteur = gauche sur le rendu vu de face).
         'fr': { zoneId: 'zone-chest', logoId: 'logo-fr',
                 left: CHEST.left, top: CHEST.top,
-                width: CHEST.width, height: CHEST.height, maxW: chLogoW,
+                width: CHEST.width, height: CHEST.height,
+                maxW: CHEST.width, startW: chLogoW,
                 startLeft: CHEST.left + chPad },
         // Dos : centré (X≈49.8 %), haut de zone sous le col (sous la capuche
         // pour le sweat, cf. dosTop).
@@ -1243,8 +1297,14 @@
       var layer = document.getElementById('logo-layer');
       if (!logo || !layer) return;
 
-      // Largeur cible : ~90% de la largeur de zone, bornée à maxW.
-      var w = Math.min(z.maxW, z.width * 0.9);
+      /* Largeur d'arrivée : `startW` quand la zone en définit une, sinon ~90 % de
+         sa largeur. La distinction compte pour la poitrine, où le logo doit
+         arriver PETIT (7,5 % — un logo de cœur) tout en pouvant être agrandi
+         jusqu'aux 24 % de la zone. Sans `startW`, il apparaîtrait d'emblée à
+         21,6 %, soit presque tout le bandeau. */
+      var w = z.startW != null
+        ? Math.min(z.startW, z.maxW, z.width)
+        : Math.min(z.maxW, z.width * 0.9);
       logo.style.width = w + '%';
 
       /* Hauteur MESURÉE (et non approximée) : le layer n'est pas carré, donc
@@ -1635,10 +1695,19 @@
     function currentProductImageURL(view) {
       const prefix = PRODUCT_SLUGS[currentProductKey];
       if (!prefix) return '';
-      // Les fichiers image réels sont nommés en FRANÇAIS (ex. sweatshirt-noir-
-      // face.png). L'URL "EN" (sweatshirt-black-face.png) pointe vers un fichier
-      // inexistant -> vignette cassée dans le panier. On privilégie donc l'image
-      // FR existante, sinon l'EN (si un jour fournie), sinon l'image générique.
+      /* Ordre de recherche : slug ANGLAIS, puis français, puis générique.
+
+         L'ordre était INVERSÉ — français, générique, anglais en dernier. Or
+         seules 15 des 40 couleurs avaient une entrée française : les 25 autres
+         atteignaient le générique AVANT leur vraie image. Constaté le
+         12/08/2026 : un t-shirt « Sand » s'affichait juste dans le canvas (qui
+         lit PRODUCT_IMAGE_URLS directement) mais BLANC dans la vue d'ensemble et
+         sur la planche de commande, qui passent toutes deux par ici.
+
+         Les 360 visuels existent maintenant en slug anglais
+         (scripts/renommer-images-textiles.mjs) : c'est la source de vérité. Les
+         deux replis restent pour un fichier qui viendrait à manquer — mieux vaut
+         une image approximative qu'un canvas vide. */
       const urls = window.PRODUCT_IMAGE_URLS || {};
       const legacyUrls = window.PRODUCT_IMAGE_URLS_LEGACY || {};
       const legacyMap = window.COLOR_SLUG_LEGACY || {};
@@ -1647,9 +1716,10 @@
       const frKey = frSlug ? (prefix + '-' + frSlug + '-' + view) : null;
       const fallbacks = (window.PRODUCT_FALLBACK_URLS || {})[prefix] || {};
       const chosen =
+        urls[enKey] ||
         (frKey && legacyUrls[frKey]) ||
         fallbacks[view] || '';
-      return absUrl(chosen || urls[enKey] || '');
+      return absUrl(chosen);
     }
 
     /* ── Applique la couleur : charge les images correspondantes ── */
@@ -4140,7 +4210,7 @@
 
       const reader = new FileReader();
       reader.onload = ev => {
-        const original = ev.target.result;
+        const brut = ev.target.result;
 
         /* Produit propriétaire, capturé MAINTENANT — avant la modale de
            détourage (temps utilisateur arbitraire) et la compression
@@ -4149,6 +4219,18 @@
            l'opération rangeait l'image sous le nouveau produit, la faisant
            disparaître de celui où le client l'avait posée. */
         const uploadOwner = currentProductType;
+
+        /* Recadrage des bords TRANSPARENTS, avant toute chose.
+
+           À ne pas confondre avec le détourage ci-dessous : celui-ci supprime un
+           FOND OPAQUE et reste un choix du client. Le recadrage ne retire que des
+           pixels DÉJÀ invisibles — l'apparence du logo est identique, seule sa
+           boîte englobante rétrécit. Aucune décision à demander.
+
+           Sans lui, un PNG exporté avec des bandes vides s'affichait à distance
+           du pointillé de zone, et le client lisait cet écart comme une marge
+           qui serait imprimée. CustomInk recadre de la même façon. */
+        rognerBordsTransparents(brut).then(function (original) {
 
         // Demande au client s'il veut supprimer l'arrière-plan (détourage local).
         // Le module résout avec l'image d'origine OU la version détourée transparente.
@@ -4209,8 +4291,107 @@
               .catch(err => console.warn('Upload Cloudinary échoué (' + zone + ') :', err.message));
           }
         });
+        });   // fin de rognerBordsTransparents()
       };
       reader.readAsDataURL(file);
+    }
+
+    /**
+     * Retire les bandes ENTIÈREMENT TRANSPARENTES autour d'une image.
+     *
+     * Ne modifie PAS l'apparence : seuls des pixels déjà invisibles disparaissent.
+     * L'image rendue occupe donc toute sa boîte, et le pointillé de zone épouse
+     * le dessin au lieu de flotter à distance.
+     *
+     * @param {string} dataUrl image lue par FileReader
+     * @returns {Promise<string>} l'image rognée, ou l'ORIGINALE si rien à rogner
+     *
+     * Rend toujours l'original en cas de doute — image sans transparence, canvas
+     * indisponible, décodage impossible. Un upload ne doit jamais échouer à cause
+     * d'un ajustement cosmétique.
+     */
+    function rognerBordsTransparents(dataUrl) {
+      return new Promise(function (resolve) {
+        if (typeof dataUrl !== 'string' || !/^data:image\//i.test(dataUrl)) {
+          resolve(dataUrl);
+          return;
+        }
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth, h = img.naturalHeight;
+            if (!w || !h) { resolve(dataUrl); return; }
+
+            var cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            var ctx = cv.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(img, 0, 0);
+
+            var px;
+            try {
+              px = ctx.getImageData(0, 0, w, h).data;
+            } catch (e) {
+              /* Canvas « contaminé » : impossible sur un dataURL, mais la lecture
+                 des pixels reste la seule opération qui peut lever ici. */
+              resolve(dataUrl);
+              return;
+            }
+
+            /* Seuil à 10 plutôt que 0 : un export PNG laisse souvent des pixels
+               à alpha 1-3 sur les bords, invisibles à l'œil mais suffisants pour
+               qu'un test strict ne rogne rien du tout. */
+            var SEUIL = 10;
+            var opaque = function (x, y) { return px[(y * w + x) * 4 + 3] > SEUIL; };
+
+            var haut = 0, bas = h - 1, gauche = 0, droite = w - 1;
+            var x, y, trouve;
+
+            trouve = false;
+            for (y = 0; y < h && !trouve; y++) {
+              for (x = 0; x < w; x++) if (opaque(x, y)) { haut = y; trouve = true; break; }
+            }
+            /* Aucun pixel visible : image entièrement transparente. La rogner
+               produirait un canvas de taille nulle — on rend l'original, le
+               client verra que son fichier est vide. */
+            if (!trouve) { resolve(dataUrl); return; }
+
+            for (y = h - 1; y >= haut; y--) {
+              trouve = false;
+              for (x = 0; x < w; x++) if (opaque(x, y)) { bas = y; trouve = true; break; }
+              if (trouve) break;
+            }
+            trouve = false;
+            for (x = 0; x < w && !trouve; x++) {
+              for (y = haut; y <= bas; y++) if (opaque(x, y)) { gauche = x; trouve = true; break; }
+            }
+            for (x = w - 1; x >= gauche; x--) {
+              trouve = false;
+              for (y = haut; y <= bas; y++) if (opaque(x, y)) { droite = x; trouve = true; break; }
+              if (trouve) break;
+            }
+
+            var nw = droite - gauche + 1, nh = bas - haut + 1;
+
+            /* Rien à gagner : on rend l'ORIGINAL sans le réencoder. Un PNG déjà
+               propre ne doit pas repasser par le canvas — la réécriture ferait
+               perdre les métadonnées et regonflerait le poids du fichier. */
+            if (nw >= w && nh >= h) { resolve(dataUrl); return; }
+
+            var out = document.createElement('canvas');
+            out.width = nw; out.height = nh;
+            out.getContext('2d').drawImage(img, gauche, haut, nw, nh, 0, 0, nw, nh);
+
+            /* PNG imposé : le format d'origine peut être un JPEG, qui n'a pas de
+               couche alpha — réencoder en JPEG remplacerait la transparence par
+               du noir. */
+            resolve(out.toDataURL('image/png'));
+          } catch (e) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = function () { resolve(dataUrl); };
+        img.src = dataUrl;
+      });
     }
 
     /* Convertit un dataURL (ex. PNG détouré) en objet File pour l'upload backend. */
@@ -4758,10 +4939,21 @@
     });
 
     /* Taille de police maximale du texte personnalisé (px CSS).
-       Plafond atelier : au-delà, le rendu d'impression n'est plus garanti.
-       Exposée sur window : conf-text-editor.js s'en sert pour borner l'état
-       du panneau, et le curseur #txt-size-range porte la même valeur en max. */
-    var MAX_TEXT_SIZE = 28;
+
+       Portée de 28 à 200 le 12/08/2026, à la demande du commerçant : le texte
+       doit pouvoir remplir sa zone comme le fait un logo. À 28, il butait à
+       environ un tiers du bandeau de poitrine alors qu'il restait de la place.
+
+       C'était un plafond ATELIER, pas une contrainte technique — la qualité
+       d'impression d'un très grand texte relève désormais du commerçant.
+
+       La borne n'est PAS supprimée : `clampTextToZone` compare `cur` et `wanted`
+       à cette valeur, et un `undefined` rendrait ces tests faux en permanence.
+       200 px est hors d'atteinte dans une zone de configurateur — c'est un
+       garde-fou contre une valeur aberrante (saisie forgée, état corrompu), pas
+       une limite que le client rencontrera : c'est la zone qui l'arrête, via la
+       boucle d'agrandissement de conf-text-clamp.js. */
+    var MAX_TEXT_SIZE = 200;
     window.MAX_TEXT_SIZE = MAX_TEXT_SIZE;
 
     /* Zones de TEXTE : dérivées des zones de logo (LOGO_ZONES), qui sont

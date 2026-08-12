@@ -110,8 +110,17 @@
   pointer-events: auto;
   user-select: none;
   touch-action: none;
-  border: 1.5px dashed transparent;
-  border-radius: 4px;
+  /* Le pointillé épouse l'image, sans marge.
+
+     Sans `box-sizing: border-box`, les 1.5px de bordure s'ajoutaient AUTOUR de
+     la largeur inline : le cadre semblait flotter à distance du visuel, et le
+     client lisait cet écart comme une marge blanche qui serait imprimée.
+     `border-radius` retiré pour la même raison : un coin arrondi laisse un vide
+     visible entre le trait et un logo rectangulaire. */
+  box-sizing: border-box;
+  /* 1px au lieu de 1.5 : un trait fin se lit comme un repère de placement, pas
+     comme un contour appartenant au design. */
+  border: 1px dashed transparent;
   transition: border-color 0.15s ease;
 }
 
@@ -237,13 +246,20 @@
 .logo-resize.pos-w { left: -6px;  right: auto; }
 .logo-resize.pos-e { right: -6px; left: auto; }
 
-/* Poignée visible UNIQUEMENT pendant manipulation (pas au survol) */
+/* Les 8 poignées classiques ne servent plus : les logos sont manipulés par les
+   deux boutons de `.logo-ctrl` (✕ supprimer, ⊕ déplacer/redimensionner).
+
+   Elles restaient affichées pendant le geste, via `.dragging` / `.resizing`.
+   Comme `dragging` est posée dès le `mousedown` (conf-logo-drag.js:239) et
+   retirée seulement au relâchement (:843), un simple clic sur un logo faisait
+   apparaître les 8 ronds AVANT l'état final à 2 boutons — un clignotement que
+   le client lisait comme une étape de chargement.
+
+   Les deux boutons ne sont PAS concernés : ils portent `logo-ctrl`, pas
+   `logo-resize` (conf-logo-drag.js:277 et :335). Leur affichage est piloté
+   séparément par `.design-logo.is-selected .logo-ctrl` (conf-styles.css). */
 .design-logo .logo-resize {
   display: none !important;
-}
-.design-logo.dragging .logo-resize,
-.design-logo.resizing .logo-resize {
-  display: block !important;
 }
 
 /* Images - une seule visible à la fois - TAILLE MOYENNE */

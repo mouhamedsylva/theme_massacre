@@ -238,9 +238,26 @@
       transition: transform .13s;
       position: relative;
       flex-shrink: 0;
+      /* La bordure de 2px est comptée DANS les 18px : la pastille garde la même
+         emprise qu'elle soit sélectionnée ou non, donc la grille ne bouge pas
+         quand on change de couleur. */
+      box-sizing: border-box;
     }
     .cs:hover { transform: scale(1.12); }
-    .cs.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--black); }
+    /* Sélection marquée par la BORDURE, pas par un anneau projeté.
+
+       C'était `box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--black)` : 4px ajoutés
+       tout autour, donc 26px d'emprise pour une pastille de 18. Une `box-shadow`
+       n'est pas prise en compte dans le calcul de mise en page — l'anneau
+       débordait donc du panneau sur la première rangée et la première colonne,
+       là où il n'y a pas de voisin pour absorber le dépassement.
+
+       Le liseré blanc intérieur détache la bordure des teintes sombres, sans
+       quoi le cadre noir se confondrait avec un « Black » ou un « Navy ». */
+    .cs.on {
+      border-color: var(--black);
+      box-shadow: inset 0 0 0 1.5px #fff;
+    }
     .cs.on::after {
       content: '✓'; position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
@@ -319,9 +336,15 @@
     .design-text {
       position: absolute; cursor: grab; pointer-events: auto;
       user-select: none; touch-action: none;
-      border: 1.5px dashed transparent; border-radius: 4px;
+      /* Même repère que les logos (conf-canvas-single.css) : 1px noir, sans
+         arrondi. `box-sizing` pour que le trait épouse le texte au lieu de
+         s'ajouter autour. */
+      box-sizing: border-box;
+      border: 1px dashed transparent;
       line-height: 1.1; transition: border-color .15s ease;
-      padding: 0px 2px;  /* Padding minimal : 0px vertical, 2px horizontal */
+      /* 2px horizontaux conservés : sans eux, les jambages des lettres penchées
+         (f, j) touchent le trait. Le vertical reste à 0. */
+      padding: 0 2px;
       /* La boîte épouse le TEXTE, elle n'occupe plus toute la largeur de zone :
          le cadre de sélection flottait sinon très au large des lettres.
          La largeur en % venue du JS est convertie en max-width par
@@ -333,12 +356,20 @@
     /* Cadre visible seulement en dragging ou resizing, PAS au survol */
     .design-text.dragging, .design-text.resizing { border-color: #1a1a1a; }
     .design-text.dragging { cursor: grabbing; }
-    /* TEXTE SÉLECTIONNÉ (clic) : cadre net + 2 boutons seulement (style
-       CustomInk) — ✕ supprimer (haut gauche) et ⤢ redimensionner (bas droite).
-       Les 8 poignées classiques sont masquées au profit de ces 2 contrôles. */
+    /* TEXTE SÉLECTIONNÉ : le pointillé noir seul, comme sur les logos.
+
+       Le cadre blanc épais doublé d'une ombre noire (`border-width: 2px` +
+       `box-shadow`) entourait le texte d'un liseré que le client lisait comme
+       une bordure à imprimer. Il changeait aussi `border-style` en `solid`,
+       donc le repère pointillé disparaissait au moment même où l'utilisateur
+       avait besoin de voir sa zone.
+
+       La sélection reste identifiable par ses deux boutons — ✕ supprimer et ⤢
+       redimensionner — visibles seulement sur l'élément actif. Même parti que
+       pour `.design-logo.is-selected`. */
     .design-text.is-selected {
-      border-style: solid; border-color: #fff; border-width: 2px;
-      box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+      border-color: #1a1a1a;
+      box-shadow: none;
     }
     /* Masque les poignées classiques, MAIS pas nos 2 contrôles (.dt-ctrl). */
     .design-text.is-selected .logo-resize:not(.dt-ctrl) { display: none !important; }
@@ -365,9 +396,19 @@
     .dt-ctrl-size:hover { background: #1a56db; color: #fff; }
 
     /* ── Contrôles pour les LOGOS (similaire aux textes) ── */
+    /* Aucun cadre de sélection : le liseré blanc (`outline: 2px solid #fff`) et
+       le halo bleu (`box-shadow`) doublaient le pointillé noir de la zone
+       d'impression, et l'épaississaient de 5px — le client croyait à une marge
+       qui serait imprimée. La sélection reste lisible par ses deux boutons
+       (supprimer, redimensionner), affichés seulement sur l'élément actif. */
     .design-logo.is-selected {
-      outline: 2px solid #fff;
-      box-shadow: 0 0 0 3px rgba(26,86,219,.5);
+      outline: none;
+      box-shadow: none;
+      /* Le pointillé RESTE visible au clic : c'est le repère de zone, et
+         c'est précisément au moment où l'on manipule le logo qu'on en a besoin.
+         Sans cette ligne il disparaissait — `.design-logo:hover` ne s'applique
+         plus dès que le pointeur quitte l'élément. */
+      border-color: #1a1a1a;
     }
     /* Masque les poignées classiques au profit des 2 boutons */
     .design-logo.is-selected .logo-resize:not(.logo-ctrl) { display: none !important; }
@@ -404,8 +445,11 @@
     .design-text.is-shaped .dt-content { white-space: normal; }
     .design-text.is-shaped svg { display: block; width: 100%; height: auto; }
     /* Poignée de resize visible seulement pendant resize, PAS au survol */
-    .design-text .logo-resize { display: none; }
-    .design-text.resizing .logo-resize { display: block; }
+    /* Mêmes raisons que pour les logos (conf-canvas-single.css) : les 8 poignées
+       classiques ne servent plus, les deux boutons `.dt-ctrl` les remplacent.
+       `.resizing` les rendait visibles le temps du geste, ce qui faisait
+       clignoter 8 ronds avant l'état final. */
+    .design-text .logo-resize { display: none !important; }
 
     /* Zone pointillée en mode TEXTE : bandeau horizontal. */
     .logo-zone.text-mode { border-style: dashed; }

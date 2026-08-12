@@ -476,8 +476,12 @@
                  min était à 12 alors que le clamp descend à 8 : le curseur
                  s'arrêtait avant la limite réelle. Mêmes bornes que la barre
                  horizontale (conf-text-toolbar.js). -->
+            <!-- max=200 : le plafond atelier de 28 arrêtait le curseur alors
+                 qu'il restait de la place dans la zone. C'est désormais la ZONE
+                 qui borne la taille (clampTextToZone réduit dès que le texte
+                 déborde), le curseur ne doit donc plus l'anticiper. -->
             <input type="range" class="txt-size-range" id="txt-size-range"
-                   min="8" max="28" step="1" value="20" oninput="onTextSizeChange()">
+                   min="8" max="200" step="1" value="20" oninput="onTextSizeChange()">
             <span class="txt-size-val" id="txt-size-val">20</span>
           </div>
 

@@ -627,11 +627,18 @@
     <!-- Barre d'outils texte au-dessus de l'aperçu (remplace le basculement
          de sidebar). Tout est injecté par l'asset. -->
     <script src="{{ 'conf-text-toolbar.js' | asset_url }}" defer></script>
-    <!-- Barre d'outils du logo sur les coins (couvrir, ajuster, pivoter…).
-         Après conf-logo-drag.js : elle observe la classe .is-selected que
-         celui-ci pose sur le logo. -->
+    <!-- Glisser-déposer et redimensionnement des logos (toutes familles). -->
     <script src="{{ 'conf-logo-drag.js' | asset_url }}" defer></script>
-    <script src="{{ 'conf-coin-toolbar.js' | asset_url }}" defer></script>
+    <!-- conf-coin-toolbar.js RETIRÉ le 12/08/2026 : la barre « Couvrir /
+         Ajuster / Largeur / Centrer / Pivoter / Miroir / Réinit. » au-dessus de
+         l'aperçu des coins ne servait plus.
+
+         Le fichier est CONSERVÉ dans assets/ (rien ne le référence, il ne coûte
+         donc rien) : le rétablir ne demande que de remettre cette ligne.
+         Son seul appelant externe, conf-logo-drag.js:324, est gardé par
+         `typeof window.hideCoinToolbar === 'function'` — son absence est donc
+         sans effet. -->
+
     <script src="{{ 'conf-sleeve-side.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-api.js' | asset_url }}" defer></script>
     <!-- Sidebar moderne avec navigation par icônes -->

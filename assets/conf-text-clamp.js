@@ -94,7 +94,30 @@
       if (eb2.width > zoneW || eb2.height > zoneH) { el.style.fontSize = cur + 'px'; break; }
       cur += 1;
     }
-  
+
+    /* PLAFOND RÉEL DE CETTE ZONE, pour ce texte et cette police.
+
+       On cherche la plus grande police qui tienne encore : on continue de
+       monter au-delà de `wanted` jusqu'au débordement, on note la dernière
+       valeur qui passait, puis on restaure la taille effective.
+
+       Sans cela le curseur affichait une plage (8 → MAX_TEXT_SIZE) que la
+       zone n'honore pas : il montrait 45 alors que le texte plafonnait à 22,
+       et le pousser plus haut ne changeait plus rien à l'écran.
+
+       Le résultat dépend du texte saisi (« Didi » tient plus gros que vingt
+       lettres) et de la police : il est donc recalculé à chaque clamp, et non
+       mis en cache. */
+    var fits = cur;
+    while (guard++ < 200 && fits < window.MAX_TEXT_SIZE) {
+      el.style.fontSize = (fits + 1) + 'px';
+      var eb3 = el.getBoundingClientRect();
+      if (eb3.width > zoneW || eb3.height > zoneH) break;
+      fits += 1;
+    }
+    el.style.fontSize = cur + 'px';
+    el.setAttribute('data-max-fit', fits);
+
     // 2) Borne la position dans la zone.
     var ebf = el.getBoundingClientRect();
     var wPct = (ebf.width / lb.width) * 100;
