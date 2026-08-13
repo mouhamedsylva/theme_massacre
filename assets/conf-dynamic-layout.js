@@ -391,7 +391,7 @@ class DynamicLayoutManager {
              par updateCoinPrice() dans #coins-unit-price. Pas de prix total
              affiché, comme pour les textiles. -->
         <div class="rp-unit-price-big" id="coins-unit-price">${(window.tierUnitPrice && window.formatPrix) ? window.formatPrix(window.tierUnitPrice('patches', 10)) : '20,00 €'} <span class="rp-unit-ht">TTC</span></div>
-        <div class="rp-total-subtitle" id="coins-qty-display">à partir de (10 unités)</div>
+        <div class="rp-total-subtitle" id="coins-qty-display">Par unité</div>
       </div>
 
       <div class="rp-actions-coins">
@@ -1240,9 +1240,21 @@ function updateCoinPrice(qty) {
   // Pas de prix total (retiré, comme pour les textiles).
   const unitEl = document.getElementById('coins-unit-price');
   const qtyDisplayEl = document.getElementById('coins-qty-display');
+  /* « / unité » explicite : le montant affiché est un PRIX UNITAIRE, pas le
+     total de la commande. Sans cette mention, « 20,00 € » pouvait se lire
+     comme le prix des 10 patchs. */
   if (unitEl) unitEl.innerHTML = (window.formatPrix ? window.formatPrix(unitPrice)
-      : unitPrice.toFixed(2).replace('.', ',') + ' €') + ' <span class="rp-unit-ht">TTC</span>';
-  if (qtyDisplayEl) qtyDisplayEl.textContent = `à partir de (${q} unités)`;
+      : unitPrice.toFixed(2).replace('.', ',') + ' €') +
+      ' <span class="rp-unit-ht">TTC / unité</span>';
+  /* Texte FIXE, sans `q` : la variable porte la quantité COURANTE, pas le
+     seuil. L'interpoler ici aurait affiché « Commande minimum 50 unités » dès
+     qu'un client saisit 50 — un minimum qui changerait de valeur à chaque
+     saisie. Le vrai minimum des patchs est 10 (voir la carte QUANTITÉ, l. 379).
+
+     La dégressivité reste active (grille `patches` dans conf-pricing-tiers.js)
+     et le montant ci-dessus suit déjà le palier atteint : à 100 pièces il
+     affichera 3,50 € / unité. */
+  if (qtyDisplayEl) qtyDisplayEl.textContent = 'Commande minimum 10 unités';
 }
 
 // Changement de vue (2D/3D)

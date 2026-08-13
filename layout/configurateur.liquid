@@ -56,6 +56,18 @@
     {{ content_for_header }}
 
     {%- comment -%}
+      Feuilles de style du THÈME (base.css, overflow-list.css). Indispensables
+      depuis que ce layout rend `{% sections 'header-group' %}` : le menu de la
+      boutique arrivait dans le DOM — vérifié, 71 liens présents — mais sans
+      aucun style, donc invisible à l'écran.
+
+      Même appel qu'en layout/theme.liquid:39, et placé au même endroit : juste
+      après `content_for_header`, avant les CSS propres au configurateur, pour
+      que ces derniers gardent la priorité en cas de règle concurrente.
+    {%- endcomment -%}
+    {%- render 'stylesheets' -%}
+
+    {%- comment -%}
       SEO : ces balises manquaient alors que layout/theme.liquid les fournit
       toutes. Le <title> etait STATIQUE (« Configurateur Custom Textile ») :
       renommer la page dans l'admin Shopify n'avait aucun effet, et le nom de
@@ -725,9 +737,23 @@
          tabindex, role, Entrée/Espace et aria-pressed, posés à l'exécution.
          EN DERNIER : il parcourt le DOM déjà bâti, puis observe les ajouts. -->
     <script src="{{ 'conf-a11y.js' | asset_url }}" defer></script>
+    <!-- Mesure la hauteur du menu boutique et la place dans --shop-header-h,
+         que .conf-app-root retranche de sa hauteur (conf-styles.css). Sans
+         cela le configurateur occupe 100vh et pousse le menu hors écran. -->
+    <script src="{{ 'conf-shop-header.js' | asset_url }}" defer></script>
   </head>
   {% comment %} Contenu de la page : `{% section 'configurateur' %}`, via le template. {% endcomment %}
   <body>
+  {% comment %}
+    Menu de la boutique, au-dessus de l'en-tête du configurateur — même
+    disposition que la page Récapitulatif, qui passe par theme.liquid.
+
+    Ce layout est autonome (voir l'en-tête du fichier) : il ne rend donc pas
+    `header-group` par héritage, il faut l'appeler explicitement. Les styles
+    et scripts du header sont apportés par la section elle-même, plus
+    `content_for_header`, déjà présent dans le <head>.
+  {% endcomment %}
+  {% sections 'header-group' %}
   {{ content_for_layout }}
   </body>
   </html>

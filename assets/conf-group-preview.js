@@ -92,13 +92,60 @@
     var lW    = logoEl ? (parseFloat(logoEl.style.width) || 18) : 18;
   
     var html = '';
-    html += '<div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">';
+    /* `container-type: inline-size` : indispensable pour que le texte ci-dessous
+       puisse se dimensionner en `cqw` (pourcentage de la largeur de CE bloc).
+       Sans cette déclaration, l'unité est ignorée et le texte prend une taille
+       arbitraire. */
+    html += '<div style="position:relative;width:100%;height:100%;display:flex;' +
+            'align-items:center;justify-content:center;container-type:inline-size;">';
     if (baseUrl) {
-      html += '<img src="' + safeSrc(baseUrl) + '" alt="" style="max-width:100%;max-height:340px;object-fit:contain;">';
+      /* `max-height` en vh plutôt qu'en px fixes : à 340px le vêtement occupait
+         moins de la moitié de la modale (760px de large) et le nom floqué
+         devenait illisible. `60vh` laisse la place à l'en-tête et au message
+         d'avertissement tout en remplissant l'espace disponible. */
+      html += '<img src="' + safeSrc(baseUrl) + '" alt="" style="max-width:100%;max-height:60vh;object-fit:contain;">';
       // Overlay logo, calé en % (mêmes repères que le canvas face).
       if (logoSrc) {
         html += '<img src="' + safeSrc(logoSrc) + '" alt="" style="position:absolute;left:' + lLeft +
                 '%;top:' + lTop + '%;width:' + lW + '%;object-fit:contain;pointer-events:none;">';
+      }
+
+      /* TEXTE de la vue de face, avec le SURNOM DE LA LIGNE à la place du
+         texte commun. C'est tout l'intérêt de cet aperçu : chaque personne doit
+         voir SON nom floqué sur le vêtement, pas celui saisi au canvas.
+
+         On reprend les styles réels de #text-f (police, taille, couleur, gras,
+         italique, souligné) pour que l'aperçu corresponde au rendu. La taille
+         est convertie en % de la largeur du canvas : l'aperçu est plus petit
+         que le configurateur, une taille en px y paraîtrait énorme. */
+      var txtEl = document.getElementById('text-f');
+      var txtVisible = txtEl && txtEl.style.display !== 'none';
+      if (txtVisible || flock) {
+        var contenu = flock || (txtEl ? (txtEl.querySelector('.dt-content') || {}).textContent : '') || '';
+        if (contenu) {
+          var cs = txtEl ? window.getComputedStyle(txtEl) : null;
+          var canvas = document.getElementById('logo-layer');
+          var largeurCanvas = canvas ? canvas.getBoundingClientRect().width : 0;
+          var taillePx = cs ? (parseFloat(cs.fontSize) || 20) : 20;
+          /* En % de la largeur du canvas, puis appliqué en cqw de l'aperçu :
+             le texte garde la même proportion quelle que soit la taille
+             d'affichage. Repli à 4 % si le canvas n'est pas mesurable. */
+          var taillePct = largeurCanvas ? (taillePx / largeurCanvas) * 100 : 4;
+
+          var tLeft = txtEl ? (parseFloat(txtEl.style.left) || 44) : 44;
+          var tTop  = txtEl ? (parseFloat(txtEl.style.top)  || 31) : 31;
+
+          var deco = cs ? (cs.textDecorationLine || cs.textDecoration || '') : '';
+          var style = 'position:absolute;left:' + tLeft + '%;top:' + tTop + '%;' +
+                      'font-size:' + taillePct.toFixed(2) + 'cqw;' +
+                      'font-family:' + (cs ? cs.fontFamily : 'inherit') + ';' +
+                      'color:' + (cs ? cs.color : '#fff') + ';' +
+                      'font-weight:' + (cs ? cs.fontWeight : '400') + ';' +
+                      'font-style:' + (cs ? cs.fontStyle : 'normal') + ';' +
+                      (deco.indexOf('underline') !== -1 ? 'text-decoration:underline;' : '') +
+                      'white-space:nowrap;line-height:1.1;pointer-events:none;';
+          html += '<div style="' + style + '">' + esc(contenu) + '</div>';
+        }
       }
     } else {
       html += '<div style="color:#999;font-size:12px;padding:24px;text-align:center;">' +

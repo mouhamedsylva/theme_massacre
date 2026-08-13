@@ -793,12 +793,24 @@
            préexistantes une fois l'ajout confirmé. `conf_cart` reste la source
            de vérité côté client, donc l'état affiché ne dépend pas de ce
            nettoyage. */
+        /* On mémorise la QUANTITÉ de chaque ligne, pas seulement sa clé.
+
+           Shopify regroupe les lignes par (variante + propriétés identiques) :
+           une ligne ajoutée qui correspond à une ligne existante la REJOINT et
+           garde la même clé. Ne retenir que les clés faisait donc supprimer, à
+           l'étape 2, une ligne qu'on venait d'ajouter.
+
+           C'est ce qui effaçait le supplément manche : ses propriétés sont
+           stables (`Article`, `Manches`), donc sa clé ne change jamais. Le
+           textile, lui, survivait — ses propriétés varient à chaque design
+           (`_Aperçu`, URLs des logos), d'où une clé neuve à chaque ajout. */
         var before = null;
         try {
           var cur = await fetch('/cart.js', { headers: { 'Accept': 'application/json' } });
           if (cur.ok) {
             var curCart = await cur.json();
-            before = (curCart.items || []).map(function (it) { return it.key; });
+            before = {};
+            (curCart.items || []).forEach(function (it) { before[it.key] = it.quantity; });
           }
         } catch (e) { before = null; }
 
@@ -815,10 +827,32 @@
         /* 2) L'ajout a réussi : on retire les lignes qui préexistaient, pour
               éviter les doublons au retour depuis le checkout. Un échec ici est
               sans gravité (au pire un doublon), d'où le catch silencieux — il
-              ne doit surtout pas empêcher le paiement. */
-        if (before && before.length) {
+              ne doit surtout pas empêcher le paiement.
+
+              On relit le panier APRÈS l'ajout et on ne retranche que la
+              quantité d'ORIGINE : une ligne qui a grossi entre-temps a reçu
+              notre ajout, la vider effacerait ce qu'on vient de mettre. */
+        var apres = null;
+        try {
+          var c2 = await fetch('/cart.js', { headers: { 'Accept': 'application/json' } });
+          if (c2.ok) {
+            var cart2 = await c2.json();
+            apres = {};
+            (cart2.items || []).forEach(function (it) { apres[it.key] = it.quantity; });
+          }
+        } catch (e) { apres = null; }
+
+        if (before && Object.keys(before).length) {
           var updates = {};
-          before.forEach(function (key) { updates[key] = 0; });
+          Object.keys(before).forEach(function (key) {
+            var avant = before[key];
+            var maintenant = apres ? (apres[key] || 0) : avant;
+            /* Ligne inchangée -> elle est bien un reliquat, on la vide.
+               Ligne qui a grossi -> notre ajout l'a rejointe : on ne retire que
+               l'ancienne quantité et on garde la nôtre. */
+            var cible = Math.max(0, maintenant - avant);
+            updates[key] = cible;
+          });
           try {
             await fetch('/cart/update.js', {
               method: 'POST',
@@ -897,8 +931,24 @@
         let propsHtml = '';
         if (item.size) {
           const parts = [];
-          if (item.color) parts.push(`<span><strong>Couleur :</strong> ${esc(item.color)}</span>`);
-          parts.push(`<span><strong>Taille :</strong> ${esc(item.size)}</span>`);
+          /* Surnom floqué : présent uniquement sur les lignes issues d'une
+             commande de groupe (une ligne par personne). Affiché EN PREMIER,
+             c'est lui qui distingue deux articles par ailleurs identiques.
+             Le drawer du panier l'affiche déjà (conf-main-inline.js:3755) ;
+             le récapitulatif était le seul écran à l'omettre. */
+          if (item.personName) parts.push(`<span><strong>Nom floqué :</strong> ${esc(item.personName)}</span>`);
+          /* `item.color` arrive parfois PRÉFIXÉ ("Couleur : Atoll") : les lignes
+             de groupe le stockent ainsi (conf-main-inline.js:2021) pour le
+             panier Shopify. On retire le préfixe à l'affichage, sinon la ligne
+             se lisait « Couleur : Couleur : Atoll ». Le stockage n'est pas
+             touché : il alimente aussi les propriétés de commande. */
+          if (item.color) {
+            const couleur = String(item.color).replace(/^\s*Couleur\s*:\s*/i, '');
+            parts.push(`<span><strong>Couleur :</strong> ${esc(couleur)}</span>`);
+          }
+          /* Même traitement pour la taille, stockée « Taille : M » sur certaines
+             lignes de groupe. */
+          parts.push(`<span><strong>Taille :</strong> ${esc(String(item.size).replace(/^\s*Taille\s*:\s*/i, ''))}</span>`);
           propsHtml = parts.join('');
         } else if (item.color) {
           // Custom (drapeau/patch) : les détails sont déjà formatés

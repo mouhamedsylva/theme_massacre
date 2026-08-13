@@ -122,7 +122,28 @@
           var rawW = el.getAttribute('data-w') || el.style.width || el.style.maxWidth;
           var lx = pct(el.style.left), ly = pct(el.style.top), lw = pct(rawW);
           if (lx == null || ly == null || lw == null) { resolve(null); return; }
-          geo = { x: lx, y: ly, w: lw };
+
+          /* CHANGEMENT DE REPÈRE, indispensable : les % inline sont relatifs au
+             `logo-layer`, alors que la branche du dessus renvoie des fractions
+             de l'IMAGE PRODUIT. Les deux boîtes ne coïncident pas (le layer est
+             plus large que l'image), donc renvoyer les % bruts décalait le
+             texte — visible en ouvrant la vue d'ensemble DEPUIS LE DOS, où le
+             texte de face est masqué et passe donc par ce repli.
+
+             Même conversion que project() pour les logos
+             (conf-main-inline.js:3307-3314), qui n'avait pas ce défaut. */
+          if (!canReproject) {
+            geo = { x: lx, y: ly, w: lw };
+          } else {
+            var scrLeft = layerBox.left + lx * layerBox.width;
+            var scrTop  = layerBox.top  + ly * layerBox.height;
+            var scrW    = lw * layerBox.width;
+            geo = {
+              x: (scrLeft - imgBox.left) / imgBox.width,
+              y: (scrTop - imgBox.top) / imgBox.height,
+              w: scrW / imgBox.width
+            };
+          }
         }
 
         var cs = window.getComputedStyle(el);
@@ -154,7 +175,18 @@
 
         // Texte simple : dessin canvas 2D haute résolution.
         var fontSize = 160;
-        var font = '700 ' + fontSize + 'px ' + fontFamily;
+
+        /* Gras / italique / souligné : LUS sur l'élément, plus codés en dur.
+           La police valait « 700 <taille>px <famille> » : le gras était donc
+           toujours appliqué, l'italique jamais, et le souligné absent — ce que
+           le client mettait en forme n'apparaissait ni dans la vue d'ensemble
+           ni sur la planche envoyée à l'atelier (même fonction pour les deux). */
+        var weight = cs.fontWeight || '400';
+        var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
+        var deco = cs.textDecorationLine || cs.textDecoration || '';
+        var souligne = deco.indexOf('underline') !== -1;
+
+        var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
         var meas = document.createElement('canvas').getContext('2d');
         meas.font = font;
         var tw = Math.max(1, meas.measureText(raw).width);
@@ -168,6 +200,20 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(raw, cv.width / 2, cv.height / 2);
+
+        /* Le canvas 2D ne connaît pas text-decoration : le trait du souligné
+           est tracé à la main, sous la ligne de base. Épaisseur et écart
+           proportionnels à la taille pour rester justes à toute échelle. */
+        if (souligne) {
+          var largeur = ctx.measureText(raw).width;
+          var y = cv.height / 2 + fontSize * 0.38;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = Math.max(1, fontSize * 0.05);
+          ctx.beginPath();
+          ctx.moveTo(cv.width / 2 - largeur / 2, y);
+          ctx.lineTo(cv.width / 2 + largeur / 2, y);
+          ctx.stroke();
+        }
         try { resolve({ src: cv.toDataURL('image/png'), x: geo.x, y: geo.y, w: geo.w }); }
         catch (e) { resolve(null); }
       });

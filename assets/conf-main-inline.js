@@ -257,9 +257,46 @@
         return '<option value="' + grpEsc(s) + '"' + (s === selSize ? ' selected' : '') +
                '>' + grpEsc(s) + '</option>';
       }).join('');
+      /* Pastille de couleur dans la liste déroulante.
+
+         Un <option> n'accepte ni image ni pseudo-élément de façon fiable, mais
+         `background-color` fonctionne dans les navigateurs actuels quand la
+         liste est ouverte. On peint donc une BANDE à gauche via un dégradé
+         net (deux arrêts à la même position = pas de fondu), et on décale le
+         texte avec padding-left pour ne pas le recouvrir.
+
+         La bande fait 22px, le texte commence à 30px : ils ne se recouvrent
+         jamais, donc le libellé reste lisible quelle que soit la teinte —
+         inutile de recalculer une couleur de texte par contraste. */
       var colorOpts = colors.map(function (c) {
+        /* `c.hex` vient de `style.background`, que le navigateur peut renvoyer
+           DÉVELOPPÉ : "rgb(239,241,240) none repeat scroll 0% 0% / auto ...".
+           Injecté tel quel dans un gradient, il le rendrait invalide et la
+           pastille disparaîtrait. On extrait donc la seule couleur. */
+        var brut = String(c.hex || '').trim();
+        var m = brut.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/i);
+        var hex = m ? m[0] : '';
+        var style = hex
+          ? 'background:linear-gradient(90deg,' + hex + ' 0,' + hex + ' 22px,transparent 22px);padding-left:30px;'
+          : '';
         return '<option value="' + grpEsc(c.name) + '" data-hex="' + grpEsc(c.hex) + '"' +
+               (style ? ' style="' + style + '"' : '') +
                (c.name === selColorName ? ' selected' : '') + '>' + grpEsc(c.name) + '</option>';
+      }).join('');
+
+      /* Entrées de la liste MAISON : une pastille <span> + le nom. Contrairement
+         à <option>, un <span> accepte un fond coloré dans tous les navigateurs.
+         `data-val` porte le nom, seule valeur écrite dans le <select> caché. */
+      var colorItems = colors.map(function (c) {
+        var brut = String(c.hex || '').trim();
+        var m = brut.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/i);
+        var hex = m ? m[0] : '#ccc';
+        return '<button type="button" class="grp-cpick-item' +
+               (c.name === selColorName ? ' on' : '') + '" data-val="' + grpEsc(c.name) + '"' +
+               ' onclick="grpPickColor(this)">' +
+                 '<span class="grp-cpick-sw" style="background:' + hex + '"></span>' +
+                 '<span>' + grpEsc(c.name) + '</span>' +
+               '</button>';
       }).join('');
 
       var tr = document.createElement('tr');
@@ -273,9 +310,25 @@
            a 40 (texte libre) et 25 (panneau texte) caracteres. */
         '<td><input class="grp-inp grp-f-flock" type="text" maxlength="20" placeholder="ex. JEAN 10" value="' + grpEsc(preset.flock || '') + '"></td>' +
         '<td><select class="grp-sel grp-f-size" onchange="grpUpdateTotals()">' + sizeOpts + '</select></td>' +
-        '<td><div class="grp-color-cell">' +
-          '<span class="grp-color-dot" data-dot="1"></span>' +
-          '<select class="grp-sel grp-f-color" onchange="grpSyncDot(this)">' + colorOpts + '</select>' +
+        /* Sélecteur de couleur : le <select> natif est CONSERVÉ mais masqué, et
+           doublé d'une liste maison.
+
+           Pourquoi : les navigateurs n'appliquent pas de façon fiable un fond
+           coloré sur un <option> (mesuré ici — la pastille de la ligne
+           s'affichait, celles de la liste ouverte non). Une liste maison est le
+           seul moyen d'afficher une pastille à côté de chaque NOM de couleur.
+
+           Le <select> reste la source de vérité : `grpVal(tr, 'grp-f-color')`,
+           l'import CSV et l'aperçu le lisent tous. On ne fait que piloter sa
+           valeur, donc rien en aval ne change. */
+        '<td><div class="grp-color-cell grp-cpick">' +
+          '<button type="button" class="grp-cpick-btn" onclick="grpTogglePicker(this)">' +
+            '<span class="grp-color-dot" data-dot="1"></span>' +
+            '<span class="grp-cpick-label"></span>' +
+            '<span class="grp-cpick-caret">▾</span>' +
+          '</button>' +
+          '<div class="grp-cpick-menu" hidden>' + colorItems + '</div>' +
+          '<select class="grp-sel grp-f-color" onchange="grpSyncDot(this)" hidden>' + colorOpts + '</select>' +
         '</div></td>' +
         '<td><div class="grp-qty">' +
           /* Quantité : coercition numérique plutôt qu'échappement — elle vient
@@ -290,9 +343,14 @@
             (Math.min(10000, Math.max(1, parseInt(preset.qty, 10) || 1))) + '" onchange="grpUpdateTotals()">' +
         '</div></td>' +
         '<td>' +
-          // '<button type="button" class="grp-row-btn" title="Aperçu" onclick="grpPreviewRow(this)">' +
-          //   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
-          // '</button>' +
+          /* Aperçu de la ligne : montre le vêtement à SA couleur, avec le logo
+             commun et le nom floqué de CETTE personne à la place du texte du
+             canvas. Sans lui, le client saisissait une liste de surnoms sans
+             jamais voir le rendu — d'où sa réactivation.
+             Placé AVANT la corbeille : action non destructive en premier. */
+          '<button type="button" class="grp-row-btn" title="Aperçu" onclick="grpPreviewRow(this)">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
+          '</button>' +
           // '<button type="button" class="grp-row-btn" title="Dupliquer" onclick="grpDupRow(this)">' +
           //   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
           // '</button>' +
@@ -317,9 +375,84 @@
     function grpSyncDot(sel) {
       if (!sel) return;
       var opt = sel.options[sel.selectedIndex];
-      var dot = sel.closest('.grp-color-cell').querySelector('.grp-color-dot');
+      var cell = sel.closest('.grp-color-cell');
+      var dot = cell.querySelector('.grp-color-dot');
       if (dot && opt) dot.style.background = opt.getAttribute('data-hex') || '#ccc';
+      /* Le bouton de la liste maison affiche le nom sélectionné : sans cela il
+         resterait vide, le <select> qui le portait étant masqué. */
+      var lbl = cell.querySelector('.grp-cpick-label');
+      if (lbl && opt) lbl.textContent = opt.value;
     }
+
+    /* Ouvre/ferme la liste maison. Une seule ouverte à la fois : deux panneaux
+       superposés se recouvriraient dans un tableau aux lignes serrées. */
+    function grpTogglePicker(btn) {
+      var menu = btn.parentNode.querySelector('.grp-cpick-menu');
+      var ouvert = !menu.hidden;
+      document.querySelectorAll('.grp-cpick-menu').forEach(function (m) { m.hidden = true; });
+      if (ouvert) return;
+      menu.hidden = false;
+
+      /* Le panneau est en `position: fixed` (voir conf-styles.css) : il échappe
+         aux deux conteneurs qui défilent, mais il faut donc le positionner
+         nous-mêmes, en coordonnées écran.
+
+         On mesure APRÈS l'avoir affiché — un élément `hidden` a une hauteur
+         nulle, et le test de place disponible serait faussé. */
+      var r = btn.getBoundingClientRect();
+      menu.style.minWidth = r.width + 'px';
+      menu.style.left = r.left + 'px';
+
+      var h = menu.offsetHeight;
+      var placeDessous = window.innerHeight - r.bottom;
+      /* Bascule au-dessus du bouton quand le bas de l'écran est trop proche —
+         sinon les dernières couleurs tombaient hors de la fenêtre. */
+      if (placeDessous < h + 8 && r.top > h + 8) {
+        menu.style.top = (r.top - h - 4) + 'px';
+      } else {
+        menu.style.top = (r.bottom + 4) + 'px';
+      }
+    }
+    window.grpTogglePicker = grpTogglePicker;
+
+    /* Applique le choix : écrit dans le <select> caché — qui reste la source de
+       vérité pour grpVal(), l'import CSV et l'aperçu — puis déclenche `change`
+       pour que les recalculs branchés dessus tournent comme avant. */
+    function grpPickColor(item) {
+      var cell = item.closest('.grp-color-cell');
+      var sel = cell.querySelector('.grp-f-color');
+      if (sel) {
+        sel.value = item.getAttribute('data-val');
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        grpSyncDot(sel);
+      }
+      cell.querySelectorAll('.grp-cpick-item').forEach(function (b) { b.classList.remove('on'); });
+      item.classList.add('on');
+      cell.querySelector('.grp-cpick-menu').hidden = true;
+    }
+    window.grpPickColor = grpPickColor;
+
+    /* Clic hors d'un sélecteur : referme les panneaux ouverts. Sans cela, seul
+       un second clic sur le bouton d'origine les fermait. */
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.grp-cpick')) return;
+      document.querySelectorAll('.grp-cpick-menu').forEach(function (m) { m.hidden = true; });
+    });
+
+    /* Un panneau `fixed` ne suit PAS le défilement de son conteneur : il
+       resterait figé à l'écran pendant que sa ligne s'éloigne. On le referme
+       donc au défilement — `true` en 3e argument pour capter aussi celui des
+       conteneurs internes, qui ne remonte pas jusqu'ici.
+
+       MAIS on ignore le défilement DU PANNEAU LUI-MÊME : la liste a sa propre
+       barre (max-height 260px), et sans cette exclusion elle se refermait dès
+       qu'on tentait de la parcourir. */
+    document.addEventListener('scroll', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('grp-cpick-menu')) return;
+      document.querySelectorAll('.grp-cpick-menu').forEach(function (m) {
+        if (!m.hidden) m.hidden = true;
+      });
+    }, true);
 
     function grpDelRow(btn) {
       var tr = btn.closest('tr');
@@ -965,6 +1098,18 @@
       return list;
     }
 
+    /* Exposés pour l aperçu de ligne de groupe (conf-group-preview.js), qui vit
+       dans un autre fichier et n a donc pas accès à ces `const` locaux.
+
+       Sans ces trois lignes, grpPreviewRow() ne pouvait résoudre ni le slug de
+       couleur ni le préfixe produit : candidates restait vide, l aperçu se
+       rabattait sur l image du canvas (#view-face) et affichait « la teinte n a
+       pas d image dédiée » — alors que le fichier existe bel et bien
+       (sweatshirt-sand-face.png, par exemple). */
+    window.COLOR_SLUGS = COLOR_SLUGS;
+    window.PRODUCT_SLUGS = PRODUCT_SLUGS;
+    window.colorImageCandidates = colorImageCandidates;
+
     /* Charge la première URL candidate qui existe dans imgEl. */
     function loadFirstAvailable(imgEl, candidates) {
       if (!imgEl || !candidates.length) return;
@@ -1134,13 +1279,14 @@
     /* Zone dos : bornes verticales relevées sur les repères atelier.
        DOS_TOP_PCT  = sous la couture d'épaule (au-dessus, l'impression
                       passerait sur l'épaule / la capuche).
-       DOS_H_MAX_PCT = hauteur imprimable ; plafonne les 39 cm théoriques, qui
-                      descendaient jusqu'aux hanches sur le rendu. */
-    /* Zone remontée sous le col (25 % -> 22 %) et allongée (39 % -> 46 %) :
-       le rectangle s'arrêtait bien au-dessus de l'ourlet alors que la
-       surface imprimable descend plus bas dans le dos. */
-    const DOS_TOP_PCT   = 22;
-    const DOS_H_MAX_PCT = 46;
+       DOS_H_MAX_PCT = hauteur imprimable, en % du visuel. Descendue par
+                      étapes : 46 % valait 34,8 cm, 39.6 % encore 30,0 cm.
+                      34.3 % = 26,0 cm, la surface réellement floquée.
+       DOS_TOP_PCT passé de 22 % à 25 % dans le même mouvement : la zone
+       démarrait sur la couture d'épaule. Le sweat ajoute +4 (voir buildZones),
+       son bras étant plus bas — elle y commence donc à 29 %. */
+    const DOS_TOP_PCT   = 25;
+    const DOS_H_MAX_PCT = 34.3;
     /* Largeur imprimable du dos, en % du visuel. Ramenée de 22 % à 17 % :
        22 % valait 38,9 cm sur le sweat, très au-delà de la contrainte atelier
        « L30 max » rappelée plus bas — la zone frôlait les coutures latérales.
@@ -1182,7 +1328,7 @@
     };
 
     /* Contraintes atelier (en cm) :
-         Dos     : L30 x H39 max
+         Dos     : L30 x H30 max
          Cœur    : 8 cm (logo rond/autre) — le pseudo monte à 12 cm, mais la
                    zone reste à 8 : au-delà, le placement n'est plus « cœur ».
          Manches : zone 9 x 8 cm (voir SLEEVE ci-dessus, converti par produit).
@@ -1225,10 +1371,14 @@
       var dosW = DOS_W_PCT, dosH = Math.min(39 * cm.h, DOS_H_MAX_PCT);
       /* Le sweat porte une CAPUCHE, qui occupe le haut du panneau dos : à 22 %
          la zone mordait dessus. Elle démarre donc 4 points plus bas, sous les
-         épaules — et perd ces 4 points en hauteur pour que son bord INFÉRIEUR
-         reste où il tombait déjà bien, au-dessus de l'ourlet. */
+         épaules.
+
+         Sa hauteur n'est PLUS réduite en contrepartie : le retrait de 4 points
+         lui donnait 22,9 cm contre 25,9 cm aux t-shirts, alors que la zone dos
+         doit faire la même taille sur les trois textiles. Le bord inférieur
+         descend donc de 4 points — il reste au-dessus de l'ourlet (63,3 %). */
       var dosTop = DOS_TOP_PCT;
-      if (isSweat) { dosTop += 4; dosH -= 4; }
+      if (isSweat) { dosTop += 4; }
       /* Zone de manche du produit courant (silhouettes différentes).
          Lecture par clé exacte, avec repli sur `tshirt` : un type inconnu
          garde l'ancien comportement plutôt que de casser le rendu. */
@@ -2131,7 +2281,18 @@
 
       // Texte SIMPLE : dessin canvas 2D haute résolution.
       var fontSize = 160;
-      var font = '700 ' + fontSize + 'px ' + fontFamily;
+
+      /* Gras / italique / souligné LUS sur l'élément (même correction que
+         textZoneImage, conf-share.js) : la police valait « 700 … », donc le
+         gras était forcé, l'italique perdu et le souligné absent. Ici l'enjeu
+         est l'ASSET envoyé à l'atelier — le fichier imprimé ne reflétait pas
+         la mise en forme choisie par le client. */
+      var weight = cs.fontWeight || '400';
+      var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
+      var deco = cs.textDecorationLine || cs.textDecoration || '';
+      var souligne = deco.indexOf('underline') !== -1;
+
+      var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
       var meas = document.createElement('canvas').getContext('2d');
       meas.font = font;
       var tw = Math.max(1, meas.measureText(raw).width);
@@ -2145,6 +2306,18 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(raw, cv.width / 2, cv.height / 2);
+
+      // Le canvas 2D ignore text-decoration : trait tracé à la main.
+      if (souligne) {
+        var largeur = ctx.measureText(raw).width;
+        var yLigne = cv.height / 2 + fontSize * 0.38;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(1, fontSize * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(cv.width / 2 - largeur / 2, yLigne);
+        ctx.lineTo(cv.width / 2 + largeur / 2, yLigne);
+        ctx.stroke();
+      }
       try { return cv.toDataURL('image/png'); } catch (e) { return ''; }
     }
 
