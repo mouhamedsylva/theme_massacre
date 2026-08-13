@@ -55,6 +55,19 @@ window.ConfAPI = (function () {
       if (!res.ok) throw new Error((data && data.message) || 'Échec upload aperçu');
       return data;
     },
+      /* Piece jointe d'une demande de devis (image OU PDF).
+
+         Route distincte de /uploads/logo : ce dernier fait passer le buffer par
+         sharp cote serveur, qui echoue sur un PDF. /uploads/piece-jointe envoie
+         le fichier tel quel (Cloudinary resource_type auto). */
+      async uploadPieceJointe(file) {
+        const form = new FormData();
+        form.append('file', file, (file && file.name) ? file.name : 'piece-jointe');
+        const res = await fetch(base() + '/uploads/piece-jointe', { method: 'POST', body: form });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data && data.message) || 'Echec envoi du fichier');
+        return data;
+      },
     // Partager un design -> { shareId, shareUrl }
     shareDesign(designData) {
       return jsonRequest('/export/share', 'POST', { designData: designData });

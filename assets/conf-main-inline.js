@@ -2825,6 +2825,12 @@
                 <label for="qm-message">Message / précisions</label>
                 <textarea id="qm-message" name="message" rows="3" placeholder="Détaillez votre besoin…"></textarea>
               </div>
+              <div class="qm-field">
+                <label for="qm-fichier">Fichier joint <span style="font-weight:400;color:#888">(optionnel)</span></label>
+                <input type="file" id="qm-fichier" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,application/pdf">
+                <small style="display:block;margin-top:4px;color:#888;font-size:11px">Votre logo ou un visuel de référence — JPG, PNG, WEBP, GIF, SVG ou PDF, 10 Mo maximum.</small>
+                <div id="qm-fichier-etat" style="margin-top:6px;font-size:11.5px"></div>
+              </div>
               <button type="button" class="qm-submit" onclick="submitQuote()">Envoyer ma demande de devis</button>
             </form>
           </div>
@@ -2980,7 +2986,11 @@
       }
       if (!form.checkValidity()) { form.reportValidity(); return; }
       const client = {};
-      new FormData(form).forEach((v, k) => client[k] = v);
+      /* `new FormData(form)` ramasse AUSSI l input file, mais y depose un objet
+         `File`, pas une chaine. Envoye tel quel il serait rejete par la
+         validation @IsString() du DTO. On ecarte donc la cle ici : le fichier
+         est traite a part juste en dessous (upload -> URL). */
+      new FormData(form).forEach((v, k) => { if (!(v instanceof File)) client[k] = v; });
 
       const d = window._quoteData || {};
 
@@ -2997,13 +3007,40 @@
           logo: p.logo ? await uploadIfDataUrl(p.logo, `quote-${i}-logo.png`) : undefined
         })));
 
+        /* Fichier joint (optionnel) : uploade AVANT la creation du devis, pour
+           que le corps JSON ne porte qu une URL. Meme motif que les apercus
+           ci-dessus. Route dediee /uploads/piece-jointe : elle accepte le PDF,
+           contrairement a /uploads/logo qui passe par sharp. */
+        var fichierUrl = '', fichierNom = '';
+        var champFichier = document.getElementById('qm-fichier');
+        var fichier = champFichier && champFichier.files && champFichier.files[0];
+        if (fichier) {
+          /* 10 Mo : la borne du SERVEUR (MAX_FILE_SIZE). Le reste du
+             configurateur autorise 12 Mo pour les logos, ce qui fait echouer
+             en 400 les fichiers entre les deux. On aligne sur le serveur. */
+          if (fichier.size > 10 * 1024 * 1024) {
+            throw new Error('Le fichier depasse 10 Mo. Compressez-le ou envoyez-le par email.');
+          }
+          var etat = document.getElementById('qm-fichier-etat');
+          if (etat) { etat.textContent = 'Envoi du fichier…'; etat.style.color = '#888'; }
+          var resPJ = await window.ConfAPI.uploadPieceJointe(fichier);
+          fichierUrl = (resPJ && resPJ.url) ? resPJ.url : '';
+          fichierNom = fichier.name;
+          if (etat) { etat.textContent = 'Fichier envoye.'; etat.style.color = '#127a3d'; }
+        }
+
         const payload = {
           customer: {
             nom: client.nom,
             email: client.email,
             telephone: client.telephone,
             entreprise: client.entreprise || undefined,
-            message: client.message || undefined
+            message: client.message || undefined,
+            /* Ajoutes explicitement : ce payload liste les champs UN PAR UN,
+               donc une cle posee sur `client` sans etre reprise ici serait
+               perdue en silence. */
+            fichierUrl: fichierUrl || undefined,
+            fichierNom: fichierNom || undefined
           },
           coin: {
             name: d.name || 'Coin métal personnalisé',

@@ -24,31 +24,31 @@ const OVERVIEW_BTN = `
 const PRODUCT_LAYOUTS = {
   // Textiles (Sweatshirt, T-shirt, T-shirt polyester)
   textile: {
-    sidebar: 'textile',
+    sidebar: "textile",
     showProductTypeSelector: true,
-    canvasShape: 'default'
+    canvasShape: "default",
   },
-  
+
   // Coins/Médailles
   coins: {
-    sidebar: 'coins',
-    showProductTypeSelector: true,  // ← Garde la section Type de produit
-    canvasShape: 'circle'
+    sidebar: "coins",
+    showProductTypeSelector: true, // ← Garde la section Type de produit
+    canvasShape: "circle",
   },
-  
+
   // Drapeaux
   drapeaux: {
-    sidebar: 'drapeaux',
-    showProductTypeSelector: true,  // ← Garde la section Type de produit
-    canvasShape: 'flag'
+    sidebar: "drapeaux",
+    showProductTypeSelector: true, // ← Garde la section Type de produit
+    canvasShape: "flag",
   },
-  
+
   // Patches
   patches: {
-    sidebar: 'patches',
-    showProductTypeSelector: true,  // ← Garde la section Type de produit
-    canvasShape: 'circle'
-  }
+    sidebar: "patches",
+    showProductTypeSelector: true, // ← Garde la section Type de produit
+    canvasShape: "circle",
+  },
 };
 
 /* ── Ancienne sidebar patchs (COINS_SIDEBAR_TEMPLATE) : SUPPRIMÉE (2026-08-05)
@@ -68,7 +68,7 @@ const PRODUCT_LAYOUTS = {
 
 class DynamicLayoutManager {
   constructor() {
-    this.currentCategory = 'textile';
+    this.currentCategory = "textile";
     // HTML d'origine du récap TEXTILE : les récaps coins/drapeaux/patchs
     // remplacent recap.innerHTML, ce qui efface le récap textile (et son bouton
     // « Commander pour un groupe »). On le mémorise pour le restaurer au retour.
@@ -92,26 +92,26 @@ class DynamicLayoutManager {
   }
 
   init() {
-    confLog('🎨 DynamicLayoutManager initialisé');
+    confLog("🎨 DynamicLayoutManager initialisé");
     // Sauvegarde le récap et le canvas textiles d'origine dès que le DOM est prêt.
     var self = this;
     var save = function () {
-      var recap = document.querySelector('.recap');
+      var recap = document.querySelector(".recap");
       if (recap && self.textileRecapHTML == null) {
         self.textileRecapHTML = recap.innerHTML;
       }
-      var cvWrap = document.querySelector('.cv-wrap');
+      var cvWrap = document.querySelector(".cv-wrap");
       var canvasParent = cvWrap && cvWrap.parentElement;
       if (canvasParent && self.textileCanvasHTML == null) {
         self.textileCanvasHTML = canvasParent.innerHTML;
       }
-      var sidebar = document.getElementById('sidebar-content');
+      var sidebar = document.getElementById("sidebar-content");
       if (sidebar && self.textileSidebarHTML == null) {
         self.textileSidebarHTML = sidebar.innerHTML;
       }
     };
-    if (document.readyState !== 'loading') save();
-    else document.addEventListener('DOMContentLoaded', save);
+    if (document.readyState !== "loading") save();
+    else document.addEventListener("DOMContentLoaded", save);
     this.restorePendingProduct();
   }
 
@@ -120,29 +120,31 @@ class DynamicLayoutManager {
   // conf_current_product. On se contente ici de consommer l'ancienne clé
   // pendingProduct pour éviter tout double basculement de produit.
   restorePendingProduct() {
-    try { sessionStorage.removeItem('pendingProduct'); } catch (e) {}
+    try {
+      sessionStorage.removeItem("pendingProduct");
+    } catch (e) {}
   }
-  
+
   handleProductChange(productType) {
-    confLog('🔄 Changement vers:', productType);
-    
+    confLog("🔄 Changement vers:", productType);
+
     // Déterminer la catégorie
-    let category = 'textile';
-    
+    let category = "textile";
+
     // Mapping des produits vers catégories
     const categoryMap = {
-      'sweatshirt': 'textile',
-      'tshirt': 'textile',
-      'tshirt_polyester': 'textile',
-      'coins': 'patches',     // ← Coins affiche désormais le contenu Patchs (pièce métallique)
-      'drapeaux': 'drapeaux',
-      'patches': 'coins'      // ← Patchs affiche désormais l'ancien contenu Coins
+      sweatshirt: "textile",
+      tshirt: "textile",
+      tshirt_polyester: "textile",
+      coins: "patches", // ← Coins affiche désormais le contenu Patchs (pièce métallique)
+      drapeaux: "drapeaux",
+      patches: "coins", // ← Patchs affiche désormais l'ancien contenu Coins
     };
-    
-    category = categoryMap[productType] || 'textile';
-    
-    confLog('📂 Catégorie:', category);
-    
+
+    category = categoryMap[productType] || "textile";
+
+    confLog("📂 Catégorie:", category);
+
     if (category !== this.currentCategory) {
       this.currentCategory = category;
       this.switchLayout(category, productType);
@@ -150,114 +152,124 @@ class DynamicLayoutManager {
   }
 
   switchLayout(category, productType) {
-    confLog('🎨 Switch layout vers:', category);
-    
+    confLog("🎨 Switch layout vers:", category);
+
     const layout = PRODUCT_LAYOUTS[category];
-    
+
     // La Type Bar reste toujours visible maintenant
-    const typeBar = document.querySelector('.type-bar');
+    const typeBar = document.querySelector(".type-bar");
     if (typeBar) {
-      typeBar.style.display = 'flex';
+      typeBar.style.display = "flex";
     }
-    
+
     // Mettre à jour le header global
     this.updateGlobalHeader(category);
-    
+
     // Changer la sidebar selon la catégorie
-    if (category === 'coins') {
+    if (category === "coins") {
       this.loadCoinsSidebar();
       this.loadCoinsCanvas();
       this.loadCoinsRecap();
       // Initialise l'image du patch (forme + couleur par défaut) après injection.
       setTimeout(function () {
-        if (typeof window.updatePatchShapeImg === 'function') window.updatePatchShapeImg();
-        if (typeof window.updatePatchRecapThumb === 'function') window.updatePatchRecapThumb();
+        if (typeof window.updatePatchShapeImg === "function")
+          window.updatePatchShapeImg();
+        if (typeof window.updatePatchRecapThumb === "function")
+          window.updatePatchRecapThumb();
       }, 0);
-    } else if (category === 'drapeaux') {
+    } else if (category === "drapeaux") {
       this.loadDrapeauxSidebar();
       this.loadDrapeauxCanvas();
       this.loadDrapeauxRecap();
-    } else if (category === 'patches') {
+    } else if (category === "patches") {
       this.loadPatchesSidebar();
       this.loadPatchesCanvas();
       this.loadPatchesRecap();
       // Filet de sécurité : si ce canvas contient l'image patch, l'initialiser.
       // (Sans effet si l'élément n'existe pas — la fonction sort d'elle-même.)
       setTimeout(function () {
-        if (typeof window.updatePatchShapeImg === 'function') window.updatePatchShapeImg();
-        if (typeof window.updatePatchRecapThumb === 'function') window.updatePatchRecapThumb();
+        if (typeof window.updatePatchShapeImg === "function")
+          window.updatePatchShapeImg();
+        if (typeof window.updatePatchRecapThumb === "function")
+          window.updatePatchRecapThumb();
       }, 0);
-    } else if (category === 'textile') {
+    } else if (category === "textile") {
       this.loadTextileSidebar(productType);
       // Restaure le récap textile si un produit non-textile l'avait remplacé.
-      var recap = document.querySelector('.recap');
-      if (recap && this.textileRecapHTML != null &&
-          !recap.querySelector('#main-add-to-cart')) {
+      var recap = document.querySelector(".recap");
+      if (
+        recap &&
+        this.textileRecapHTML != null &&
+        !recap.querySelector("#main-add-to-cart")
+      ) {
         recap.innerHTML = this.textileRecapHTML;
       }
       // Le bouton « groupe » n'est visible que pour les textiles : on l'affiche
       // (selProd le gère aussi, mais on s'assure de l'état après restauration).
-      var grpBtn = document.getElementById('btn-group-order');
-      if (grpBtn) grpBtn.style.display = '';
+      var grpBtn = document.getElementById("btn-group-order");
+      if (grpBtn) grpBtn.style.display = "";
     }
 
     // Restaurer les designs sauvegardés pour cette catégorie (après chargement du DOM)
-    if (category !== 'textile') {
+    if (category !== "textile") {
       setTimeout(function () {
-        if (typeof restoreColor === 'function') restoreColor();       // couleur patch / finition coin
-        if (typeof restoreUploads === 'function') restoreUploads();   // logos + positions
+        if (typeof restoreColor === "function") restoreColor(); // couleur patch / finition coin
+        if (typeof restoreUploads === "function") restoreUploads(); // logos + positions
         /* Repères de zone : le canvas vient d'être reconstruit, et les
            designs restaurés juste au-dessus. On aligne l'état des pointillés
            sur ce qui est réellement présent — sinon une face restaurée
            afficherait encore son repère. */
-        if (typeof window.updateCoinZoneGuides === 'function') window.updateCoinZoneGuides();
-        if (typeof window.updateFlagZoneGuides === 'function') window.updateFlagZoneGuides();
-        if (typeof window.updatePatchZoneGuide === 'function') window.updatePatchZoneGuide();
+        if (typeof window.updateCoinZoneGuides === "function")
+          window.updateCoinZoneGuides();
+        if (typeof window.updateFlagZoneGuides === "function")
+          window.updateFlagZoneGuides();
+        if (typeof window.updatePatchZoneGuide === "function")
+          window.updatePatchZoneGuide();
         /* Le canvas vient d'être reconstruit : le cadre de rognage du mode
            « couverture » a disparu avec l'ancien DOM. restoreUploads() a bien
            reposé la géométrie, mais sans ce cadre le motif redevient une
            petite image centrée au lieu de remplir la pièce. */
-        if (typeof window.syncCoinCrop === 'function') window.syncCoinCrop();
-        if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop();
+        if (typeof window.syncCoinCrop === "function") window.syncCoinCrop();
+        if (typeof window.syncFlagCrop === "function") window.syncFlagCrop();
       }, 250);
     }
   }
-  
+
   updateGlobalHeader(category) {
-    const brandName = document.querySelector('.hdr-name');
-    const brandSub = document.querySelector('.hdr-sub');
-    const brandIcon = document.querySelector('.hdr-icon');
-    
+    const brandName = document.querySelector(".hdr-name");
+    const brandSub = document.querySelector(".hdr-sub");
+    const brandIcon = document.querySelector(".hdr-icon");
+
     if (!brandName || !brandSub || !brandIcon) return;
-    
-    if (category === 'coins') {
-      brandName.textContent = 'PERSONNALISATION PATCHES';
-      brandSub.textContent = 'Créez votre patch personnalisé';
+
+    if (category === "coins") {
+      brandName.textContent = "PERSONNALISATION PATCHES";
+      brandSub.textContent = "Créez votre patch personnalisé";
       brandIcon.innerHTML = `
-        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ''}" alt="Logo personnalisé">
+        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ""}" alt="Logo personnalisé">
       `;
-    } else if (category === 'drapeaux') {
-      brandName.textContent = 'DRAPEAUX PERSONNALISÉS';
-      brandSub.textContent = 'Créez votre drapeau personnalisé';
+    } else if (category === "drapeaux") {
+      brandName.textContent = "DRAPEAUX PERSONNALISÉS";
+      brandSub.textContent = "Créez votre drapeau personnalisé";
       brandIcon.innerHTML = `
-        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ''}" alt="Logo personnalisé">
+        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ""}" alt="Logo personnalisé">
       `;
-    } else if (category === 'patches') {
-      brandName.textContent = 'COINS PERSONNALISÉS';
-      brandSub.textContent = 'Créez votre pièce unique';
+    } else if (category === "patches") {
+      brandName.textContent = "COINS PERSONNALISÉS";
+      brandSub.textContent = "Créez votre pièce unique";
       brandIcon.innerHTML = `
-        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ''}" alt="Logo personnalisé">
+        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ""}" alt="Logo personnalisé">
       `;
     } else {
       // Textile par défaut
-      brandName.textContent = 'TEXTILE PERSONNALISÉ';
-      brandSub.textContent = 'Créez votre style';
+      brandName.textContent = "TEXTILE PERSONNALISÉ";
+      brandSub.textContent = "Créez votre style";
       brandIcon.innerHTML = `
-        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ''}" alt="Logo personnalisé">
+        <img src="${(window.ASSET_URLS && window.ASSET_URLS.logoMassacre) || ""}" alt="Logo personnalisé">
       `;
     }
   }
-  
+
   /* Attention au mapping inversé : cette méthode sert la catégorie 'coins',
      qui affiche le contenu PATCHS (voir categoryMap). Les réglages vivent
      désormais dans le panneau « Options Patch » du sidebar moderne ; on vide
@@ -266,23 +278,25 @@ class DynamicLayoutManager {
      fichier) : ses IDs (#uc, #fab-sublime…) doublonnaient ceux du panneau
      statique, et getElementById aurait résolu sur la copie masquée. */
   loadCoinsSidebar() {
-    const sidebarContent = document.getElementById('sidebar-content');
-    if (sidebarContent) sidebarContent.innerHTML = '';
+    const sidebarContent = document.getElementById("sidebar-content");
+    if (sidebarContent) sidebarContent.innerHTML = "";
 
-    if (window.modernSidebar &&
-        typeof window.modernSidebar.refreshCategoryUI === 'function') {
-      window.modernSidebar.refreshCategoryUI('patches');
-      confLog('✅ Panneau Options Patch activé');
+    if (
+      window.modernSidebar &&
+      typeof window.modernSidebar.refreshCategoryUI === "function"
+    ) {
+      window.modernSidebar.refreshCategoryUI("patches");
+      confLog("✅ Panneau Options Patch activé");
     }
   }
-  
+
   loadCoinsCanvas() {
-    const cvWrap = document.querySelector('.cv-wrap');
+    const cvWrap = document.querySelector(".cv-wrap");
     if (!cvWrap) return;
-    
+
     // Remplacer tout le contenu du canvas
     const canvasParent = cvWrap.parentElement;
-    
+
     canvasParent.innerHTML = `
       <div class="cv-hdr cv-hdr-row">
         <div>
@@ -341,15 +355,15 @@ class DynamicLayoutManager {
         </div>
       </div>
     `;
-    
-    confLog('✅ Canvas Coins chargé');
+
+    confLog("✅ Canvas Coins chargé");
   }
-  
+
   loadCoinsRecap() {
     // Modifier le contenu du récap complètement
-    const recap = document.querySelector('.recap');
+    const recap = document.querySelector(".recap");
     if (!recap) return;
-    
+
     recap.innerHTML = `
       <div class="rp-section">
         <div class="rp-section-title">RÉCAPITULATIF</div>
@@ -390,7 +404,7 @@ class DynamicLayoutManager {
         <!-- Prix unitaire DÉGRESSIF selon la quantité (grille patchs) : injecté
              par updateCoinPrice() dans #coins-unit-price. Pas de prix total
              affiché, comme pour les textiles. -->
-        <div class="rp-unit-price-big" id="coins-unit-price">${(window.tierUnitPrice && window.formatPrix) ? window.formatPrix(window.tierUnitPrice('patches', 10)) : '20,00 €'} <span class="rp-unit-ht">TTC</span></div>
+        <div class="rp-unit-price-big" id="coins-unit-price">${window.tierUnitPrice && window.formatPrix ? window.formatPrix(window.tierUnitPrice("patches", 10)) : "20,00 €"} <span class="rp-unit-ht">TTC</span></div>
         <div class="rp-total-subtitle" id="coins-qty-display">Par unité</div>
       </div>
 
@@ -424,7 +438,7 @@ class DynamicLayoutManager {
     `;
 
     // Réinsère la poignée/écouteurs du panneau récap mobile (innerHTML les a effacés).
-    if (typeof window.setupRecapPanel === 'function') window.setupRecapPanel();
+    if (typeof window.setupRecapPanel === "function") window.setupRecapPanel();
 
     /* Prix initial calculé sur la quantité RÉELLEMENT injectée dans le champ,
        pas sur une constante.
@@ -439,15 +453,15 @@ class DynamicLayoutManager {
        Lire le champ garantit que les deux ne peuvent plus diverger si la
        quantité par défaut ou le `min` changent. */
     if (window.updateCoinPrice) {
-      var qtyEl = document.getElementById('coin-qty-input');
-      var initQty = qtyEl ? (parseInt(qtyEl.value, 10) || 0) : 0;
-      if (initQty < 1) initQty = 10;   // repli = minimum de commande
+      var qtyEl = document.getElementById("coin-qty-input");
+      var initQty = qtyEl ? parseInt(qtyEl.value, 10) || 0 : 0;
+      if (initQty < 1) initQty = 10; // repli = minimum de commande
       window.updateCoinPrice(initQty);
     }
-    
-    confLog('✅ Récap Coins mis à jour');
+
+    confLog("✅ Récap Coins mis à jour");
   }
-  
+
   /**
    * Retour vers un textile depuis une catégorie spéciale.
    *
@@ -460,46 +474,51 @@ class DynamicLayoutManager {
    * @param {string} productType - Textile sélectionné.
    */
   loadTextileSidebar(productType) {
-    var p = productType || 'sweatshirt';
+    var p = productType || "sweatshirt";
     try {
-      sessionStorage.setItem('conf_current_product', p);
+      sessionStorage.setItem("conf_current_product", p);
     } catch (e) {}
 
-    var cvWrap = document.querySelector('.cv-wrap');
+    var cvWrap = document.querySelector(".cv-wrap");
     var canvasParent = cvWrap && cvWrap.parentElement;
 
     if (!canvasParent || this.textileCanvasHTML == null) {
       // Sans copie du canvas d'origine, le rechargement reste le seul recours.
-      try { sessionStorage.setItem('pendingProduct', p); } catch (e) {}
+      try {
+        sessionStorage.setItem("pendingProduct", p);
+      } catch (e) {}
       location.reload();
       return;
     }
 
     canvasParent.innerHTML = this.textileCanvasHTML;
-    confLog('✅ Canvas textile restauré');
+    confLog("✅ Canvas textile restauré");
 
     /* Restaure AUSSI la sidebar textile, vidée par loadCoinsSidebar().
        Elle porte .cg et .sg, la source des menus Couleur/Taille : sans elle,
        le clonage relancé juste après n'aurait rien à cloner et les deux
        sélecteurs resteraient vides jusqu'au prochain rechargement.
        À faire AVANT resetCanvasOptionClones(), pour que la source existe. */
-    var sidebarContent = document.getElementById('sidebar-content');
-    if (sidebarContent && this.textileSidebarHTML != null &&
-        !sidebarContent.querySelector('.cg')) {
+    var sidebarContent = document.getElementById("sidebar-content");
+    if (
+      sidebarContent &&
+      this.textileSidebarHTML != null &&
+      !sidebarContent.querySelector(".cg")
+    ) {
       sidebarContent.innerHTML = this.textileSidebarHTML;
-      confLog('✅ Sidebar textile restaurée');
+      confLog("✅ Sidebar textile restaurée");
     }
 
     /* Les menus Couleur/Taille sont clonés depuis la sidebar au premier
        affichage, avec un drapeau « déjà cloné ». Le canvas venant d'être
        reconstruit, ces menus sont vides : sans cette remise à zéro, le clonage
        ne se refait jamais et les deux sélecteurs restent inertes. */
-    if (typeof window.resetCanvasOptionClones === 'function') {
+    if (typeof window.resetCanvasOptionClones === "function") {
       window.resetCanvasOptionClones();
     }
     /* Réaffiche les sélecteurs et resynchronise leurs libellés (Black / M…)
        sur le DOM neuf : ils portaient l'état du canvas précédent. */
-    if (typeof window.refreshCanvasOpts === 'function') {
+    if (typeof window.refreshCanvasOpts === "function") {
       window.refreshCanvasOpts(p);
     }
 
@@ -511,8 +530,14 @@ class DynamicLayoutManager {
        switchLayout() que si la CATÉGORIE change — elle vaut déjà 'textile'
        ici, donc pas de récursion. Le drapeau ci-dessous rend cette garantie
        explicite plutôt que dépendante de l'ordre des affectations. */
-    var card = document.querySelector('.product-card[data-product="' + p + '"]');
-    if (card && typeof window.selProd === 'function' && !this.__restoringTextile) {
+    var card = document.querySelector(
+      '.product-card[data-product="' + p + '"]',
+    );
+    if (
+      card &&
+      typeof window.selProd === "function" &&
+      !this.__restoringTextile
+    ) {
       this.__restoringTextile = true;
       try {
         window.selProd(card);
@@ -522,33 +547,36 @@ class DynamicLayoutManager {
     }
 
     setTimeout(function () {
-      if (typeof window.restoreColor === 'function') window.restoreColor();
-      if (typeof window.restoreUploads === 'function') window.restoreUploads();
-      if (typeof window.refreshZoneGuides === 'function') window.refreshZoneGuides();
+      if (typeof window.restoreColor === "function") window.restoreColor();
+      if (typeof window.restoreUploads === "function") window.restoreUploads();
+      if (typeof window.refreshZoneGuides === "function")
+        window.refreshZoneGuides();
     }, 60);
   }
-  
+
   /* Comme pour les coins : les réglages du drapeau vivent désormais dans le
      panneau « Options Drapeau » du sidebar moderne. Réinjecter le template
      ici dupliquerait ses IDs (#uf-recto, #flag-remove-recto…) dans une
      sidebar masquée, que getElementById résoudrait en priorité. */
   loadDrapeauxSidebar() {
-    const sidebarContent = document.getElementById('sidebar-content');
-    if (sidebarContent) sidebarContent.innerHTML = '';
+    const sidebarContent = document.getElementById("sidebar-content");
+    if (sidebarContent) sidebarContent.innerHTML = "";
 
-    if (window.modernSidebar &&
-        typeof window.modernSidebar.refreshCategoryUI === 'function') {
-      window.modernSidebar.refreshCategoryUI('drapeaux');
-      confLog('✅ Panneau Options Drapeau activé');
+    if (
+      window.modernSidebar &&
+      typeof window.modernSidebar.refreshCategoryUI === "function"
+    ) {
+      window.modernSidebar.refreshCategoryUI("drapeaux");
+      confLog("✅ Panneau Options Drapeau activé");
     }
   }
-  
+
   loadDrapeauxCanvas() {
-    const cvWrap = document.querySelector('.cv-wrap');
+    const cvWrap = document.querySelector(".cv-wrap");
     if (!cvWrap) return;
-    
+
     const canvasParent = cvWrap.parentElement;
-    
+
     canvasParent.innerHTML = `
       <div class="cv-hdr flag-cv-hdr">
         <div class="flag-cv-titles">
@@ -587,7 +615,7 @@ class DynamicLayoutManager {
 
               <!-- Vue 3D : image réelle du drapeau -->
               <div class="flag-img-3d" data-face="recto">
-                <img class="flag-base-img" id="flag-base-recto" crossorigin="anonymous" src="${(window.ASSET_URLS && window.ASSET_URLS.flagRecto) || ''}" alt="Drapeau recto">
+                <img class="flag-base-img" id="flag-base-recto" crossorigin="anonymous" src="${(window.ASSET_URLS && window.ASSET_URLS.flagRecto) || ""}" alt="Drapeau recto">
                 <div class="flag-color-layer" data-face="recto"></div>
                 <!-- Zone imprimable nette : marge de securite (ourlet + oeillets).
                      Bornes alignees sur FLAG_INSET (conf-logo-drag.js). -->
@@ -634,7 +662,7 @@ class DynamicLayoutManager {
 
               <!-- Vue 3D : image réelle du drapeau -->
               <div class="flag-img-3d" data-face="verso">
-                <img class="flag-base-img" id="flag-base-verso" crossorigin="anonymous" src="${(window.ASSET_URLS && window.ASSET_URLS.flagVerso) || ''}" alt="Drapeau verso">
+                <img class="flag-base-img" id="flag-base-verso" crossorigin="anonymous" src="${(window.ASSET_URLS && window.ASSET_URLS.flagVerso) || ""}" alt="Drapeau verso">
                 <div class="flag-color-layer" data-face="verso"></div>
                 <!-- Zone imprimable nette : marge de securite (ourlet + oeillets).
                      Bornes alignees sur FLAG_INSET (conf-logo-drag.js). -->
@@ -700,48 +728,51 @@ class DynamicLayoutManager {
     `;
 
     // Initialise l'état par défaut + applique les images/taille au chargement.
-    window.__flagOrientation = window.__flagOrientation || 'paysage';
-    window.__flagAnneaux = window.__flagAnneaux || '0';   // sans anneaux par défaut
-    window.__flagSize = window.__flagSize || '90x150';
+    window.__flagOrientation = window.__flagOrientation || "paysage";
+    window.__flagAnneaux = window.__flagAnneaux || "0"; // sans anneaux par défaut
+    window.__flagSize = window.__flagSize || "90x150";
     // Restaure la couleur de fond mémorisée (sinon blanc).
     try {
-      var savedFlagColor = sessionStorage.getItem('conf_flag_color');
+      var savedFlagColor = sessionStorage.getItem("conf_flag_color");
       if (savedFlagColor) window.__flagColor = savedFlagColor;
-      var savedFlagColorName = sessionStorage.getItem('conf_flag_color_name');
+      var savedFlagColorName = sessionStorage.getItem("conf_flag_color_name");
       if (savedFlagColorName) window.__flagColorName = savedFlagColorName;
     } catch (e) {}
     setTimeout(function () {
-      if (typeof refreshFlagImages === 'function') refreshFlagImages();
-      if (typeof applyFlagSizeToImages === 'function') applyFlagSizeToImages();
-      if (typeof applyFlagColorToLayers === 'function') applyFlagColorToLayers();
+      if (typeof refreshFlagImages === "function") refreshFlagImages();
+      if (typeof applyFlagSizeToImages === "function") applyFlagSizeToImages();
+      if (typeof applyFlagColorToLayers === "function")
+        applyFlagColorToLayers();
       // Marque la pastille couleur active dans le sidebar + met à jour le récap.
-      var fc = window.__flagColor || '#ffffff';
+      var fc = window.__flagColor || "#ffffff";
       var activeName = null;
-      document.querySelectorAll('.flag-color-swatch').forEach(function (s) {
+      document.querySelectorAll(".flag-color-swatch").forEach(function (s) {
         /* data-color d'abord (porté par les swatches de la barre du canvas),
            style inline en repli pour tout swatch qui n'en aurait pas. */
-        var val = s.getAttribute('data-color');
+        var val = s.getAttribute("data-color");
         if (!val) {
-          var bg = (s.getAttribute('style') || '').match(/background:\s*(#[0-9a-fA-F]{3,6})/);
+          var bg = (s.getAttribute("style") || "").match(
+            /background:\s*(#[0-9a-fA-F]{3,6})/,
+          );
           val = bg && bg[1];
         }
         var isActive = !!val && val.toLowerCase() === fc.toLowerCase();
-        s.classList.toggle('active', isActive);
-        if (isActive) activeName = s.getAttribute('title');
+        s.classList.toggle("active", isActive);
+        if (isActive) activeName = s.getAttribute("title");
       });
-      var name = window.__flagColorName || activeName || 'Blanc';
+      var name = window.__flagColorName || activeName || "Blanc";
       window.__flagColorName = name;
-      var recapColor = document.getElementById('flag-recap-color');
+      var recapColor = document.getElementById("flag-recap-color");
       if (recapColor) recapColor.textContent = name;
     }, 120);
 
-    confLog('✅ Canvas Drapeaux chargé');
+    confLog("✅ Canvas Drapeaux chargé");
   }
 
   loadDrapeauxRecap() {
-    const recap = document.querySelector('.recap');
+    const recap = document.querySelector(".recap");
     if (!recap) return;
-    
+
     recap.innerHTML = `
       <div class="rp-section">
         <div class="rp-section-title">RÉCAPITULATIF</div>
@@ -781,7 +812,7 @@ class DynamicLayoutManager {
       <div class="rp-section">
         <div class="rp-unit-title">PRIX UNITAIRE</div>
         <!-- Prix défini par l'admin : injecté par window.prixUnitaire('drapeaux'). -->
-        <div class="rp-unit-price-big" id="flags-unit-price">${window.formatPrix && window.prixUnitaire ? window.formatPrix(window.prixUnitaire('drapeaux')) : '19,90 €'} <span class="rp-unit-ht">TTC</span></div>
+        <div class="rp-unit-price-big" id="flags-unit-price">${window.formatPrix && window.prixUnitaire ? window.formatPrix(window.prixUnitaire("drapeaux")) : "19,90 €"} <span class="rp-unit-ht">TTC</span></div>
       </div>
 
       <div class="rp-actions-coins">
@@ -799,10 +830,10 @@ class DynamicLayoutManager {
         <div class="rp-section-title">PAIEMENT SÉCURISÉ</div>
         <p class="rp-payment-sub">Vos paiements sont 100% sécurisés</p>
         <div class="rp-payment-logos">
-          <img src="${(window.ASSET_URLS && window.ASSET_URLS.visa) || ''}" alt="Visa">
-          <img src="${(window.ASSET_URLS && window.ASSET_URLS.mastercard) || ''}" alt="Mastercard">
-          <img src="${(window.ASSET_URLS && window.ASSET_URLS.applepay) || ''}" alt="Apple Pay">
-          <img src="${(window.ASSET_URLS && window.ASSET_URLS.paypal) || ''}" alt="PayPal">
+          <img src="${(window.ASSET_URLS && window.ASSET_URLS.visa) || ""}" alt="Visa">
+          <img src="${(window.ASSET_URLS && window.ASSET_URLS.mastercard) || ""}" alt="Mastercard">
+          <img src="${(window.ASSET_URLS && window.ASSET_URLS.applepay) || ""}" alt="Apple Pay">
+          <img src="${(window.ASSET_URLS && window.ASSET_URLS.paypal) || ""}" alt="PayPal">
         </div>
       </div>
 
@@ -817,8 +848,8 @@ class DynamicLayoutManager {
       </div>
     `;
 
-    if (typeof window.setupRecapPanel === 'function') window.setupRecapPanel();
-    confLog('✅ Récap Drapeaux chargé');
+    if (typeof window.setupRecapPanel === "function") window.setupRecapPanel();
+    confLog("✅ Récap Drapeaux chargé");
   }
 
   // ========================================
@@ -832,18 +863,20 @@ class DynamicLayoutManager {
      dupliquait les IDs (#coin-num-qty-input, #uc-recto…) que getElementById
      aurait alors résolus sur la copie invisible. */
   loadPatchesSidebar() {
-    const sidebarContent = document.getElementById('sidebar-content');
-    if (sidebarContent) sidebarContent.innerHTML = '';
+    const sidebarContent = document.getElementById("sidebar-content");
+    if (sidebarContent) sidebarContent.innerHTML = "";
 
-    if (window.modernSidebar &&
-        typeof window.modernSidebar.refreshCategoryUI === 'function') {
-      window.modernSidebar.refreshCategoryUI('coins');
-      confLog('✅ Panneau Options Coin activé');
+    if (
+      window.modernSidebar &&
+      typeof window.modernSidebar.refreshCategoryUI === "function"
+    ) {
+      window.modernSidebar.refreshCategoryUI("coins");
+      confLog("✅ Panneau Options Coin activé");
     }
   }
 
   loadPatchesCanvas() {
-    const cvWrap = document.querySelector('.cv-wrap');
+    const cvWrap = document.querySelector(".cv-wrap");
     if (!cvWrap) return;
     const canvasParent = cvWrap.parentElement;
 
@@ -869,7 +902,7 @@ class DynamicLayoutManager {
             <div class="coin-view" data-view="recto">
               <div class="coin-view-label">RECTO</div>
               <div class="coin-disc" id="coin-disc-recto">
-                <img class="coin-base-img" id="coin-base-recto" src="${A.patchRecto || ''}" alt="Pièce recto">
+                <img class="coin-base-img" id="coin-base-recto" src="${A.patchRecto || ""}" alt="Pièce recto">
                 <!-- Zone imprimable : repère de placement du design. -->
                 <div class="coin-safe-zone" data-face="recto"></div>
                 <div class="design-logo coin-logo" id="coin-logo-recto" data-zone="coin-recto" style="display:none; left:28%; top:28%; width:44%;">
@@ -883,7 +916,7 @@ class DynamicLayoutManager {
             <div class="coin-view" data-view="verso">
               <div class="coin-view-label">VERSO</div>
               <div class="coin-disc" id="coin-disc-verso">
-                <img class="coin-base-img" id="coin-base-verso" src="${A.patchVerso || ''}" alt="Pièce verso">
+                <img class="coin-base-img" id="coin-base-verso" src="${A.patchVerso || ""}" alt="Pièce verso">
                 <!-- Zone imprimable : repère de placement du design. -->
                 <div class="coin-safe-zone" data-face="verso"></div>
                 <div class="design-logo coin-logo" id="coin-logo-verso" data-zone="coin-verso" style="display:none; left:28%; top:28%; width:44%;">
@@ -899,7 +932,7 @@ class DynamicLayoutManager {
             <div class="coin-view" data-view="cote">
               <div class="coin-view-label">VUE DE CÔTÉ</div>
               <div class="coin-edge" id="coin-disc-edge">
-                <img class="coin-base-img" id="coin-base-cote" src="${A.patchCote || ''}" alt="Pièce côté">
+                <img class="coin-base-img" id="coin-base-cote" src="${A.patchCote || ""}" alt="Pièce côté">
                 <img class="coin-cote-logo" id="coin-cote-logo" style="display:none;" alt="Logo côté">
               </div>
             </div>
@@ -922,17 +955,17 @@ class DynamicLayoutManager {
 
           <div class="cv-info">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="#999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            Les rendus 3D sont une approximation. Le rendu final peut présenter de légères variations.
+            Attention, ceci est juste un aperçu, notre équipe reviendra vers vous avec une maquette finale et un devis.
           </div>
         </div>
       </div>
     `;
 
-    confLog('✅ Canvas Patchs chargé');
+    confLog("✅ Canvas Patchs chargé");
   }
 
   loadPatchesRecap() {
-    const recap = document.querySelector('.recap');
+    const recap = document.querySelector(".recap");
     if (!recap) return;
 
     const coinThumb = `
@@ -1044,8 +1077,8 @@ class DynamicLayoutManager {
       </div>
     `;
 
-    if (typeof window.setupRecapPanel === 'function') window.setupRecapPanel();
-    confLog('✅ Récap Patchs chargé');
+    if (typeof window.setupRecapPanel === "function") window.setupRecapPanel();
+    confLog("✅ Récap Patchs chargé");
   }
 }
 
@@ -1056,66 +1089,72 @@ class DynamicLayoutManager {
 // Sélection de forme
 function selectShape(element) {
   // Retirer l'active des autres
-  document.querySelectorAll('.coins-shape-card').forEach(card => {
-    card.classList.remove('active');
+  document.querySelectorAll(".coins-shape-card").forEach((card) => {
+    card.classList.remove("active");
   });
-  
+
   // Ajouter active à celle cliquée
-  element.classList.add('active');
-  
+  element.classList.add("active");
+
   // Récupérer la forme sélectionnée
-  const shape = element.getAttribute('data-shape');
-  
+  const shape = element.getAttribute("data-shape");
+
   // Changer la forme du canvas
   changeCanvasShape(shape);
 
   // Les bornes de la zone imprimable dependent de la forme : on recontraint
   // le logo, sinon il resterait hors de la nouvelle silhouette.
   setTimeout(function () {
-    if (typeof window.clampPatchLogo === 'function') window.clampPatchLogo(true);
+    if (typeof window.clampPatchLogo === "function")
+      window.clampPatchLogo(true);
   }, 60);
-  
+
   // Mettre à jour le récap
   updateCoinsRecapShape(shape);
 }
 
 // Changer la forme du canvas
 function changeCanvasShape(shape) {
-  const canvas = document.getElementById('coins-canvas');
+  const canvas = document.getElementById("coins-canvas");
   if (!canvas) return;
 
   // Retirer toutes les classes de forme
-  canvas.classList.remove('shape-rond', 'shape-carre', 'shape-rectangle', 'shape-blason');
+  canvas.classList.remove(
+    "shape-rond",
+    "shape-carre",
+    "shape-rectangle",
+    "shape-blason",
+  );
 
   // Ajouter la nouvelle classe
-  canvas.classList.add('shape-' + shape);
+  canvas.classList.add("shape-" + shape);
 
   // Charger l'IMAGE PNG correspondant à la nouvelle forme (+ couleur courante) et
   // appliquer son aspect-ratio. Sans cet appel, l'image du patch ne changeait pas
   // quand on cliquait sur Carré / Rectangle / Blason.
-  if (typeof window.updatePatchShapeImg === 'function') {
+  if (typeof window.updatePatchShapeImg === "function") {
     window.updatePatchShapeImg();
   }
 
   // La vignette du récap doit suivre la nouvelle forme.
-  if (typeof window.updatePatchRecapThumb === 'function') {
+  if (typeof window.updatePatchRecapThumb === "function") {
     window.updatePatchRecapThumb();
   }
 
-  confLog('🔷 Forme changée:', shape);
+  confLog("🔷 Forme changée:", shape);
 }
 
 // Mettre à jour la forme dans le récap
 function updateCoinsRecapShape(shape) {
-  const recapShape = document.getElementById('coins-recap-shape');
+  const recapShape = document.getElementById("coins-recap-shape");
   if (recapShape) {
     const shapeNames = {
-      'rond': 'Rond',
-      'carre': 'Carré',
-      'rectangle': 'Rectangle',
-      'blason': 'Blason'
+      rond: "Rond",
+      carre: "Carré",
+      rectangle: "Rectangle",
+      blason: "Blason",
     };
-    recapShape.textContent = shapeNames[shape] || 'Rond';
+    recapShape.textContent = shapeNames[shape] || "Rond";
   }
 }
 
@@ -1135,39 +1174,40 @@ function updateCoinsRecapShape(shape) {
 // Sélection du type de fabrication
 function selectFabrication(element) {
   // Retirer l'active des autres
-  document.querySelectorAll('.conf-fabrication-option').forEach(option => {
-    option.classList.remove('active');
+  document.querySelectorAll(".conf-fabrication-option").forEach((option) => {
+    option.classList.remove("active");
   });
-  
+
   // Ajouter active à celle cliquée
-  element.classList.add('active');
-  
+  element.classList.add("active");
+
   // Cocher le radio
   const radio = element.querySelector('input[type="radio"]');
   if (radio) radio.checked = true;
-  
+
   // Récupérer le type
-  const fabrication = element.getAttribute('data-fabrication');
-  
+  const fabrication = element.getAttribute("data-fabrication");
+
   // Mettre à jour le récap
-  const recapType = document.getElementById('coins-recap-type');
+  const recapType = document.getElementById("coins-recap-type");
   if (recapType) {
     const fabricationNames = {
-      'sublime': 'Sublimé',
-      'pvc': 'PVC',
-      'tissu': 'Tissé'
+      sublime: "Sublimé",
+      pvc: "PVC",
+      tissu: "Tissé",
     };
-    recapType.textContent = fabricationNames[fabrication] || 'Sublimé';
+    recapType.textContent = fabricationNames[fabrication] || "Sublimé";
   }
-  
-  confLog('🎨 Fabrication changée:', fabrication);
+
+  confLog("🎨 Fabrication changée:", fabrication);
 }
 
 // Bouton contact
 function contactForCustom() {
-  var msg = 'Email : contact@exemple.com\nTél : 01 XX XX XX XX';
-  if (window.confAlert) window.confAlert(msg, { icon: 'info', title: 'Options PVC et Tissé' });
-  else alert('Contactez-nous pour les options PVC et Tissé.\n' + msg);
+  var msg = "Email : contact@exemple.com\nTél : 01 XX XX XX XX";
+  if (window.confAlert)
+    window.confAlert(msg, { icon: "info", title: "Options PVC et Tissé" });
+  else alert("Contactez-nous pour les options PVC et Tissé.\n" + msg);
 }
 
 /* Quantité — minimum LU sur l'attribut `min` du champ.
@@ -1175,8 +1215,8 @@ function contactForCustom() {
    après) : coder le minimum en dur ici rendait sans effet la valeur déclarée
    dans le markup, et le champ repassait à 20 malgré un min="10". */
 function coinMinQty() {
-  const input = document.getElementById('coin-qty-input');
-  const m = input ? parseInt(input.getAttribute('min'), 10) : NaN;
+  const input = document.getElementById("coin-qty-input");
+  const m = input ? parseInt(input.getAttribute("min"), 10) : NaN;
   return isNaN(m) || m < 1 ? 1 : m;
 }
 
@@ -1186,13 +1226,14 @@ function coinMinQty() {
    répondait 400 au checkout. Repli local si le fichier manque : le plancher
    seul, comportement d'avant le correctif plutôt qu'une exception. */
 function clampQtyLocal(valeur, min) {
-  if (typeof window.clampQty === 'function') return window.clampQty(valeur, min);
+  if (typeof window.clampQty === "function")
+    return window.clampQty(valeur, min);
   var n = parseInt(valeur, 10);
   return isFinite(n) && n >= min ? n : min;
 }
 
 function changeQty(delta) {
-  const input = document.getElementById('coin-qty-input');
+  const input = document.getElementById("coin-qty-input");
   if (!input) return;
 
   const min = coinMinQty();
@@ -1204,7 +1245,7 @@ function changeQty(delta) {
 
 // Gestion de l'input quantité
 function handleQtyInput() {
-  const input = document.getElementById('coin-qty-input');
+  const input = document.getElementById("coin-qty-input");
   if (!input) return;
 
   const min = coinMinQty();
@@ -1230,21 +1271,24 @@ function updateCoinPrice(qty) {
      backend. La clé `patches` porte les coins métal vendus sur devis : sans
      grille ni prix fixe, la lire renvoyait le tarif d'un autre produit.
      Repli à 20 € = 1er palier de la grille (10 pièces), et non 2,45 €. */
-  if (typeof window.tierUnitPrice === 'function') {
-    unitPrice = window.tierUnitPrice('patches', q);   // prix TTC du palier
+  if (typeof window.tierUnitPrice === "function") {
+    unitPrice = window.tierUnitPrice("patches", q); // prix TTC du palier
   }
   if (unitPrice == null) {
-    unitPrice = window.prixUnitaire ? window.prixUnitaire('patches') : 20.0;
+    unitPrice = window.prixUnitaire ? window.prixUnitaire("patches") : 20.0;
   }
   // Affichage : prix UNITAIRE du palier atteint + rappel de quantité.
   // Pas de prix total (retiré, comme pour les textiles).
-  const unitEl = document.getElementById('coins-unit-price');
-  const qtyDisplayEl = document.getElementById('coins-qty-display');
+  const unitEl = document.getElementById("coins-unit-price");
+  const qtyDisplayEl = document.getElementById("coins-qty-display");
   /* « / unité » explicite : le montant affiché est un PRIX UNITAIRE, pas le
      total de la commande. Sans cette mention, « 20,00 € » pouvait se lire
      comme le prix des 10 patchs. */
-  if (unitEl) unitEl.innerHTML = (window.formatPrix ? window.formatPrix(unitPrice)
-      : unitPrice.toFixed(2).replace('.', ',') + ' €') +
+  if (unitEl)
+    unitEl.innerHTML =
+      (window.formatPrix
+        ? window.formatPrix(unitPrice)
+        : unitPrice.toFixed(2).replace(".", ",") + " €") +
       ' <span class="rp-unit-ht">TTC / unité</span>';
   /* Texte FIXE, sans `q` : la variable porte la quantité COURANTE, pas le
      seuil. L'interpoler ici aurait affiché « Commande minimum 50 unités » dès
@@ -1254,19 +1298,19 @@ function updateCoinPrice(qty) {
      La dégressivité reste active (grille `patches` dans conf-pricing-tiers.js)
      et le montant ci-dessus suit déjà le palier atteint : à 100 pièces il
      affichera 3,50 € / unité. */
-  if (qtyDisplayEl) qtyDisplayEl.textContent = 'Commande minimum 10 unités';
+  if (qtyDisplayEl) qtyDisplayEl.textContent = "Commande minimum 10 unités";
 }
 
 // Changement de vue (2D/3D)
 function switchCoinsView(view) {
-  document.querySelectorAll('.vt').forEach(btn => btn.classList.remove('on'));
-  event.target.classList.add('on');
-  confLog('👁️ Vue changée:', view);
+  document.querySelectorAll(".vt").forEach((btn) => btn.classList.remove("on"));
+  event.target.classList.add("on");
+  confLog("👁️ Vue changée:", view);
 }
 
 // Initialisation
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
     window.dynamicLayoutManager = new DynamicLayoutManager();
   });
 } else {
@@ -1297,12 +1341,16 @@ window.selectFabrication = selectFabrication;
    (voir .patch-safe-zone dans conf-coins.css).
    ══════════════════════════════════════════════════════════════════ */
 function updatePatchZoneGuide() {
-  var canvas = document.getElementById('coins-canvas');
+  var canvas = document.getElementById("coins-canvas");
   if (!canvas) return;
-  var logo = document.getElementById('patch-logo');
-  var img = logo && logo.querySelector('img');
-  var filled = !!(logo && logo.style.display !== 'none' &&
-                  img && img.getAttribute('src'));
-  canvas.classList.toggle('filled', filled);
+  var logo = document.getElementById("patch-logo");
+  var img = logo && logo.querySelector("img");
+  var filled = !!(
+    logo &&
+    logo.style.display !== "none" &&
+    img &&
+    img.getAttribute("src")
+  );
+  canvas.classList.toggle("filled", filled);
 }
 window.updatePatchZoneGuide = updatePatchZoneGuide;
