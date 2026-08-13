@@ -462,7 +462,11 @@
   .icon-nav-label br { display: inline; font-size: 0; }
   .icon-nav-label br::after { content: "\00a0"; font-size: 9px; }
 
-  .icon-nav-item.active { background: rgba(255,255,255,.12); }
+  /* Pastille noire + contenu orange, comme en desktop : le rail est clair
+     (#ebebeb), donc l'ancien voile blanc à 12 % y était invisible. */
+  .icon-nav-item.active { background: #000000; color: #ff6b35; }
+  .icon-nav-item.active svg,
+  .icon-nav-item.active .icon-nav-label { color: #ff6b35; }
 
   /* ── Aperçu : l'image profite de toute la largeur ── */
   .cv-wrap { min-height: 0; }

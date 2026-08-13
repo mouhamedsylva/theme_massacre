@@ -323,6 +323,10 @@
     height: auto;
     padding: 5px 2px max(5px, env(safe-area-inset-bottom));
     gap: 0;
+    /* La barre du bas reste NOIRE en mobile, alors que le rail desktop est
+       passé en gris clair (conf-sidebar-modern.css). Sans ce rappel explicite,
+       elle héritait du gris et ses icônes blanches devenaient illisibles. */
+    background: #000000;
 
     border: none;
     border-right: none;

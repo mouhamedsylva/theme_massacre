@@ -33,7 +33,10 @@
 
 .icon-nav {
   width: 65px;
-  background: #000000;
+  /* Gris clair : le rail n'est plus une masse noire à côté du panneau blanc.
+     Les couleurs des items ci-dessous sont inversées en conséquence (texte
+     sombre sur clair) — les modifier isolément casserait la lisibilité. */
+  background: #ebebeb;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -63,7 +66,9 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  color: #8a8a8a;
+  /* Gris moyen sur fond clair (#ebebeb) : lisible au repos sans concurrencer
+     l'onglet actif, qui passe en noir franc. */
+  color: #5a5a5a;
   background: transparent;
   border: none;
   padding: 10px 6px;
@@ -84,18 +89,32 @@
   border-radius: 0 2px 2px 0;
 }
 
+/* Survol : voile NOIR transparent, pas blanc — sur le rail clair (#ebebeb) un
+   voile blanc ne se verrait pas. */
 .icon-nav-item:hover {
-  background: rgba(255,255,255,0.05);
-  color: #b0b0b0;
+  background: rgba(0,0,0,0.05);
+  color: #2a2a2a;
 }
 
+/* Sélection : pastille NOIRE pleine, contenu ORANGE. C'est l'inverse du rail
+   (sombre sur clair), donc l'onglet actif se détache sans ambiguïté. */
 .icon-nav-item.active {
-  background: rgba(255,255,255,0.08);
-  color: #ffffff;
+  background: #000000;
+  color: #ff6b35;
 }
 
+/* L'icône et le libellé héritent mal de `color` selon les navigateurs (le SVG
+   a sa propre règle plus bas, à la spécificité supérieure) : on force les deux
+   ici, sinon seul le libellé passait en orange. */
+.icon-nav-item.active svg,
+.icon-nav-item.active .icon-nav-label {
+  color: #ff6b35;
+}
+
+/* Liseré : BLANC sur la pastille noire. En orange il se confondait avec les
+   icônes désormais orange, et disparaissait visuellement. */
 .icon-nav-item.active::before {
-  background: #ff6b35;
+  background: #ffffff;
 }
 
 .icon-nav-item svg {

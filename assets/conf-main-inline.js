@@ -29,11 +29,22 @@
     /* Tailles disponibles : lues depuis le sidebar (.sb) pour rester synchronisées
        si on modifie la liste. Repli sur les tailles standard. */
     function grpSizes() {
-      var btns = document.querySelectorAll('.sb');
-      var out = [];
+      /* `:not(.sb-group)` : le bouton « Pour Groupe » de la sidebar porte AUSSI
+         la classe .sb, alors que ce n'est pas une taille. Sans ce filtre, il
+         apparaissait comme option dans les listes déroulantes Taille de la
+         modale de groupe. Même filtre que getAvailableSizes()
+         (conf-size-quantity-modal.js:27). */
+      var btns = document.querySelectorAll('.sb:not(.sb-group)');
+      /* Dé-doublonne par libellé, comme grpColors() juste en dessous.
+         Le sidebar est reconstruit selon le produit et la vue : plusieurs jeux
+         de boutons .sb peuvent coexister dans le DOM (l'ancien masqué, le
+         nouveau visible). Sans dé-doublonnage, la liste Taille affichait deux
+         fois XS/S/M/L/XL/XXL — le « des fois » du symptôme, selon que le
+         sidebar avait déjà été reconstruit ou non. */
+      var seen = {}, out = [];
       btns.forEach(function (b) {
         var t = (b.textContent || '').trim();
-        if (t) out.push(t);
+        if (t && !seen[t]) { seen[t] = 1; out.push(t); }
       });
       return out.length ? out : ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
     }
@@ -1130,32 +1141,60 @@
        surface imprimable descend plus bas dans le dos. */
     const DOS_TOP_PCT   = 22;
     const DOS_H_MAX_PCT = 46;
-    /* Largeur imprimable du dos, en % du visuel (et non convertie depuis les
-       cm : voir le commentaire dans buildZones). Calée sur le rendu par
-       ajustements successifs : 28 % touchait les coutures, 18 % était trop
-       resserré. 22 % occupe le panneau dos en gardant une marge de chaque
-       côté, et la hauteur allongée (46 %) suit la forme du vêtement. */
-    const DOS_W_PCT     = 22;
+    /* Largeur imprimable du dos, en % du visuel. Ramenée de 22 % à 17 % :
+       22 % valait 38,9 cm sur le sweat, très au-delà de la contrainte atelier
+       « L30 max » rappelée plus bas — la zone frôlait les coutures latérales.
+       17 % = 30,0 cm (17 / (30.0/53)), soit la limite atelier exactement.
+       La zone reste centrée sans autre réglage : `left` est calculé en
+       49.8 - dosW / 2 (voir buildZones). */
+    const DOS_W_PCT     = 17;
 
     /* Zone de flocage d'une MANCHE (vue de côté), en % du visuel et PAR PRODUIT :
        les silhouettes diffèrent, une valeur unique tombait juste sur le sweat et
        à côté sur les t-shirts. Calée sur le rendu, comme le dos. */
+    /* Zone de manche : 9 cm de large, hauteur SELON LE PRODUIT, convertie avec
+       le facteur propre à chaque silhouette (CM.<produit>, % de cadre par cm) :
+         largeur  9 cm -> 5.1 %   (était 9 %, soit 15,9 cm — bien trop large
+                                   pour un logo de manche)
+         hauteur  8 cm -> 10.6 %  (était 29 % sur le sweat, soit 22,0 cm : la
+                                   zone descendait jusqu'au poignet ; sur les
+                                   t-shirts elle passait sous l'emmanchure)
+
+       `left` est RECALCULÉ, pas conservé : rétrécir la largeur sans toucher au
+       bord gauche aurait décalé la zone vers l'intérieur du bras. On garde le
+       centre d'origine (sweat 51 %, t-shirt 52 %) et on en déduit le bord.
+
+       Ne PAS réutiliser une valeur d'un produit sur l'autre : les facteurs
+       diffèrent légèrement, et le résultat ne ferait plus la même taille. */
     const SLEEVE = {
-      // Sweat : zone haute, elle descend de l'épaule jusqu'au coude.
-      sweat:  { left: 46.5, top: 34, w: 9, h: 29 },
-      // T-shirts : manche courte, la zone s'arrête avant l'ourlet.
-      tshirt: { left: 47.5, top: 29, w: 9, h: 13 },
+      // Sweat : zone haute, calée sous la couture d'épaule.
+      sweat:  { left: 48.5, top: 34, w: 5.1, h: 10.6 },
+      /* T-shirt COTON : manche courte, la zone s'arrête avant l'ourlet.
+         `left` reculé en deux fois (49.5 -> 48.7 -> 47.9, soit ~2,8 cm) : sur
+         cette silhouette, le rectangle mordait le bord droit de la manche. */
+      tshirt: { left: 47.9, top: 29, w: 5.1, h: 10.6 },
+      /* T-shirt POLYESTER : entrée DISTINCTE du coton. Les deux partageaient la
+         même zone, si bien qu'un réglage fait sur le coton déplaçait aussi le
+         polyester — alors que leurs visuels n'ont pas le même cadrage de manche.
+         `left` reste à 49.5 (position d'origine, centrée sur ce visuel) : c'est
+         le coton qui a reculé à 47.9, pas le polyester qui a avancé. */
+      tshirt_polyester: { left: 49.5, top: 29, w: 5.1, h: 10.6 },
     };
 
     /* Contraintes atelier (en cm) :
          Dos     : L30 x H39 max
          Cœur    : 8 cm (logo rond/autre) — le pseudo monte à 12 cm, mais la
                    zone reste à 8 : au-delà, le placement n'est plus « cœur ».
-         Manches : rectangle 8x6, ou rond/autre 8x8 -> zone 8x8.
+         Manches : zone 9 x 8 cm (voir SLEEVE ci-dessus, converti par produit).
        Positions (left/top) relevées sur les visuels de référence de l'atelier. */
     /* @param isSweat  sweat à capuche : bras plus bas et plus en arrière qu'un
                        t-shirt, d'où une zone de manche distincte (voir SLEEVE). */
-    function buildZones(cm, isSweat) {
+    /* @param productType  clé exacte du produit ('sweatshirt', 'tshirt',
+                           'tshirt_polyester'). `isSweat` ne suffit plus : les
+                           deux t-shirts ont des cadrages de manche distincts,
+                           et sans ce paramètre un réglage fait sur le coton
+                           déplaçait aussi le polyester. */
+    function buildZones(cm, isSweat, productType) {
       // Zone poitrine unifiée : bandeau LARGE et FIN centré sur la poitrine
       // (cf. maquette de référence). Exprimée directement en % du layer — les
       // "cm" servent aux zones dos/manches, mais ici la contrainte est visuelle
@@ -1190,8 +1229,10 @@
          reste où il tombait déjà bien, au-dessus de l'ourlet. */
       var dosTop = DOS_TOP_PCT;
       if (isSweat) { dosTop += 4; dosH -= 4; }
-      // Zone de manche du produit courant (silhouettes différentes).
-      var SLV = isSweat ? SLEEVE.sweat : SLEEVE.tshirt;
+      /* Zone de manche du produit courant (silhouettes différentes).
+         Lecture par clé exacte, avec repli sur `tshirt` : un type inconnu
+         garde l'ancien comportement plutôt que de casser le rendu. */
+      var SLV = isSweat ? SLEEVE.sweat : (SLEEVE[productType] || SLEEVE.tshirt);
       return {
         // Logo « Cœur (gauche) » : démarre côté DROIT du bandeau (le porteur voit
         // son cœur à sa gauche = à droite sur le rendu vu de face).
@@ -1238,7 +1279,7 @@
     /* Zones du produit courant. Réaffecté par applyZonesForProduct(). */
     /* Sweatshirt = produit affiché au chargement : on construit ses zones, pas
        celles du t-shirt (les manches diffèrent). */
-    var LOGO_ZONES = buildZones(CM.sweatshirt, true);
+    var LOGO_ZONES = buildZones(CM.sweatshirt, true, 'sweatshirt');
     /* Exposée : conf-text-zone.js la lit pour réaligner la zone guide.
        Réassignée dans applyZonesForProduct() — qui met aussi window.LOGO_ZONES
        à jour, sans quoi l'asset lirait les zones du produit précédent. */
@@ -1267,7 +1308,7 @@
        échelle, les bornes en % doivent donc être recalculées. */
     function applyZonesForProduct(productType) {
       var isSweat = String(productType || '').indexOf('sweat') === 0;
-      LOGO_ZONES = buildZones(isSweat ? CM.sweatshirt : CM.tshirt, isSweat);
+      LOGO_ZONES = buildZones(isSweat ? CM.sweatshirt : CM.tshirt, isSweat, productType);
       window.LOGO_ZONES = LOGO_ZONES;   // garde la référence exposée à jour
 
       // Reporte les bornes sur les rectangles guides du DOM.
