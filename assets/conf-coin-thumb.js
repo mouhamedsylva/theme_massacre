@@ -26,8 +26,14 @@
   function safeSrc(u) {
     if (typeof window.safeImgSrc === 'function') return window.safeImgSrc(u);
     var s = String(u == null ? '' : u).trim();
+    /* `//domaine/…` (protocole-relatif) : forme produite par `asset_url`. Le
+       fond de coin vient d'un `getAttribute('src')`, il garde donc cette forme
+       brute — sans ce motif, la vignette restait muette (le code sort
+       silencieusement quand l'URL est vide). À GARDER SYNCHRONISÉ avec
+       safeImgSrc (conf-main-inline.js:141-146). */
     var ok = /^data:image\//i.test(s) ||
              /^https?:\/\//i.test(s) ||
+             /^\/\/[^\/]/.test(s) ||
              /^\/[^\/]/.test(s) ||
              /^[\w.\-]+\.(png|jpe?g|webp|svg|gif)(\?.*)?$/i.test(s);
     return ok ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;')

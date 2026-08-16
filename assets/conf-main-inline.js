@@ -46,7 +46,11 @@
         var t = (b.textContent || '').trim();
         if (t && !seen[t]) { seen[t] = 1; out.push(t); }
       });
-      return out.length ? out : ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+      /* Repli si aucun bouton .sb n'est dans le DOM. Aligné sur les 9 tailles
+         du sélecteur (sections/configurateur.liquid) et de la modale de groupe
+         (conf-size-quantity-modal.js:48) : les trois listes doivent coïncider,
+         sinon une taille commandable ici serait absente ailleurs. */
+      return out.length ? out : ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
     }
     window.grpSizes = grpSizes;     // conf-group-csv.js
 
@@ -99,6 +103,12 @@
       ov.classList.add('open');
       document.body.style.overflow = 'hidden';
       grpUpdateTotals();
+      /* Le client a pu ajouter ou retirer un texte depuis la dernière
+         ouverture : le sélecteur de zone est reconstruit à chaque fois, et
+         reste masqué s'il n'y a pas d'ambiguïté (0 ou 1 texte). */
+      if (typeof window.grpRefreshTextZonePicker === 'function') {
+        window.grpRefreshTextZonePicker();
+      }
     }
     function closeGroupOrder() {
       var ov = document.getElementById('grp-overlay');
@@ -135,11 +145,21 @@
        Liste blanche de protocoles plutôt que liste noire : `data:image/`,
        `http(s):` et les chemins relatifs (assets Shopify) couvrent tous les
        usages réels. Tout le reste retombe sur une image vide plutôt que sur
-       une URL douteuse — la vignette manque, le panier reste utilisable. */
+       une URL douteuse — la vignette manque, le panier reste utilisable.
+
+       La forme PROTOCOLE-RELATIVE `//domaine/…` a été ajoutée : c'est celle
+       que produit le filtre Liquid `asset_url`, donc celle de toutes les images
+       produit du thème. Elle était rejetée par `/^\/[^\/]/`, qui exige une
+       barre NON suivie d'une seconde — l'aperçu d'une ligne de commande de
+       groupe recevait donc `src=""` et n'affichait aucun vêtement.
+       `[^\/]` en troisième position reste indispensable : il accepte
+       `//domaine/…` mais refuse `///…`. Aucun risque rouvert — `//` ne peut pas
+       introduire de schéma exécutable, et `javascript:` reste rejeté. */
     function safeImgSrc(u) {
       var s = String(u == null ? '' : u).trim();
       var ok = /^data:image\//i.test(s) ||
                /^https?:\/\//i.test(s) ||
+               /^\/\/[^\/]/.test(s) ||        // protocole-relatif : //cdn.shopify…
                /^\/[^\/]/.test(s) ||          // chemin absolu du domaine
                /^[\w.\-]+\.(png|jpe?g|webp|svg|gif)(\?.*)?$/i.test(s);
       return ok ? grpEsc(s) : '';
@@ -713,6 +733,25 @@
     let currentProductType = 'sweatshirt';
     window.currentProductType = currentProductType;   // lu par conf-overview.js
 
+    /* Le bouton « Vue d'ensemble » restait MASQUÉ au premier chargement, et
+       n'apparaissait qu'après un aller-retour vers un autre produit.
+
+       Ordre d'exécution en cause : les scripts `defer` s'exécutent dans l'ordre
+       du document, et conf-overview.js est chargé dans le <head> du layout
+       (:731) tandis que CE fichier l'est dans le <body> de la section (:1081).
+       conf-overview.js appelle donc refreshOverviewTab() (:139-143) AVANT que
+       la ligne ci-dessus n'ait posé window.currentProductType : isTextile()
+       lisait `undefined`, captureFn() renvoyait null, et le bouton était
+       masqué. Un changement de produit le rétablissait, via le rappel de
+       :1982 — d'où le symptôme « il apparaît si je vais sur un autre textile
+       et je reviens ».
+
+       On rejoue donc la décision maintenant que la variable existe. Garde
+       `typeof` : ce fichier ne doit pas dépendre du chargement de l'autre. */
+    if (typeof window.refreshOverviewTab === 'function') {
+      window.refreshOverviewTab();
+    }
+
     /* Les 3 produits textiles : seuls eux acceptent une commande de groupe
        (un coin ou un drapeau n'a ni taille ni nom floqué par personne). */
     var TEXTILE_TYPES = ['sweatshirt', 'tshirt', 'tshirt_polyester'];
@@ -1085,16 +1124,30 @@
       const legacyMap = window.COLOR_SLUG_LEGACY || {};
       const fallbacks = (window.PRODUCT_FALLBACK_URLS || {})[prefix] || {};
 
+      /* URL normalisées par absUrl() — voir sa définition plus bas (:1885).
+
+         Les dictionnaires ci-dessus viennent du filtre Liquid `asset_url`, qui
+         produit des URL PROTOCOLE-RELATIVES : `//massacre-officiel.com/cdn/…`.
+         Le canvas s'en accommode (il fait `imgEl.src = url`, que le navigateur
+         résout tout seul), mais tout consommateur qui construit du HTML passe
+         par safeImgSrc() — dont la liste blanche rejetait cette forme. L'aperçu
+         d'une ligne de commande de groupe (conf-group-preview.js:113) recevait
+         donc une chaîne vide : le vêtement n'apparaissait pas, alors que le
+         logo et le texte (des data-URL) s'affichaient.
+
+         currentProductImageURL() normalisait déjà de cette façon (:1919) ;
+         c'est cette asymétrie entre les deux résolveurs d'URL qu'on supprime
+         ici. */
       const list = [];
       const enUrl = urls[prefix + '-' + slug + '-' + view];
-      if (enUrl) list.push(enUrl);
+      if (enUrl) list.push(absUrl(enUrl));
 
       const frSlug = legacyMap[slug];
       if (frSlug) {
         const frUrl = legacyUrls[prefix + '-' + frSlug + '-' + view];
-        if (frUrl) list.push(frUrl);
+        if (frUrl) list.push(absUrl(frUrl));
       }
-      if (fallbacks[view]) list.push(fallbacks[view]);
+      if (fallbacks[view]) list.push(absUrl(fallbacks[view]));
       return list;
     }
 
@@ -1109,6 +1162,12 @@
     window.COLOR_SLUGS = COLOR_SLUGS;
     window.PRODUCT_SLUGS = PRODUCT_SLUGS;
     window.colorImageCandidates = colorImageCandidates;
+    /* absUrl : exportée pour les assets qui construisent du HTML à partir d'une
+       URL Shopify (vignettes du récap drapeau/coin, aperçu de groupe). Elle
+       était restée locale, alors que colorImageCandidates juste au-dessus était
+       déjà exposée — d'où des URL `//…` transmises telles quelles à
+       safeImgSrc(), qui les rejetait. */
+    window.absUrl = absUrl;
 
     /* Charge la première URL candidate qui existe dans imgEl. */
     function loadFirstAvailable(imgEl, candidates) {
@@ -1313,8 +1372,14 @@
        Ne PAS réutiliser une valeur d'un produit sur l'autre : les facteurs
        diffèrent légèrement, et le résultat ne ferait plus la même taille. */
     const SLEEVE = {
-      // Sweat : zone haute, calée sous la couture d'épaule.
-      sweat:  { left: 48.5, top: 34, w: 5.1, h: 10.6 },
+      /* Sweat : zone haute, calée sous la couture d'épaule.
+         `left` avancé de 48.5 à 49.5 (+1 %, soit ~1 cm sur le rendu) le
+         14/08/2026 : sur le visuel de profil du sweat, le rectangle tombait
+         trop à gauche par rapport au haut du bras.
+         La manche DROITE suit automatiquement — elle est dérivée en miroir
+         (`100 - left - w`, voir LOGO_ZONES.'sr' plus bas) : il n'y a qu'une
+         valeur à régler pour les deux côtés. */
+      sweat:  { left: 49.5, top: 34, w: 5.1, h: 10.6 },
       /* T-shirt COTON : manche courte, la zone s'arrête avant l'ourlet.
          `left` reculé en deux fois (49.5 -> 48.7 -> 47.9, soit ~2,8 cm) : sur
          cette silhouette, le rectangle mordait le bord droit de la manche. */
@@ -1629,6 +1694,18 @@
       logo.style.top  = clampNum(top,  z.top,  z.top + z.height - h) + '%';
       return true;
     }
+    /* Exposée : conf-mobile.js et conf-tablet.js s'en servent dans reflowLogos()
+       à la place de placeLogoInZone().
+
+       La différence est décisive. clampLogoToZone LIT la position et la taille
+       courantes (:1650, :1688-1689) et se contente de les BORNER à la zone :
+       elle est idempotente, exactement comme clampTextToZone pour les textes.
+       placeLogoInZone, elle, les IGNORE et les recalcule depuis `startW` /
+       `startLeft` — la rejouer après un geste annulait le déplacement ET le
+       redimensionnement, puis persistait cette géométrie de départ.
+
+       placeLogoInZone garde son rôle : le PREMIER placement, à l'upload. */
+    window.clampLogoToZone = clampLogoToZone;
 
     /* Affiche/masque les rectangles guides : visibles seulement si leur logo est
        vide (pas encore d'asset). Pour la zone poitrine, elle se masque dès qu'un
@@ -2163,7 +2240,100 @@
         // Toutes les lignes partagent ce libellé : elles restent identifiables
         // comme UNE même liste dans le panier et sur la commande Shopify.
         const groupLabel = 'Groupe ' + rows.length + ' pers. #' + String(Date.now()).slice(-5);
+
+        /* VIGNETTE PAR COULEUR.
+           Chaque ligne recevait `design.thumb`, composée une seule fois sur
+           `fallbackSrc` — donc sur la couleur AFFICHÉE À L'ÉCRAN. Le panier
+           montrait ainsi trois articles « Gold », « Millennial Lilac » et
+           « Fire Red » avec la même vignette turquoise : le libellé était bon,
+           l'image non.
+
+           On recompose donc le design sur l'image de CHAQUE couleur. Les
+           couleurs identiques sont mutualisées (Map) : une liste de 20 personnes
+           en 3 teintes ne déclenche que 3 compositions, pas 20. */
+        /* Le SURNOM entre aussi dans le visuel, pas seulement la couleur.
+
+           Les planches envoyées à l'atelier portaient le texte du CANVAS pour
+           toutes les lignes : le nom de chaque personne ne circulait qu'à côté,
+           en propriété « Personne ». L'atelier devait croiser les deux — source
+           d'erreur de production. On incruste donc le bon surnom dans chaque
+           visuel.
+
+           La zone substituée est celle CHOISIE par le client quand plusieurs
+           textes coexistent (sélecteur de la modale, conf-group-textzone.js) ;
+           les autres textes restent identiques pour tout le monde. */
+        const zoneTexte = (typeof window.grpTextZone === 'function')
+          ? window.grpTextZone() : 'f';
+        const txtEl = document.getElementById('text-' + zoneTexte);
+        const txtContent = txtEl ? txtEl.querySelector('.dt-content') : null;
+        /* Texte courbé : son contenu est un SVG, une substitution simple le
+           casserait. On laisse alors le design commun. */
+        const peutSubstituer = !!(txtContent && !txtEl.classList.contains('is-shaped'));
+        const txtAncien = peutSubstituer ? txtContent.textContent : null;
+        const txtDisplayAncien = peutSubstituer ? txtEl.style.display : null;
+
+        /* Clé = couleur + surnom : deux personnes du même prénom et de la même
+           teinte partagent la même planche, les autres non. */
+        const vignettes = new Map();
+        /* Clé de la Map, construite ICI et NULLE PART AILLEURS.
+
+           L'expression était dupliquée entre le remplissage et la lecture, et
+           les deux ont divergé : le séparateur du remplissage portait un octet
+           NUL (« Apricot\0Samba ») là où la lecture utilisait une espace
+           (« Apricot Samba »). `vignettes.get()` renvoyait donc toujours
+           undefined, et chaque ligne retombait sur `design` — la vignette
+           composée une seule fois sur la couleur AFFICHÉE À L'ÉCRAN. D'où un
+           panier entier à la même teinte, malgré des libellés corrects.
+
+           Le caractère étant invisible, les deux lignes paraissaient identiques
+           à la relecture ; seul un log de la clé échappée l'a révélé. Une
+           fonction unique rend cette divergence impossible. */
+        const cleVignette = (r) => r.color + ' ' + (r.name || '');
+
+        for (const r of rows) {
+          const cle = cleVignette(r);
+          if (vignettes.has(cle)) continue;
+
+          /* Même résolution que le canvas : slug EN, puis FR, puis générique.
+             On passe par les candidats plutôt que de deviner un nom de fichier,
+             pour hériter des replis quand une teinte n'a pas d'image dédiée. */
+          const slug = COLOR_SLUGS[r.color] || '';
+          const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, 'face');
+          const base = cand[0] || fallbackSrc;
+
+          if (peutSubstituer && r.name) {
+            txtContent.textContent = r.name;
+            if (txtDisplayAncien === 'none') txtEl.style.display = '';
+            /* Un surnom plus long que le texte commun doit être re-calé dans
+               sa zone imprimable AVANT la capture. */
+            if (typeof window.clampTextToZone === 'function') {
+              window.clampTextToZone(zoneTexte);
+            }
+          }
+
+          /* `btnEl` seulement au premier appel : il sert à afficher
+             « Préparation du design… » sur le bouton. Le passer à chaque tour
+             ferait clignoter le libellé. */
+          const dz = await resolveDesignImage(base, vignettes.size === 0 ? btnEl : null);
+          vignettes.set(cle, dz);
+        }
+
+        /* Restauration systématique : le canvas doit retrouver son texte, même
+           si la composition a échoué en cours de route. */
+        if (peutSubstituer) {
+          txtContent.textContent = txtAncien;
+          txtEl.style.display = txtDisplayAncien;
+          if (typeof window.clampTextToZone === 'function') {
+            window.clampTextToZone(zoneTexte);
+          }
+        }
+
         rows.forEach(function (r, idx) {
+          /* Repli sur `design` si la composition a échoué : mieux vaut la
+             vignette de l'écran qu'une case vide. `cleVignette` garantit que
+             lecture et écriture ne peuvent plus diverger — c'est exactement ce
+             qui s'était produit (voir le commentaire du remplissage). */
+          const dz = vignettes.get(cleVignette(r)) || design;
           pushToCart({
             id: Date.now() + idx,
             productType: currentProductType,
@@ -2174,8 +2344,8 @@
             groupLabel: groupLabel,
             groupIndex: (idx + 1) + '/' + rows.length,
             price: price,
-            img: design.thumb,
-            sheet: design.sheet,
+            img: dz.thumb,        // vignette à LA couleur de cette ligne
+            sheet: dz.sheet,
             assets: logoAssets.concat(textAssets),
             sleeveCount: sleeves,
             qty: r.qty,
@@ -2249,76 +2419,18 @@
     function textAssetDataUrl(zone) {
       var el = document.getElementById('text-' + zone);
       if (!el || el.style.display === 'none') return '';
-      var content = el.querySelector('.dt-content');
-      if (!content) return '';
-      var raw = (content.textContent || '').trim();
-      if (!raw) return '';
 
-      var cs = window.getComputedStyle(el);
-      var color = cs.color || '#111';
-      var fontFamily = cs.fontFamily || 'sans-serif';
+      /* Rendu délégué à window.rasteriserTexte (conf-share.js) : cette fonction
+         portait une copie ligne à ligne du rasterizer de textZoneImage. Les
+         deux ont désormais une source unique — sans quoi une évolution appliquée
+         d'un seul côté ferait diverger la vignette du panier et le fichier
+         envoyé à l'atelier, un écart invisible jusqu'à la production.
 
-      // Texte COURBÉ : rasterise le SVG déjà rendu (conserve la forme exacte).
-      var svg = content.querySelector('svg');
-      if (el.classList.contains('is-shaped') && svg) {
-        var clone = svg.cloneNode(true);
-        clone.setAttribute('width', '600');
-        clone.setAttribute('height', '180');
-        var xml = new XMLSerializer().serializeToString(clone);
-        var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
-        return new Promise(function (resolve) {
-          var im = new Image();
-          im.onload = function () {
-            var cv = document.createElement('canvas');
-            cv.width = 600; cv.height = 180;
-            cv.getContext('2d').drawImage(im, 0, 0, 600, 180);
-            try { resolve(cv.toDataURL('image/png')); } catch (e) { resolve(''); }
-          };
-          im.onerror = function () { resolve(''); };
-          im.src = url;
-        });
-      }
-
-      // Texte SIMPLE : dessin canvas 2D haute résolution.
-      var fontSize = 160;
-
-      /* Gras / italique / souligné LUS sur l'élément (même correction que
-         textZoneImage, conf-share.js) : la police valait « 700 … », donc le
-         gras était forcé, l'italique perdu et le souligné absent. Ici l'enjeu
-         est l'ASSET envoyé à l'atelier — le fichier imprimé ne reflétait pas
-         la mise en forme choisie par le client. */
-      var weight = cs.fontWeight || '400';
-      var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
-      var deco = cs.textDecorationLine || cs.textDecoration || '';
-      var souligne = deco.indexOf('underline') !== -1;
-
-      var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
-      var meas = document.createElement('canvas').getContext('2d');
-      meas.font = font;
-      var tw = Math.max(1, meas.measureText(raw).width);
-      var padX = fontSize * 0.15, padY = fontSize * 0.35;
-      var cv = document.createElement('canvas');
-      cv.width = Math.ceil(tw + padX * 2);
-      cv.height = Math.ceil(fontSize + padY * 2);
-      var ctx = cv.getContext('2d');
-      ctx.font = font;
-      ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(raw, cv.width / 2, cv.height / 2);
-
-      // Le canvas 2D ignore text-decoration : trait tracé à la main.
-      if (souligne) {
-        var largeur = ctx.measureText(raw).width;
-        var yLigne = cv.height / 2 + fontSize * 0.38;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = Math.max(1, fontSize * 0.05);
-        ctx.beginPath();
-        ctx.moveTo(cv.width / 2 - largeur / 2, yLigne);
-        ctx.lineTo(cv.width / 2 + largeur / 2, yLigne);
-        ctx.stroke();
-      }
-      try { return cv.toDataURL('image/png'); } catch (e) { return ''; }
+         Garde `typeof` : ce fichier ne doit pas dépendre du chargement de
+         l'autre. conf-share.js est chargé avant (layout:684), mais un repli
+         silencieux vaut mieux qu'une exception dans l'ajout au panier. */
+      if (typeof window.rasteriserTexte !== 'function') return '';
+      return window.rasteriserTexte(el);
     }
 
     /* Rasterise les textes (face/dos), les upload sur Cloudinary, et renvoie
@@ -2393,7 +2505,7 @@
       let thumb = fallbackSrc;
       let faceDesign = null;
       try {
-        faceDesign = captureFaceDesign();
+        faceDesign = await captureFaceDesign();
         // Coins / drapeaux / patchs n'ont pas de « vue de face » : pour eux, la
         // vue courante EST le design. Le repli reste donc légitime.
         if (!isTextile &&
@@ -2440,9 +2552,18 @@
       // Vérifie si le même article existe déjà (même nom+détails).
       // personName entre dans la clé : deux personnes d'une liste de groupe
       // ayant même taille+couleur doivent rester DEUX lignes distinctes.
+      //
+      // groupIndex y entre AUSSI : `personName` vaut le NOM FLOQUÉ, souvent
+      // laissé vide. Deux lignes de groupe sans nom floqué partageaient alors
+      // une clé identique dès qu'elles avaient même couleur et même taille — la
+      // seconde fusionnait dans la première, qui héritait de sa quantité (un
+      // panier affichait « 6 » pour une liste de 2). Chaque ligne d'une liste
+      // porte un groupIndex unique (« 2/5 ») ; les ajouts hors groupe n'en ont
+      // pas, leur cumul habituel est donc préservé.
       const existing = cartItems.find(i => i.name === item.name && i.color === item.color &&
                                            i.size === item.size &&
-                                           (i.personName || '') === (item.personName || ''));
+                                           (i.personName || '') === (item.personName || '') &&
+                                           (i.groupIndex || '') === (item.groupIndex || ''));
       if (existing) {
         if (replaceQty) {
           existing.qty = item.qty || 1;   // remplacer par la quantité choisie
@@ -3202,7 +3323,10 @@
        Il est lu via ses styles inline (left/top/width en %) : fiable même quand
        la vue courante est "dos" ou "côté" (où ce logo est masqué par CSS et donnerait une
        taille nulle). Sert à générer l'aperçu envoyé au panier/commande. */
-    function captureFaceDesign() {
+    /* `async` depuis l'ajout de la capture du texte (textZoneImage renvoie une
+       Promise). Un seul appelant dans le dépôt — resolveDesignImage (:2558),
+       déjà asynchrone — d'où l'absence de risque sur les autres chemins. */
+    async function captureFaceDesign() {
       const background = currentProductImageURL('face');
       if (!background) return null;
 
@@ -3280,6 +3404,26 @@
           logos.push({ src: img.src, x: lx, y: ly, w: lw });
         }
       });
+
+      /* TEXTE DE LA VUE DE FACE, rasterisé et ajouté comme un logo.
+         `faceZones` ne liste que les zones LOGO : un design composé d'un texte
+         seul renvoyait donc `logos: []`. resolveDesignImage (:2568) saute alors
+         la composition et ne génère aucune image — la vignette du panier
+         restait celle du canvas, et le surnom de chaque ligne de groupe
+         n'apparaissait nulle part, alors même qu'il est substitué avant la
+         capture (:2289). Les deux symptômes venaient de cette seule omission.
+
+         On réutilise textZoneImage (conf-share.js:91), déjà employée par
+         captureAllViews (:3593) pour la planche de l'atelier : le texte y est
+         rendu en PNG et reprojeté exactement comme un logo. Les deux zones de
+         face sont traitées — poitrine gauche et droite peuvent coexister. */
+      const canReproject = !!(layerBox && imgBox && imgBox.width > 0 && imgBox.height > 0);
+      if (typeof window.textZoneImage === 'function') {
+        for (const zt of ['f', 'fr']) {
+          const t = await window.textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
+          if (t) logos.push(t);
+        }
+      }
 
       return { background: background, logos: logos };
     }
@@ -3388,7 +3532,11 @@
       // textZone : la zone de texte personnalisé visible sur cette vue
       // (face -> #text-f, dos -> #text-b). Les manches n'ont pas de texte.
       const viewDefs = [
-        { key: 'face',  img: 'face', label: 'FACE',          zones: ['logo-f', 'logo-fr'], textZone: 'f' },
+        /* La face porte DEUX zones de texte, comme elle porte deux logos :
+           cœur (#text-f) et poitrine droite (#text-fr). Seule la première était
+           déclarée — un second texte n'apparaissait ni dans l'aperçu de groupe,
+           ni dans la vue d'ensemble, ni sur la planche atelier. */
+        { key: 'face',  img: 'face', label: 'FACE',          zones: ['logo-f', 'logo-fr'], textZone: ['f', 'fr'] },
         { key: 'dos',   img: 'dos',  label: 'DOS',           zones: ['logo-b'], textZone: 'b' },
         { key: 'sl',    img: 'cote', label: 'MANCHE GAUCHE', zones: ['logo-sl'] },
         { key: 'sr',    img: 'cote', label: 'MANCHE DROITE', zones: ['logo-sr'], mirror: true }
@@ -3416,9 +3564,17 @@
         // Texte personnalisé de la vue : rasterisé en PNG et ajouté comme un
         // logo. C'est ce qui le fait apparaître sur la planche (il était ignoré
         // avant, car ce n'est pas une <img>).
+        /* PLUSIEURS textes par vue. `textZone` était une chaîne unique : la vue
+           de face ne rendait donc que #text-f, et un second texte en poitrine
+           DROITE (#text-fr) disparaissait — de l'aperçu de groupe, mais aussi
+           de la vue d'ensemble et de la planche envoyée à l'atelier. On accepte
+           désormais une liste, en tolérant l'ancienne forme. */
         if (def.textZone) {
-          const t = await textZoneImage('text-' + def.textZone, imgBox, layerBox, canReproject);
-          if (t) logos.push(t);
+          const zonesTexte = Array.isArray(def.textZone) ? def.textZone : [def.textZone];
+          for (const zt of zonesTexte) {
+            const t = await textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
+            if (t) logos.push(t);
+          }
         }
 
         // Une vue sans impression n'apprend rien à l'atelier : on l'omet.
@@ -3912,6 +4068,41 @@
       }
     }
 
+    /* Détail d'une ligne du tiroir : une information par ligne, chacune
+       étiquetée. Le nom floqué était auparavant accolé au titre (« T-shirt
+       coton — Thierno Ngom ») et la couleur collée à la taille, sans libellé.
+
+       `item.color` arrive PRÉFIXÉ (« Couleur : Apricot ») depuis les lignes de
+       groupe, et `item.size` peut l'être aussi (« Taille : M ») : on retire ces
+       préfixes avant d'ajouter les nôtres, sinon la ligne se lisait
+       « Couleur : Couleur : Apricot ». Même traitement que le récapitulatif
+       (sections/recapitulatif.liquid:1235).
+
+       Les articles hors textile (drapeaux, patchs, coins) n'ont pas de taille
+       et portent des détails déjà formatés dans `color` : ils sont rendus tels
+       quels, sans étiquette, pour ne rien casser de leur affichage. */
+    function cdLignesMeta(item) {
+      const sansPrefixe = (v, p) =>
+        String(v == null ? '' : v).replace(new RegExp('^\\s*' + p + '\\s*:\\s*', 'i'), '').trim();
+
+      // L'étiquette est en <strong> (gris léger via CSS), la valeur en
+      // .cd-val (foncée et grasse) : c'est elle qu'on cherche du regard.
+      const ligne = (etiquette, valeur) =>
+        '<span><strong>' + etiquette + ' :</strong> ' +
+        '<span class="cd-val">' + grpEsc(valeur) + '</span></span>';
+
+      const lignes = [];
+      if (item.personName) lignes.push(ligne('Nom floqué', item.personName));
+      if (item.color) {
+        // Un article sans taille est un produit non textile : détails bruts.
+        lignes.push(item.size
+          ? ligne('Couleur', sansPrefixe(item.color, 'Couleur'))
+          : '<span>' + grpEsc(item.color) + '</span>');
+      }
+      if (item.size) lignes.push(ligne('Taille', sansPrefixe(item.size, 'Taille')));
+      return lignes.join('');
+    }
+
     function renderCartDrawer() {
       const container = document.getElementById('cd-items');
       const emptyEl   = document.getElementById('cd-empty');
@@ -3962,8 +4153,8 @@
             <img src="${safeImgSrc(item.img)}" alt="${grpEsc(item.name)}">
           </button>
           <div class="cd-info">
-            <div class="cd-name">${grpEsc(item.name)}${item.personName ? ' — ' + grpEsc(item.personName) : ''}</div>
-            <div class="cd-meta">${grpEsc(item.color)}${item.size ? ' · ' + grpEsc(item.size) : ''}</div>
+            <div class="cd-name">${grpEsc(item.name)}</div>
+            <div class="cd-meta">${cdLignesMeta(item)}</div>
             <div class="cd-price">${unit.toFixed(2).replace('.',',')} € <span class="cd-tier">/u</span></div>
             <div class="cd-qty">
               <button type="button" class="cd-qty-btn" onclick="changeCartQty(${cdId}, -1)"${
@@ -4567,6 +4758,27 @@
           resolve(dataUrl);
           return;
         }
+
+        /* FORMATS SANS TRANSPARENCE : on sort tout de suite.
+
+           Cette fonction ne retire que des pixels DEJA INVISIBLES (voir
+           l'en-tete). Un JPEG n'en possede aucun : il n'y a rien a rogner, et
+           le traitement ne peut que couter.
+
+           Et il coutait cher sur mobile : le canvas ci-dessous est alloue en
+           PLEINE RESOLUTION, et getImageData y lit tout d'un coup — pour une
+           photo iPhone de 4032x3024, un buffer RGBA de 48 Mo. Safari iOS refuse
+           l'appel ou rend un backing store purge sous pression memoire ;
+           l'image repartait alors en PNG (8 a 10 fois plus lourde) et saturait
+           sessionStorage des la premiere photo.
+
+           Sortir ici supprime la cause a la racine, sans rien changer au rendu :
+           l'image rendue est exactement celle recue. */
+        if (/^data:image\/(jpe?g|bmp)/i.test(dataUrl)) {
+          resolve(dataUrl);
+          return;
+        }
+
         var img = new Image();
         img.onload = function () {
           try {
@@ -4632,10 +4844,29 @@
             out.width = nw; out.height = nh;
             out.getContext('2d').drawImage(img, gauche, haut, nw, nh, 0, 0, nw, nh);
 
-            /* PNG imposé : le format d'origine peut être un JPEG, qui n'a pas de
-               couche alpha — réencoder en JPEG remplacerait la transparence par
-               du noir. */
-            resolve(out.toDataURL('image/png'));
+            /* Format d'ORIGINE conservé.
+
+               Le PNG était imposé « au cas où » l'image aurait de la
+               transparence. Mais un JPEG n'en a AUCUNE par construction : le
+               réencoder en PNG multiplie son poids par 8 à 10 sans rien
+               préserver.
+
+               C'est ce qui saturait sessionStorage sur mobile dès la première
+               photo. Le préfixe PNG posé ici faisait ensuite basculer
+               compressForStorage() (:4528) du côté « conserver l'alpha », et son
+               garde hasAlpha() — qui aurait constaté l'opacité — échoue sur iOS
+               (getImageData sur un canvas de 48 Mo, refusé ou vidé sous pression
+               mémoire, avec un repli à `true`). Résultat : un PNG de 3 à 5 Mo
+               en base64, soit 6 à 10 Mo en session, là où un JPEG en pesait 0,8.
+
+               On ne réencode donc en PNG que si l'entrée POUVAIT porter de
+               l'alpha. Pour un JPEG, on reste en JPEG — qualité 0.92, le
+               rognage n'étant pas l'étape de compression (c'est le rôle de
+               compressForStorage). */
+            var peutAvoirAlpha = /^data:image\/(png|webp|gif)/i.test(dataUrl);
+            resolve(peutAvoirAlpha
+              ? out.toDataURL('image/png')
+              : out.toDataURL('image/jpeg', 0.92));
           } catch (e) {
             resolve(dataUrl);
           }
@@ -4716,6 +4947,27 @@
           e.code === 22 || e.code === 1014
         );
         if (quotaHit) {
+          /* TENTATIVE DE RECUPERATION avant d alerter.
+
+             Le code se contentait d avertir et de rendre false : aucune
+             seconde chance. Or la cause la plus frequente est un ancien
+             design encore en session pour un produit que le client a quitte.
+
+             On evince donc les uploads des AUTRES produits et on reessaie.
+             Le design courant, seul visible a l ecran, est preserve — c est
+             lui que la restauration doit couvrir. La modale ne s affiche que
+             si cette tentative echoue elle aussi. */
+          try {
+            var courant = (typeof currentProductType !== "undefined") ? currentProductType : null;
+            if (courant && store && store.byProduct && store.byProduct[courant]) {
+              var reduit = { _v: store._v, byProduct: {} };
+              reduit.byProduct[courant] = store.byProduct[courant];
+              sessionStorage.setItem("conf_uploads", JSON.stringify(reduit));
+              console.warn("Stockage sature : uploads des autres produits evinces.");
+              return true;
+            }
+          } catch (e2) { /* la tentative a echoue : on poursuit vers l alerte */ }
+
           console.warn('Stockage local saturé : le design ne survivra pas au rechargement.', e);
           if (typeof window.confAlert === 'function') {
             window.confAlert(
@@ -4877,6 +5129,15 @@
     window.updateRecapThumbLogo = updateRecapThumbLogo;
     window.updateFlagRecapThumb = updateFlagRecapThumb;
     window.updatePatchRecapThumb = updatePatchRecapThumb;
+    /* Rastérise le texte d'une zone en data-URL PNG transparente, SANS réseau
+       (contrairement à collectTextAssets, qui téléverse sur Cloudinary).
+       Exposée pour updateTextRecap() (conf-text-editor.js), qui en fait la
+       vignette des lignes « Texte » du récapitulatif.
+
+       Retour HYBRIDE : une string pour un texte simple, une Promise<string>
+       pour un texte courbé (rastérisé depuis son SVG). L'appelant doit donc
+       faire `await Promise.resolve(...)`, comme collectTextAssets (:2400). */
+    window.textAssetDataUrl = textAssetDataUrl;
     /* updateCoinRecapThumb est exposée par assets/conf-coin-thumb.js, où elle
        vit désormais : la référencer ici lèverait une ReferenceError. */
 
@@ -5220,15 +5481,63 @@
        effet. À 1, le texte dispose de toute la hauteur du bandeau et peut
        atteindre le plafond atelier (MAX_TEXT_SIZE). */
     var TEXT_ZONE_RATIO = 1;
+
+    /* LARGEUR MAXIMALE DU TEXTE — contrainte atelier, en centimètres.
+
+       La zone poitrine mesure 24 % du visuel, soit 42,4 cm sur un sweat : très
+       au-delà de ce qu'un flocage de nom accepte. Le texte pouvait donc être
+       étiré sur presque toute la largeur du buste.
+
+       Conversion : les % de ce fichier sont des % du visuel, et CM[produit].w
+       donne le facteur cm -> %. Contrôle inverse sur une valeur connue :
+       17 % / (30/53) = 30,0 cm, exactement la limite « L30 max » du dos
+       documentée plus haut — la formule est donc la bonne.
+
+       20 cm valent ainsi ~11,3 % sur les deux familles de produits.
+
+       Valeur passée de 12,5 à 20 cm après essai : à 12,5 cm, un prénom court
+       comme « Papa » était déjà réduit au point d'être rogné. 20 cm laissent
+       la place d'un nom complet à taille lisible, tout en restant nettement en
+       deçà de la zone d'origine (24 %, soit 42,4 cm — le texte pouvait s'étirer
+       jusqu'aux coutures latérales). */
+    var TEXT_MAX_CM = 20;
+
+    /* VUE DE FACE UNIQUEMENT. Le dos garde sa zone d'origine (17 %, soit les
+       30 cm de la contrainte atelier « L30 max ») : un visuel dorsal occupe
+       légitimement toute la largeur imprimable, ce n'est pas un flocage de nom. */
+    var TEXT_MAX_ZONES = { f: 1, fr: 1 };
+
     function textZone(zone) {
       var z = (typeof LOGO_ZONES !== 'undefined') ? LOGO_ZONES[zone] : null;
       if (!z) return null;
       var hh = z.height * TEXT_ZONE_RATIO;
+
+      /* La zone sert à DEUX choses dans clampTextToZone() : plafonner la
+         TAILLE du texte, mais aussi borner sa POSITION (:143-148). Rétrécir la
+         zone elle-même enfermait donc le texte dans un couloir étroit et
+         centré — il ne pouvait plus être déplacé sur le buste.
+
+         On expose donc deux valeurs distinctes :
+           width    la zone de DÉPLACEMENT, inchangée (24 %) ;
+           maxWidth le plafond de LARGEUR du texte (20 cm), lu par le clamp.
+
+         `maxWidth` est absent pour le dos : sa zone de 30 cm correspond déjà à
+         la contrainte atelier, aucun plafond supplémentaire n'y a de sens. */
+      var maxW = null;
+      if (TEXT_MAX_ZONES[zone] && typeof CM !== 'undefined') {
+        /* Le facteur cm -> % suit la SILHOUETTE, pas le tissu : le polyester
+           partage le cadrage du t-shirt coton, et CM n'a donc que deux
+           entrées. Même repli que buildZones() (:1474). */
+        var ref = (currentProductType === 'sweatshirt') ? CM.sweatshirt : CM.tshirt;
+        if (ref && ref.w) maxW = Math.min(z.width, TEXT_MAX_CM * ref.w);
+      }
+
       return {
         left: z.left,
         top: z.top + (z.height - hh) / 2,   // bandeau centré verticalement
         width: z.width,
-        height: hh
+        height: hh,
+        maxWidth: maxW
       };
     }
     /* Compat : l'ancien objet est conservé en accès dynamique, les appelants

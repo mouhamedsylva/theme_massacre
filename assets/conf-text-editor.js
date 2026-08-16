@@ -940,6 +940,13 @@
     }
     if (typeof window.refreshZoneGuides === "function")
       window.refreshZoneGuides();
+
+    /* Point de passage UNIQUE de toute création ou modification de texte
+       (saisie, police, couleur, taille, forme, gras/italique/souligné, et
+       `data = null` pour un masquage) : c'est donc ici qu'on tient la ligne du
+       récapitulatif à jour, plutôt qu'à chacun des ~12 appelants. */
+    if (typeof window.updateTextRecap === "function")
+      window.updateTextRecap(zone);
   }
 
   // Construit le SVG d'un texte courbé qui remplit la largeur de l'élément.
@@ -1032,6 +1039,13 @@
     if (geo.width) st.width = geo.width;
     if (geo.fontSize) st.fontSize = geo.fontSize;
     saveState(zone, st);
+
+    /* Seul chemin de mutation qui ne repasse PAS par renderTextOnCanvas : un
+       redimensionnement change la taille de police, donc l'aspect de la
+       vignette. Le déplacement seul ne la change pas, mais l'anti-rebond rend
+       ce rappel supplémentaire indolore. */
+    if (typeof window.updateTextRecap === "function")
+      window.updateTextRecap(zone);
   };
 
   // Expose l'accès à l'état sauvegardé (utilisé par le clamp / autres modules).
@@ -1102,6 +1116,56 @@
     if (typeof window.updateRecapThumbLogo === 'function') {
       window.updateRecapThumbLogo();
     }
+  };
+
+  /* ── LIGNES « TEXTE » DU RÉCAPITULATIF ──────────────────────────────────
+     Le panneau de droite listait le produit et les logos, jamais les textes.
+     On leur donne le même traitement : une ligne par zone, avec vignette,
+     actualisée en direct.
+
+     La vignette est rastérisée par window.textAssetDataUrl (conf-main-inline.js
+     :2317) — le même rendu que les visuels envoyés à l'atelier, donc fidèle à
+     la police, la couleur, le gras/italique/souligné et le texte courbé.
+
+     NB : updateRecapThumbLogo(), appelée juste au-dessus, ne lit que #logo-f et
+     ignore le texte — son commentaire d'origine (« la vignette du récap suit le
+     contenu affiché ») laissait croire l'inverse. */
+  var ZONES_RECAP = ['f', 'fr', 'b'];
+
+  function majLigneTexte(zone) {
+    var ligne = document.getElementById('rc-text-' + zone);
+    var img = document.getElementById('rc-img-text-' + zone);
+    /* Garde indispensable : `.recap` voit son innerHTML REMPLACÉ pour les
+       coins, drapeaux et patchs (conf-dynamic-layout.js) — ces éléments
+       n'existent alors plus. */
+    if (!ligne || !img) return;
+
+    if (typeof window.textAssetDataUrl !== 'function') return;
+
+    /* Retour hybride (string ou Promise) : Promise.resolve normalise les deux. */
+    Promise.resolve(window.textAssetDataUrl(zone)).then(function (src) {
+      if (src) {
+        img.src = src;
+        ligne.style.display = 'flex';
+      } else {
+        /* Pas de texte dans cette zone : on masque ET on vide la source, sinon
+           l'ancienne vignette réapparaîtrait au prochain affichage. */
+        img.removeAttribute('src');
+        ligne.style.display = 'none';
+      }
+    }).catch(function () { /* rastérisation impossible : on laisse en l'état */ });
+  }
+
+  /* Anti-rebond : la rastérisation dessine sur un canvas, et conf-mobile.js
+     observe `.recap` avec un MutationObserver. Sans cela, chaque frappe au
+     clavier déclencherait un rendu complet du récapitulatif. */
+  var minuteurRecap = null;
+  window.updateTextRecap = function (zone) {
+    var zones = zone ? [zone] : ZONES_RECAP;
+    clearTimeout(minuteurRecap);
+    minuteurRecap = setTimeout(function () {
+      zones.forEach(majLigneTexte);
+    }, 200);
   };
 })();
 

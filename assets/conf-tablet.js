@@ -314,6 +314,17 @@
     var Z = window.LOGO_ZONES;
     if (!Z) return;
 
+    /* Geste en cours : ne rien replacer. Ce garde manquait ici alors que la
+       version mobile l a — le meme defaut existait donc entre 768 et 1023 px. */
+    if (window.__logoManipulating) return;
+
+    /* Geometrie deja enregistree ? Lue une seule fois pour tout le lot. */
+    var store = (typeof window.readUploadStore === "function")
+      ? window.readUploadStore()
+      : null;
+    var parProduit = (store && store.byProduct &&
+                      store.byProduct[window.currentProductType]) || {};
+
     ["f", "fr", "b"].forEach(function (k) {
       var z = Z[k];
       if (!z) return;
@@ -321,7 +332,15 @@
       if (!logo || logo.style.display === "none") return;
       var im = logo.querySelector("img");
       if (!im || !im.getAttribute("src")) return;
-      window.placeLogoInZone(k);
+      /* BORNER plutot que REPLACER quand le client a deja regle ce logo :
+         placeLogoInZone() recalcule position et taille depuis startW/startLeft
+         et annulerait son geste. Meme raisonnement qu en mobile. */
+      var dejaRegle = parProduit[k] && parProduit[k].geo;
+      if (dejaRegle && typeof window.clampLogoToZone === "function") {
+        window.clampLogoToZone(k);
+      } else {
+        window.placeLogoInZone(k);
+      }
     });
 
     reflowTexts();

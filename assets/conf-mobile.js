@@ -725,7 +725,36 @@
     var host = document.querySelector(".cv-single-view");
     if (!host) return;
 
-    var obs = new MutationObserver(function () {
+    /* Les CALQUES DÉPLAÇABLES sont ignorés — sans quoi cet observateur se
+       déclenche sur le glisser-déposer lui-même.
+
+       `subtree: true` + `style` capte TOUT changement de style sous
+       .cv-single-view, y compris chaque `style.left` qu'écrit un déplacement au
+       doigt. La chaîne qui suit — syncLayerToImage → applyMobileZones →
+       reflowLogos → placeLogoInZone / clampTextToZone — REPOSITIONNE alors
+       l'élément : le logo ou le texte revenait à sa place de départ dès que le
+       client relâchait.
+
+       Le verrou __logoManipulating ne suffisait pas : il est levé de façon
+       SYNCHRONE à touchend (conf-logo-drag.js:849), alors qu'un
+       MutationObserver livre ses mutations de façon asynchrone. Quand celles
+       accumulées pendant le geste arrivaient enfin, le verrou était déjà
+       retombé et le garde de reflowLogos (:1315) laissait passer.
+
+       On filtre donc à la source : cet observateur ne surveille que les IMAGES
+       PRODUIT (voir le commentaire ci-dessus), un calque n'a jamais eu à le
+       réveiller. Correction indépendante de tout verrou et de tout délai. */
+    var obs = new MutationObserver(function (mutations) {
+      var pertinent = mutations.some(function (m) {
+        var t = m.target;
+        /* `closest` n'existe que sur un Element : une mutation peut viser un
+           nœud texte. Dans le doute, on considère la mutation pertinente —
+           mieux vaut un recalage de trop qu'un calque désaligné. */
+        if (!t || typeof t.closest !== 'function') return true;
+        return !t.closest('.design-logo, .design-text');
+      });
+      if (!pertinent) return;
+
       // L'image change : on attend qu'elle soit décodée pour mesurer.
       requestAnimationFrame(syncLayerToImage);
     });
@@ -1088,13 +1117,43 @@
     if (!host) return;
 
     var pending = false;
-    var obs = new MutationObserver(function () {
+    var obs = new MutationObserver(function (mutations) {
+      /* Les CALQUES DÉPLAÇABLES sont ignorés — même raison que dans
+         watchImages() plus haut, et c'est le SECOND déclencheur du même
+         défaut.
+
+         `subtree: true` + `style` sur `.canvas` capte chaque `style.left` /
+         `style.width` qu'écrit un glisser-déposer, `.canvas` étant un ancêtre
+         de #logo-f, #logo-fr et #logo-b. Le rappel enchaîne alors
+         syncLayerToImage → applyMobileZones → reflowLogos →
+         placeLogoInZone(), qui RECALCULE la position depuis `startLeft` et
+         RÉÉCRIT `style.width` depuis `startW` (conf-main-inline.js:1561-1606).
+
+         D'où les DEUX symptômes signalés : le logo revient à sa place ET ne
+         peut pas être redimensionné — un seul appel annule les deux gestes.
+
+         Le texte y échappait : clampTextToZone() LIT la position courante et
+         se contente de la borner, là où placeLogoInZone() l'ignore et la
+         recalcule. reflowTexts() est idempotent, reflowLogos() est destructif
+         — d'où l'illusion que le texte était déjà réglé. */
+      var pertinent = mutations.some(function (m) {
+        var t = m.target;
+        if (!t || typeof t.closest !== 'function') return true;
+        return !t.closest('.design-logo, .design-text');
+      });
+      if (!pertinent) return;
+
       // Le canvas se réécrit en plusieurs mutations : on ne rebâtit qu'une
       // fois, à la fin du lot.
       if (pending) return;
       pending = true;
       setTimeout(function () {
         pending = false;
+        /* Re-test du verrou DANS le différé : `setManipulating(false)` est
+           levé de façon synchrone à touchend (conf-logo-drag.js:849), donc
+           bien avant ces 60 ms. Un geste enchaîné rapidement serait sinon
+           écrasé par ce lot. */
+        if (window.__logoManipulating) return;
         tagCanvasRow();
         buildFaceSwitch();
         /* conf-dynamic-layout.js réécrit .canvas en entier au changement de
@@ -1316,6 +1375,15 @@
     var Z = window.LOGO_ZONES;
     if (!Z) return;
 
+    /* Géométrie déjà enregistrée ? On la lit UNE fois pour tout le lot : le
+       magasin vit dans sessionStorage, le relire par zone coûterait cinq
+       désérialisations à chaque recalage. */
+    var store = (typeof window.readUploadStore === 'function')
+      ? window.readUploadStore()
+      : null;
+    var parProduit = (store && store.byProduct &&
+                      store.byProduct[window.currentProductType]) || {};
+
     // Manches incluses : leurs zones sont désormais recalculées pour le
     // mobile (voir SLEEVE_MOBILE), un logo posé doit suivre.
     ["f", "fr", "b", "sl", "sr"].forEach(function (k) {
@@ -1325,7 +1393,32 @@
       if (!logo || logo.style.display === "none") return;
       var im = logo.querySelector("img");
       if (!im || !im.getAttribute("src")) return;
-      window.placeLogoInZone(k);
+
+      /* CLIENT AYANT DÉJÀ RÉGLÉ CE LOGO : on BORNE, on ne replace pas.
+
+         placeLogoInZone() ignore la position et la taille courantes et les
+         recalcule depuis `startW` / `startLeft` (conf-main-inline.js:1561-1606),
+         puis les persiste (:1614-1620). Rejouée après un geste — ce que font
+         plusieurs observateurs mobiles — elle annulait donc le déplacement ET
+         le redimensionnement, et écrasait la géométrie enregistrée.
+
+         Le verrou `__logoManipulating` ne peut pas l'empêcher : setManipulating
+         (conf-logo-drag.js:252-262) modifie une classe sur #logo-layer — le
+         CONTENEUR — une ligne APRÈS avoir levé le verrou. Cette mutation
+         traverse donc tous les filtres et arrive verrou déjà baissé.
+
+         clampLogoToZone() lit la géométrie courante et se contente de la borner
+         à la zone : idempotente, comme clampTextToZone pour les textes. C'est
+         précisément pourquoi le texte n'a jamais eu ce défaut.
+
+         placeLogoInZone reste le chemin du PREMIER placement, quand aucune
+         géométrie n'a encore été enregistrée. */
+      var dejaRegle = parProduit[k] && parProduit[k].geo;
+      if (dejaRegle && typeof window.clampLogoToZone === 'function') {
+        window.clampLogoToZone(k);
+      } else {
+        window.placeLogoInZone(k);
+      }
     });
 
     reflowTexts();

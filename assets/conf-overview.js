@@ -136,9 +136,23 @@
     if (e.key === 'Escape') closeOverview();
   });
 
+  /* Décision d'affichage rejouée à plusieurs moments, à dessein.
+
+     captureFn() dépend de window.currentProductType et des fonctions de
+     capture, toutes posées par conf-main-inline.js — chargé APRÈS ce fichier
+     (il vit dans le <body> de la section, celui-ci dans le <head> du layout,
+     et les scripts `defer` s'exécutent dans l'ordre du document). Au premier
+     passage, ces valeurs n'existent donc pas encore : le bouton était masqué et
+     ne réapparaissait qu'au changement de produit.
+
+     conf-main-inline.js rappelle désormais refreshOverviewTab() dès qu'il a
+     posé la variable (:730-750). Le rappel sur `load` ci-dessous reste un
+     filet : il garantit une décision juste même si l'ordre de chargement
+     change, sans dépendre d'un appelant particulier. */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', refreshOverviewTab);
   } else {
     refreshOverviewTab();
   }
+  window.addEventListener('load', refreshOverviewTab);
 })();

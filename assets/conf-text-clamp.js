@@ -31,8 +31,15 @@
        rejoué quand la vue deviendra visible. */
     if (!el.offsetWidth || !el.offsetHeight) return;
   
-    // Dimensions de la zone en pixels écran.
-    var zoneW = (h.width / 100) * lb.width;
+    /* zoneW borne la LARGEUR DU TEXTE : `maxWidth` quand la zone en déclare un
+       (20 cm en face), sinon la zone entière (le dos, dont les 30 cm sont déjà
+       la contrainte atelier).
+
+       À ne pas confondre avec la zone de DÉPLACEMENT, qui reste `h.width` et
+       sert plus bas à borner la position (:150). Les confondre figeait le
+       texte au centre d'un couloir étroit, alors que le client doit pouvoir le
+       poser où il veut sur le buste. */
+    var zoneW = ((h.maxWidth != null ? h.maxWidth : h.width) / 100) * lb.width;
     var zoneH = (h.height / 100) * lb.height;
   
     /* La BOÎTE du texte est bornée à la largeur de la zone. Sans cela, la
@@ -43,10 +50,14 @@
        La largeur vit dans max-width depuis fitTextBox() (la boîte épouse le
        texte pour que le cadre de sélection lui colle) : on écrit donc le
        plafond là, et data-w garde la valeur pour l'export. */
+    /* Plafond de la boîte = `maxWidth` s'il existe, sinon la zone entière.
+       C'est CE plafond, et non la largeur de déplacement, qui limite la
+       largeur du texte. */
+    var plafondW = (h.maxWidth != null) ? h.maxWidth : h.width;
     var curW = parseFloat(el.getAttribute('data-w') || el.style.maxWidth || el.style.width);
-    if (isNaN(curW) || curW > h.width) {
-      el.setAttribute('data-w', h.width + '%');
-      el.style.maxWidth = h.width + '%';
+    if (isNaN(curW) || curW > plafondW) {
+      el.setAttribute('data-w', plafondW + '%');
+      el.style.maxWidth = plafondW + '%';
       el.style.width = '';
     }
 
@@ -66,11 +77,63 @@
     //    hauteur). On part de la taille demandée et on réduit si nécessaire.
     var cur = parseFloat(window.getComputedStyle(el).fontSize) || 20;
     var guard = 0;
-    // Réduction : tant que le texte déborde, on rapetisse (min 8px).
-    while (guard++ < 40) {
+    /* Réduction jusqu'à ce que TOUT le texte tienne — aucune lettre ne doit
+       être cachée.
+
+       Deux limites levées ici :
+
+       • Le plancher de 8px arrêtait la boucle même si le texte débordait
+         encore. Comme `.dt-content` porte `overflow: hidden`, la fin du mot
+         était alors COUPÉE en silence : le client voyait « MODOU BABAC » et
+         croyait avoir saisi un nom complet. Le plancher descend à 4px — en
+         pratique jamais atteint, la zone de 12,5 cm accueillant un nom usuel
+         bien au-dessus de cette taille.
+
+       • Le garde de 40 tours pouvait s'épuiser AVANT convergence pour un texte
+         parti d'une grande police (200px max) : la boucle sortait alors sur un
+         texte encore trop large. Porté à 240, soit plus que l'amplitude
+         complète (200 -> 4), la sortie se fait donc toujours sur la condition
+         de tenue, jamais sur le compteur. */
+    /* On mesure la largeur RÉELLE DU TEXTE (scrollWidth du contenu), pas la
+       boîte.
+
+       C'est la cause du texte tronqué : `el` porte un `max-width` égal au
+       plafond, donc sa largeur mesurée ne le dépasse JAMAIS — la condition
+       `eb.width <= zoneW` était toujours vraie, la boucle sortait au premier
+       tour et la police ne se réduisait pas d'un pixel. Le texte débordait
+       alors À L'INTÉRIEUR de la boîte, où `.dt-content { overflow: hidden }`
+       le coupait sans bruit (« Papa » -> « pap »).
+
+       `scrollWidth` mesure le contenu même quand il dépasse la boîte : c'est
+       la seule grandeur qui révèle le débordement. */
+    var contenu = el.querySelector('.dt-content');
+    function largeurTexte() {
+      /* +1 px de tolérance : scrollWidth est arrondi à l'entier, un texte
+         tenant tout juste sortirait sinon en boucle d'un pixel. */
+      return contenu ? contenu.scrollWidth : el.getBoundingClientRect().width;
+    }
+
+    /* Place réellement OFFERTE AU TEXTE, bordure et padding déduits.
+
+       `.design-text` est en `box-sizing: border-box` avec `border: 1px` et
+       `padding: 0 2px` (conf-styles.css:384-389) : la boîte de `zoneW` pixels
+       n'en laisse que `zoneW - 6` au contenu. Comparer `scrollWidth` (le
+       contenu) à `zoneW` (la boîte entière) laissait donc la dernière lettre
+       passer sous la bordure — le « a » de « Papa ».
+
+       On mesure la marge sur l'élément plutôt que de la coder en dur : elle
+       reste juste si le CSS change. */
+    function margeInterne() {
+      var cs = window.getComputedStyle(el);
+      return (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) +
+             (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+    }
+    var texteW = Math.max(0, zoneW - margeInterne());
+    while (guard++ < 240) {
       var eb = el.getBoundingClientRect();
-      if ((eb.width <= zoneW && eb.height <= zoneH) || cur <= 8) break;
-      cur = Math.max(8, cur - 1);
+      var tw = largeurTexte();
+      if ((tw <= texteW + 1 && eb.height <= zoneH) || cur <= 4) break;
+      cur = Math.max(4, cur - 1);
       el.style.fontSize = cur + 'px';
     }
     // Plafond atelier : quelle que soit la place disponible dans la zone, la
@@ -91,7 +154,9 @@
     while (guard++ < 80 && cur < wanted) {
       el.style.fontSize = (cur + 1) + 'px';
       var eb2 = el.getBoundingClientRect();
-      if (eb2.width > zoneW || eb2.height > zoneH) { el.style.fontSize = cur + 'px'; break; }
+      /* Même mesure qu'à la réduction : la boîte est plafonnée par max-width,
+         seul scrollWidth révèle le débordement du texte. */
+      if (largeurTexte() > texteW + 1 || eb2.height > zoneH) { el.style.fontSize = cur + 'px'; break; }
       cur += 1;
     }
 
@@ -112,13 +177,15 @@
     while (guard++ < 200 && fits < window.MAX_TEXT_SIZE) {
       el.style.fontSize = (fits + 1) + 'px';
       var eb3 = el.getBoundingClientRect();
-      if (eb3.width > zoneW || eb3.height > zoneH) break;
+      if (largeurTexte() > texteW + 1 || eb3.height > zoneH) break;
       fits += 1;
     }
     el.style.fontSize = cur + 'px';
     el.setAttribute('data-max-fit', fits);
 
-    // 2) Borne la position dans la zone.
+    /* 2) Borne la position dans la zone de DÉPLACEMENT (h.width), et non dans
+       le plafond de largeur : le texte doit rester librement déplaçable sur
+       tout le buste, même si sa largeur propre est limitée. */
     var ebf = el.getBoundingClientRect();
     var wPct = (ebf.width / lb.width) * 100;
     var hPct = (ebf.height / lb.height) * 100;

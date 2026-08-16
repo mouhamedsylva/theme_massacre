@@ -72,6 +72,24 @@
     row-gap: 0;
   }
 
+  /* « Revenir vers l'accueil » : réduit à sa seule icône. L'en-tête est en
+     `nowrap` (ci-dessus) et doit déjà loger la marque et « Réinitialiser » ;
+     le libellé complet poussait le tout hors de l'écran. Même traitement que
+     `.obtn` en mobile (conf-styles.css:1480-1481, padding resserré) et que
+     `.hdr-sub`, masqué pour la même raison.
+
+     Le texte reste accessible aux lecteurs d'écran : il n'est pas retiré du
+     DOM, seul son rendu est neutralisé — d'où `font-size: 0` sur le lien et
+     sa restauration sur l'icône, plutôt qu'un `display: none` sur le libellé
+     (qui, lui, l'aurait rendu inaudible). */
+  a.hdr-home {
+    font-size: 0;
+    padding: 7px 8px;
+    margin-left: 4px;
+    gap: 0;
+  }
+  a.hdr-home svg { font-size: 13px; }
+
   /* ─────────────────────────────────────────────────────────────────
      2. ZONE PRODUIT — occupe tout l'espace restant
      ───────────────────────────────────────────────────────────────── */

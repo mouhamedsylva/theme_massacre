@@ -130,15 +130,45 @@
   cursor: not-allowed;
 }
 
+/* La quantite est un CHAMP DE SAISIE, et non plus un simple affichage :
+   commander 40 pieces d une taille demandait 40 appuis sur le bouton +.
+   Les regles ci-dessous neutralisent l apparence native d un <input>, pour
+   qu il reste visuellement identique au compteur d origine. */
 .size-qty-value {
   width: 40px;
   text-align: center;
-  font-size: 15px;
   font-weight: 600;
   color: #111;
   border-left: 1.5px solid #e0e0e0;
   border-right: 1.5px solid #e0e0e0;
   padding: 0 4px;
+  /* Un <input> apporte sa propre bordure, son fond et sa hauteur : on ne
+     garde que les deux separateurs verticaux definis ci-dessus. */
+  border-top: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  align-self: stretch;
+  /* 16px MINIMUM sur iOS : en dessous, Safari ZOOME la page a la mise au
+     point du champ, et le configurateur se retrouve decadre. */
+  font-size: 16px;
+  /* Retire les fleches natives : les boutons +/- les remplacent, et elles
+     rognaient la largeur utile du champ. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.size-qty-value::-webkit-outer-spin-button,
+.size-qty-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.size-qty-value:focus {
+  outline: 2px solid #111;
+  outline-offset: -2px;
+}
+.size-qty-value:disabled {
+  background: transparent;
+  color: #bbb;
 }
 
 /* Highlight quand quantité > 0 */

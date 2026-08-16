@@ -20,22 +20,38 @@
     padding: 16px 24px; border-bottom: 1px solid var(--border);
     flex-wrap: wrap; gap: 16px;
   }
-  /* Bloc marque MASQUÉ : cette page passe par theme.liquid (pas de clé
-     "layout" dans page.recapitulatif.json, contrairement au configurateur),
-     donc l'en-tête Horizon de la boutique s'affiche au-dessus — logo « M »
-     compris. Le nôtre faisait doublon à quelques pixels d'écart.
+  /* Bloc marque VISIBLE depuis le 14/08/2026.
 
-     `visibility` et non `display: none` : .rcp-hdr est un flex en
-     `space-between` à trois enfants (.rcp-brand, .rcp-steps, .rcp-back).
-     Retirer le premier du flux ferait glisser le stepper 1-2-3 contre le bord
-     gauche ; en gardant la place réservée, il reste centré.
-
-     Conservé dans le HTML plutôt que supprimé : si la page adopte un jour un
-     layout dédié, il suffira de retirer cette règle. */
+     Il portait `visibility: hidden` parce que le menu Horizon de la boutique
+     s'affichait au-dessus, logo « M » compris : le nôtre faisait doublon à
+     quelques pixels d'écart. Ce menu est désormais masqué sur cette page (voir
+     la règle `#header-component .header-menu` plus bas), la raison du masquage
+     a donc disparu — et le logo redevient le seul repère de marque de l'écran. */
   .rcp-brand {
     display: flex; align-items: center; gap: 12px;
-    visibility: hidden;
   }
+
+  /* MENU DE LA BOUTIQUE MASQUÉ sur cette page (14/08/2026).
+
+     Cette page passe par theme.liquid, qui rend le header Horizon complet :
+     menu (POPOTE WAR, NOUVEAUTÉS…), logo « M » et actions EUR / recherche /
+     compte / panier. Le parcours de commande a son propre en-tête juste en
+     dessous (.rcp-hdr) : les deux barres se superposaient, avec deux logos à
+     quelques pixels d'écart.
+
+     On cible `.header-section`, la classe que Shopify pose sur le wrapper de
+     la section header (déclarée dans le schema de sections/header.liquid), et
+     non un id : celui-ci contient un identifiant numérique de section, qui
+     change à chaque duplication du thème.
+
+     La BANDE ROUGE n'est PAS affectée : elle est injectée par une app tierce
+     (BSS Banner) en dehors de `#header-group`, donc hors de ce sélecteur.
+     Vérifié sur le HTML servi.
+
+     `display: none` et non `visibility: hidden` : contrairement à .rcp-brand
+     ci-dessus, on veut ici récupérer la hauteur — sinon une bande vide de la
+     taille du menu resterait entre la bannière et le récapitulatif. */
+  .header-section { display: none; }
   .rcp-brand-icon {
     /* Sans fond noir, comme .hdr-icon : le logo est un « M » noir sur
        transparent, un fond sombre le masquerait. */
@@ -70,6 +86,28 @@
   }
   .rcp-back:hover { background: var(--bg-light); }
 
+  /* « Revenir vers l'accueil », dans le bloc marque à GAUCHE (`.rcp-back` seul
+     est pensé pour « Modifier », à droite de l'en-tête).
+
+     `margin-left` : .rcp-brand n'a que 12px de `gap`, ce qui collait le bouton
+     au libellé « RÉCAPITULATIF / Vérifiez votre commande ». 20px portent
+     l'écart à 32px — la même respiration que dans l'en-tête du configurateur.
+     `nowrap` garde le libellé sur une ligne quand l'en-tête se resserre. */
+  .rcp-home {
+    margin-left: 20px;
+    white-space: nowrap;
+  }
+  .rcp-home svg { flex-shrink: 0; }
+
+  /* Le logo est un LIEN : signaler qu'il est cliquable et neutraliser les
+     styles que le navigateur applique aux liens. */
+  a.rcp-brand-icon {
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .15s ease;
+  }
+  a.rcp-brand-icon:hover { opacity: .75; }
+
   /* Corps */
   .rcp-body {
     max-width: 1100px; margin: 0 auto; padding: 32px 24px 60px;
@@ -96,8 +134,20 @@
   }
   .rcp-item-info { flex: 1; min-width: 0; }
   .rcp-item-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-  .rcp-item-props { font-size: 11px; color: var(--muted); line-height: 1.5; }
-  .rcp-item-props span { display: inline-block; margin-right: 10px; }
+  /* Une information PAR LIGNE (Nom floqué / Couleur / Taille), comme le tiroir
+     du panier. Les <span> étaient posés côte à côte : sur une ligne de groupe
+     les trois informations se bousculaient et débordaient sur les écrans
+     étroits. */
+  .rcp-item-props {
+    font-size: 11px; color: var(--muted); line-height: 1.5;
+    display: flex; flex-direction: column;
+  }
+  /* `> span` seulement : sans le sélecteur d'enfant direct, la marge
+     s'appliquait aussi au .rcp-val imbriqué et décalait chaque valeur. */
+  .rcp-item-props > span { display: block; }
+  /* C'est la VALEUR qui porte le poids, pas l'étiquette. */
+  .rcp-item-props strong { font-weight: 400; color: var(--muted); }
+  .rcp-item-props .rcp-val { font-weight: 700; color: var(--black); }
   .rcp-item-right { text-align: right; flex-shrink: 0; }
   .rcp-item-price { font-size: 15px; font-weight: 800; }
   .rcp-item-qty { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -174,11 +224,41 @@
   <!-- Header + étapes -->
   <header class="rcp-hdr">
     <div class="rcp-brand">
-      <div class="rcp-brand-icon"><img src="{{ 'logo-massacre.png' | asset_url }}" alt="Logo personnalisé"></div>
+      {%- comment -%}
+        Logo cliquable vers l'accueil, comme dans l'en-tête du configurateur.
+        `routes.root_url` plutôt qu'une URL en dur : Shopify y injecte le
+        préfixe de langue/marché courant, et l'aperçu du thème brouillon reste
+        sur le brouillon.
+      {%- endcomment -%}
+      <a class="rcp-brand-icon" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }} — retour à l'accueil">
+        {%- comment -%}
+          `width`/`height` : dimensions intrinsèques déclarées pour que le
+          navigateur réserve la place avant le chargement (pas de saut de mise
+          en page). Le CSS ci-dessus les surcharge en 100%/100% dans la boîte
+          de 40px de .rcp-brand-icon, avec `object-fit: contain`.
+        {%- endcomment -%}
+        <img src="{{ 'logo-massacre.png' | asset_url }}" alt="{{ shop.name | escape }}" width="40" height="40">
+      </a>
       <div>
         <div class="rcp-brand-name">RÉCAPITULATIF</div>
         <div class="rcp-brand-sub">Vérifiez votre commande</div>
       </div>
+
+      {%- comment -%}
+        « Revenir vers l'accueil » — pendant exact du bouton de l'en-tête du
+        configurateur. Le menu de la boutique étant masqué sur cette page (voir
+        `.header-section` dans le <style>), c'est désormais le seul chemin de
+        retour vers la boutique ; le logo seul n'indiquerait pas qu'il est
+        cliquable.
+
+        Réutilise `.rcp-back`, la classe du bouton « Modifier » à droite du même
+        en-tête : mêmes bordure, arrondi et survol, et son responsive est déjà
+        écrit. Un style dédié ferait double emploi.
+      {%- endcomment -%}
+      <a class="rcp-back rcp-home" href="{{ routes.root_url }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        Revenir vers l'accueil
+      </a>
     </div>
 
     <div class="rcp-steps">
@@ -352,6 +432,172 @@
     // patches (= COINS réels) : pas de variant, sur devis uniquement.
     // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
     // de clé ici sans retirer d'abord la bascule.
+  };
+
+  /* Produit add-on « Personnalisation manche » (masqué du storefront).
+
+     INDISPENSABLE ICI : le supplément part vers Shopify comme ligne de panier
+     DISTINCTE (voir buildShopifyItems plus bas) — une line item property ne
+     porte aucun prix. Or la condition qui pousse cette ligne teste
+     `window.CONF_SLEEVE_VARIANT`, et cette page ne charge PAS
+     conf-main-inline.js, seul autre endroit où l'ID est défini (:803) :
+     page.recapitulatif.json n'a pas de clé "layout", elle passe donc par
+     theme.liquid, dont snippets/scripts.liquid ne charge aucun asset conf-*.
+
+     La variable valait donc `undefined`, la condition était TOUJOURS fausse,
+     et le client était facturé le textile nu — 29,50 € au lieu de 33,50 €,
+     sans le moindre signal. La page duplique déjà CONF_VARIANTS et
+     CONF_COLOR_VARIANTS pour la même raison d'autonomie.
+
+     Valeur maintenue par customizer-backend/scripts/injecter-variants.mjs,
+     qui réécrit désormais les DEUX fichiers — ne pas éditer à la main. */
+  window.CONF_SLEEVE_VARIANT = 60327504183630;
+
+  /* Variants du supplément manches PAR TEXTILE ET COULEUR.
+
+     Le produit « Personnalisation manche » n'avait qu'un variant unique : la
+     vignette du checkout montrait donc toujours le même visuel, quelle que soit
+     la couleur commandée — incohérent avec la ligne du textile juste au-dessus.
+     Il porte désormais un variant par combinaison (3 textiles × 40 couleurs),
+     chacun avec l'image de CÔTÉ correspondante : c'est la manche qu'on floque.
+
+     Structure : { productType: { nomCouleurEN: variantId } } — même forme que
+     CONF_COLOR_VARIANTS ci-dessous, donc même logique de résolution.
+
+     VIDE tant que les variants n'existent pas : sleeveVariantForItem() retombe
+     alors sur CONF_SLEEVE_VARIANT, et la facturation continue exactement comme
+     avant. C'est ce qui permet de déployer ce code AVANT de toucher au
+     catalogue, sans fenêtre d'indisponibilité.
+
+     Rempli par customizer-backend/scripts/exporter-variants.mjs — ne pas
+     éditer à la main. */
+  window.CONF_SLEEVE_COLOR_VARIANTS = {
+    'sweatshirt': {
+      'Apricot': 60386849685838,
+      'Ash': 60386849718606,
+      'Atoll': 60386849751374,
+      'Black': 60386849784142,
+      'Bottle Green': 60386849816910,
+      'Brown': 60386849849678,
+      'Burgundy': 60386849882446,
+      'Chocolate': 60386849915214,
+      'Cobalt Blue': 60386849947982,
+      'Dark Grey': 60386849980750,
+      'Diva Blue': 60386850013518,
+      'Fire Red': 60386850046286,
+      'Gold': 60386850079054,
+      'Kelly Green': 60386850111822,
+      'Millennial Lilac': 60386850144590,
+      'Millennial Mint': 60386850177358,
+      'Natural': 60386850210126,
+      'Navy': 60386850242894,
+      'Navy Blue': 60386850275662,
+      'Orange': 60386850308430,
+      'Orchid Green': 60386850341198,
+      'Orchid Pink': 60386850373966,
+      'Pacific Grey': 60386850406734,
+      'Pixel Lime': 60386850439502,
+      'Radiant Purple': 60386850472270,
+      'Red': 60386850505038,
+      'Royal Blue': 60386850537806,
+      'Sand': 60386850570574,
+      'Sky': 60386850603342,
+      'Solar Yellow': 60386850636110,
+      'Sorbet': 60386850668878,
+      'Sport Grey': 60386850701646,
+      'Stone Blue': 60386850734414,
+      'Sunset Orange': 60386850767182,
+      'Swimming Pool': 60386850799950,
+      'Urban Khaki': 60386850832718,
+      'Urban Orange': 60386850865486,
+      'Urban Purple': 60386850898254,
+      'Used Black': 60386850931022,
+      'White': 60386850963790,
+    },
+    'tshirt': {
+      'Apricot': 60386850996558,
+      'Ash': 60386851029326,
+      'Atoll': 60386851062094,
+      'Black': 60386851094862,
+      'Bottle Green': 60386851127630,
+      'Brown': 60386851160398,
+      'Burgundy': 60386851193166,
+      'Chocolate': 60386851225934,
+      'Cobalt Blue': 60386851258702,
+      'Dark Grey': 60386851291470,
+      'Diva Blue': 60386851324238,
+      'Fire Red': 60386851357006,
+      'Gold': 60386851389774,
+      'Kelly Green': 60386851422542,
+      'Millennial Lilac': 60386851455310,
+      'Millennial Mint': 60386851488078,
+      'Natural': 60386851520846,
+      'Navy': 60386851553614,
+      'Navy Blue': 60386851586382,
+      'Orange': 60386851619150,
+      'Orchid Green': 60386851651918,
+      'Orchid Pink': 60386851684686,
+      'Pacific Grey': 60386851717454,
+      'Pixel Lime': 60386851750222,
+      'Radiant Purple': 60386851782990,
+      'Red': 60386851815758,
+      'Royal Blue': 60386851848526,
+      'Sand': 60386851881294,
+      'Sky': 60386851914062,
+      'Solar Yellow': 60386851946830,
+      'Sorbet': 60386851979598,
+      'Sport Grey': 60386852012366,
+      'Stone Blue': 60386852045134,
+      'Sunset Orange': 60386852077902,
+      'Swimming Pool': 60386852110670,
+      'Urban Khaki': 60386852143438,
+      'Urban Orange': 60386852176206,
+      'Urban Purple': 60386852208974,
+      'Used Black': 60386852241742,
+      'White': 60386852274510,
+    },
+    'tshirt_polyester': {
+      'Apricot': 60386886680910,
+      'Ash': 60386886713678,
+      'Atoll': 60386886746446,
+      'Black': 60386886779214,
+      'Bottle Green': 60386886811982,
+      'Brown': 60386886844750,
+      'Burgundy': 60386886877518,
+      'Chocolate': 60386886910286,
+      'Cobalt Blue': 60386886943054,
+      'Dark Grey': 60386886975822,
+      'Diva Blue': 60386887008590,
+      'Fire Red': 60386887041358,
+      'Gold': 60386887074126,
+      'Kelly Green': 60386887106894,
+      'Millennial Lilac': 60386887139662,
+      'Millennial Mint': 60386887172430,
+      'Natural': 60386887205198,
+      'Navy': 60386887237966,
+      'Navy Blue': 60386887270734,
+      'Orange': 60386887303502,
+      'Orchid Green': 60386887336270,
+      'Orchid Pink': 60386887369038,
+      'Pacific Grey': 60386887401806,
+      'Pixel Lime': 60386887434574,
+      'Radiant Purple': 60386887467342,
+      'Red': 60386887500110,
+      'Royal Blue': 60386887532878,
+      'Sand': 60386887565646,
+      'Sky': 60386887598414,
+      'Solar Yellow': 60386887631182,
+      'Sorbet': 60386887663950,
+      'Sport Grey': 60386887696718,
+      'Stone Blue': 60386887729486,
+      'Sunset Orange': 60386887762254,
+      'Swimming Pool': 60386887795022,
+      'Urban Khaki': 60386887827790,
+      'Urban Orange': 60386887860558,
+      'Urban Purple': 60386887893326,
+      'Used Black': 60386887926094,
+      'White': 60386887958862,
+    },
   };
 
   // Variants par COULEUR (produits textiles avec option Couleur dans Shopify).
@@ -543,6 +789,32 @@
       .toLowerCase().replace(/\s+/g, ' ').trim();
   }
 
+  /* Variant du SUPPLÉMENT MANCHES pour cet article.
+
+     Même logique que variantForItem() ci-dessous, sur la table
+     CONF_SLEEVE_COLOR_VARIANTS : on réutilise colorNameFromItem() et
+     normColor(), déjà éprouvées sur les textiles.
+
+     REPLI sur CONF_SLEEVE_VARIANT — délibéré et important : tant que la table
+     est vide (variants pas encore créés), ou si une couleur n'y figure pas, le
+     supplément reste facturé via l'ancien variant unique. La facturation ne
+     peut donc jamais être interrompue par ce changement ; seule la vignette
+     du checkout est moins précise. */
+  function sleeveVariantForItem(it) {
+    var table = window.CONF_SLEEVE_COLOR_VARIANTS || {};
+    var parType = table[it && it.productType];
+    if (parType) {
+      var nom = normColor(colorNameFromItem(it));
+      if (nom) {
+        var cles = Object.keys(parType);
+        for (var i = 0; i < cles.length; i++) {
+          if (normColor(cles[i]) === nom) return parType[cles[i]];
+        }
+      }
+    }
+    return window.CONF_SLEEVE_VARIANT;
+  }
+
   // Choisit le variant : d'abord par couleur (matching normalisé) si dispo,
   // sinon variant de base.
   function variantForItem(it) {
@@ -611,9 +883,22 @@
          (Le supplément part vers Shopify comme article distinct — voir plus
          bas — mais l'AFFICHAGE doit montrer le prix réellement payé.) */
       var n = Math.max(0, parseInt(item && item.sleeveCount, 10) || 0);
+      /* Repli TOUJOURS utilisé sur cette page : window.sleeveUnitPrice vit dans
+         conf-main-inline.js, que le récapitulatif ne charge pas. Il doit donc
+         appliquer la même règle de clé que la fonction de référence
+         (conf-main-inline.js:5078-5083).
+
+         `manche` d'abord, `sleeve` ensuite : GET /api/pricing renvoie la clé
+         `manche`. Lire `sleeve` seul ne correspondait JAMAIS, le repli à 4 €
+         s'appliquait donc quel que soit le tarif de l'admin — exactement le
+         défaut corrigé le 2026-08-08 dans le configurateur, réintroduit ici.
+         Les deux formes restent acceptées si la clé du backend change. */
+      var P = window.PRICES || {};
+      var pManche = (P.manche !== undefined) ? P.manche : P.sleeve;
+      var pNum = Number(pManche);
       var slv = (typeof window.sleeveUnitPrice === 'function')
         ? window.sleeveUnitPrice()
-        : ((window.PRICES || {}).sleeve || 4);
+        : ((isNaN(pNum) || pNum <= 0) ? 4 : pNum);
       return base + slv * n;
     }
     function esc(s) {
@@ -688,15 +973,31 @@
         // aucun prix — le supplément doit donc être un vrai article (produit
         // add-on masqué). Quantité = nb de manches × quantité de l'article.
         var sleeves = Math.max(0, parseInt(it.sleeveCount, 10) || 0);
-        if (sleeves > 0 && window.CONF_SLEEVE_VARIANT) {
+        /* Variant à la couleur de l'article quand il existe, ancien variant
+           unique sinon (voir sleeveVariantForItem). */
+        var sleeveVariant = sleeveVariantForItem(it);
+        if (sleeves > 0 && sleeveVariant) {
           items.push({
-            id: window.CONF_SLEEVE_VARIANT,
+            id: sleeveVariant,
             quantity: sleeves * qty,
             properties: {
               'Article': (it.name || 'Textile') + (it.size ? ' — ' + it.size : ''),
               'Manches': sleeves > 1 ? 'Gauche + droite' : 'Une manche'
             }
           });
+        } else if (sleeves > 0) {
+          /* L'ID du produit add-on manque : le supplément ne peut pas être
+             facturé. On le SIGNALE au lieu d'échouer en silence.
+
+             C'est précisément ce silence qui a laissé le défaut vivre : le bloc
+             n'avait ni else, ni log, ni entrée dans `skipped`. Le client voyait
+             le bon montant jusqu'au dernier écran, et la commande paraissait
+             cohérente côté commerçant — un textile à son prix nu.
+
+             Même esprit que le repli couleur plus haut, qui trace ses
+             substitutions dans __variantColorFallbacks. */
+          console.warn('[recap] Supplément manches NON facturé : ' +
+                       'window.CONF_SLEEVE_VARIANT est absent.', it);
         }
       });
       return { items: items, skipped: skipped };
@@ -936,7 +1237,13 @@
              c'est lui qui distingue deux articles par ailleurs identiques.
              Le drawer du panier l'affiche déjà (conf-main-inline.js:3755) ;
              le récapitulatif était le seul écran à l'omettre. */
-          if (item.personName) parts.push(`<span><strong>Nom floqué :</strong> ${esc(item.personName)}</span>`);
+          /* L'étiquette est en <strong> (gris léger via CSS) et la VALEUR en
+             .rcp-val (foncée, grasse) : c'est « Apricot » ou « S » qu'on
+             cherche du regard, pas le mot « Couleur ». Même rendu que le
+             tiroir du panier (conf-main-inline.js, cdLignesMeta). */
+          const ligneProp = (etiquette, valeur) =>
+            `<span><strong>${etiquette} :</strong> <span class="rcp-val">${esc(valeur)}</span></span>`;
+          if (item.personName) parts.push(ligneProp('Nom floqué', item.personName));
           /* `item.color` arrive parfois PRÉFIXÉ ("Couleur : Atoll") : les lignes
              de groupe le stockent ainsi (conf-main-inline.js:2021) pour le
              panier Shopify. On retire le préfixe à l'affichage, sinon la ligne
@@ -944,11 +1251,11 @@
              touché : il alimente aussi les propriétés de commande. */
           if (item.color) {
             const couleur = String(item.color).replace(/^\s*Couleur\s*:\s*/i, '');
-            parts.push(`<span><strong>Couleur :</strong> ${esc(couleur)}</span>`);
+            parts.push(ligneProp('Couleur', couleur));
           }
           /* Même traitement pour la taille, stockée « Taille : M » sur certaines
              lignes de groupe. */
-          parts.push(`<span><strong>Taille :</strong> ${esc(String(item.size).replace(/^\s*Taille\s*:\s*/i, ''))}</span>`);
+          parts.push(ligneProp('Taille', String(item.size).replace(/^\s*Taille\s*:\s*/i, '')));
           propsHtml = parts.join('');
         } else if (item.color) {
           // Custom (drapeau/patch) : les détails sont déjà formatés

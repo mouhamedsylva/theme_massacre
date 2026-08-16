@@ -71,6 +71,21 @@
       color: #fff; font-size: 17px; flex-shrink: 0;
       overflow: hidden;
     }
+    /* Le logo est un LIEN vers l'accueil de la boutique (voir
+       sections/configurateur.liquid). Ces trois règles ne servent qu'à ça :
+
+       `cursor: pointer` — indispensable, l'élément n'a pas de texte, rien
+       n'indiquerait qu'il est cliquable ;
+       `text-decoration: none` — garde-fou : base.css ne souligne que les liens
+       dans un <p>/.rte, mais autant ne pas en dépendre ;
+       l'opacité au survol donne le retour visuel, sans déplacer la mise en page
+       (pas de `transform`, qui décalerait le titre voisin). */
+    a.hdr-icon {
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity .15s ease;
+    }
+    a.hdr-icon:hover { opacity: .75; }
     .hdr-icon img {
       width: 100%;
       height: 100%;
@@ -102,6 +117,25 @@
       cursor: pointer; color: var(--black); transition: border-color .15s;
     }
     .obtn:hover { border-color: var(--black); }
+
+    /* « Revenir vers l'accueil » : un <a> portant `.obtn`, dont le style est
+       écrit pour des <button>. Trois ajustements que le navigateur applique
+       aux liens et pas aux boutons :
+         • `text-decoration: none` — pas de soulignement ;
+         • `white-space: nowrap` — le libellé tient sur une ligne, sinon il se
+           coupe en deux quand l'en-tête se resserre ;
+         • `margin-left` — sépare le bouton du bloc de texte de la marque.
+           `.hdr-brand` n'a que 10px de `gap`, ce qui collait le bouton au
+           libellé « TEXTILE PERSONNALISÉ / Créez votre style » : les deux
+           semblaient former un seul groupe. 22px de marge portent l'écart
+           total à 32px, assez pour que le bouton se lise comme un élément
+           distinct. */
+    a.hdr-home {
+      text-decoration: none;
+      white-space: nowrap;
+      margin-left: 22px;
+    }
+    a.hdr-home svg { flex-shrink: 0; }
 
     /* ══ BODY ══ */
     .app {
@@ -274,7 +308,11 @@
     }
 
     /* Size */
-    .sg { display: flex; gap: 4px; flex-wrap: nowrap; align-items: center; }
+    /* `wrap` depuis l ajout de 3XL/4XL/5XL : 9 tailles plus le bouton
+       « Pour Groupe » ne tiennent plus sur une ligne. En `nowrap` les boutons
+       se comprimaient jusqu a rendre les libelles illisibles ; ils passent
+       desormais a la ligne. */
+    .sg { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
     .sb {
       padding: 3px 8px;
       border: 1.5px solid var(--border); border-radius: 4px;
@@ -1061,6 +1099,22 @@
       padding: 12px 14px; margin-bottom: 14px;
       background: #f7f8fa; border: 1px solid var(--border); border-radius: 10px;
     }
+    /* Choix de la zone de texte remplacée par le nom floqué. Révélé par
+       grpRefreshTextZonePicker() uniquement quand PLUSIEURS textes coexistent
+       — d'où l'absence de `display` ici, le JS pose `flex` ou `none`.
+       Teinte ambrée plutôt que le gris de la barre d'import : c'est une
+       décision à prendre, pas une action facultative. */
+    .grp-textzone {
+      align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 11px 14px; margin-bottom: 12px;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+    }
+    .grp-textzone-lbl { font-size: 12.5px; font-weight: 600; color: #92400e; }
+    .grp-textzone-sel {
+      padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: #fff; font: inherit; font-size: 12.5px; cursor: pointer;
+      max-width: 100%;
+    }
     .grp-btn-import {
       padding: 9px 14px; border-radius: 8px; font: inherit; font-size: 12.5px;
       font-weight: 600; cursor: pointer; white-space: nowrap;
@@ -1140,7 +1194,21 @@
     /* Annule le padding/margin du main Shopify si présent */
     .conf-app-root {
       position: fixed;
-      inset: 0;
+      /* `inset: 0` posait `top` ET `bottom`. Sur un élément positionné, ces
+         deux propriétés ensemble L'EMPORTENT SUR `height` : le
+         `calc(100vh - var(--shop-header-h))` de la règle du haut était ignoré,
+         la boîte s'étirait sur toute la fenêtre, mais ses TROIS RANGÉES de
+         grille (--header-h / --typebar-h / 1fr) restaient dimensionnées pour la
+         hauteur calculée. D'où une bande vide sous la dernière rangée, qui
+         laissait voir le `background: var(--white)` du conteneur.
+
+         On garde donc `top` (l'ancrage) et on laisse `bottom` AUTO : `height`
+         redevient la seule autorité sur la hauteur, et les deux règles
+         s'accordent enfin. */
+      top: var(--shop-header-h, 0px);
+      left: 0;
+      right: 0;
+      bottom: auto;
       z-index: 9999;
     }
     /* Sidebar scroll invisible mais fonctionnel */
@@ -1339,7 +1407,18 @@
   .cd-thumb img { width: 100%; height: 100%; object-fit: contain; }
   .cd-info { flex: 1; min-width: 0; }
   .cd-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-  .cd-meta { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  /* Une information PAR LIGNE (Nom floqué / Couleur / Taille), chacune
+     étiquetée. En flux inline les <span> se seraient collés bout à bout ;
+     `flex-direction: column` les empile sans ajouter de marge parasite. */
+  .cd-meta {
+    font-size: 11px; color: var(--muted); line-height: 1.6;
+    display: flex; flex-direction: column;
+  }
+  /* C'est la VALEUR qui porte le poids, pas l'étiquette : « Apricot » et « S »
+     sont l'information utile, « Couleur : » n'est qu'un repère. L'étiquette
+     reste donc en gris léger, la valeur en foncé et en gras. */
+  .cd-meta strong { font-weight: 400; color: var(--muted); }
+  .cd-meta .cd-val { font-weight: 700; color: var(--black); }
   .cd-price { font-size: 14px; font-weight: 700; margin-top: 8px; }
   /* Détail du prix dégressif (prix unitaire au palier + quantité). */
   .cd-tier { font-size: 10.5px; font-weight: 600; color: #16a34a; white-space: nowrap; }

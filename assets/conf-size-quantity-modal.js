@@ -130,7 +130,12 @@
           <button type="button" class="size-qty-btn" 
                   onclick="changeSizeQuantity('${size.name}', -1)"
                   ${qty === 0 || !size.available ? 'disabled' : ''}>−</button>
-          <div class="size-qty-value">${qty}</div>
+          <input type="number" class="size-qty-value" value="${qty}"
+                 min="0" inputmode="numeric" pattern="[0-9]*"
+                 aria-label="Quantité pour la taille ${size.name}"
+                 ${!size.available ? 'disabled' : ''}
+                 onchange="saisirSizeQuantity('${size.name}', this.value)"
+                 onfocus="this.select()">
           <button type="button" class="size-qty-btn" 
                   onclick="changeSizeQuantity('${size.name}', 1)"
                   ${!size.available ? 'disabled' : ''}>+</button>
@@ -144,6 +149,25 @@
   /**
    * Change la quantité d'une taille
    */
+  /* SAISIE DIRECTE de la quantité.
+
+     Les boutons +/− seuls imposaient un appui par unité : commander 40 pièces
+     d'une taille demandait 40 appuis sur mobile. Le champ accepte donc une
+     valeur au clavier, tout en gardant les boutons pour les petits ajustements.
+
+     `inputmode="numeric"` fait apparaître le pavé numérique sur téléphone —
+     `type="number"` seul ne le garantit pas sur iOS. */
+  window.saisirSizeQuantity = function(sizeName, valeur) {
+    /* parseInt tolère « 12abc » ; NaN (champ vidé) retombe à 0, comme le
+       ferait le bouton −. Jamais de négatif : la borne est la même que celle
+       de changeSizeQuantity. */
+    var n = Math.max(0, parseInt(valeur, 10) || 0);
+    sizeQuantities[sizeName] = n;
+    /* Re-rendu complet : il rafraîchit aussi l'état désactivé du bouton −, le
+       total et le résumé — exactement ce que fait le chemin des boutons. */
+    renderSizeList();
+  };
+
   window.changeSizeQuantity = function(sizeName, delta) {
     const currentQty = sizeQuantities[sizeName] || 0;
     const newQty = Math.max(0, currentQty + delta);

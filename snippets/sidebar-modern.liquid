@@ -525,6 +525,25 @@
         <span>MANCHE DROITE</span>
       </div>
 
+      {%- comment -%}
+        Drapeau français prêt à l'emploi, en alternative à l'upload d'un
+        fichier. Il emprunte exactement le même chemin qu'un logo uploadé
+        (window.applyUpload), il hérite donc du placement dans la zone, du
+        déplacement, du redimensionnement et de la persistance en session.
+
+        Aucune gestion de visibilité n'est nécessaire : ce bouton est à
+        l'intérieur de `#upload-view-cote`, le bloc que switchUploadView()
+        (conf-sidebar-modern.js:380-383) n'active que sur la vue de côté. Il
+        apparaît donc avec les zones de manches et disparaît avec elles.
+      {%- endcomment -%}
+      <button type="button"
+              class="upload-flag-fr"
+              id="upload-flag-fr"
+              onclick="if (typeof window.addFrenchFlag === 'function') window.addFrenchFlag()">
+        <img src="{{ 'france_flag.png' | asset_url }}" alt="" width="22" height="15" aria-hidden="true">
+        <span>Ajouter un drapeau FR</span>
+      </button>
+
       <div class="up-preview" id="up-preview-sl" style="display:none">
         <div class="up-preview-thumb">
           <img id="up-preview-img-sl" src="" alt="Aperçu du logo manche gauche">

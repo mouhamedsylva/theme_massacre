@@ -435,7 +435,11 @@
         flagVersoPortrait: "{{ 'flag-verso-portrait.png' | asset_url }}",
         flag4anRectoPortrait: "{{ 'flag-4an-recto-portrait.png' | asset_url }}",
         flag4anVersoPortrait: "{{ 'flag-4an-verso-portrait.png' | asset_url }}",
-        logoMassacre: "{{ 'logo-massacre.png' | asset_url }}"
+        logoMassacre: "{{ 'logo-massacre.png' | asset_url }}",
+        /* Drapeau français apposé sur les manches (bouton « Ajouter un drapeau
+           FR » du panneau Upload). URL générée par `asset_url` et exposée ici :
+           conf-main-inline.js la lit sans avoir à reconstruire un chemin CDN. */
+        franceFlag: "{{ 'france_flag.png' | asset_url }}"
       };
 
       /* Dictionnaire des images DRAPEAU, une par combinaison.
@@ -715,11 +719,22 @@
     {%- endcomment -%}
     <script src="{{ 'conf-logo-store.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-view-switcher.js' | asset_url }}" defer></script>
+    <!-- Bouton « Ajouter un drapeau FR » sur les manches. APRÈS
+         conf-view-switcher.js (il observe le `data-view` que celui-ci pose),
+         conf-share.js (window.applyUpload) et conf-sleeve-side.js
+         (window.currentSleeveSide), tous chargés plus haut : les scripts
+         `defer` s'exécutent dans l'ordre du document. -->
+    <script src="{{ 'conf-flag-fr.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-text-clamp.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-text-zone.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-text-dblclick.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-overview.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-group-csv.js' | asset_url }}" defer></script>
+    <!-- Choix de la zone de texte remplacée par le nom floqué (sélecteur de la
+         modale de groupe). AVANT conf-group-preview.js, qui lit
+         window.grpTextZone() — les scripts `defer` s'exécutent dans l'ordre du
+         document. -->
+    <script src="{{ 'conf-group-textzone.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-group-preview.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-coin-cover.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-flag-cover.js' | asset_url }}" defer></script>

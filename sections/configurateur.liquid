@@ -13,11 +13,42 @@
   <!-- ══ HEADER ══ -->
   <header class="hdr">
     <div class="hdr-brand">
-      <div class="hdr-icon"><img src="{{ 'logo-massacre.png' | asset_url }}" alt="Logo personnalisé"></div>
+      {%- comment -%}
+        Le logo renvoie à l'accueil de la boutique, comme dans le header du
+        thème. `routes.root_url` plutôt qu'une URL en dur : Shopify y injecte
+        le préfixe de langue/marché courant (/fr, /en…), donc le client reste
+        dans sa version du site. Une adresse écrite en dur le renverrait aussi
+        vers le domaine principal même en boutique de test ou en aperçu.
+
+        <a> en lieu et place de l'ancien <div> : la mise en page ne bouge pas,
+        `display: flex` et les dimensions de .hdr-icon (conf-styles.css:65-73)
+        s'appliquent à un lien exactement de la même façon.
+      {%- endcomment -%}
+      <a class="hdr-icon" href="{{ routes.root_url }}" aria-label="{{ shop.name | escape }} — retour à l'accueil">
+        <img src="{{ 'logo-massacre.png' | asset_url }}" alt="{{ shop.name | escape }}">
+      </a>
       <div>
         <div class="hdr-name">TEXTILE PERSONNALISÉ</div>
         <div class="hdr-sub">Créez votre style</div>
       </div>
+
+      {%- comment -%}
+        Retour à la boutique. Même destination que le logo ci-dessus, mais
+        explicite : le logo seul n'indique pas qu'il est cliquable.
+
+        Réutilise `.obtn`, la classe des boutons de l'en-tête (conf-styles.css
+        :112-119, « Réinitialiser » et « Vue d'ensemble ») : mêmes bordure,
+        arrondi et survol, et le responsive est déjà prévu (:1480-1481). Un
+        style dédié ferait double emploi.
+
+        C'est un <a> et non un <button> : la destination est une URL, donc le
+        clic milieu, « ouvrir dans un nouvel onglet » et l'aperçu du lien
+        fonctionnent. `.obtn` étant en `display: flex`, le rendu est identique.
+      {%- endcomment -%}
+      <a class="obtn hdr-home" href="{{ routes.root_url }}" aria-label="Revenir vers l'accueil">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        Revenir vers l'accueil
+      </a>
     </div>
 
     <div class="hdr-steps">
@@ -216,6 +247,9 @@
             <button type="button" class="sb" onclick="selSize(this)">L</button>
             <button type="button" class="sb" onclick="selSize(this)">XL</button>
             <button type="button" class="sb" onclick="selSize(this)">XXL</button>
+            <button type="button" class="sb" onclick="selSize(this)">3XL</button>
+            <button type="button" class="sb" onclick="selSize(this)">4XL</button>
+            <button type="button" class="sb" onclick="selSize(this)">5XL</button>
             <button type="button" class="sb sb-group" onclick="openSizeQuantityModal()">Pour Groupe</button>
           </div>
           <a class="sgd" href="#" onclick="openSizeGuide(event)">📏 Guide des tailles</a>
@@ -798,6 +832,43 @@
           </div>
         </div>
 
+        {%- comment -%}
+          TEXTES PERSONNALISÉS — une ligne par zone, comme les logos ci-dessus.
+
+          Vignette alimentée en temps réel par updateTextRecap()
+          (conf-text-editor.js), qui rastérise le texte affiché via
+          window.textAssetDataUrl(). Masquées tant qu'aucun texte n'existe dans
+          la zone : le récapitulatif ne liste que ce que le client a réellement
+          posé.
+
+          Mêmes classes que `#rc-front` / `#rc-back` — aucun CSS à ajouter,
+          `.ri`, `.ri-thumb` (fond damier pour la transparence), `.ri-name` et
+          `.ri-ok` sont déjà définies (conf-styles.css:874-909).
+        {%- endcomment -%}
+        <div class="ri" id="rc-text-f" style="display:none">
+          <div class="ri-thumb"><img id="rc-img-text-f" src="" alt="Texte cœur"></div>
+          <div class="ri-info">
+            <div class="ri-name">Texte cœur</div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+        </div>
+
+        <div class="ri" id="rc-text-fr" style="display:none">
+          <div class="ri-thumb"><img id="rc-img-text-fr" src="" alt="Texte poitrine droite"></div>
+          <div class="ri-info">
+            <div class="ri-name">Texte poitrine droite</div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+        </div>
+
+        <div class="ri" id="rc-text-b" style="display:none">
+          <div class="ri-thumb"><img id="rc-img-text-b" src="" alt="Texte dos"></div>
+          <div class="ri-info">
+            <div class="ri-name">Texte dos</div>
+            <div class="ri-ok">✓ Personnalisé</div>
+          </div>
+        </div>
+
         <!-- Manches row -->
         <div class="ri" id="rc-sleeves" style="display:none">
           <div class="ri-thumb">
@@ -926,6 +997,25 @@
         </div>
 
         <div class="grp-body">
+          {%- comment -%}
+            CHOIX DE LA ZONE REMPLACÉE PAR LE NOM FLOQUÉ.
+
+            Avec DEUX textes sur le vêtement (« Modou » en cœur, « Samba » en
+            poitrine droite), rien n'indiquait lequel deviendrait le nom de
+            chaque personne : le code prenait #text-f en silence.
+
+            Ce bloc reste MASQUÉ tant qu'il n'y a qu'un seul texte — le cas
+            courant n'a pas d'ambiguïté à lever, et une question inutile est une
+            friction. grpRefreshTextZonePicker() (conf-group-csv.js) le révèle
+            et le remplit à l'ouverture de la modale.
+          {%- endcomment -%}
+          <div class="grp-textzone" id="grp-textzone" style="display:none">
+            <label class="grp-textzone-lbl" for="grp-textzone-sel">
+              Le nom floqué remplace :
+            </label>
+            <select class="grp-textzone-sel" id="grp-textzone-sel"></select>
+          </div>
+
           <!-- Import d'une liste existante : en tête de modale, avant le tableau. -->
           <div class="grp-import-bar">
             <input type="file" id="grp-file" accept=".csv,.txt,.xlsx,.xls"

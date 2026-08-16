@@ -473,6 +473,48 @@ html:not([data-sidebar-ready]) #panel-product {
   grid-template-columns: 1fr;
 }
 
+/* « Ajouter un drapeau FR » — raccourci vers un visuel prêt à l'emploi, en
+   alternative à l'upload d'un fichier sur les manches.
+
+   Affiché UNIQUEMENT sur la vue de côté — sans aucun JS : le bouton est un
+   enfant de `#upload-view-cote`, que switchUploadView() n'active que sur cette
+   vue (conf-sidebar-modern.js:380-383). Il suit donc le sort des zones de
+   manches qui l'entourent. */
+.upload-flag-fr {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.upload-flag-fr:hover {
+  border-color: #1a1a1a;
+  background: #fafafa;
+}
+/* Bordure pleine au survol/focus clavier : le pointillé signale une zone à
+   remplir, le plein un bouton actionnable. */
+.upload-flag-fr:focus-visible {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 2px;
+}
+.upload-flag-fr img {
+  width: 22px;
+  height: 15px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
 /* ═══════════════════════════════════════════════════════════
    BOUTONS COULEURS ET TAILLES (TEXTILES)
    ═══════════════════════════════════════════════════════════ */
@@ -1626,6 +1668,12 @@ html:not([data-sidebar-ready]) #panel-product {
   cursor: not-allowed;
   border-style: solid;
   background: #f7f8f9;
+  /* `cursor: not-allowed` seul reste cosmétique : le `onclick` du bouton
+     ouvrirait quand même le sélecteur de fichier, et le nouvel envoi
+     écraserait le visuel en place sans avertissement. On coupe donc réellement
+     le clic. Le bouton « Supprimer » de la carte d'aperçu, juste en dessous,
+     reste le chemin pour libérer la zone. */
+  pointer-events: none;
 }
 /* Neutralise le retour visuel au survol : le bouton est inactif. */
 .upload-zone-btn.is-filled:hover {

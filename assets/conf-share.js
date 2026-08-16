@@ -88,6 +88,102 @@
       }
     }
 
+    /**
+     * Rasterise un texte du vêtement en PNG transparent, fidèle au rendu écran
+     * (police, taille, couleur, gras, italique, souligné, forme courbée).
+     *
+     * SOURCE UNIQUE pour les deux consommateurs :
+     *   - textZoneImage (ci-dessous)  -> planche envoyée à l'ATELIER
+     *   - window.textAssetDataUrl     -> vignettes du panier / récapitulatif
+     *
+     * Ces deux fonctions portaient une copie ligne à ligne du même code (mêmes
+     * fontSize=160, mêmes padX/padY, même souligné tracé à la main). Toute
+     * évolution devait donc être faite DEUX fois ; l'oublier une fois produisait
+     * le pire défaut possible — une vignette conforme à l'écran et un fichier
+     * imprimé différent, visible seulement une fois le vêtement produit.
+     *
+     * @param {HTMLElement} el - l'élément .design-text à rasteriser
+     * @returns {Promise<string>} data-URL PNG, ou '' si rien à rendre
+     */
+    function rasteriserTexte(el) {
+      return new Promise(function (resolve) {
+        if (!el) { resolve(''); return; }
+        var content = el.querySelector('.dt-content');
+        if (!content) { resolve(''); return; }
+        var raw = (content.textContent || '').trim();
+        if (!raw) { resolve(''); return; }
+
+        var cs = window.getComputedStyle(el);
+        var color = cs.color || '#111';
+        var fontFamily = cs.fontFamily || 'sans-serif';
+
+        /* Texte COURBÉ : on rasterise le SVG déjà rendu dans .dt-content plutôt
+           que de le redessiner — seul moyen de conserver la forme exacte, dont
+           le tracé est calculé par le navigateur. */
+        var svgSrc = content.querySelector('svg');
+        if (el.classList.contains('is-shaped') && svgSrc) {
+          var clone = svgSrc.cloneNode(true);
+          clone.setAttribute('width', '600');     // taille de rendu nette
+          clone.setAttribute('height', '180');
+          var xml = new XMLSerializer().serializeToString(clone);
+          var im = new Image();
+          im.onload = function () {
+            var cvs = document.createElement('canvas');
+            cvs.width = 600; cvs.height = 180;
+            cvs.getContext('2d').drawImage(im, 0, 0, 600, 180);
+            try { resolve(cvs.toDataURL('image/png')); } catch (e) { resolve(''); }
+          };
+          im.onerror = function () { resolve(''); };
+          im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+          return;
+        }
+
+        // Texte SIMPLE : dessin canvas 2D haute résolution.
+        var fontSize = 160;
+
+        /* Gras / italique / souligné LUS sur l'élément, jamais codés en dur.
+           La police valait « 700 <taille>px <famille> » : le gras était donc
+           toujours appliqué, l'italique jamais et le souligné absent — ce que
+           le client mettait en forme n'apparaissait ni dans la vue d'ensemble
+           ni sur la planche envoyée à l'atelier. */
+        var weight = cs.fontWeight || '400';
+        var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
+        var deco = cs.textDecorationLine || cs.textDecoration || '';
+        var souligne = deco.indexOf('underline') !== -1;
+
+        var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
+        var meas = document.createElement('canvas').getContext('2d');
+        meas.font = font;
+        var tw = Math.max(1, meas.measureText(raw).width);
+        var padX = fontSize * 0.15, padY = fontSize * 0.35;
+        var cv = document.createElement('canvas');
+        cv.width = Math.ceil(tw + padX * 2);
+        cv.height = Math.ceil(fontSize + padY * 2);
+        var ctx = cv.getContext('2d');
+        ctx.font = font;
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(raw, cv.width / 2, cv.height / 2);
+
+        /* Le canvas 2D ne connaît pas text-decoration : le trait du souligné
+           est tracé à la main, sous la ligne de base. Épaisseur et écart
+           proportionnels à la taille pour rester justes à toute échelle. */
+        if (souligne) {
+          var largeur = ctx.measureText(raw).width;
+          var yLigne = cv.height / 2 + fontSize * 0.38;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = Math.max(1, fontSize * 0.05);
+          ctx.beginPath();
+          ctx.moveTo(cv.width / 2 - largeur / 2, yLigne);
+          ctx.lineTo(cv.width / 2 + largeur / 2, yLigne);
+          ctx.stroke();
+        }
+        try { resolve(cv.toDataURL('image/png')); } catch (e) { resolve(''); }
+      });
+    }
+    window.rasteriserTexte = rasteriserTexte;   // lu par conf-main-inline.js
+
     function textZoneImage(zoneId, imgBox, layerBox, canReproject) {
       var el = document.getElementById(zoneId);
       if (!el || el.style.display === 'none') return null;
@@ -123,6 +219,50 @@
           var lx = pct(el.style.left), ly = pct(el.style.top), lw = pct(rawW);
           if (lx == null || ly == null || lw == null) { resolve(null); return; }
 
+          /* LARGEUR RÉELLE DU TEXTE, et non le plafond de sa zone.
+
+             `data-w` n'est PAS une dimension de rendu : c'est une borne, posée
+             par fitTextBox() (conf-text-editor.js:1124-1132) qui vide ensuite
+             `style.width` pour laisser la boîte épouser le texte
+             (`width: max-content`, conf-styles.css:395).
+
+             La branche du dessus mesure `r.width`, soit la largeur des
+             GLYPHES. Reprendre `data-w` ici renvoyait donc une tout autre
+             grandeur : pour #text-b, 28 % de zone alors que « BRI » n'en occupe
+             qu'une fraction — le texte sortait plusieurs fois trop grand, en
+             largeur comme en hauteur (le calque garde le ratio du PNG).
+
+             D'où un défaut SYMÉTRIQUE, un seul jeu de calques étant visible à
+             la fois : depuis la face, le texte du dos était faux ; depuis le
+             dos, celui de la face. La face semblait correcte par coïncidence.
+
+             On mesure donc les glyphes au lieu de lire la borne. `measureText`
+             ne dépend pas de l'affichage — un canvas 2D n'a pas besoin que
+             l'élément soit visible — et c'est déjà la mesure qui dimensionne le
+             canvas de rastérisation plus bas (:190-196). `data-w` reste utile
+             comme PLAFOND : la valeur calculée ne peut pas le dépasser. */
+          /* TEXTE COURBÉ EXCLU : son rendu est un SVG qui occupe volontairement
+             toute la largeur de sa boîte (`.is-shaped svg { width: 100% }`,
+             conf-styles.css:488). `data-w` y est donc la bonne dimension, et
+             mesurer les glyphes le rétrécirait à tort. */
+          var courbe = el.classList.contains('is-shaped') &&
+                       !!content.querySelector('svg');
+
+          var csM = window.getComputedStyle(el);
+          var fsEcran = parseFloat(csM.fontSize) || 0;
+          if (!courbe && fsEcran > 0 && layerBox && layerBox.width) {
+            var mc = document.createElement('canvas').getContext('2d');
+            mc.font = (csM.fontStyle === 'italic' ? 'italic ' : '') +
+                      (csM.fontWeight || '400') + ' ' +
+                      fsEcran + 'px ' + (csM.fontFamily || 'sans-serif');
+            /* Même marge horizontale que la rastérisation (:193, padX = 15 %
+               de la police) : sans elle le PNG serait plus large que la boîte
+               annoncée, et le texte paraîtrait décalé. */
+            var wEcran = mc.measureText(raw).width + 2 * (fsEcran * 0.15);
+            var wPct = wEcran / layerBox.width;
+            if (wPct > 0) lw = Math.min(lw, wPct);
+          }
+
           /* CHANGEMENT DE REPÈRE, indispensable : les % inline sont relatifs au
              `logo-layer`, alors que la branche du dessus renvoie des fractions
              de l'IMAGE PRODUIT. Les deux boîtes ne coïncident pas (le layer est
@@ -146,76 +286,14 @@
           }
         }
 
-        var cs = window.getComputedStyle(el);
-        var color = cs.color || '#111';
-        var fontFamily = cs.fontFamily || 'sans-serif';
-        var shaped = el.classList.contains('is-shaped');
-
-        // Texte courbé : on rasterise le SVG déjà rendu dans .dt-content.
-        var svg = content.querySelector('svg');
-        if (shaped && svg) {
-          var clone = svg.cloneNode(true);
-          // Fige une taille de rendu nette.
-          clone.setAttribute('width', '600');
-          clone.setAttribute('height', '180');
-          var xml = new XMLSerializer().serializeToString(clone);
-          var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
-          var im = new Image();
-          im.onload = function () {
-            var cv = document.createElement('canvas');
-            cv.width = 600; cv.height = 180;
-            cv.getContext('2d').drawImage(im, 0, 0, 600, 180);
-            try { resolve({ src: cv.toDataURL('image/png'), x: geo.x, y: geo.y, w: geo.w }); }
-            catch (e) { resolve(null); }
-          };
-          im.onerror = function () { resolve(null); };
-          im.src = url;
-          return;
-        }
-
-        // Texte simple : dessin canvas 2D haute résolution.
-        var fontSize = 160;
-
-        /* Gras / italique / souligné : LUS sur l'élément, plus codés en dur.
-           La police valait « 700 <taille>px <famille> » : le gras était donc
-           toujours appliqué, l'italique jamais, et le souligné absent — ce que
-           le client mettait en forme n'apparaissait ni dans la vue d'ensemble
-           ni sur la planche envoyée à l'atelier (même fonction pour les deux). */
-        var weight = cs.fontWeight || '400';
-        var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
-        var deco = cs.textDecorationLine || cs.textDecoration || '';
-        var souligne = deco.indexOf('underline') !== -1;
-
-        var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
-        var meas = document.createElement('canvas').getContext('2d');
-        meas.font = font;
-        var tw = Math.max(1, meas.measureText(raw).width);
-        var padX = fontSize * 0.15, padY = fontSize * 0.35;
-        var cv = document.createElement('canvas');
-        cv.width = Math.ceil(tw + padX * 2);
-        cv.height = Math.ceil(fontSize + padY * 2);
-        var ctx = cv.getContext('2d');
-        ctx.font = font;
-        ctx.fillStyle = color;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(raw, cv.width / 2, cv.height / 2);
-
-        /* Le canvas 2D ne connaît pas text-decoration : le trait du souligné
-           est tracé à la main, sous la ligne de base. Épaisseur et écart
-           proportionnels à la taille pour rester justes à toute échelle. */
-        if (souligne) {
-          var largeur = ctx.measureText(raw).width;
-          var y = cv.height / 2 + fontSize * 0.38;
-          ctx.strokeStyle = color;
-          ctx.lineWidth = Math.max(1, fontSize * 0.05);
-          ctx.beginPath();
-          ctx.moveTo(cv.width / 2 - largeur / 2, y);
-          ctx.lineTo(cv.width / 2 + largeur / 2, y);
-          ctx.stroke();
-        }
-        try { resolve({ src: cv.toDataURL('image/png'), x: geo.x, y: geo.y, w: geo.w }); }
-        catch (e) { resolve(null); }
+        /* Rendu délégué à rasteriserTexte() — source unique partagée avec
+           window.textAssetDataUrl. Cette fonction ne garde que ce qui lui est
+           propre : le calcul de géométrie ci-dessus, qui reprojette le texte
+           dans le repère de l'image produit. */
+        rasteriserTexte(el).then(function (src) {
+          if (!src) { resolve(null); return; }
+          resolve({ src: src, x: geo.x, y: geo.y, w: geo.w });
+        });
       });
     }
 
