@@ -18,6 +18,95 @@
   var editing = null;
   /** Valeur avant édition : sert à annuler (Échap) et à détecter un changement. */
   var before = '';
+  /** Point du dernier double-clic / double-tap : y place le curseur à l'ouverture. */
+  var lastPoint = null;
+
+  /* Dernière sélection connue, en OFFSETS DE CARACTÈRES { debut, fin }.
+
+     Pourquoi des entiers et non un objet Range : appliquer un style redessine
+     le texte (renderTextOnCanvas réécrit .dt-content), ce qui détruit les nœuds
+     auxquels un Range est attaché — il devient inutilisable. Des offsets, eux,
+     survivent à n'importe quelle réécriture. C'est ce qui permet d'enchaîner
+     deux mises en forme sur la même lettre (gras PUIS rouge).
+
+     Sert aussi au sélecteur de couleur du système : sa fenêtre prend le focus
+     du document et vide la sélection, sans recours possible autrement. */
+  var lastSel = null;
+
+  /**
+   * Repose une sélection depuis des offsets de caractères. Traverse les nœuds
+   * texte, car le contenu est découpé en <span> dès qu'une lettre porte sa
+   * propre mise en forme : les offsets sont globaux, pas relatifs à un nœud.
+   *
+   * @param {HTMLElement} content - le .dt-content
+   * @param {number} debut
+   * @param {number} fin
+   */
+  window.selectionnerOffsets = function (content, debut, fin) {
+    if (!content) return;
+    var marcheur = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null);
+    var vus = 0, noeud;
+    var d = null, f = null;
+    while ((noeud = marcheur.nextNode())) {
+      var len = noeud.nodeValue.length;
+      /* `>` et non `>=` pour le DÉBUT : à la frontière de deux segments, `>=`
+         plaçait l'ancre à la FIN du nœud précédent. Le point est le même dans
+         le texte, mais l'ancre appartient alors au mauvais <span> — ce qui
+         fausse la mise en forme dès que les deux segments diffèrent. La FIN,
+         elle, garde `>=` : elle doit pouvoir se poser en fin de nœud. */
+      if (d === null && vus + len > debut) d = { n: noeud, o: debut - vus };
+      if (f === null && vus + len >= fin) { f = { n: noeud, o: fin - vus }; break; }
+      vus += len;
+    }
+    if (!d || !f) return;
+    try {
+      var r = document.createRange();
+      r.setStart(d.n, d.o);
+      r.setEnd(f.n, f.o);
+      var s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      lastSel = { debut: debut, fin: fin };
+    } catch (e) { /* offsets hors bornes : on laisse la sélection en l'état */ }
+  };
+
+  /** Offsets de la sélection courante dans un .dt-content, ou null. */
+  function offsetsDansContenu(content) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    var range = sel.getRangeAt(0);
+    if (!content.contains(range.commonAncestorContainer)) return null;
+    var avant = range.cloneRange();
+    avant.selectNodeContents(content);
+    avant.setEnd(range.startContainer, range.startOffset);
+    var debut = avant.toString().length;
+    return { debut: debut, fin: debut + range.toString().length };
+  }
+
+  /* Mémorisation continue : le geste de sélection se termine bien avant le clic
+     sur la barre, et tout ce qui suit peut l'effacer. On la capte donc à la
+     source, au moment où l'utilisateur la fait. */
+  document.addEventListener('selectionchange', function () {
+    if (!editing) return;
+    var o = offsetsDansContenu(editing);
+    if (o && o.fin > o.debut) lastSel = o;
+  });
+
+  /**
+   * Dernière sélection partielle connue dans le texte en cours d'édition.
+   * @returns {{debut:number, fin:number}|null} null si tout est sélectionné,
+   *          si rien ne l'est, ou si aucune édition n'est en cours.
+   */
+  window.getEditingSelection = function () {
+    if (!editing) return null;
+    // Sélection vivante si elle existe encore, sinon la dernière mémorisée.
+    var o = offsetsDansContenu(editing);
+    if (!o || o.fin <= o.debut) o = lastSel;
+    if (!o || o.fin <= o.debut) return null;
+    // Tout le texte : autant appliquer globalement, le résultat est identique.
+    if (o.debut === 0 && o.fin >= (editing.textContent || '').length) return null;
+    return o;
+  };
 
   /** @returns {string} zone ('f' | 'fr' | 'b') d'un élément .design-text */
   function zoneOf(el) {
@@ -39,10 +128,28 @@
     if (host) host.classList.remove('is-editing');
 
     if (!apply || !value || value === before) {
-      /* Annulation, champ vidé ou valeur inchangée : on remet l'affichage
-         d'origine. Vider ne supprime PAS le texte — le bouton « ✕ » est là
-         pour ça, et une saisie effacée par erreur ne doit rien détruire. */
-      content.textContent = before;
+      /* Contenu inchangé (ou saisie annulée / vidée) : il n'y a RIEN à écrire.
+
+         On ne restaure pas non plus l'affichage. Ce fut longtemps le cas
+         (`content.textContent = before`, puis `innerHTML = beforeHtml`), mais
+         les deux reposaient sur une prémisse devenue fausse : que le DOM
+         d'avant l'ouverture était l'état de référence. Or la mise en forme par
+         caractère est appliquée PENDANT l'édition et persistée aussitôt dans
+         `conf_texts` — restaurer l'instantané d'ouverture effaçait donc le
+         « N » rouge de « Nike » dès qu'on cliquait ailleurs.
+
+         Le DOM courant est déjà juste : il a été redessiné par
+         renderTextOnCanvas à chaque changement de style. Ne rien faire est
+         donc la bonne action. Vider le champ ne supprime PAS le texte — le
+         bouton « ✕ » est là pour ça, et une saisie effacée par erreur ne doit
+         rien détruire ; c'est pourquoi on sort sans écrire.
+
+         Reste le cas de l'ANNULATION par Échap après une frappe : le texte
+         tapé doit disparaître. On le rétablit depuis l'état persisté, seule
+         source de vérité — jamais depuis un instantané du DOM. */
+      if (value !== before && typeof window.rerenderText === 'function') {
+        window.rerenderText(zone);
+      }
       return;
     }
 
@@ -70,22 +177,35 @@
 
     editing = content;
     before = content.textContent.trim();
+    lastSel = null;        // la sélection du texte précédent ne vaut plus rien
 
-    /* plaintext-only empêche l'insertion de HTML au collage. Firefox ne le
-       supporte pas et retombe alors sur `false` (non éditable) : on vérifie
-       et on bascule sur `true`, avec un nettoyage du collage plus bas. */
-    content.setAttribute('contenteditable', 'plaintext-only');
-    if (content.contentEditable !== 'plaintext-only') {
-      content.setAttribute('contenteditable', 'true');
-    }
+    /* `true` et non `plaintext-only` : ce dernier fait APLATIR tout balisage
+       interne par le navigateur, donc les <span class="dt-seg"> porteurs de la
+       mise en forme par caractère disparaissaient dès l'ouverture de l'édition.
+
+       plaintext-only avait été choisi pour empêcher l'insertion de HTML au
+       collage ; cette protection est déjà assurée par les deux écouteurs
+       `paste` plus bas, qui forcent du texte brut sur une seule ligne. */
+    content.setAttribute('contenteditable', 'true');
     content.classList.add('is-editing');
     host.classList.add('is-editing');
     content.focus();
 
-    // Sélectionne tout : on tape par-dessus, comme dans un champ classique.
-    var range = document.createRange();
-    range.selectNodeContents(content);
+    /* Curseur AU POINT CLIQUÉ, sans rien sélectionner. Auparavant tout le texte
+       était sélectionné (« on tape par-dessus ») : pour mettre en forme une
+       seule lettre, il fallait d'abord désélectionner — et cliquer un bouton
+       de la barre appliquait le style au mot entier, puisque tout était pris. */
     var sel = window.getSelection();
+    var range = null;
+    if (typeof document.caretRangeFromPoint === 'function' && lastPoint) {
+      range = document.caretRangeFromPoint(lastPoint.x, lastPoint.y);
+    }
+    // Repli (point hors du texte, ou API absente) : curseur en fin de texte.
+    if (!range || !content.contains(range.startContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(content);
+      range.collapse(false);
+    }
     sel.removeAllRanges();
     sel.addRange(range);
   }
@@ -119,6 +239,7 @@
     var host = e.target.closest('.design-text');
     if (!host) return;
     e.preventDefault();
+    lastPoint = { x: e.clientX, y: e.clientY };
     openEditor(host);
   });
 
@@ -160,18 +281,15 @@
 
     if (proche) {
       dernierHost = null;              // évite qu'un 3e tap ré-ouvre aussitôt
+      lastPoint = { x: t.clientX, y: t.clientY };
       openEditor(host);
 
-      /* La barre d'outils est refermée APRÈS, en différé. Ce gestionnaire est
-         en capture, donc il précède onPointerUp (conf-logo-drag.js:933, en
-         bulle) qui rouvre la barre sur un tap sans déplacement (:797) : la
-         fermer maintenant serait aussitôt annulé. L'édition se fait sur le
-         vêtement, la barre masquerait le texte en cours de frappe. */
-      setTimeout(function () {
-        if (editing && typeof window.hideTextToolbar === 'function') {
-          window.hideTextToolbar();
-        }
-      }, 0);
+      /* La barre d'outils RESTE VISIBLE pendant l'édition. Elle était masquée
+         ici pour ne pas recouvrir le texte en cours de frappe — mais c'est le
+         seul endroit où l'on peut mettre une lettre en gras ou en couleur : la
+         masquer rendait la mise en forme par caractère inaccessible au doigt,
+         et pas seulement incommode. Le texte reste lisible sur le vêtement,
+         la barre flottant au-dessus de l'aperçu. */
       return;
     }
 
@@ -198,6 +316,9 @@
       e.stopPropagation();
       return;
     }
+    // Barre d'outils : même raison qu'au mousedown ci-dessus.
+    if (e.target.closest('#txt-toolbar')) return;
+    if (e.target.closest('.txt-tb-pop')) return;
     close(true);
   }, true);
 
@@ -235,6 +356,18 @@
   document.addEventListener('mousedown', function (e) {
     if (!editing) return;
     if (e.target.closest('.dt-content') === editing) return;
+    /* La BARRE D'OUTILS ne ferme pas l'édition. `mousedown` précède toujours
+       `click` : sans ces gardes, cliquer « Couleur » ou « B » fermait l'édition
+       — donc vidait la sélection — AVANT que le bouton n'applique quoi que ce
+       soit. La mise en forme d'une seule lettre était alors impossible : elle
+       retombait systématiquement sur le texte entier.
+
+       Mêmes gardes que conf-logo-drag.js:903-907, où ce défaut a déjà été
+       corrigé pour la désélection du cadre. Les menus « Police » et couleur
+       sont déplacés dans <body> par conf-text-toolbar.js : ils ne sont donc
+       plus dans #txt-toolbar et demandent leur propre garde. */
+    if (e.target.closest('#txt-toolbar')) return;
+    if (e.target.closest('.txt-tb-pop')) return;
     close(true);
   }, true);
 

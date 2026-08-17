@@ -151,33 +151,80 @@
         var deco = cs.textDecorationLine || cs.textDecoration || '';
         var souligne = deco.indexOf('underline') !== -1;
 
-        var font = italic + weight + ' ' + fontSize + 'px ' + fontFamily;
+        /* SEGMENTS : le texte peut porter une mise en forme PAR CARACTÈRE (le
+           « N » de « Nike » en rouge et gras). Chaque .dt-seg est lu avec SON
+           style calculé ; sans segment, le texte entier forme un segment unique
+           portant le style de la zone — le chemin d'origine, à l'identique. */
+        var segs = [];
+        var noeuds = content.querySelectorAll('.dt-seg');
+        if (noeuds.length) {
+          for (var n = 0; n < noeuds.length; n++) {
+            var t = noeuds[n].textContent || '';
+            if (!t) continue;
+            var sc = window.getComputedStyle(noeuds[n]);
+            var sdeco = sc.textDecorationLine || sc.textDecoration || '';
+            segs.push({
+              text: t,
+              font: (sc.fontStyle === 'italic' ? 'italic ' : '') +
+                    (sc.fontWeight || '400') + ' ' + fontSize + 'px ' + fontFamily,
+              color: sc.color || color,
+              underline: sdeco.indexOf('underline') !== -1
+            });
+          }
+        }
+        if (!segs.length) {
+          segs = [{
+            text: raw,
+            font: italic + weight + ' ' + fontSize + 'px ' + fontFamily,
+            color: color,
+            underline: souligne
+          }];
+        }
+
+        /* Largeur mesurée SEGMENT PAR SEGMENT, avec la police propre à chacun :
+           le gras est plus large que le normal, donc une mesure globale
+           sous-dimensionnerait le canvas et couperait les dernières lettres. */
         var meas = document.createElement('canvas').getContext('2d');
-        meas.font = font;
-        var tw = Math.max(1, meas.measureText(raw).width);
+        var total = 0;
+        for (var m = 0; m < segs.length; m++) {
+          meas.font = segs[m].font;
+          segs[m].w = meas.measureText(segs[m].text).width;
+          total += segs[m].w;
+        }
+        total = Math.max(1, total);
+
         var padX = fontSize * 0.15, padY = fontSize * 0.35;
         var cv = document.createElement('canvas');
-        cv.width = Math.ceil(tw + padX * 2);
+        cv.width = Math.ceil(total + padX * 2);
         cv.height = Math.ceil(fontSize + padY * 2);
         var ctx = cv.getContext('2d');
-        ctx.font = font;
-        ctx.fillStyle = color;
-        ctx.textAlign = 'center';
+        /* Alignement à GAUCHE et curseur explicite : avec 'center', chaque
+           segment serait centré sur lui-même et ils se superposeraient tous au
+           milieu. On part donc du bord gauche du texte centré. */
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(raw, cv.width / 2, cv.height / 2);
+        var x = (cv.width - total) / 2;
+        var yTexte = cv.height / 2;
+        var yLigne = yTexte + fontSize * 0.38;
+        var epaisseur = Math.max(1, fontSize * 0.05);
 
-        /* Le canvas 2D ne connaît pas text-decoration : le trait du souligné
-           est tracé à la main, sous la ligne de base. Épaisseur et écart
-           proportionnels à la taille pour rester justes à toute échelle. */
-        if (souligne) {
-          var largeur = ctx.measureText(raw).width;
-          var yLigne = cv.height / 2 + fontSize * 0.38;
-          ctx.strokeStyle = color;
-          ctx.lineWidth = Math.max(1, fontSize * 0.05);
-          ctx.beginPath();
-          ctx.moveTo(cv.width / 2 - largeur / 2, yLigne);
-          ctx.lineTo(cv.width / 2 + largeur / 2, yLigne);
-          ctx.stroke();
+        for (var k = 0; k < segs.length; k++) {
+          var s = segs[k];
+          ctx.font = s.font;
+          ctx.fillStyle = s.color;
+          ctx.fillText(s.text, x, yTexte);
+          /* Le canvas 2D ne connaît pas text-decoration : le trait est tracé à
+             la main, sur la plage du segment et dans SA couleur — souligner une
+             seule lettre reste donc possible. */
+          if (s.underline) {
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = epaisseur;
+            ctx.beginPath();
+            ctx.moveTo(x, yLigne);
+            ctx.lineTo(x + s.w, yLigne);
+            ctx.stroke();
+          }
+          x += s.w;
         }
         try { resolve(cv.toDataURL('image/png')); } catch (e) { resolve(''); }
       });
@@ -252,13 +299,29 @@
           var fsEcran = parseFloat(csM.fontSize) || 0;
           if (!courbe && fsEcran > 0 && layerBox && layerBox.width) {
             var mc = document.createElement('canvas').getContext('2d');
+            /* Mesure PAR SEGMENT, comme la rastérisation : avec une police
+               unique, un texte partiellement gras serait sous-estimé et le PNG
+               sortirait trop étroit. Sans segment, la boucle mesure le texte
+               entier avec le style de la zone — le comportement d'origine. */
+            var segsM = el.querySelectorAll('.dt-seg');
+            var wGlyphes = 0;
+            if (segsM.length) {
+              for (var q = 0; q < segsM.length; q++) {
+                var cq = window.getComputedStyle(segsM[q]);
+                mc.font = (cq.fontStyle === 'italic' ? 'italic ' : '') +
+                          (cq.fontWeight || '400') + ' ' +
+                          fsEcran + 'px ' + (csM.fontFamily || 'sans-serif');
+                wGlyphes += mc.measureText(segsM[q].textContent || '').width;
+              }
+            }
             mc.font = (csM.fontStyle === 'italic' ? 'italic ' : '') +
                       (csM.fontWeight || '400') + ' ' +
                       fsEcran + 'px ' + (csM.fontFamily || 'sans-serif');
             /* Même marge horizontale que la rastérisation (:193, padX = 15 %
                de la police) : sans elle le PNG serait plus large que la boîte
                annoncée, et le texte paraîtrait décalé. */
-            var wEcran = mc.measureText(raw).width + 2 * (fsEcran * 0.15);
+            var wEcran = (wGlyphes || mc.measureText(raw).width) +
+                         2 * (fsEcran * 0.15);
             var wPct = wEcran / layerBox.width;
             if (wPct > 0) lw = Math.min(lw, wPct);
           }

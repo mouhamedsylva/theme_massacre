@@ -192,7 +192,23 @@
      dans les PNG). Une zone de 38 % de l'image couvre donc ~55 % du torse.
      Valeurs de départ alignées sur le mobile ; à ajuster visuellement. */
   var CHEST_TABLET = { top: 31, width: 38, height: 9 };
-  var BACK_TABLET = { top: 22, width: 34, height: 46 };
+  /* Dos réduit comme en mobile et en desktop (voir BACK_MOBILE,
+     conf-mobile.js) : la surface floquable annoncée doit être la même sur les
+     trois affichages. Sans cette reprise, le dos serait resté plus grand entre
+     768 et 1023 px.
+
+     Jeu SWEAT distinct, pour la même raison qu'en mobile : sa capuche occupe le
+     haut du panneau dos et la zone mordait dessus. */
+  var BACK_TABLET = { top: 22, width: 30.6, height: 40.6 };
+  var BACK_TABLET_SWEAT = { top: 27.4, width: 33, height: 35.2 };
+
+  /* Le produit courant est exposé par conf-main-inline.js. Repli sur `true` :
+     le sweat est le produit affiché par défaut au chargement. */
+  function isSweatProduct() {
+    var t = window.currentProductType;
+    if (t == null) return true;
+    return String(t).indexOf("sweat") === 0;
+  }
 
   /* Cale #logo-layer sur l'image réellement dessinée. */
   function syncLayerToImage() {
@@ -281,24 +297,26 @@
       el.style.height = CHEST_TABLET.height + "%";
     }
 
-    /* ── DOS ── */
-    var bw = BACK_TABLET.width;
+    /* ── DOS ──
+       Jeu propre au SWEAT (capuche), comme en mobile et en desktop. */
+    var BK = isSweatProduct() ? BACK_TABLET_SWEAT : BACK_TABLET;
+    var bw = BK.width;
     var bl = 50 - bw / 2;
     var zb = Z["b"];
     if (zb) {
       zb.left = bl;
-      zb.top = BACK_TABLET.top;
+      zb.top = BK.top;
       zb.width = bw;
-      zb.height = BACK_TABLET.height;
+      zb.height = BK.height;
       zb.maxW = bw;               // borne la largeur du logo sur la zone
     }
 
     var elb = document.getElementById("zone-b");
     if (elb) {
       elb.style.left = bl + "%";
-      elb.style.top = BACK_TABLET.top + "%";
+      elb.style.top = BK.top + "%";
       elb.style.width = bw + "%";
-      elb.style.height = BACK_TABLET.height + "%";
+      elb.style.height = BK.height + "%";
     }
 
     reflowLogos();

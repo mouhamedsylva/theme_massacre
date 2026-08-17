@@ -242,6 +242,34 @@
          ignoré (et signalé en console) sur un écouteur passif. */
     }, { passive: false });
 
+    /* Le clic sur la barre ne doit PAS déplacer le focus.
+
+       Sans cela, appuyer sur « B » retirait le curseur du texte en cours
+       d'édition, et le navigateur vidait la sélection — la lettre visée était
+       perdue avant même que le bouton n'applique son style. `preventDefault()`
+       sur `mousedown` est le mécanisme standard : le bouton reçoit bien son
+       `click`, mais le focus reste où il est.
+
+       Le curseur de TAILLE est exclu : il a besoin de son `mousedown` natif
+       pour être glissé (même exclusion qu'au `touchend` ci-dessus). */
+    bar.addEventListener('mousedown', function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest('input[type="range"]')) return;
+      e.preventDefault();
+    });
+
+    /* Équivalent tactile, sur les BOUTONS uniquement : la barre elle-même porte
+       `overflow-x: auto` (conf-styles.css) et doit rester défilable au doigt —
+       un preventDefault() global y bloquerait le défilement. */
+    bar.addEventListener('touchstart', function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      if (t.closest('input[type="range"]')) return;
+      if (t.closest('.txt-tb-btn, .txt-tb-label, .txt-tb-sw, .txt-tb-fitem')) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
     bar.addEventListener('click', onBarClick);
     bar.addEventListener('input', onBarInput);
     return bar;
@@ -264,6 +292,10 @@
     bar.querySelectorAll('.txt-tb-pop').forEach(function (pop) {
       pop.style.display = 'none';   // état initial garanti, sans dépendre du CSS
       pop.addEventListener('click', onBarClick);
+      /* Même protection du focus que sur la barre : sortis dans <body>, les
+         menus ne bénéficient plus de son écouteur. Sans cela, choisir une
+         pastille de couleur vidait la sélection avant de l'appliquer. */
+      pop.addEventListener('mousedown', function (e) { e.preventDefault(); });
       document.body.appendChild(pop);
     });
   }
@@ -284,8 +316,54 @@
   /* ── Lecture / écriture de l'état du texte ────────────────────────────── */
   function textEl(zone) { return document.getElementById('text-' + zone); }
 
+  /* ─────────────── Mise en forme d'une SÉLECTION PARTIELLE ───────────────
+     Sélectionner « N » dans « Nike » puis cliquer Gras ne doit mettre en gras
+     que cette lettre. Seuls couleur / gras / italique / souligné sont concernés
+     — taille et police restent globales (elles changeraient la métrique et donc
+     le calage dans la zone imprimable).
+
+     La sélection n'existe que pendant l'édition sur place (double-clic /
+     double-tap, conf-text-dblclick.js), qui rend .dt-content éditable. En
+     dehors, il n'y a rien à sélectionner et la mise en forme reste globale. */
+  var PROPS_LOCALES = { color: 1, bold: 1, italic: 1, underline: 1 };
+
+  /**
+   * Sélection partielle courante, en offsets de caractères.
+   *
+   * La source est conf-text-dblclick.js, seul propriétaire du cycle de vie de
+   * l'édition : il mémorise la sélection au moment où l'utilisateur la fait
+   * (`selectionchange`), et la restitue même quand le navigateur l'a vidée
+   * entre-temps — ce que fait notamment la fenêtre système du sélecteur de
+   * couleur. Lire `window.getSelection()` ici arrivait toujours trop tard.
+   *
+   * @returns {{debut:number, fin:number}|null}
+   */
+  function selectionPartielle() {
+    if (!curZone) return null;
+    if (typeof window.getEditingSelection !== 'function') return null;
+    // La sélection doit porter sur LE texte que la barre pilote.
+    var el = textEl(curZone);
+    var content = el && el.querySelector('.dt-content');
+    if (!content || !content.classList.contains('is-editing')) return null;
+    return window.getEditingSelection();
+  }
+
   function applyProp(prop, value) {
     if (!curZone) return;
+
+    /* Sélection partielle : on délègue à l'éditeur, qui découpe le texte en
+       segments et persiste. Il renvoie false s'il n'a pas pu traiter la
+       demande, auquel cas on retombe sur l'application globale. */
+    if (PROPS_LOCALES[prop]) {
+      var range = selectionPartielle();
+      if (range && typeof window.setTextPropSelection === 'function') {
+        if (window.setTextPropSelection(curZone, prop, value, range)) {
+          refreshSizeMax();
+          return;
+        }
+      }
+    }
+
     /* Voie normale : l'éditeur applique ET persiste. On ne sort que s'il a
        réellement traité la demande — il renvoie false quand la zone n'a pas
        d'état sauvegardé, cas où le repli DOM ci-dessous reste utile.

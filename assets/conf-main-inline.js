@@ -1345,14 +1345,22 @@
        démarrait sur la couture d'épaule. Le sweat ajoute +4 (voir buildZones),
        son bras étant plus bas — elle y commence donc à 29 %. */
     const DOS_TOP_PCT   = 25;
-    const DOS_H_MAX_PCT = 34.3;
+    /* 30.3 % = 23,0 cm (facteur 1,3192 %/cm, calé sur l'ancien repère
+       34,3 % = 26,0 cm). Réduite pour l'aspect visuel : le rectangle occupait
+       une part du dos que le rendu faisait paraître excessive. La surface
+       floquable proposée au client baisse donc de 26 à 23 cm de haut. */
+    const DOS_H_MAX_PCT = 30.3;
     /* Largeur imprimable du dos, en % du visuel. Ramenée de 22 % à 17 % :
        22 % valait 38,9 cm sur le sweat, très au-delà de la contrainte atelier
        « L30 max » rappelée plus bas — la zone frôlait les coutures latérales.
        17 % = 30,0 cm (17 / (30.0/53)), soit la limite atelier exactement.
        La zone reste centrée sans autre réglage : `left` est calculé en
        49.8 - dosW / 2 (voir buildZones). */
-    const DOS_W_PCT     = 17;
+    /* 15.3 % = 27,0 cm (facteur 0,5667 %/cm, calé sur l'ancien repère
+       17 % = 30,0 cm). Même motif que la hauteur ci-dessus : la zone paraissait
+       trop large à l'écran, elle s'écarte maintenant davantage des coutures
+       latérales. La largeur floquable passe donc de 30 à 27 cm. */
+    const DOS_W_PCT     = 15.3;
 
     /* Zone de flocage d'une MANCHE (vue de côté), en % du visuel et PAR PRODUIT :
        les silhouettes diffèrent, une valeur unique tombait juste sur le sweat et
@@ -2070,6 +2078,22 @@
         // Restaurer les textes personnalisés de ce produit.
         if (typeof restoreTexts === 'function') restoreTexts();
 
+        /* Zones REJOUÉES après la restauration.
+
+           applyZonesForProduct() a déjà tourné plus haut (:2021), mais à ce
+           moment-là le DOM portait encore les textes de l'ANCIEN produit :
+           clampTextToZone les bornait donc contre les zones du NOUVEAU. Comme
+           les zones diffèrent d'un textile à l'autre (CHEST.top vaut 34 sur
+           sweat, 31 sur t-shirt), les positions étaient rabattues — et les
+           zones de poitrine gauche et droite partageant le même rectangle,
+           texte et logo s'effondraient sur la même borne, ce qui donnait
+           l'impression qu'ils échangeaient leur place.
+
+           On ne DÉPLACE pas l'appel de :2021 : les logos en dépendent avant
+           leur propre restauration. On le rejoue, maintenant que le DOM porte
+           bien les éléments du produit courant. */
+        if (typeof applyZonesForProduct === 'function') applyZonesForProduct(productType);
+
         // Recalcule le prix affiché pour le TEXTILE choisi : sans cela, le prix
         // restait figé sur celui du produit affiché au chargement de la page
         // (sweat 60 € gardé sur les t-shirts, ou inversement). Limité aux
@@ -2560,21 +2584,37 @@
       // panier affichait « 6 » pour une liste de 2). Chaque ligne d'une liste
       // porte un groupIndex unique (« 2/5 ») ; les ajouts hors groupe n'en ont
       // pas, leur cumul habituel est donc préservé.
-      const existing = cartItems.find(i => i.name === item.name && i.color === item.color &&
-                                           i.size === item.size &&
+      /* Un même produit ré-ajouté MET À JOUR sa ligne au lieu d'en créer une
+         seconde. Couleur et taille ne sont donc plus dans la clé : le client
+         qui repasse son sweatshirt de Black à Atoll retrouvait deux lignes,
+         alors qu'il venait de changer d'avis sur un seul article.
+
+         Restent dans la clé les deux marqueurs de COMMANDE GROUPÉE, qui
+         désignent de vraies lignes distinctes :
+           • personName — le nom floqué, propre à chaque personne ;
+           • groupIndex — « 2/5 », unique par ligne de liste, indispensable
+             quand le nom floqué est laissé vide.
+         Sans eux, une liste de cinq personnes s'effondrerait en une ligne. */
+      const existing = cartItems.find(i => i.name === item.name &&
                                            (i.personName || '') === (item.personName || '') &&
                                            (i.groupIndex || '') === (item.groupIndex || ''));
       if (existing) {
-        if (replaceQty) {
-          existing.qty = item.qty || 1;   // remplacer par la quantité choisie
-        } else {
-          existing.qty += (item.qty || 1); // cumuler
-        }
-        // Met à jour le design (image/planche/assets) : le client a pu modifier
-        // son logo avant de ré-ajouter le même produit/couleur/taille.
+        /* La quantité n'est jamais CUMULÉE : ré-ajouter le même article ne
+           doit pas faire monter le compteur — le client ajuste avec les
+           boutons +/− du panier. `replaceQty` (coins, patchs, drapeaux, dont
+           la quantité est saisie avant l'ajout) impose sa valeur ; les autres
+           gardent celle déjà présente. */
+        if (replaceQty) existing.qty = item.qty || 1;
+
+        /* Couleur, taille et design sont RAFRAÎCHIS : c'est tout l'objet de la
+           fusion — la ligne reflète le dernier choix du client. */
+        existing.color = item.color;
+        existing.size = item.size;
+        existing.price = item.price;      // le prix suit le produit et sa taille
         existing.img = item.img;
         existing.sheet = item.sheet;
         existing.assets = item.assets;
+        existing.sleeveCount = item.sleeveCount;
       } else {
         cartItems.push(item);
       }
@@ -5537,7 +5577,22 @@
         top: z.top + (z.height - hh) / 2,   // bandeau centré verticalement
         width: z.width,
         height: hh,
-        maxWidth: maxW
+        maxWidth: maxW,
+        /* Position de DÉPART, propre à chaque zone — à ne pas confondre avec
+           `left`, qui est le bord GAUCHE de la zone et sert de borne minimale.
+
+           Les zones 'f' et 'fr' partagent le même rectangle (zone-chest) : sans
+           cette distinction, deux textes jamais déplacés recevaient la même
+           position de repli et se SUPERPOSAIENT au rechargement — « Papa » et
+           « Maman » côte à côte revenaient l'un sur l'autre.
+
+           On reprend `startLeft` des logos (LOGO_ZONES :1468 et :1475), qui
+           résout déjà ce problème pour eux : 'f' démarre à droite du bandeau,
+           'fr' à gauche. Le texte étant plus large qu'un logo, on borne pour
+           que la position de départ reste dans la zone. */
+        startLeft: (z.startLeft != null)
+          ? Math.max(z.left, Math.min(z.startLeft, z.left + z.width))
+          : z.left
       };
     }
     /* Compat : l'ancien objet est conservé en accès dynamique, les appelants

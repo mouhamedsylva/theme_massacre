@@ -484,8 +484,26 @@
        contenu — le cadre colle donc au texte.
        overflow visible : rien à rogner puisque la boîte suit le texte ; la
        taille est déjà bornée par clampTextToZone. */
+    /* `overflow: visible` et non `hidden`.
+
+       `hidden` COUPAIT le texte en silence quand la boucle de réduction de
+       clampTextToZone sortait sur son plancher de police sans avoir réussi à
+       le faire tenir. Sur ordinateur ce plancher n'est jamais atteint — la
+       zone y fait ~73 px utiles. Sur téléphone elle tombe à ~32 px : un nom
+       long y butait sur le plancher, et la fin du mot disparaissait sans que
+       rien ne le signale. Le client lisait « MODOU BABAC » en croyant avoir
+       saisi son nom complet.
+
+       Mieux vaut un texte qui dépasse légèrement — visible, donc corrigible
+       par le client — qu'un texte tronqué à son insu. Le clamp continue de
+       réduire la police en priorité ; ceci n'est que le filet de sécurité. */
     .design-text .dt-content { display: block; width: 100%; text-align: center;
-      white-space: nowrap; overflow: hidden; line-height: 1.1; }
+      white-space: nowrap; overflow: visible; line-height: 1.1; }
+    /* Segment de texte mis en forme individuellement (une ou plusieurs lettres
+       en gras, italique, souligné ou d'une autre couleur). `inline` et non
+       `inline-block` : les lettres doivent rester dans le même flux de texte,
+       sans espace parasite entre elles ni rupture de la ligne de base. */
+    .design-text .dt-seg { display: inline; white-space: pre; }
     /* Texte courbé (SVG) : occupe la largeur de son conteneur. */
     .design-text.is-shaped { padding: 0; white-space: normal; }
     .design-text.is-shaped .dt-content { white-space: normal; }
@@ -848,14 +866,28 @@
     .zlvl { font-size: 12px; font-weight: 600; min-width: 40px; text-align: center; }
     .cdiv { width: 18px; height: 1px; background: var(--border); }
 
-    /* Info bar */
+    /* Info bar.
+
+       `bottom: 24px` et non 8 : collée au bord, la ligne se faisait rogner par
+       le bas du conteneur selon la hauteur de fenêtre — le message
+       disparaissait alors purement et simplement. C'est un avertissement sur
+       le devis : il doit rester lisible, d'où aussi les 12px (au lieu de 10)
+       et une teinte plus soutenue que --faint. */
     .cv-info {
-      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-      display: flex; align-items: center; gap: 5px;
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 6px;
       background: transparent; border: none;
       padding: 0;
-      font-size: 10px; color: var(--faint);
+      font-size: 12px; color: var(--muted);
       white-space: nowrap;
+    }
+    /* L'icône suit le texte : elle est écrite en dur à 12px et #999898 dans les
+       trois gabarits de conf-dynamic-layout.js (coins, drapeaux, patchs). On la
+       redimensionne et la recolore ici, en un seul endroit, plutôt que d'éditer
+       trois SVG identiques. `flex: none` l'empêche d'être écrasée par le texte. */
+    .cv-info svg {
+      width: 14px; height: 14px; flex: none;
+      fill: currentColor;
     }
 
     /* ══ RECAP ══ */
@@ -1722,6 +1754,14 @@
     }
     .txt-tb-btn:hover { background: #f2f2f2; }
     .txt-tb-btn.on { background: #1a1a1a; color: #fff; }
+    /* Les libellés de la barre ne sont pas du texte à sélectionner : glisser
+       depuis un bouton surlignait « Police » ou « B » et, pire, remplaçait la
+       sélection faite dans le texte du vêtement — la lettre visée était perdue.
+       La règle n'existait que dans conf-mobile.css:1163, enfermée dans
+       @media (max-width:767px) : le desktop n'en bénéficiait pas. */
+    .txt-tb-btn, .txt-tb-label, .txt-tb-fitem, .txt-tb-sw {
+      user-select: none; -webkit-user-select: none;
+    }
     .txt-tb-label { font-weight: 800; white-space: nowrap; }
     /* Chevron du bouton Police : signale qu'une liste s'ouvre. */
     .txt-tb-label[data-act="font"] { display: inline-flex; align-items: center; gap: 5px; }

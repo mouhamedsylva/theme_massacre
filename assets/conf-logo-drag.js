@@ -528,8 +528,24 @@
       const fOver = Math.max(0, curFW - 100);
       fX0 = -PATCH_PAN - fOver;
       fX1 = 100 + PATCH_PAN + fOver + fOver;   // compense maxPos()
-      fY0 = fX0;
-      fY1 = fX1;
+      /* Débordement VERTICAL mesuré sur la hauteur, et non recopié de l'axe X.
+
+         `.flag-crop` est le seul cadre de rognage NON CARRÉ du projet : sa
+         boîte épouse l'image (syncFlagCrop, conf-flag-cover.js:83-86), soit un
+         ratio d'environ 1,7 en paysage. `.coin-disc` porte `aspect-ratio: 1/1`
+         et #coins-canvas est carré : pour eux, recopier l'axe X était juste,
+         ce qui explique que seul le drapeau ait montré le défaut.
+
+         Sur un cadre rectangulaire, un débordement horizontal de N points ne
+         vaut pas N points à la verticale. Les bornes verticales étaient donc
+         fausses, et le design remontait vers `fY0` à chaque frame d'étirement.
+
+         `style.height` est écrit à la même valeur que la largeur pendant le
+         resize en couverture ; à défaut, on retombe sur la largeur. */
+      const curFH = parseFloat(active.style.height) || curFW;
+      const fOverY = Math.max(0, curFH - 100);
+      fY0 = -PATCH_PAN - fOverY;
+      fY1 = 100 + PATCH_PAN + fOverY + fOverY;
       flagMaxW = PATCH_MAX_ZOOM;
     } else if (isFlagLogo) {
       /* Marges propres à l'orientation : les fichiers paysage et portrait
@@ -680,12 +696,30 @@
           active.style.width = wNow + '%';
           hNow = (active.offsetHeight / bounds.height) * 100;
         }
-        var lNow = parseFloat(active.style.left);
-        var tNow = parseFloat(active.style.top);
-        if (isNaN(lNow)) lNow = zX0;
-        if (isNaN(tNow)) tNow = zY0;
-        active.style.left = Math.max(zX0, Math.min(zX1 - wNow, lNow)) + '%';
-        active.style.top = Math.max(zY0, Math.min(zY1 - hNow, tNow)) + '%';
+        /* Le clamp de POSITION suit la même règle que celui de la hauteur
+           ci-dessus : en couverture, le design déborde par conception, il n'y
+           a rien à borner pendant qu'on l'étire.
+
+           Le garde `coverMode` s'arrêtait à la largeur. La position, elle,
+           restait bornée — et sur le DRAPEAU, dont le cadre de rognage n'est
+           pas carré (voir les bornes verticales plus haut), `zY1 - hNow`
+           repoussait `top` vers la borne haute à chaque frame. Le design
+           dérivait hors du .flag-crop-preview, qui porte `overflow: hidden`,
+           et la zone imprimée se vidait à mesure de l'agrandissement.
+
+           Aucune contrainte n'est perdue : en couverture, le DÉPLACEMENT
+           applique déjà ses propres bornes (fX0/fX1, fY0/fY1 plus haut), qui
+           autorisent volontairement le débordement — c'est ce qui rend le
+           recadrage possible. Ce clamp-ci ne servait qu'aux logos posés DANS
+           une zone, et il continue de s'y appliquer. */
+        if (!coverMode) {
+          var lNow = parseFloat(active.style.left);
+          var tNow = parseFloat(active.style.top);
+          if (isNaN(lNow)) lNow = zX0;
+          if (isNaN(tNow)) tNow = zY0;
+          active.style.left = Math.max(zX0, Math.min(zX1 - wNow, lNow)) + '%';
+          active.style.top = Math.max(zY0, Math.min(zY1 - hNow, tNow)) + '%';
+        }
       }
 
       // Pour un TEXTE simple : la taille de police suit la largeur (proportionnel).

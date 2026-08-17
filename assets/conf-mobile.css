@@ -41,17 +41,64 @@
     overscroll-behavior: none;      /* pas de rebond élastique iOS */
   }
 
+  /* `top` réserve la hauteur du header de la boutique — bande d'annonce
+     comprise — au lieu de la recouvrir.
+
+     `inset: 0` collait l'application au bord haut de l'écran : la bande rouge
+     était bien dans le DOM, mais passait DESSOUS et n'apparaissait jamais sur
+     téléphone, alors qu'elle s'affiche sur ordinateur (où .conf-app-root reste
+     dans le flux). La hauteur est mesurée en direct par conf-shop-header.js et
+     exposée dans --shop-header-h : elle suit donc le dépliage du menu et le
+     changement d'orientation.
+
+     Repli à 0px : sans la variable, l'application reprend tout l'écran plutôt
+     que de laisser un bandeau vide. */
   .conf-app-root {
     position: fixed;
-    inset: 0;
+    /* MÊME ANCRAGE QUE LE DESKTOP (conf-styles.css:1240) : `top` réserve la
+       hauteur de ce qui est rendu au-dessus, `bottom: auto` laisse `height`
+       seule autorité — les poser tous deux l'emporterait sur `height` et
+       étirerait la boîte sur toute la fenêtre.
+
+       `inset: 0` collait l'application au bord haut de l'écran : la bande
+       d'annonce était bien dans le DOM mais passait dessous, invisible sur
+       téléphone, alors qu'elle s'affiche sur ordinateur.
+
+       On lit --conf-banner-h et non --shop-header-h : cette dernière mesure le
+       MENU, précisément masqué ici (.header-section), donc elle vaut 0 sur
+       téléphone. La bande, elle, est mesurée par conf-mobile-banner.js. */
+    top: var(--conf-banner-h, 0px);
+    left: 0;
+    right: 0;
+    bottom: auto;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
+    height: calc(100vh - var(--conf-banner-h, 0px));
+    height: calc(100dvh - var(--conf-banner-h, 0px));
     min-height: 0;
     overflow: hidden;
     padding-bottom: 0;
   }
+
+  /* MENU de la boutique masqué sur téléphone, bande d'annonce conservée.
+
+     Décaler `.conf-app-root` de --shop-header-h fait apparaître tout ce qui est
+     rendu au-dessus. Sur un écran de téléphone, le menu MASSACRE mangerait une
+     part importante de la hauteur utile de l'aperçu — seule la bande rouge est
+     souhaitée.
+
+     Même sélecteur et même raisonnement que la page Récapitulatif
+     (sections/recapitulatif.liquid:54), qui masque déjà ce menu : `.header-section`
+     est la classe posée par Shopify sur le wrapper de la section, et non un id
+     — celui-ci contient un identifiant numérique qui change à chaque
+     duplication du thème.
+
+     La BANDE ROUGE n'est pas touchée : elle est injectée par une app tierce
+     (BSS Banner) EN DEHORS de #header-group, donc hors de ce sélecteur.
+
+     `display: none` et non `visibility: hidden` : on veut récupérer la hauteur,
+     sinon --shop-header-h réserverait une bande vide. */
+  .header-section { display: none; }
 
   /* La barre de types de produit d'origine est remplacée par le panneau
      « Type de Produit » de la feuille montante. */

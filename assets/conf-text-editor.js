@@ -168,6 +168,66 @@
     });
   }
 
+  /* ─────────────────── Mise en forme PAR CARACTÈRE ───────────────────
+     Un texte peut porter une mise en forme locale : le « N » de « Nike » en
+     rouge et gras, le reste normal. Elle est stockée dans `segments` :
+
+       segments: [ { text: 'N', color: '#e11', bold: true },
+                   { text: 'ike' } ]
+
+     `text` reste TOUJOURS maintenu comme concaténation des segments : il
+     alimente le nom floqué, les propriétés de commande, l'aperçu de groupe et
+     le compteur de caractères. `segments` est donc un ENRICHISSEMENT, jamais
+     un remplacement — les sessions créées avant cette fonctionnalité n'ont que
+     `text` et continuent de fonctionner sans conversion (migration ascendante).
+
+     Les attributs par segment sont volontairement limités à couleur / gras /
+     italique / souligné. Taille et police restent globales : elles changeraient
+     la hauteur de ligne et la métrique, ce qui casserait la limite de largeur
+     (20 cm en face) et le calage dans la zone imprimable. */
+
+  /** @returns {boolean} true si au moins un segment porte une mise en forme */
+  function aDesSegments(data) {
+    if (!data || !Array.isArray(data.segments) || !data.segments.length) return false;
+    // Un seul segment sans attribut = équivalent au texte plat : on ignore.
+    return data.segments.some(function (s) {
+      return s && (s.color || s.bold || s.italic || s.underline);
+    });
+  }
+
+  /** Texte brut d'une liste de segments (source de vérité pour `text`). */
+  function texteDesSegments(segments) {
+    if (!Array.isArray(segments)) return "";
+    return segments.map(function (s) { return (s && s.text) || ""; }).join("");
+  }
+
+  /* Fusionne les segments voisins de mise en forme identique, et retire les
+     vides. Sans cela, taper lettre à lettre produirait un segment par frappe :
+     le DOM enflerait, et la rasterisation ferait un appel canvas par caractère
+     au lieu d'un par style. */
+  function normaliserSegments(segments) {
+    if (!Array.isArray(segments)) return [];
+    var out = [];
+    segments.forEach(function (s) {
+      if (!s || !s.text) return;
+      var prec = out[out.length - 1];
+      var memeStyle = prec &&
+        (prec.color || "") === (s.color || "") &&
+        !!prec.bold === !!s.bold &&
+        !!prec.italic === !!s.italic &&
+        !!prec.underline === !!s.underline;
+      if (memeStyle) prec.text += s.text;
+      else out.push({
+        text: s.text,
+        color: s.color || "",
+        bold: !!s.bold,
+        italic: !!s.italic,
+        underline: !!s.underline,
+      });
+    });
+    return out;
+  }
+
   // ─────────────── Champ inline (bouton -> saisie) ───────────────
   /* Zone visée par la saisie en cours. Renseignée par startTextInline() quand
      l'appelant la précise (boutons « texte gauche / droite » en vue de face) ;
@@ -518,7 +578,27 @@
     if (sbInner) sbInner.style.display = "";
 
     if (save) {
-      saveState(state.zone, {
+      /* GÉOMÉTRIE PRÉSERVÉE — même défaut que celui corrigé dans addText()
+         (:319-342), qui n'avait jamais été reporté ici.
+
+         `saveState` écrase l'entrée par affectation directe
+         (`all[produit][zone] = data`). Écrire un objet littéral neuf, sans
+         `left`/`top`/`width`/`fontSize`, effaçait donc la position enregistrée
+         par saveTextGeo() au glisser : le client déplaçait son texte, rouvrait
+         le panneau pour changer une couleur, validait — et retrouvait son texte
+         à sa position d'origine au rechargement.
+
+         On relit l'état existant et on ne remplace que ce que le panneau
+         connaît. Même contrat que saveTextGeo() (:1121) et setTextProp(),
+         qui fusionnent tous deux au lieu d'écraser.
+
+         Les SEGMENTS ne sont volontairement pas repris : ce panneau pose une
+         couleur et une graisse GLOBALES, et la règle établie dans setTextProp
+         (:1213) veut qu'un style global efface la mise en forme par caractère —
+         sinon les segments continueraient de la masquer et la couleur choisie
+         resterait invisible. */
+      var precedent = getState(state.zone) || {};
+      var aEnregistrer = {
         text: state.text,
         font: state.font,
         fontName: state.fontName,
@@ -528,7 +608,11 @@
         italic: state.italic,
         underline: state.underline,
         size: state.size,
+      };
+      ["left", "top", "width", "fontSize"].forEach(function (k) {
+        if (precedent[k] !== undefined) aEnregistrer[k] = precedent[k];
       });
+      saveState(state.zone, aEnregistrer);
       // Chip récap dans le sidebar.
       var chip = document.getElementById("txt-chip-" + state.zone);
       var val = document.getElementById("txt-chip-val-" + state.zone);
@@ -890,6 +974,13 @@
       el.classList.remove("is-shaped");
       if (typeof window.refreshZoneGuides === "function")
         window.refreshZoneGuides();
+      /* Le RÉCAPITULATIF doit suivre la suppression. Ce `return` court-circuitait
+         l'appel à updateTextRecap() posé en fin de fonction : la ligne du texte
+         restait affichée avec son ancienne vignette alors que le vêtement était
+         vide. majLigneTexte() gère déjà ce cas — elle masque la ligne et vide la
+         source quand la zone n'a plus de texte ; encore fallait-il l'appeler. */
+      if (typeof window.updateTextRecap === "function")
+        window.updateTextRecap(zone);
       return;
     }
     el.style.display = "block";
@@ -920,7 +1011,27 @@
       el.classList.add("is-shaped");
     } else {
       el.classList.remove("is-shaped");
-      content.textContent = data.text;
+      /* Mise en forme par caractère : un <span> par segment. Sans segments, on
+         reste sur textContent — plus sûr (aucune interprétation de balisage) et
+         c'est le cas de l'immense majorité des textes.
+
+         Les attributs de zone (police, taille) restent sur .design-text ; seuls
+         couleur, graisse, style et souligné descendent sur les segments. */
+      if (aDesSegments(data)) {
+        content.innerHTML = normaliserSegments(data.segments)
+          .map(function (s) {
+            var st = [];
+            if (s.color) st.push("color:" + s.color);
+            if (s.bold) st.push("font-weight:800");
+            if (s.italic) st.push("font-style:italic");
+            if (s.underline) st.push("text-decoration:underline");
+            return '<span class="dt-seg" style="' + esc(st.join(";")) + '">' +
+                   esc(s.text) + "</span>";
+          })
+          .join("");
+      } else {
+        content.textContent = data.text;
+      }
     }
     /* Contrainte : rester dans la zone.
        Rejouée après le chargement de la police : la première mesure se fait
@@ -937,6 +1048,19 @@
       setTimeout(function () {
         window.clampTextToZone(zone);
       }, 120);
+
+      /* Rejeu à l'arrivée de l'IMAGE PRODUIT — contrepartie de la garde posée
+         dans clampTextToZone (conf-text-clamp.js) : tant que l'image n'est pas
+         décodée, le clamp sort sans rien borner. Sans ce rejeu, un texte plus
+         large que sa zone resterait débordant après un chargement à froid.
+         Les rejeux ci-dessus n'attendent que les POLICES, pas l'image. */
+      var imgRef = document.querySelector(".product-img-single.on") ||
+                   document.getElementById("view-face");
+      if (imgRef && imgRef.tagName === "IMG" && !imgRef.complete) {
+        imgRef.addEventListener("load", function () {
+          window.clampTextToZone(zone);
+        }, { once: true });
+      }
     }
     if (typeof window.refreshZoneGuides === "function")
       window.refreshZoneGuides();
@@ -1064,6 +1188,22 @@
    * @param {string} prop  - 'font' | 'color' | 'size' | 'bold' | 'italic' | 'underline'
    * @param {*}      value - nouvelle valeur
    */
+  /**
+   * Redessine un texte depuis son état PERSISTÉ, en écartant tout ce que le DOM
+   * peut porter de transitoire.
+   *
+   * Sert à annuler une saisie (Échap pendant l'édition sur place) : le texte
+   * tapé disparaît, mais la mise en forme par caractère — déjà enregistrée dans
+   * `conf_texts` — est conservée. Restaurer un instantané du DOM pris à
+   * l'ouverture l'aurait au contraire effacée.
+   *
+   * @param {string} zone - 'f' | 'fr' | 'b'
+   */
+  window.rerenderText = function (zone) {
+    var st = getState(zone);
+    if (st) renderTextOnCanvas(zone, st);
+  };
+
   window.setTextProp = function (zone, prop, value) {
     var st = getState(zone);
     if (!st) return false;                 // aucun texte sur cette zone
@@ -1081,8 +1221,123 @@
     else if (prop === 'underline') st.underline = !!value;
     else return false;                     // propriété inconnue : on n'écrit pas
 
+    /* Un style GLOBAL efface la mise en forme par caractère : sinon les
+       segments continueraient de la masquer, et cliquer « tout en rouge »
+       laisserait le « N » de « Nike » dans son ancienne couleur sans que rien
+       ne l'explique. Le geste global l'emporte, ce qui le rend aussi le moyen
+       de repartir d'un texte propre. */
+    if (prop === 'color' || prop === 'bold' || prop === 'italic' || prop === 'underline') {
+      delete st.segments;
+    }
+
     saveState(zone, st);
     renderTextOnCanvas(zone, st);
+    return true;
+  };
+
+  /**
+   * Applique une mise en forme à une PARTIE du texte seulement (le « N » de
+   * « Nike » en rouge et gras). Découpe le texte en segments selon les bornes
+   * de la sélection, applique l'attribut au segment central, puis persiste.
+   *
+   * @param {string} zone   - 'f' | 'fr' | 'b'
+   * @param {string} prop   - 'color' | 'bold' | 'italic' | 'underline'
+   * @param {*} value       - couleur (string) ou booléen
+   * @param {Range} range   - la sélection, DANS le .dt-content de cette zone
+   * @returns {boolean} false si la demande n'a pas pu être traitée
+   */
+  window.setTextPropSelection = function (zone, prop, value, range) {
+    var st = getState(zone);
+    if (!st || !range) return false;
+    // Texte courbé : son contenu est un tracé SVG, pas du texte de flux.
+    if (st.shape && st.shape !== "normal") return false;
+
+    var el = document.getElementById("text-" + zone);
+    var content = el && el.querySelector(".dt-content");
+    if (!content) return false;
+
+    /* Bornes en OFFSETS DE CARACTÈRES dans le texte complet.
+
+       `range` est normalement un objet { debut, fin } fourni par
+       conf-text-dblclick.js — des entiers, qui survivent au redessin du texte
+       (un Range, lui, pointe sur des nœuds que renderTextOnCanvas détruit).
+       La forme Range reste acceptée pour un appel direct. */
+    var debut, fin;
+    if (typeof range.debut === "number" && typeof range.fin === "number") {
+      debut = range.debut;
+      fin = range.fin;
+    } else if (typeof range.cloneRange === "function") {
+      var avant = range.cloneRange();
+      avant.selectNodeContents(content);
+      avant.setEnd(range.startContainer, range.startOffset);
+      debut = avant.toString().length;
+      fin = debut + range.toString().length;
+    } else {
+      return false;
+    }
+    if (fin <= debut || debut < 0) return false;
+
+    var texte = content.textContent || "";
+    if (!texte || fin > texte.length) return false;
+
+    /* Segments actuels, ou un segment unique portant le style de la zone :
+       un texte jamais enrichi doit conserver son apparence hors sélection. */
+    var base = aDesSegments(st) ? normaliserSegments(st.segments) : [{
+      text: texte,
+      color: st.color || "",
+      bold: !!st.bold,
+      italic: !!st.italic,
+      underline: !!st.underline,
+    }];
+
+    /* Redécoupage caractère par caractère : simple et sûr, quel que soit le
+       découpage précédent. normaliserSegments() refusionne ensuite les voisins
+       de même style, donc on ne garde pas un segment par lettre. */
+    var lettres = [];
+    base.forEach(function (s) {
+      for (var i = 0; i < s.text.length; i++) {
+        lettres.push({
+          text: s.text.charAt(i),
+          color: s.color || "",
+          bold: !!s.bold,
+          italic: !!s.italic,
+          underline: !!s.underline,
+        });
+      }
+    });
+
+    for (var j = debut; j < fin && j < lettres.length; j++) {
+      if (prop === "color") lettres[j].color = value || "";
+      else if (prop === "bold") lettres[j].bold = !!value;
+      else if (prop === "italic") lettres[j].italic = !!value;
+      else if (prop === "underline") lettres[j].underline = !!value;
+      else return false;
+    }
+
+    st.segments = normaliserSegments(lettres);
+    st.text = texteDesSegments(st.segments);   // `text` reste la source brute
+    saveState(zone, st);
+
+    var etaitEnEdition = content.classList.contains("is-editing");
+    renderTextOnCanvas(zone, st);
+
+    /* Le redessin a remplacé le contenu de .dt-content : sans cette
+       restauration, l'édition s'arrêtait silencieusement au premier clic et
+       enchaîner deux styles sur la même lettre (gras PUIS rouge) était
+       impossible. On repose l'édition ET la sélection, aux mêmes offsets. */
+    if (etaitEnEdition) {
+      var neuf = document.getElementById("text-" + zone);
+      var cNeuf = neuf && neuf.querySelector(".dt-content");
+      if (cNeuf) {
+        cNeuf.setAttribute("contenteditable", "true");
+        cNeuf.classList.add("is-editing");
+        neuf.classList.add("is-editing");
+        cNeuf.focus();
+        if (typeof window.selectionnerOffsets === "function") {
+          window.selectionnerOffsets(cNeuf, debut, fin);
+        }
+      }
+    }
     return true;
   };
 
@@ -1102,6 +1357,30 @@
 
     var value = String(text || '').trim();
     if (!value || value === st.text) return;
+
+    /* Mise en forme par caractère et texte réécrit : les segments portent des
+       positions, pas des lettres. On les conserve quand la LONGUEUR est
+       inchangée (correction d'une faute : « Nkie » -> « Nike », chaque position
+       garde son style) et on les abandonne sinon — remapper des styles sur un
+       texte de longueur différente donnerait un résultat arbitraire, plus
+       déroutant qu'un retour au style global. */
+    if (aDesSegments(st)) {
+      if (value.length === String(st.text || '').length) {
+        var i = 0;
+        st.segments = normaliserSegments(
+          normaliserSegments(st.segments).map(function (s) {
+            var morceau = value.substr(i, s.text.length);
+            i += s.text.length;
+            return {
+              text: morceau, color: s.color,
+              bold: s.bold, italic: s.italic, underline: s.underline,
+            };
+          })
+        );
+      } else {
+        delete st.segments;
+      }
+    }
 
     st.text = value;
     saveState(zone, st);
@@ -1156,16 +1435,28 @@
     }).catch(function () { /* rastérisation impossible : on laisse en l'état */ });
   }
 
-  /* Anti-rebond : la rastérisation dessine sur un canvas, et conf-mobile.js
-     observe `.recap` avec un MutationObserver. Sans cela, chaque frappe au
-     clavier déclencherait un rendu complet du récapitulatif. */
-  var minuteurRecap = null;
+  /* Anti-rebond PAR ZONE : la rastérisation dessine sur un canvas, et
+     conf-mobile.js observe `.recap` avec un MutationObserver. Sans anti-rebond,
+     chaque frappe au clavier déclencherait un rendu complet du récapitulatif.
+
+     Le minuteur était UNIQUE et partagé par les trois zones. Au rechargement,
+     restoreTexts les traite en boucle rapide : chaque appel annulait le
+     précédent par `clearTimeout`, et seule la DERNIÈRE zone survivait — le dos,
+     traité en dernier et généralement vide, effaçait donc les lignes des textes
+     de face. D'où un récapitulatif vide après F5 alors que les textes étaient
+     bien présents sur le vêtement.
+
+     Une entrée par zone : chaque zone ne s'annule plus qu'elle-même, ce qui
+     conserve l'anti-rebond pour la frappe sans perdre les autres lignes. */
+  var minuteursRecap = {};
   window.updateTextRecap = function (zone) {
     var zones = zone ? [zone] : ZONES_RECAP;
-    clearTimeout(minuteurRecap);
-    minuteurRecap = setTimeout(function () {
-      zones.forEach(majLigneTexte);
-    }, 200);
+    zones.forEach(function (z) {
+      clearTimeout(minuteursRecap[z]);
+      minuteursRecap[z] = setTimeout(function () {
+        majLigneTexte(z);
+      }, 200);
+    });
   };
 })();
 

@@ -726,8 +726,20 @@
               <div class="logo-zone for-cote side-r" id="zone-sr" data-zone="sr" style="left:44.5%; top:34%; width:9%; height:29%;"></div>
 
               <!-- Textes déplaçables + redimensionnables (face / dos) -->
-              <div class="design-text for-face" id="text-f" style="display:none; left:44%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-f"></span></div>
-              <div class="design-text for-face" id="text-fr" style="display:none; left:34%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-fr"></span></div>
+              {%- comment -%}
+                Positions de départ DANS la zone de poitrine, qui va de 38 % à
+                62 % (CHEST, conf-main-inline.js:1425).
+
+                `text-fr` était à 34 %, soit HORS zone : le clamp le rabattait
+                systématiquement à 38 %. `text-f` à 44 % subissait le même sort
+                dès que le texte était un peu large. Les deux convergeaient donc
+                vers la même borne et se SUPERPOSAIENT au rechargement — deux
+                textes posés côte à côte revenaient l'un sur l'autre.
+
+                38 % et 50 % les séparent tout en restant dans la zone.
+              {%- endcomment -%}
+              <div class="design-text for-face" id="text-f" style="display:none; left:50%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-f"></span></div>
+              <div class="design-text for-face" id="text-fr" style="display:none; left:38%; top:31%; width:22%; font-size:20px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-fr"></span></div>
               <div class="design-text for-dos"  id="text-b" style="display:none; left:36%; top:27%; width:28%; font-size:26px; color:#ffffff;"><span class="dt-content"></span><span class="logo-resize" data-resize="text-b"></span></div>
 
               <!-- Zone poitrine unifiée : visible sur la vue de face -->

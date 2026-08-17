@@ -745,6 +745,13 @@
     <!-- Feuille montante mobile. APRÈS conf-sidebar-modern.js : les scripts
          `defer` s'exécutent dans l'ordre du document, ce fichier observe donc
          des panneaux déjà initialisés. -->
+    {%- comment -%}
+      Mesure la hauteur de la bande d'annonce et l'expose dans --conf-banner-h,
+      que .conf-app-root retranche sur téléphone (conf-mobile.css). La bande est
+      injectée par une app tierce, hors du thème : sa hauteur n'est connue qu'à
+      l'exécution. Fichier distinct de conf-shop-header.js, qui mesure le menu.
+    {%- endcomment -%}
+    <script src="{{ 'conf-mobile-banner.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-mobile.js' | asset_url }}" defer></script>
     <!-- Tiroir récap + barre d'action pour la plage tablette (768-1023px). -->
     <script src="{{ 'conf-tablet.js' | asset_url }}" defer></script>

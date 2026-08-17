@@ -98,6 +98,56 @@
     if (isEditing() && !e.target.closest('#coins-canvas')) close();
   });
 
+  /* ── Double-TAP tactile ───────────────────────────────────────────────
+     `dblclick` n'arrive JAMAIS au doigt sur cet élément : #patch-logo porte
+     aussi .design-logo, et conf-logo-drag.js appelle preventDefault() sur son
+     touchstart pour piloter le glisser. Cela supprime la séquence de clics
+     synthétiques dont dblclick dérive — et sur iOS le double-tap est de toute
+     façon capté par le zoom natif du navigateur. Les quatre poignées de
+     recadrage étaient donc inaccessibles sur téléphone.
+
+     Même reconstitution que les COINS (conf-coin-cover.js:256-280), déjà
+     éprouvée : deux `touchend` sur le même logo, à moins de 300 ms et de 30 px
+     d'écart. Le seuil de distance distingue un double-tap d'un enchaînement de
+     deux petits déplacements — sans lui, un recadrage en deux touches ouvrait
+     l'édition par surprise. */
+  var LAST_TAP = { t: 0, x: 0, y: 0, ok: false };
+  var TAP_DELAY = 300;   // ms entre les deux touches
+  var TAP_DIST = 30;     // px de tolérance
+
+  document.addEventListener('touchend', function (e) {
+    var touch = e.changedTouches && e.changedTouches[0];
+    if (!touch) return;
+    var logo = e.target.closest && e.target.closest('#patch-logo');
+    if (!logo) { LAST_TAP.ok = false; return; }
+
+    var now = e.timeStamp || 0;
+    var dt = now - LAST_TAP.t;
+    var dx = touch.clientX - LAST_TAP.x;
+    var dy = touch.clientY - LAST_TAP.y;
+
+    if (LAST_TAP.ok && dt > 0 && dt < TAP_DELAY &&
+        Math.abs(dx) < TAP_DIST && Math.abs(dy) < TAP_DIST) {
+      LAST_TAP.ok = false;             // consommé : pas de triple déclenchement
+      open();
+      e.preventDefault();
+      return;
+    }
+
+    LAST_TAP.t = now;
+    LAST_TAP.x = touch.clientX;
+    LAST_TAP.y = touch.clientY;
+    LAST_TAP.ok = true;
+  }, { passive: false });
+
+  /* Fermeture au doigt : `mousedown` ci-dessous n'existe pas sur mobile, donc
+     l'édition ouverte n'aurait pu se refermer qu'avec la touche Échap. */
+  document.addEventListener('touchstart', function (e) {
+    if (!isEditing()) return;
+    if (e.target.closest && e.target.closest('#coins-canvas')) return;
+    close();
+  }, true);
+
   document.addEventListener('mousedown', function (e) {
     if (!isEditing()) return;
     /* Le geste sur le design ou une poignée fait partie de l'édition : on ne

@@ -45,13 +45,43 @@
            • 'b'  = Dos, centré sur toute la zone.
          Les demi-zones laissent une petite marge intérieure. */
       var el = document.getElementById('text-' + zone);
-      if (el) {
+
+      /* PLACEMENT AUTOMATIQUE : seulement à la CRÉATION du texte.
+
+         Ce bloc recalcule left/top/width depuis la géométrie de zone, sans
+         consulter la position enregistrée. Or restoreTexts() l'appelle juste
+         APRÈS renderTextOnCanvas (conf-text-editor.js:1138 puis :1145) : la
+         position que le client avait choisie était donc appliquée, puis
+         écrasée six lignes plus loin. Deux textes déplacés côte à côte
+         revenaient ainsi tous deux à leur ancrage de départ et se
+         superposaient au rechargement.
+
+         Le témoin est le même que pour les logos, dont la position survit
+         justement parce que rien ne les replace après restauration : une
+         géométrie mémorisée signifie « l'utilisateur a choisi », et on n'y
+         touche plus. Sans géométrie, le placement ci-dessous reste légitime —
+         c'est son rôle : poser le texte du bon côté sans que le client ait à
+         le déplacer. */
+      var dejaPlace = false;
+      if (typeof window.getSavedText === 'function') {
+        var etat = window.getSavedText(zone);
+        dejaPlace = !!(etat && etat.left);
+      }
+
+      if (el && !dejaPlace) {
         /* Largeur : on NE bride PAS la boîte à une demi-zone — sinon
            clampTextToZone rapetisse le texte en boucle et le curseur de
-           taille semble sans effet. La boîte occupe ~60 % de la zone, ancrée
-           du bon côté ; le texte peut donc grandir jusqu'au plafond atelier. */
+           taille semble sans effet.
+
+           46 % et non 60 % : à 60 %, les deux demi-zones de poitrine faisaient
+           14,4 points de large pour seulement 7,7 points d'écart entre leurs
+           ancrages — elles se recouvraient donc de 6,7 points, soit plus d'un
+           quart de la zone, même correctement placées. À 46 % elles deviennent
+           contiguës (39,0-50,0 et 50,0-61,0) sans jamais se chevaucher, tout
+           en gardant la largeur maximale possible. Le dos, centré sur la zone
+           entière, n'est pas concerné. */
         var pad = h.width * 0.04;
-        var tW = h.width * 0.6;
+        var tW = h.width * 0.46;
         var tLeft = h.left, tAlign = 'center';
         if (zone === 'f') {            // cœur -> ancré à DROITE de la zone
           tLeft = h.left + h.width - tW - pad;

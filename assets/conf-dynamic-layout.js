@@ -549,6 +549,12 @@ class DynamicLayoutManager {
     setTimeout(function () {
       if (typeof window.restoreColor === "function") window.restoreColor();
       if (typeof window.restoreUploads === "function") window.restoreUploads();
+      /* Les TEXTES suivent les logos. Ce bloc les omettait : les logos étaient
+         donc restaurés une seconde fois ici, 60 ms après selProd(), pendant que
+         les textes restaient sur l'état laissé par le passage précédent — d'où
+         un décalage entre les deux au retour sur un produit. Même appariement
+         que conf-cart-open-design.js:116-117, qui restaure toujours les deux. */
+      if (typeof window.restoreTexts === "function") window.restoreTexts();
       if (typeof window.refreshZoneGuides === "function")
         window.refreshZoneGuides();
     }, 60);

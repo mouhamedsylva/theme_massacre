@@ -115,6 +115,58 @@
   }
   @media (max-width: 900px) { .rcp-body { grid-template-columns: 1fr; } }
 
+  /* ── TÉLÉPHONE ─────────────────────────────────────────────────────────
+     Seule la grille de `.rcp-body` était adaptée : l'en-tête, lui, débordait
+     horizontalement — le bouton « Revenir vers l'accueil » sortait de l'écran.
+
+     `.rcp-brand` est en `display: flex` SANS `flex-wrap` et contient logo,
+     texte et bouton ; `.rcp-home` porte en outre `white-space: nowrap` et
+     `margin-left: 20px`. Sur une largeur de téléphone, rien ne pouvait donc
+     ni se replier ni rétrécir. */
+  @media (max-width: 600px) {
+    /* Filet de sécurité : quel que soit l'élément fautif, la page ne défile
+       jamais horizontalement. */
+    .recap-page { overflow-x: hidden; }
+
+    .rcp-hdr { padding: 12px 16px; gap: 10px; }
+
+    /* Le bloc marque peut passer à la ligne, et le bouton descendre sous le
+       logo plutôt que de pousser la largeur. */
+    .rcp-brand { flex-wrap: wrap; gap: 10px; min-width: 0; }
+    /* `margin-left` de 20px écartait le bouton du texte sur grand écran ; il
+       n'a plus lieu d'être une fois le bouton passé à la ligne. */
+    .rcp-home { margin-left: 0; }
+
+    /* Le nom de la marque peut être tronqué proprement plutôt que d'imposer sa
+       largeur au conteneur. */
+    .rcp-brand-name, .rcp-brand-sub {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* FIL D'ÉTAPES : seuls les numéros restent.
+
+       Trois libellés (« Personnalisation », « Récapitulatif », « Commande »)
+       plus deux traits de 36 px dépassent largement une largeur de téléphone :
+       « Commande » sortait de l'écran. Les libellés sont purement indicatifs —
+       l'étape courante est déjà signalée par la pastille noire, et la page
+       porte son propre titre juste en dessous.
+
+       Le libellé de l'étape COURANTE est conservé : c'est la seule information
+       du fil qui ne soit pas redondante avec la pastille. */
+    .rcp-steps { gap: 6px; flex-wrap: nowrap; min-width: 0; }
+    .rcp-step-lbl { display: none; }
+    .rcp-step.on .rcp-step-lbl { display: inline; }
+    .rcp-step-line { width: 16px; }
+    .rcp-body { padding: 20px 16px 48px; gap: 20px; }
+    .rcp-title { font-size: 19px; }
+
+    /* Ligne d'article : la vignette garde sa taille, le texte se comprime.
+       `min-width: 0` est indispensable — sans lui un élément flex refuse de
+       passer sous la largeur de son contenu, et c'est le prix qui sortait. */
+    .rcp-item-info { min-width: 0; }
+    .rcp-item-name { overflow-wrap: anywhere; }
+  }
+
   .rcp-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
   .rcp-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
 

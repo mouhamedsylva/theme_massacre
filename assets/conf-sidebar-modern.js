@@ -451,6 +451,33 @@
       window.toggleSleeveOption();
     }
 
+    /* ACTIVATION : on bascule aussi la vue vers le côté.
+
+       Le cas symétrique — désactiver puis revenir en face — était traité juste
+       en dessous, mais pas celui-ci. Sur ordinateur cela ne se voyait pas : le
+       client cliquait ensuite un onglet de manche, qui appelle selView() et
+       synchronise le panneau. Sur mobile ces onglets sont dans le rail, DERRIÈRE
+       la feuille montante — inatteignables tant qu'elle est ouverte. Le panneau
+       restait donc sur les zones de face (« GAUCHE (CŒUR) / DROITE (POITRINE) »),
+       et le bouton « Ajouter un drapeau FR », qui vit dans #upload-view-cote,
+       n'apparaissait jamais.
+
+       Le délai laisse le toggle s'animer, comme pour la désactivation. */
+    if (!wasEnabled) {
+      const coteBtn = document.getElementById("cote-view-btn");
+      if (coteBtn && typeof window.selView === "function") {
+        setTimeout(() => {
+          /* selView refuse un bouton désactivé. L'onglet reste `disabled` tant
+             que l'option n'est pas prise en compte : on lève le verrou le temps
+             de l'appel, comme le fait déjà conf-sleeve-side.js:92-96. */
+          const wasDisabled = coteBtn.disabled;
+          coteBtn.disabled = false;
+          window.selView(coteBtn, "cote");
+          coteBtn.disabled = wasDisabled;
+        }, 100);
+      }
+    }
+
     // Si on vient de désactiver l'option (était ON, maintenant OFF)
     if (wasEnabled) {
       // Vérifier si on est actuellement en vue de côté

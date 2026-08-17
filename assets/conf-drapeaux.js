@@ -577,6 +577,27 @@ function clampFlagLogo(face) {
   faces.forEach(function (f) {
     var logo = document.getElementById('flag-logo-' + f);
     if (!logo || logo.style.display === 'none') return;
+
+    /* DESIGN EN COUVERTURE : rien à borner ici.
+
+       Cette fonction ramène la largeur à celle de la zone imprimable (~92 %,
+       voir `w = Math.min(w, x1 - x0)` plus bas). En couverture, le design
+       remplit sa boîte et DÉBORDE par conception — sa largeur va de 100 % à
+       PATCH_MAX_ZOOM (300 %). L'appliquer rabotait donc le visuel à chaque
+       passage, et le rattrapage de hauteur qui suit le réduisait encore.
+
+       Le chemin mobile appelle clampFlagLogo après chaque recalcul de zones
+       (conf-mobile.js:1001), d'où un design qui « disparaissait » à mesure
+       qu'on l'agrandissait — sur téléphone seulement.
+
+       Même garde que le ResizeObserver de conf-flag-cover.js:312-313, dont le
+       commentaire décrit déjà ce symptôme : la protection y avait été posée,
+       mais jamais reportée ici. On y ajoute `is-cover`, qui vaut aussi hors
+       geste : une largeur supérieure à la zone est alors légitime. */
+    if (logo.classList.contains('is-cover')) return;
+    if (document.querySelector('.flag-img-3d.flag-editing')) return;
+    if (logo.classList.contains('dragging') || logo.classList.contains('resizing')) return;
+
     var wrap = logo.closest('.flag-img-3d');
     var img = wrap && wrap.querySelector('.flag-base-img');
     if (!img || !img.offsetWidth || !img.offsetHeight) return;

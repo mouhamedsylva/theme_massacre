@@ -148,6 +148,17 @@
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <p>Téléchargez un visuel pour chaque face de votre coin. Formats PNG, JPG, SVG ou PDF — 10 Mo max.</p>
+        {%- comment -%}
+          Le recadrage est invisible sans indication : rien à l'écran ne suggère
+          que le visuel réagit à un double-clic. Le geste existait déjà mais
+          restait ignoré des clients.
+
+          « Double-cliquez » couvre les deux supports — sur écran tactile, le
+          navigateur interprète le double-tap de la même façon, et les deux
+          gestes sont reconstitués par le même code (conf-coin-cover.js). Un
+          libellé unique évite d'avoir à détecter le support pour choisir le mot.
+        {%- endcomment -%}
+        <p class="upload-view-tip">Double-cliquez sur le visuel pour le recadrer : les poignées d'angle permettent alors de l'agrandir et de le repositionner.</p>
       </div>
 
       <div class="upload-zones-row" id="coin-upload-zones">
@@ -222,6 +233,8 @@
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <p>Ajoutez vos logos, textes ou visuels pour chaque face. Formats PNG, JPG, SVG ou PDF — 50 Mo max.</p>
+        {%- comment -%} Même indication que les coins et les patchs. {%- endcomment -%}
+        <p class="upload-view-tip">Double-cliquez sur le visuel pour le recadrer : les poignées d'angle permettent alors de l'agrandir et de le repositionner.</p>
       </div>
 
       <div class="upload-zones-row">
@@ -304,6 +317,8 @@
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <p>Téléchargez votre logo ou visuel. Il occupera toute la forme du patch. Formats PNG, JPG, SVG ou PDF — 50 Mo max.</p>
+        {%- comment -%} Même indication que les coins et les drapeaux. {%- endcomment -%}
+        <p class="upload-view-tip">Double-cliquez sur le visuel pour le recadrer : les poignées d'angle permettent alors de l'agrandir et de le repositionner.</p>
       </div>
 
       <div class="upload-zones-row">

@@ -279,6 +279,25 @@ html:not([data-sidebar-ready]) #panel-product {
   color: #1e3a8a;
 }
 
+/* Indication de RECADRAGE (coins, patchs, drapeaux).
+
+   Le bloc parent est un flex en rangée : icône puis texte. Un second <p> s'y
+   placerait À CÔTÉ du premier, en colonne étroite. `flex-basis: 100%` le force
+   à passer à la ligne, sous les deux — d'où aussi `flex-wrap` sur le parent.
+
+   Le liseré supérieur le sépare visuellement du texte d'upload sans ajouter un
+   second encadré : les deux messages restent un seul bloc d'aide. */
+.upload-view-info { flex-wrap: wrap; }
+.upload-view-tip {
+  flex-basis: 100%;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid #bfdbfe;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #1e40af;
+}
+
 .upload-view-title {
   font-size: 9px;
   font-weight: 700;

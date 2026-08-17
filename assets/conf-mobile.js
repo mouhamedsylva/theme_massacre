@@ -875,6 +875,32 @@
       });
   }
 
+  /* Drapeau FR : la feuille se referme dès qu'il est posé.
+
+     Même intention que l'upload ci-dessus — le geste est terminé, le client
+     veut voir son visuel sur le vêtement, or la feuille le recouvre. Ici pas
+     de sélecteur de fichier à annuler : le drapeau est appliqué au clic, on
+     peut donc écouter le bouton directement.
+
+     Écouteur DÉLÉGUÉ sur le document : le bouton vit dans la sidebar, dont le
+     contenu est reconstruit au changement de produit — un écouteur posé sur
+     l'élément lui-même serait perdu. Le délai laisse addFrenchFlag() poser le
+     visuel et déclencher son zoom avant que la feuille ne descende. */
+  var flagFrWatched = false;
+  function watchFlagFr() {
+    /* init() peut être rejouée (panneaux pas encore présents au premier
+       passage) : sans ce drapeau, les écouteurs s'empileraient et closeSheet
+       serait programmée plusieurs fois. Même précaution que watchZoomEnd. */
+    if (flagFrWatched) return;
+    flagFrWatched = true;
+    document.addEventListener("click", function (e) {
+      if (!isMobile()) return;
+      var btn = e.target.closest && e.target.closest("#upload-flag-fr");
+      if (!btn) return;
+      setTimeout(closeSheet, 300);
+    });
+  }
+
   /* ── Bascule RECTO / VERSO (drapeaux, coins, patchs) ────────────────
      Ces produits posent leurs deux faces côte à côte. Sur une largeur de
      téléphone, chacune devient minuscule et déborde. On n'en montre donc
@@ -1222,7 +1248,26 @@
      Le `top` est remonté de 31 % à 29 % pour que le bandeau reste centré sur
      la poitrine malgré ces 5 points de hauteur supplémentaires. */
   var CHEST_MOBILE = { top: 29, width: 38, height: 14 };
-  var BACK_MOBILE = { top: 22, width: 34, height: 46 };
+  /* Dos réduit dans les mêmes proportions que le desktop (largeur ×0,90,
+     hauteur ×0,88 — DOS_W_PCT 17→15,3 et DOS_H_MAX_PCT 34,3→30,3 dans
+     conf-main-inline.js), pour que la surface floquable annoncée reste la même
+     sur les deux affichages.
+
+     Les VALEURS diffèrent parce que les référentiels diffèrent — ici des % de
+     l'IMAGE, là des % du CONTENEUR (voir syncLayerToImage). Seul le ratio est
+     transposable, jamais le nombre lui-même.
+
+     DEUX JEUX, comme sur desktop : le sweat porte une CAPUCHE qui occupe le
+     haut du panneau dos. À 22 % la zone mordait dessus — visible à l'écran, le
+     pointillé remontait sur la capuche. Elle démarre donc plus bas (27,4 %,
+     soit les 4 points du desktop convertis à l'échelle mobile) et sa hauteur
+     est réduite d'autant pour que le bord inférieur reste au même niveau,
+     bien au-dessus de l'ourlet.
+
+     La largeur passe à 33 % : le panneau dos d'un sweat est plus large que
+     celui d'un t-shirt, la zone y restait inutilement en retrait des coutures. */
+  var BACK_MOBILE = { top: 22, width: 30.6, height: 40.6 };
+  var BACK_MOBILE_SWEAT = { top: 27.4, width: 33, height: 35.2 };
 
   /* ── MANCHES (vue de côté) ──────────────────────────────────────────
      Ces zones n'étaient PAS traitées ici : elles gardaient les valeurs du
@@ -1239,9 +1284,49 @@
      `left` est inchangé : le conteneur et l'image ont la même largeur en
      portrait (l'image est contrainte par la largeur), donc l'axe horizontal
      ne subit aucune conversion. */
+  /* Zones RÉTRÉCIES, comme sur desktop (SLEEVE, conf-main-inline.js:1382).
+
+     Le mobile portait encore les valeurs d'avant ce correctif : 9 % de large,
+     soit ~16 cm — bien trop pour un logo de manche — et jusqu'à 43 % de haut
+     sur le sweat, une zone qui descendait vers le poignet. Le desktop vise
+     9 cm × 8 cm, converti en 5,1 % × 10,6 % dans SON référentiel.
+
+     On transpose par RATIO (largeur ×0,567, hauteur ×0,366), jamais par copie
+     du nombre : le calque mobile est calé sur l'IMAGE, le desktop sur le
+     CONTENEUR (voir syncLayerToImage).
+
+     `left` est RECALCULÉ pour conserver le CENTRE de la zone — rétrécir sans
+     y toucher l'aurait décalée vers la gauche. `top` est conservé : il place
+     le haut sous la couture d'épaule, ce que le rétrécissement ne change pas. */
+  /* SWEAT recalé visuellement sur le rendu mobile (relevé sur capture) :
+     la zone transposée depuis le desktop restait trop étroite et trop haute —
+     un ruban de 5,1 × 15,7 qui montait vers la couture d'épaule alors que le
+     flocage se pose plus bas sur le bras, et plus large.
+
+     7,5 × 10 : plus large de 2,4 points, moins haut de 5,7. Le `top` descend de
+     26 à 30 pour dégager l'emmanchure. La manche DROITE suit automatiquement,
+     elle est dérivée en miroir (100 - left - width).
+
+     Ces valeurs se calent à l'œil, comme le note l'en-tête des zones mobile :
+     le référentiel étant l'IMAGE et non le conteneur, aucune conversion depuis
+     le desktop n'est fiable au-delà d'un ordre de grandeur. */
   var SLEEVE_MOBILE = {
-    sweat:  { left: 46.5, top: 26, width: 9, height: 43 },
-    tshirt: { left: 47.5, top: 20, width: 9, height: 19 },
+    sweat:  { left: 49.5, top: 30, width: 7.5, height: 10 },
+    /* T-SHIRT recalé visuellement, comme le sweat : la zone transposée depuis
+       le desktop tenait dans le haut de la manche courte, très au-dessus de la
+       surface réellement floquée. Le tracé relevé sur capture couvre presque
+       toute la manche — 9 × 12 au lieu de 5,1 × 6,9 — et démarre plus bas
+       (23 au lieu de 20), son bord haut passant au milieu de l'ancien cadre.
+
+       COTON et POLYESTER sont DISTINCTS : leurs visuels de profil n'ont pas le
+       même cadrage de manche. Les deux partageaient cette entrée, si bien qu'un
+       réglage juste sur l'un tombait à côté sur l'autre — la zone était bien
+       posée sur le polyester et trop à droite sur le coton. Le desktop les
+       sépare déjà pour la même raison (SLEEVE, conf-main-inline.js:1394-1400).
+
+       Le coton recule de 2,5 points ; le polyester garde la valeur relevée. */
+    tshirt: { left: 46, top: 23, width: 9, height: 12 },
+    tshirt_polyester: { left: 48.5, top: 23, width: 9, height: 12 },
   };
 
   /* Produit courant : les silhouettes diffèrent (manche longue / courte),
@@ -1296,15 +1381,19 @@
       el.style.height = CHEST_MOBILE.height + "%";
     }
 
-    /* ── DOS ── */
-    var bw = BACK_MOBILE.width;
+    /* ── DOS ──
+       Jeu propre au SWEAT : sa capuche occupe le haut du panneau, la zone doit
+       démarrer plus bas (voir BACK_MOBILE_SWEAT). Même distinction que le
+       desktop, qui décale déjà le sweat de 4 points (conf-main-inline.js). */
+    var BK = isSweatProduct() ? BACK_MOBILE_SWEAT : BACK_MOBILE;
+    var bw = BK.width;
     var bl = 50 - bw / 2;
     var zb = Z["b"];
     if (zb) {
       zb.left = bl;
-      zb.top = BACK_MOBILE.top;
+      zb.top = BK.top;
       zb.width = bw;
-      zb.height = BACK_MOBILE.height;
+      zb.height = BK.height;
       // maxW borne la largeur d'un logo : il doit suivre la zone.
       zb.maxW = bw;
     }
@@ -1312,9 +1401,9 @@
     var elb = document.getElementById("zone-b");
     if (elb) {
       elb.style.left = bl + "%";
-      elb.style.top = BACK_MOBILE.top + "%";
+      elb.style.top = BK.top + "%";
       elb.style.width = bw + "%";
-      elb.style.height = BACK_MOBILE.height + "%";
+      elb.style.height = BK.height + "%";
     }
 
     /* ── MANCHES ──
@@ -1322,7 +1411,11 @@
        de profil, retournée en scaleX pour le côté droit (voir
        conf-sleeve-side.js). D'où left = 100 - left - width, comme dans
        buildZones() et dans le template. */
-    var SLV = isSweatProduct() ? SLEEVE_MOBILE.sweat : SLEEVE_MOBILE.tshirt;
+    /* Selection PAR TYPE, comme le desktop (conf-main-inline.js:1458) :
+       coton et polyester ont leur propre zone. Repli sur « tshirt » pour un
+       type inconnu, plutôt que de casser le rendu. */
+    var SLV = isSweatProduct() ? SLEEVE_MOBILE.sweat
+      : (SLEEVE_MOBILE[window.currentProductType] || SLEEVE_MOBILE.tshirt);
     var sides = {
       sl: { zoneId: "zone-sl", left: SLV.left },
       sr: { zoneId: "zone-sr", left: 100 - SLV.left - SLV.width },
@@ -1527,7 +1620,11 @@
     function stale() {
       if (chest && parseFloat(chest.style.width) !== CHEST_MOBILE.width) return true;
       if (sleeve) {
-        var SLV = isSweatProduct() ? SLEEVE_MOBILE.sweat : SLEEVE_MOBILE.tshirt;
+        /* Selection PAR TYPE, comme le desktop (conf-main-inline.js:1458) :
+           coton et polyester ont leur propre zone. Repli sur  pour un
+           type inconnu, plutot que de casser le rendu. */
+        var SLV = isSweatProduct() ? SLEEVE_MOBILE.sweat
+          : (SLEEVE_MOBILE[window.currentProductType] || SLEEVE_MOBILE.tshirt);
         if (parseFloat(sleeve.style.top) !== SLV.top) return true;
         if (parseFloat(sleeve.style.height) !== SLV.height) return true;
       }
@@ -1558,6 +1655,7 @@
     panels.forEach(addHandle);
     observePanels();
     watchUploads();
+    watchFlagFr();
     watchTexts();
     watchZoomEnd();
 

@@ -30,6 +30,25 @@
        On sort : la position sauvegardée reste intacte, et le clamp sera
        rejoué quand la vue deviendra visible. */
     if (!el.offsetWidth || !el.offsetHeight) return;
+
+    /* IMAGE PRODUIT PAS ENCORE CHARGÉE : on ne borne pas.
+
+       Le garde ci-dessus couvre la mesure NULLE, pas la mesure FAUSSE. Au
+       chargement (F5, cache vide) et au changement de produit, `#logo-layer` a
+       déjà sa taille — elle vient du CSS — et le texte est visible : les deux
+       gardes passent. Mais l'image du vêtement n'est pas décodée, donc le
+       cadrage n'est pas définitif, et la position bornée ici serait rabattue
+       sur le bord de zone. Comme rien ne re-persiste la valeur corrigée, le
+       DOM divergeait alors silencieusement de la session : le texte revenait
+       ailleurs qu'où le client l'avait posé.
+
+       Le clamp est de toute façon rejoué — par renderTextOnCanvas (3 fois,
+       dont document.fonts.ready) et par applyZonesForProduct. Sortir ici ne
+       fait donc rien perdre : cela évite un passage sur des dimensions non
+       définitives. */
+    var imgRef = document.querySelector('.product-img-single.on') ||
+                 document.getElementById('view-face');
+    if (imgRef && imgRef.tagName === 'IMG' && !imgRef.complete) return;
   
     /* zoneW borne la LARGEUR DU TEXTE : `maxWidth` quand la zone en déclare un
        (20 cm en face), sinon la zone entière (le dos, dont les 30 cm sont déjà
@@ -189,7 +208,12 @@
     var ebf = el.getBoundingClientRect();
     var wPct = (ebf.width / lb.width) * 100;
     var hPct = (ebf.height / lb.height) * 100;
-    var left = parseFloat(el.style.left); if (isNaN(left)) left = h.left;
+    /* Repli sur `startLeft` et non sur `h.left` : les zones de poitrine gauche
+       et droite partagent le même rectangle, donc le même `left`. Retomber
+       dessus superposait deux textes jamais déplacés. `startLeft` distingue les
+       deux, comme il le fait déjà pour les logos. */
+    var left = parseFloat(el.style.left);
+    if (isNaN(left)) left = (h.startLeft != null) ? h.startLeft : h.left;
     var top = parseFloat(el.style.top); if (isNaN(top)) top = h.top;
     var minL = h.left, maxL = h.left + h.width - wPct;
     var minT = h.top, maxT = h.top + h.height - hPct;
