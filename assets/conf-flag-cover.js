@@ -364,4 +364,66 @@
       im.addEventListener('load', function () { syncFlagCrop(); });
     });
   });
+
+  /**
+   * Aplatit le design d'une face en une image DÉJÀ ROGNÉE, calée sur la zone
+   * imprimable du drapeau.
+   *
+   * Pourquoi : à l'écran, le rendu repose sur deux mécanismes purement CSS —
+   * `object-fit: cover` sur l'image et `overflow: hidden` sur .flag-crop. Le
+   * serveur de composition ne connaît ni l'un ni l'autre : il reçoit l'image
+   * entière et la pose telle quelle, d'où un design décalé et débordant dans la
+   * vignette du panier comme dans la vue d'ensemble.
+   *
+   * On reproduit donc le rognage dans un canvas avant l'envoi. C'est
+   * exactement ce que font déjà les COINS (coinCoverDataUrl,
+   * conf-coin-thumb.js:114) ; seule la forme du masque diffère — un rectangle
+   * ici, un disque là-bas.
+   *
+   * @param {string} face - 'recto' | 'verso'
+   * @returns {string} data-URL PNG, ou '' si l'aplatissement est impossible
+   *          (l'appelant retombe alors sur l'image brute).
+   */
+  function flagCoverDataUrl(face) {
+    var logo = document.getElementById('flag-logo-' + face);
+    if (!logo || !logo.classList.contains('is-cover')) return '';
+    var img = logo.querySelector('img');
+    if (!img || !img.naturalWidth) return '';
+
+    var crop = logo.closest('.flag-crop');
+    if (!crop) return '';
+
+    try {
+      var cb = crop.getBoundingClientRect();
+      var lb = logo.getBoundingClientRect();
+      if (!cb.width || !cb.height) return '';
+
+      /* Résolution proportionnelle au cadre : un drapeau est rectangulaire,
+         un canvas carré déformerait le design. 1200 px de large suffisent —
+         le serveur normalise ensuite à 1500. */
+      var W = 1200;
+      var H = Math.max(1, Math.round(W * (cb.height / cb.width)));
+      var c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var ctx = c.getContext('2d');
+
+      /* Boîte du design rapportée au cadre de rognage : les deux sont mesurés
+         à l'écran, donc directement comparables. */
+      var dx = (lb.left - cb.left) / cb.width * W;
+      var dy = (lb.top - cb.top) / cb.height * H;
+      var dw = lb.width / cb.width * W;
+      var dh = lb.height / cb.height * H;
+
+      // « cover » dans cette boîte, comme le CSS.
+      var sc = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
+      var iw = img.naturalWidth * sc, ih = img.naturalHeight * sc;
+      ctx.drawImage(img, dx + (dw - iw) / 2, dy + (dh - ih) / 2, iw, ih);
+
+      return c.toDataURL('image/png');
+    } catch (e) {
+      // Canvas teinté (CORS) : l'appelant retombe sur l'image brute.
+      return '';
+    }
+  }
+  window.flagCoverDataUrl = flagCoverDataUrl;
 })();

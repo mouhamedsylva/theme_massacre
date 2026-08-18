@@ -1832,9 +1832,89 @@
         (isPortrait ? '2/3' : '3/2') + ';margin:auto;">' +
         '<img src="' + bgSrc + '" alt="Drapeau" style="position:absolute;inset:0;' +
         'width:100%;height:100%;object-fit:fill;display:block;border-radius:4px;">';
-      if (logoSrc) {
-        html += '<img src="' + logoSrc + '" alt="" style="position:absolute;left:' + left + '%;top:' + top +
-                '%;width:' + width + '%;height:auto;object-fit:contain;pointer-events:none;z-index:2;">';
+      /* DESIGN EN COUVERTURE : on affiche l'image DÉJÀ ROGNÉE.
+
+         Les styles inline lus plus haut (left/top/width) décrivent la boîte du
+         logo, pas ce qui est réellement VISIBLE : en couverture, `object-fit:
+         cover` rogne l'image dans cette boîte et `.flag-crop` coupe le
+         débordement. Reproduire ici la boîte avec `object-fit: contain`
+         affichait donc l'image entière, réduite et décalée — c'est ce que
+         montrait la vignette du récapitulatif alors que le canvas était juste.
+
+         `flagCoverDataUrl` (conf-flag-cover.js) produit exactement le rendu de
+         l'écran ; elle sert déjà à la vignette du panier et à la vue
+         d'ensemble. On la réutilise pour que les trois affichages découlent
+         d'une source unique — c'est ce qui les empêche de diverger à nouveau.
+
+         Elle est calée sur la ZONE IMPRIMABLE (.flag-crop), en retrait des
+         bords du drapeau : on la positionne donc sur ce cadre, mesuré à
+         l'écran, et non en plein cadre. */
+      var aplatiRecap = (typeof window.flagCoverDataUrl === 'function')
+        ? window.flagCoverDataUrl('recto') : '';
+
+      /* IMAGE PAS ENCORE DÉCODÉE : on rejouera.
+
+         flagCoverDataUrl sort à vide tant que `naturalWidth` vaut 0, ce qui est
+         le cas au moment même de l'upload — updateFlagRecapThumb est appelée
+         depuis conf-share.js dès que le `src` est posé, avant le décodage. La
+         vignette restait alors figée sur son repli, celui qui déborde, jusqu'au
+         prochain geste sur le design.
+
+         On s'abonne donc au chargement pour reconstruire une fois la mesure
+         possible. `once` : l'écouteur ne doit pas s'accumuler à chaque upload. */
+      if (!aplatiRecap && logoImg && !logoImg.naturalWidth) {
+        logoImg.addEventListener('load', function () {
+          if (typeof window.updateFlagRecapThumb === 'function') {
+            window.updateFlagRecapThumb();
+          }
+        }, { once: true });
+      }
+
+      if (aplatiRecap) {
+        var cropRecap = logoEl ? logoEl.closest('.flag-crop') : null;
+        var bRecap = baseRecto ? baseRecto.getBoundingClientRect() : null;
+        var cRecap = cropRecap ? cropRecap.getBoundingClientRect() : null;
+        var l2 = left, t2 = top, w2 = width;
+        if (bRecap && cRecap && bRecap.width > 0 && bRecap.height > 0) {
+          l2 = (cRecap.left - bRecap.left) / bRecap.width * 100;
+          t2 = (cRecap.top - bRecap.top) / bRecap.height * 100;
+          w2 = cRecap.width / bRecap.width * 100;
+        }
+        html += '<img src="' + safeImgSrc(aplatiRecap) + '" alt="" style="position:absolute;left:' +
+                l2 + '%;top:' + t2 + '%;width:' + w2 +
+                '%;height:auto;pointer-events:none;z-index:2;">';
+      } else if (logoSrc) {
+        /* REPLI (image pas encore décodée, ou aplatissement impossible).
+
+           En mode COUVERTURE, on reproduit le rendu de l'écran plutôt que la
+           boîte du logo : une hauteur explicite et `object-fit: cover`, dans un
+           conteneur qui rogne. Sans cela, `height: auto` laissait l'image
+           prendre sa hauteur naturelle — bien plus grande que le drapeau — et
+           elle débordait au-dessus et en dessous.
+
+           Les dimensions viennent du cadre imprimable mesuré à l'écran, comme
+           pour le chemin principal. */
+        var enCouverture = logoEl && logoEl.classList.contains('is-cover');
+        if (enCouverture) {
+          var cropR = logoEl.closest('.flag-crop');
+          var bR = baseRecto ? baseRecto.getBoundingClientRect() : null;
+          var cR = cropR ? cropR.getBoundingClientRect() : null;
+          var l3 = left, t3 = top, w3 = width, h3 = 0;
+          if (bR && cR && bR.width > 0 && bR.height > 0) {
+            l3 = (cR.left - bR.left) / bR.width * 100;
+            t3 = (cR.top - bR.top) / bR.height * 100;
+            w3 = cR.width / bR.width * 100;
+            h3 = cR.height / bR.height * 100;
+          }
+          html += '<div style="position:absolute;left:' + l3 + '%;top:' + t3 + '%;width:' + w3 +
+                  '%;' + (h3 ? 'height:' + h3 + '%;' : '') +
+                  'overflow:hidden;pointer-events:none;z-index:2;">' +
+                  '<img src="' + logoSrc + '" alt="" style="width:100%;height:100%;' +
+                  'object-fit:cover;display:block;"></div>';
+        } else {
+          html += '<img src="' + logoSrc + '" alt="" style="position:absolute;left:' + left + '%;top:' + top +
+                  '%;width:' + width + '%;height:auto;object-fit:contain;pointer-events:none;z-index:2;">';
+        }
       }
       html += '</div>';
       thumb.innerHTML = html;
@@ -3907,8 +3987,8 @@
       if (currentProductType !== 'drapeaux') return null;
 
       var faces = [
-        { label: 'RECTO', base: 'flag-base-recto', logo: 'flag-logo-recto' },
-        { label: 'VERSO', base: 'flag-base-verso', logo: 'flag-logo-verso' }
+        { label: 'RECTO', key: 'recto', base: 'flag-base-recto', logo: 'flag-logo-recto' },
+        { label: 'VERSO', key: 'verso', base: 'flag-base-verso', logo: 'flag-logo-verso' }
       ];
 
       var views = [];
@@ -3927,14 +4007,51 @@
         if (logoEl && logoEl.style.display !== 'none') {
           var limg = logoEl.querySelector('img');
           if (limg && limg.getAttribute('src') && box.width > 0) {
-            var r = logoEl.getBoundingClientRect();
-            if (r.width > 0 && r.height > 0) {
-              logos.push({
-                src: limg.src,
-                x: (r.left - box.left) / box.width,
-                y: (r.top - box.top) / box.height,
-                w: r.width / box.width
-              });
+            /* DESIGN EN COUVERTURE : on envoie une image DÉJÀ ROGNÉE.
+
+               À l'écran, deux mécanismes purement CSS façonnent le rendu :
+               `object-fit: cover` sur l'image (elle remplit sa boîte en se
+               rognant) et `overflow: hidden` sur .flag-crop (ce qui dépasse est
+               coupé). Le serveur ignore les deux : il reçoit l'image ENTIÈRE et
+               la pose telle quelle, d'où un design décalé et hors cadre.
+
+               Aucun ajustement de largeur ne peut corriger cela — le problème
+               n'est pas la taille mais le rognage. On aplatit donc le rendu
+               dans un canvas avant l'envoi, exactement comme les COINS le font
+               déjà (flagCoverDataUrl / coinCoverDataUrl, :3762).
+
+               Repli sur l'image brute si l'aplatissement échoue (canvas teinté
+               par CORS) : mieux vaut un design mal calé qu'aucune vignette. */
+            var aplati = (typeof window.flagCoverDataUrl === 'function')
+              ? window.flagCoverDataUrl(f.key) : '';
+            if (aplati) {
+              /* L'image aplatie couvre la ZONE IMPRIMABLE (.flag-crop), pas le
+                 drapeau entier : celle-ci est en retrait des bords (marges de
+                 4 % et 9 %, voir syncFlagCrop). On la positionne donc sur ce
+                 cadre réel, et non en {0,0,1} comme les coins — dont le cadre
+                 de rognage coïncide, lui, avec le disque. */
+              var cropEl = logoEl.closest('.flag-crop');
+              var cb2 = cropEl ? cropEl.getBoundingClientRect() : null;
+              if (cb2 && cb2.width > 0) {
+                logos.push({
+                  src: aplati,
+                  x: (cb2.left - box.left) / box.width,
+                  y: (cb2.top - box.top) / box.height,
+                  w: cb2.width / box.width
+                });
+              } else {
+                logos.push({ src: aplati, x: 0, y: 0, w: 1 });
+              }
+            } else {
+              var r = logoEl.getBoundingClientRect();
+              if (r.width > 0 && r.height > 0) {
+                logos.push({
+                  src: limg.src,
+                  x: (r.left - box.left) / box.width,
+                  y: (r.top - box.top) / box.height,
+                  w: r.width / box.width
+                });
+              }
             }
           }
         }
@@ -5251,6 +5368,8 @@
       u[zone] = { src: src, geo: prev.geo || null };
       store.byProduct[product] = u;
       writeUploadStore(store);
+      console.log('[ecrit] zone=' + zone + ' produit=' + product +
+                  ' | relu=' + !!((readUploadStore().byProduct[product] || {})[zone] || {}).src);
     }
     /* Plafond DUR de ce qu'une zone peut peser en session.
 
@@ -5465,6 +5584,12 @@
       // getUploads() ne renvoie QUE les zones du produit courant : les designs
       // des autres produits ne peuvent plus se poser sur celui-ci.
       const u = getUploads();
+      try {
+        var brut = JSON.parse(sessionStorage.getItem('conf_uploads') || '{}');
+        console.log('[restore] produit=' + currentProductType,
+                    '| produits en session=' + JSON.stringify(Object.keys(brut.byProduct || {})),
+                    '| zones de CE produit=' + JSON.stringify(Object.keys(u)));
+      } catch (e) { console.log('[restore] session illisible', e); }
       Object.keys(u).forEach(zone => {
         const entry = u[zone];
         const src = (typeof entry === 'string') ? entry : (entry && entry.src);
