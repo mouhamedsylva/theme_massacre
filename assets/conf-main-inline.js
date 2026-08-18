@@ -2037,6 +2037,22 @@
       // au lieu de repartir sur le sweatshirt par défaut.
       try { if (productType) sessionStorage.setItem('conf_current_product', productType); } catch (e) {}
 
+      /* Éviction PRÉVENTIVE des designs devenus inutiles.
+
+         `byProduct` n'était jamais purgé : un client qui essayait sweatshirt →
+         t-shirt → polyester → patch → coin accumulait cinq designs en session.
+         Le seul mécanisme d'éviction (writeUploadStore) est RÉACTIF — il se
+         déclenche après le dépassement de quota, et échoue précisément quand un
+         seul produit sature déjà.
+
+         On garde le produit courant ET le précédent : un aller-retour entre
+         deux textiles pour comparer est un geste courant, perdre le design en
+         chemin serait brutal. Au-delà, le client a changé d'avis.
+
+         `elaguerUploads` est défini plus bas ; garde `typeof` car selProd peut
+         s'exécuter avant lui au tout premier rendu. */
+      if (typeof elaguerUploads === 'function') elaguerUploads(productType);
+
       /* Vignette + nom dans le récap.
          Deux structures de carte coexistent : l'ancienne type-bar (.pt-img,
          span) et le sidebar moderne (.product-card-icon img,
@@ -2371,6 +2387,13 @@
             img: dz.thumb,        // vignette à LA couleur de cette ligne
             sheet: dz.sheet,
             assets: logoAssets.concat(textAssets),
+            /* Même état complet que pour un ajout unitaire (voir plus bas) :
+               les lignes de groupe partagent un design commun, chacune doit
+               pouvoir le rouvrir. Capturé UNE fois hors de la boucle serait
+               équivalent — la valeur ne varie pas d'une ligne à l'autre — mais
+               l'appel est peu coûteux (lecture de session) et rester au même
+               endroit que le champ évite qu'on les désynchronise. */
+            design: (typeof capturerEtatDesign === 'function') ? capturerEtatDesign() : null,
             sleeveCount: sleeves,
             qty: r.qty,
             _sizeGroupSummary: r._sizeGroupSummary  // 🆕 Transmet le résumé groupe
@@ -2394,6 +2417,25 @@
         sheet: design.sheet,   // planche multi-vues (aperçu commande) — peut être null
         // URLs Cloudinary des logos/textes réellement utilisés (pour la commande Shopify)
         assets: logoAssets.concat(textAssets),
+        /* ÉTAT COMPLET du design, pour pouvoir le rouvrir plus tard.
+
+           `assets` ne porte qu'un libellé et une URL : de quoi imprimer, pas de
+           quoi rééditer — ni zone technique, ni position, ni taille, ni police.
+           La ligne de panier s'appuyait donc sur `conf_uploads` / `conf_texts`,
+           la mémoire de TRAVAIL du canvas. Supprimer un logo (removeUpload fait
+           `delete u[zone]`), réinitialiser ou changer de produit effaçait cette
+           source, et l'article ne pouvait plus être rouvert : seule la couleur
+           revenait.
+
+           On mémorise donc l'état ici, à l'ajout — la ligne devient autonome.
+           Même structure que le lien de partage (capturerEtatDesign), dont la
+           restauration est le seul chemin réellement éprouvé.
+
+           Le poids reste tenable depuis que les images sont persistées sous
+           forme d'URL Cloudinary : quelques dizaines d'octets par zone au lieu
+           de plusieurs mégaoctets. Sans ce préalable, ce champ aurait ramené la
+           saturation de session. */
+        design: (typeof capturerEtatDesign === 'function') ? capturerEtatDesign() : null,
         // Nombre de manches personnalisées : facturé au checkout via le produit
         // add-on (voir buildShopifyItems dans recapitulatif.liquid).
         sleeveCount: sleeves,
@@ -2537,7 +2579,15 @@
           const fb = captureCurrentDesign();
           if (fb && fb.logos && fb.logos.length) faceDesign = fb;
         }
-      } catch (e) { faceDesign = null; }
+      } catch (e) {
+        /* Ce `catch` était MUET. Il avale une erreur qui vide entièrement la
+           vignette du panier — le client repart avec un vêtement nu, sans que
+           rien ne le signale, ni à lui ni au développeur. C'est ce silence qui
+           a rendu une régression invisible pendant plusieurs itérations. */
+        console.warn('Capture du design de face échouée : la vignette du panier ' +
+                     'sera celle du vêtement nu.', e);
+        faceDesign = null;
+      }
 
       if (faceDesign && faceDesign.logos && faceDesign.logos.length) {
         busy();
@@ -2570,8 +2620,13 @@
     }
 
     /* ── Ajout générique au panier (textile, drapeaux, coins, patchs) ──
-       replaceQty = true : la quantité de l'item EST le nombre d'unités (coins/patchs/drapeaux),
-       on remplace au lieu de cumuler. false (textile) : on cumule +1 à chaque ajout. */
+
+       `replaceQty` est CONSERVÉ pour ne pas casser ses appelants, mais il n'a
+       plus d'effet : il opposait les produits dont la quantité est saisie
+       avant l'ajout (coins, patchs, drapeaux) aux textiles, qui cumulaient
+       +1 par ajout. Le cumul a disparu avec la fusion des lignes — un même
+       produit ré-ajouté met à jour sa ligne — et tous suivent désormais la
+       quantité affichée dans le panneau. */
     function pushToCart(item, btnEl, replaceQty) {
       // Vérifie si le même article existe déjà (même nom+détails).
       // personName entre dans la clé : deux personnes d'une liste de groupe
@@ -2589,22 +2644,34 @@
          qui repasse son sweatshirt de Black à Atoll retrouvait deux lignes,
          alors qu'il venait de changer d'avis sur un seul article.
 
-         Restent dans la clé les deux marqueurs de COMMANDE GROUPÉE, qui
+         `productType` accompagne `name` : le libellé affiché peut coïncider
+         entre deux produits distincts (coton et polyester s'intitulent tous
+         deux « T-shirt »), et les fusionner enverrait le mauvais variant au
+         checkout. Le type, lui, est la clé technique.
+
+         Restent aussi dans la clé les deux marqueurs de COMMANDE GROUPÉE, qui
          désignent de vraies lignes distinctes :
            • personName — le nom floqué, propre à chaque personne ;
            • groupIndex — « 2/5 », unique par ligne de liste, indispensable
              quand le nom floqué est laissé vide.
          Sans eux, une liste de cinq personnes s'effondrerait en une ligne. */
-      const existing = cartItems.find(i => i.name === item.name &&
+      const existing = cartItems.find(i => i.productType === item.productType &&
+                                           i.name === item.name &&
                                            (i.personName || '') === (item.personName || '') &&
                                            (i.groupIndex || '') === (item.groupIndex || ''));
       if (existing) {
-        /* La quantité n'est jamais CUMULÉE : ré-ajouter le même article ne
-           doit pas faire monter le compteur — le client ajuste avec les
-           boutons +/− du panier. `replaceQty` (coins, patchs, drapeaux, dont
-           la quantité est saisie avant l'ajout) impose sa valeur ; les autres
-           gardent celle déjà présente. */
-        if (replaceQty) existing.qty = item.qty || 1;
+        /* La quantité SUIT le sélecteur, elle n'est jamais cumulée.
+
+           Ré-ajouter le même article ne doit pas faire monter le compteur —
+           mais la valeur choisie dans le panneau QUANTITÉ doit être respectée :
+           un client qui affiche 2 et ajoute veut 2, pas la quantité de son
+           ajout précédent.
+
+           `replaceQty` distinguait les produits dont la quantité est saisie
+           avant l'ajout (coins, patchs, drapeaux) de ceux qui cumulaient. Le
+           cumul ayant disparu avec la fusion des lignes, tous suivent
+           désormais la même règle et le paramètre n'a plus d'effet ici. */
+        existing.qty = item.qty || existing.qty || 1;
 
         /* Couleur, taille et design sont RAFRAÎCHIS : c'est tout l'objet de la
            fusion — la ligne reflète le dernier choix du client. */
@@ -3460,8 +3527,24 @@
       const canReproject = !!(layerBox && imgBox && imgBox.width > 0 && imgBox.height > 0);
       if (typeof window.textZoneImage === 'function') {
         for (const zt of ['f', 'fr']) {
-          const t = await window.textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
-          if (t) logos.push(t);
+          /* ISOLÉ : le texte est un COMPLÉMENT, jamais une condition.
+
+             Sans ce try/catch, une rasterisation qui échoue remontait jusqu'au
+             `catch` de resolveDesignImage (:2582), lequel pose
+             `faceDesign = null` — et faisait donc perdre les LOGOS déjà
+             collectés juste au-dessus. La composition était alors sautée et la
+             vignette du panier sortait NUE, alors que le vêtement portait bien
+             son design à l'écran.
+
+             Une étape facultative ne doit jamais annuler une étape essentielle
+             déjà réussie. On garde ce qu'on a, et on continue. */
+          try {
+            const t = await window.textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
+            if (t) logos.push(t);
+          } catch (e) {
+            console.warn('Texte « ' + zt + ' » non rasterisé pour la vignette ' +
+                         '(les logos sont conservés) :', e);
+          }
         }
       }
 
@@ -4042,18 +4125,81 @@
     /* openShareMenu : extrait dans assets/conf-share.js (limite 256 Ko).
        Exposé sur window par ce fichier. */
 
-    /* Capture l'état complet du design courant (produit, couleur, uploads) et le
-       sauvegarde côté serveur. Renvoie l'URL d'invitation (?design=<id>) que
-       l'invité ouvrira pour retrouver et éditer ce design. */
-    async function createInviteLink() {
+    /**
+     * Capture l'état COMPLET du design courant : produit, couleur, finitions,
+     * images ET textes.
+     *
+     * Extraite de createInviteLink() pour servir deux usages : le lien de
+     * partage, et la mémorisation d'une ligne de panier — qui doit pouvoir
+     * rouvrir son design même si le canvas a changé depuis (logo supprimé,
+     * réinitialisation, changement de produit).
+     *
+     * `texts` est une AJOUT : la capture ne le portait pas, si bien qu'un
+     * design partagé arrivait chez le destinataire sans ses textes. Le défaut
+     * existait avant ce changement ; il est corrigé ici pour les deux usages.
+     *
+     * @returns {object} état sérialisable, sûr à écrire en session
+     */
+    function capturerEtatDesign() {
       var state = {
-        product: null, color: null, patchColor: null, coinFinish: null, uploads: null
+        product: null, color: null, patchColor: null, coinFinish: null,
+        uploads: null, texts: null
       };
       try { state.product = sessionStorage.getItem('conf_current_product') || currentProductType; } catch (e) {}
       try { state.color = JSON.parse(sessionStorage.getItem('conf_current_color') || 'null'); } catch (e) {}
       try { state.patchColor = JSON.parse(sessionStorage.getItem('conf_patch_color') || 'null'); } catch (e) {}
       try { state.coinFinish = sessionStorage.getItem('conf_coin_finish') || null; } catch (e) {}
       try { state.uploads = JSON.parse(sessionStorage.getItem('conf_uploads') || 'null'); } catch (e) {}
+      try { state.texts = JSON.parse(sessionStorage.getItem('conf_texts') || 'null'); } catch (e) {}
+
+      /* COMPLÉMENT DEPUIS LE DOM — ce qui est à l'écran fait foi.
+
+         La session ne suffit pas : l'écriture d'une image y est ASYNCHRONE
+         (compression, puis remplacement par l'URL Cloudinary une fois l'upload
+         abouti). Un client qui pose un logo et ajoute aussitôt au panier
+         capturait donc un état encore incomplet — la ligne partait sans ses
+         assets, et le design ne pouvait plus être rouvert.
+
+         On relit donc les calques réellement posés et on comble ce qui manque.
+         La session reste prioritaire : elle porte la géométrie exacte, que le
+         DOM n'exprime qu'en styles inline. */
+      try {
+        var produit = state.product || currentProductType;
+        if (!state.uploads) state.uploads = { _v: 2, byProduct: {} };
+        if (!state.uploads.byProduct) state.uploads.byProduct = {};
+        var zonesProduit = state.uploads.byProduct[produit] || {};
+
+        ['f', 'fr', 'b', 'sl', 'sr'].forEach(function (zone) {
+          if (zonesProduit[zone] && zonesProduit[zone].src) return;  // déjà en session
+          var el = document.getElementById('logo-' + zone);
+          if (!el || el.style.display === 'none') return;
+          var img = el.querySelector('img');
+          var src = img && img.getAttribute('src');
+          if (!src || !/^(data:image\/|https?:\/\/|\/\/)/i.test(src)) return;
+
+          zonesProduit[zone] = {
+            src: src,
+            geo: {
+              left: el.style.left || null,
+              top: el.style.top || null,
+              width: el.style.width || null
+            }
+          };
+        });
+        state.uploads.byProduct[produit] = zonesProduit;
+      } catch (e) {
+        /* DOM illisible : on garde ce que la session a fourni. */
+      }
+
+      return state;
+    }
+    window.capturerEtatDesign = capturerEtatDesign;
+
+    /* Capture l'état complet du design courant et le sauvegarde côté serveur.
+       Renvoie l'URL d'invitation (?design=<id>) que l'invité ouvrira pour
+       retrouver et éditer ce design. */
+    async function createInviteLink() {
+      var state = capturerEtatDesign();
 
       var res = await window.ConfAPI.shareDesign(state);
       var shareId = res && res.shareId;
@@ -4268,7 +4414,32 @@
        @returns {boolean} true si l'écriture a réussi */
     window.persistCartSafe = function (items) {
       try {
-        sessionStorage.setItem('conf_cart', JSON.stringify(items || []));
+        /* Les DATA-URLs sont retirées avant écriture.
+
+           Sur coins, drapeaux et patchs, `img` retombe parfois sur le `src`
+           d'une <img> du canvas — une data-URL de plusieurs centaines de Ko.
+           Or le checkout la REJETTE déjà : recapitulatif.liquid n'accepte que
+           des URLs http(s) comme propriété de ligne (une data-URL dépasse la
+           limite de longueur de Shopify et fait échouer /cart/add.js).
+
+           Elle occupait donc le quota sans jamais servir. On applique le même
+           filtre ici, à l'entrée : ce qui sera rejeté à la sortie n'a pas à
+           être mémorisé. La vignette reste affichée à l'écran — c'est le DOM
+           qui la porte, pas la session. */
+        var propres = (items || []).map(function (it) {
+          if (!it) return it;
+          var estUrl = function (u) {
+            return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : '';
+          };
+          if (/^data:/i.test(it.img || '') || /^data:/i.test(it.sheet || '')) {
+            var copie = Object.assign({}, it);
+            copie.img = estUrl(it.img);
+            copie.sheet = estUrl(it.sheet);
+            return copie;
+          }
+          return it;
+        });
+        sessionStorage.setItem('conf_cart', JSON.stringify(propres));
         return true;
       } catch (e) {
         var quotaHit = e && (
@@ -4725,14 +4896,22 @@
              l'aperçu reste instantané et net. */
           window.applyUpload(zone, src);
 
-          /* Persistance : version réduite, pour que le design survive au
-             rechargement sans saturer le quota de session (~5 Mo). Asynchrone —
-             elle ne doit pas retarder l'affichage ci-dessus. La géométrie
-             (position/taille) est enregistrée séparément par saveUploadGeo() et
+          /* Persistance PROVISOIRE, le temps que l'upload Cloudinary aboutisse.
+
+             saveUploadSafe compresse et borne elle-même — la compression a été
+             déplacée au point d'écriture pour qu'aucun chemin ne la contourne
+             (voir son commentaire). Asynchrone : elle ne retarde pas
+             l'affichage ci-dessus.
+
+             Dès que l'URL Cloudinary arrive (plus bas), elle REMPLACE cette
+             base64 : le cas nominal ne laisse donc que quelques octets en
+             session. Cette copie ne subsiste que si l'upload échoue — réseau
+             coupé, backend indisponible — et permet alors au design de
+             survivre quand même à un rechargement.
+
+             La géométrie est enregistrée séparément par saveUploadGeo() et
              n'est pas affectée. */
-          compressForStorage(src).then(function (stored) {
-            saveUpload(zone, stored, uploadOwner);
-          });
+          saveUploadSafe(zone, src, uploadOwner);
 
           // Upload sur une manche : on pivote vers elle pour que le client
           // voie ce qu'il vient de poser. (Uniquement à l'upload — pas à la
@@ -4768,6 +4947,21 @@
                 if (res && res.url) {
                   window.CLOUDINARY_URLS[zone] = res.url;
                   confLog('☁️ Uploadé sur Cloudinary (' + zone + ') :', res.url);
+
+                  /* L'URL REMPLACE la base64 en session.
+
+                     L'image était mémorisée DEUX FOIS : la base64 en session
+                     (plusieurs Mo, jetable) et cette URL en mémoire volatile
+                     (quelques octets, utile). C'est la mauvaise qui survivait au
+                     rechargement — d'où la saturation du quota, et un second
+                     défaut : window.CLOUDINARY_URLS étant vide après un F5, les
+                     assets partaient au checkout sans leurs URLs.
+
+                     On persiste donc l'URL. La session passe de plusieurs
+                     mégaoctets à quelques centaines d'octets par zone, et
+                     applyUpload la repose telle quelle à la restauration — elle
+                     ne fait aucune hypothèse sur la forme du `src`. */
+                  saveUploadSafe(zone, res.url, uploadOwner);
                 }
               })
               .catch(err => console.warn('Upload Cloudinary échoué (' + zone + ') :', err.message));
@@ -4970,6 +5164,12 @@
        vide (après un rechargement). */
     window.readUploadStore = readUploadStore;
 
+    /* Exposées : conf-cart-open-design.js repose le design mémorisé par une
+       ligne de panier et doit le normaliser exactement comme le fait la
+       restauration d'un design partagé — même format attendu en aval. */
+    window.migrateUploadStore = migrateUploadStore;
+    window.sanitizeUploadSrcs = sanitizeUploadSrcs;
+
     /* Écrit le magasin d'uploads. Renvoie true si l'écriture a réussi.
        On DISTINGUE le dépassement de quota des autres échecs : un `catch` muet
        faisait disparaître le design du client au rechargement sans un mot.
@@ -5052,9 +5252,175 @@
       store.byProduct[product] = u;
       writeUploadStore(store);
     }
-    // Exposé : conf-patches.js persiste ici l'image détourée du mode
-    // « découpé à la forme », pour qu'elle survive au rechargement.
-    window.saveUpload = saveUpload;
+    /* Plafond DUR de ce qu'une zone peut peser en session.
+
+       sessionStorage plafonne à ~5 Mo par origine, et une image y coûte le
+       DOUBLE de sa data-URL (stockage UTF-16). 300 000 caractères ≈ 600 Ko
+       réels : huit zones tiennent donc largement.
+
+       Au-delà, on n'écrit RIEN plutôt que de saturer : le design reste affiché
+       et part avec la commande, seule sa survie à un rechargement est perdue —
+       préférable à une modale d'erreur. */
+    const MAX_SRC_SESSION = 300000;
+
+    /* POINT D'ÉCRITURE UNIQUE des images en session.
+
+       La compression vivait chez l'APPELANT — doUpload était le seul à appeler
+       compressForStorage — si bien que les autres chemins l'ignoraient :
+       conf-patches.js persistait la sortie brute du détourage, un PNG pleine
+       résolution avec transparence, plusieurs mégaoctets. Il saturait le quota
+       à lui seul, et c'est lui qui faisait réapparaître la modale malgré le
+       correctif précédent.
+
+       La compression appartient donc ici : aucun appelant, présent ou futur, ne
+       peut plus la contourner.
+
+       PRIORITÉ À L'URL : quand l'image est déjà hébergée (Cloudinary, CDN du
+       thème), on la stocke telle quelle — quelques dizaines d'octets au lieu de
+       plusieurs mégaoctets. C'est le cas nominal ; la compression n'est qu'un
+       repli pour la fenêtre où l'upload n'a pas encore abouti. */
+    function saveUploadSafe(zone, src, owner) {
+      if (!src) return Promise.resolve(false);
+
+      // Déjà une URL hébergée : rien à compresser, rien à craindre.
+      if (!/^data:/i.test(src)) {
+        saveUpload(zone, src, owner);
+        return Promise.resolve(true);
+      }
+
+      return compressForStorage(src).then(function (stored) {
+        var valeur = stored || src;
+        if (valeur.length <= MAX_SRC_SESSION) {
+          saveUpload(zone, valeur, owner);
+          return true;
+        }
+        /* Trop lourde même compressée : une réduction plus franche avant
+           d'abandonner. La copie de session n'a pas à être belle — l'écran
+           affiche la pleine résolution depuis le DOM et la commande part avec
+           l'URL Cloudinary. Elle sert seulement à survivre à un F5. */
+        return reduireFort(valeur).then(function (petite) {
+          if (petite && petite.length <= MAX_SRC_SESSION) {
+            saveUpload(zone, petite, owner);
+            return true;
+          }
+          console.warn('Image trop lourde pour la session (' +
+                       Math.round(valeur.length / 1024) + ' Ko) : non mémorisée. ' +
+                       'Le design reste affiché et sera transmis avec la commande.');
+          return false;
+        });
+      });
+    }
+
+    /* Réduction de dernier recours : 600 px, JPEG, transparence abandonnée.
+
+       Volontairement plus agressive que compressForStorage (1400 px, PNG si
+       alpha) : à ce stade on cherche à faire tenir une image de SECOURS, pas à
+       préserver la qualité — celle-ci vit dans le DOM et sur Cloudinary. Un
+       JPEG 600 px pèse ~50 Ko en session. */
+    function reduireFort(dataUrl) {
+      return new Promise(function (resolve) {
+        if (/^data:image\/svg\+xml/i.test(dataUrl)) return resolve(dataUrl);
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth, h = img.naturalHeight;
+            if (!w || !h) return resolve(null);
+            var scale = Math.min(1, 600 / Math.max(w, h));
+            var cv = document.createElement('canvas');
+            cv.width = Math.max(1, Math.round(w * scale));
+            cv.height = Math.max(1, Math.round(h * scale));
+            var ctx = cv.getContext('2d');
+            /* Fond blanc : le JPEG ignore la transparence, et sans ce
+               remplissage les zones transparentes sortiraient en NOIR. */
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.drawImage(img, 0, 0, cv.width, cv.height);
+            resolve(cv.toDataURL('image/jpeg', 0.7));
+          } catch (err) { resolve(null); }
+        };
+        img.onerror = function () { resolve(null); };
+        img.src = dataUrl;
+      });
+    }
+
+    /* Produit visité juste avant le courant : conservé en session, un
+       aller-retour entre deux textiles étant un geste de comparaison courant. */
+    var produitPrecedent = null;
+
+    /**
+     * Ne garde en session que les designs du produit courant et du précédent.
+     *
+     * Appelée au CHANGEMENT de produit, donc AVANT toute saturation — là où
+     * l'éviction de writeUploadStore n'intervient qu'une fois le quota dépassé,
+     * trop tard pour éviter la modale.
+     *
+     * @param {string} produitCourant - type du produit qu'on vient de choisir
+     */
+    function elaguerUploads(produitCourant) {
+      if (!produitCourant) return;
+
+      /* PREMIER passage : on n'élague PAS, on se contente de mémoriser.
+
+         `selProd` s'exécute au chargement de la page pour poser le produit
+         initial. À ce moment `produitPrecedent` vaut encore null : l'élagage
+         ne gardait donc que le produit affiché et SUPPRIMAIT les designs de
+         tous les autres — alors qu'ils venaient tout juste d'être restaurés
+         depuis la session.
+
+         C'est ce qui vidait le canvas en revenant au design d'un article du
+         panier : la couleur se rétablissait, mais logos et textes avaient été
+         effacés du stockage entre-temps.
+
+         L'élagage n'a de sens qu'à un VRAI changement de produit, c'est-à-dire
+         à partir du deuxième appel. */
+      if (produitPrecedent === null) {
+        produitPrecedent = produitCourant;
+        return;
+      }
+
+      /* Retour au design d'un article du PANIER : ce chemin clique la carte
+         produit, donc passe ici — mais il ne s'agit pas d'un changement d'avis.
+         Purger les autres produits ferait disparaître les designs des autres
+         lignes du panier, que le client peut vouloir rouvrir ensuite. */
+      if (window.__ouvertureDepuisPanier) {
+        produitPrecedent = produitCourant;
+        return;
+      }
+
+      try {
+        var store = readUploadStore();
+        if (!store || !store.byProduct) return;
+
+        var garder = {};
+        garder[produitCourant] = 1;
+        if (produitPrecedent !== produitCourant) {
+          garder[produitPrecedent] = 1;
+        }
+
+        var modifie = false;
+        Object.keys(store.byProduct).forEach(function (p) {
+          if (!garder[p]) { delete store.byProduct[p]; modifie = true; }
+        });
+        if (modifie) writeUploadStore(store);
+
+        if (produitPrecedent !== produitCourant) produitPrecedent = produitCourant;
+      } catch (e) {
+        // Session illisible (mode privé, cookies bloqués) : rien à élaguer.
+      }
+    }
+
+    /* Exposé : conf-patches.js persiste ici l'image détourée du mode
+       « découpé à la forme », pour qu'elle survive au rechargement.
+
+       C'est saveUploadSafe qui est exposée, PAS saveUpload : ce chemin
+       persistait un PNG pleine résolution avec transparence — plusieurs Mo — et
+       saturait la session à lui seul. En passant par la version sûre, il hérite
+       de la compression et du plafond sans avoir à être modifié.
+
+       Le contrat change légèrement (une Promise est renvoyée), mais les
+       appelants existants ignorent la valeur de retour : rien à adapter. */
+    window.saveUpload = saveUploadSafe;
+    window.saveUploadSafe = saveUploadSafe;
 
     /* Sauvegarde la taille/position (left/top/width) d'un logo pour une zone.
 

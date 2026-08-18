@@ -6,11 +6,17 @@
 <!-- BARRE D'ICÔNES VERTICALE -->
 <nav class="icon-nav">
   <!-- Type de produit -->
+  {%- comment -%}
+    Icône T-SHIRT et non sac de courses : ce panneau sert à choisir le SUPPORT
+    à personnaliser (sweat, t-shirt, coin, drapeau, patch), pas à faire ses
+    achats. Un sac évoquait le panier, déjà présent en haut de page — deux
+    sens différents pour un même symbole.
+  {%- endcomment -%}
   <button class="icon-nav-item active" data-panel="panel-product">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-      <line x1="3" y1="6" x2="21" y2="6"/>
-      <path d="M16 10a4 4 0 0 1-8 0"/>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linejoin="round">
+      <path d="M8 3 4 5 2.5 9.5 5.5 11V21h13V11l3-1.5L20 5l-4-2"/>
+      <path d="M8 3a4 4 0 0 0 8 0"/>
     </svg>
     <span class="icon-nav-label">Type de<br>Produit</span>
   </button>
@@ -27,10 +33,19 @@
 
   <!-- Options du coin : visible uniquement pour la catégorie « coins ».
        modernSidebar.refreshCategoryUI() gère son affichage. -->
+  {%- comment -%}
+    Icône PILE DE JETONS, et non deux cercles concentriques : ceux-ci étaient
+    presque identiques à l'icône du patch juste en dessous (mêmes cercles, un
+    pointillé en plus) — deux entrées de menu voisines et indiscernables.
+
+    La pile évoque la matière et l'épaisseur du jeton métal, et reprend l'icône
+    déjà utilisée pour ce produit dans la grille de choix (icon-coins.png).
+  {%- endcomment -%}
   <button class="icon-nav-item" id="coin-nav-item" data-panel="panel-coin" style="display:none">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="9"/>
-      <circle cx="12" cy="12" r="4"/>
+      <ellipse cx="12" cy="6" rx="8" ry="3"/>
+      <path d="M4 6v5c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/>
+      <path d="M4 11v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5"/>
     </svg>
     <span class="icon-nav-label">Options<br>Coin</span>
   </button>

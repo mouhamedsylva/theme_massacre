@@ -25,18 +25,54 @@
   }
 
   function saveLogosForProduct(productKey) {
+    /* Capture SAUTÉE au retour depuis le panier : le design vient d'être lu
+       depuis la session, il n'y a rien à mémoriser. Sans ce garde, l'aller-
+       retour sur un MÊME produit (clic sur la vignette d'un article du produit
+       déjà affiché) capturait puis restaurait — tout reposant alors sur la
+       fidélité de la capture, qui est précisément ce qui a échoué ici.
+       Drapeau posé par conf-cart-open-design.js. */
+    if (window.__ouvertureDepuisPanier) return;
+
     const zones = ['f', 'fr', 'b', 'sl', 'sr'];
     store()[productKey] = {};
     zones.forEach(zone => {
       const img = document.getElementById('i' + zone);
       // img.src vaut l'URL absolue de la page quand il est vide — on filtre ça
       const src = img ? img.getAttribute('src') : null;
-      store()[productKey][zone] = (src && src !== '' && src.startsWith('data:')) ? src : null;
+
+      /* Toute source EXPLOITABLE est retenue, pas seulement les `data:`.
+
+         Ce filtre datait de l'époque où les designs étaient persistés en
+         base64. Depuis qu'ils le sont sous forme d'URL Cloudinary, le `src` du
+         DOM est une URL `https://` — elle était donc rejetée et `null` écrit à
+         sa place. restoreLogosForProduct effaçait ensuite le canvas (voir son
+         commentaire) : le client retrouvait un vêtement nu en revenant au
+         design d'un article de son panier.
+
+         `safeImgSrc` (conf-main-inline.js) porte déjà le bon verdict —
+         `data:image/`, `https?`, protocole-relatif, chemin absolu. On le
+         réutilise plutôt que d'écrire un second test, qui divergerait à son
+         tour au prochain changement de format. */
+      var ok = (typeof window.safeImgSrc === 'function')
+        ? !!window.safeImgSrc(src)
+        : !!(src && src !== '' && !/^https?:\/\/[^/]+\/?$/i.test(src));
+      store()[productKey][zone] = ok ? src : null;
     });
   }
   
   
   function restoreLogosForProduct(productKey) {
+    /* RETOUR DEPUIS LE PANIER : on laisse la main à restoreUploads.
+
+       C'est la SESSION qui fait autorité dans ce cas, pas l'instantané mémoire
+       — celui-ci reflète l'état du canvas au dernier changement de produit, pas
+       le design de la ligne que le client vient d'ouvrir. Appliqué tel quel, il
+       reposait un design périmé, ou vidait le canvas.
+
+       `saveLogosForProduct` porte déjà ce garde (:34) ; il manquait ici, alors
+       que cette fonction-ci est la seule des deux à ÉCRIRE dans le DOM. */
+    if (window.__ouvertureDepuisPanier) return;
+
     const zones = ['f', 'fr', 'b', 'sl', 'sr'];
     /* LOGO_STORE ne vit QU'EN MÉMOIRE : il est vide après un rechargement
        (retour depuis le récapitulatif, F5). On retombe alors sur
@@ -45,7 +81,19 @@
        saveLogosForProduct() ne retient que les images `data:` ; le
        stockage persisté couvre aussi les URLs distantes. */
     let saved = store()[productKey];
-    if (!saved) {
+
+    /* Le repli se déclenche aussi quand l'entrée existe mais est VIDE.
+
+       `if (!saved)` seul ne le voyait pas : après une capture ratée, l'objet
+       vaut `{ f: null, fr: null, … }` — non vide, donc truthy. Le repli sur
+       conf_uploads était alors court-circuité, et la boucle plus bas effaçait
+       le canvas au lieu de le repeupler. C'est ce qui rendait le défaut
+       invisible : le stockage persisté contenait bien le design, mais on ne
+       l'atteignait jamais. */
+    const aQuelqueChose = saved && Object.keys(saved).some(function (z) {
+      return !!saved[z];
+    });
+    if (!aQuelqueChose) {
       saved = {};
       try {
         const persisted = window.readUploadStore ? window.readUploadStore().byProduct[productKey] || {} : {};
@@ -57,26 +105,55 @@
       } catch (e) { saved = {}; }
     }
   
+    /* Zones que la SESSION déclare encore pourvues.
+
+       Cette fonction efface les zones qu'elle croit vides (`src = ''`,
+       `display: none`, plus bas). Or `restoreUploads` — l'autre restaurateur —
+       est purement ADDITIF : il n'écrit que les zones qu'il trouve, et ne
+       répare donc jamais un effacement.
+
+       Tout désaccord entre les deux sources se soldait par un canvas vide, sans
+       rattrapage possible. C'est ce qui vidait le vêtement au retour depuis le
+       panier : l'instantané mémoire (LOGO_STORE) était périmé, la session
+       portait bien le design, et c'est l'instantané qui gagnait.
+
+       On consulte donc la session avant d'effacer : une zone qu'elle déclare
+       pourvue est LAISSÉE EN PLACE, à charge pour restoreUploads de la
+       repeupler. Une fonction de restauration ne doit jamais détruire ce qu'une
+       autre source déclare encore valide. */
+    let enSession = {};
+    try {
+      const p = window.readUploadStore
+        ? (window.readUploadStore().byProduct[productKey] || {}) : {};
+      Object.keys(p).forEach(function (z) {
+        const e = p[z];
+        const s = (typeof e === 'string') ? e : (e && e.src);
+        if (s) enSession[z] = 1;
+      });
+    } catch (e) { enSession = {}; }
+
     zones.forEach(zone => {
       const src = saved[zone] || null;
-  
+      // Rien en mémoire MAIS présent en session : on ne touche à rien.
+      const protegee = !src && !!enSession[zone];
+
       // Sidebar preview
       const prev = document.getElementById('p' + zone);
       const img  = document.getElementById('i' + zone);
       const lbl  = document.getElementById('l' + zone);
       const input = document.getElementById('u' + zone);
-  
+
       if (src) {
         if (img)  img.src = src;
         if (prev) prev.style.display = 'block';
         if (lbl)  lbl.style.display = 'flex';
-      } else {
+      } else if (!protegee) {
         if (img)  img.src = '';
         if (prev) prev.style.display = 'none';
         if (lbl)  lbl.style.display = 'none';
         if (input) input.value = '';
       }
-  
+
       // Logo draggable sur le canvas
       const logoEl = document.getElementById('logo-' + zone);
       if (logoEl) {
@@ -84,7 +161,7 @@
         if (src) {
           if (limg) limg.src = src;
           logoEl.style.display = 'block';
-        } else {
+        } else if (!protegee) {
           if (limg) limg.src = '';
           logoEl.style.display = 'none';
         }

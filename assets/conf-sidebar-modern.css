@@ -96,25 +96,37 @@
   color: #2a2a2a;
 }
 
-/* Sélection : pastille NOIRE pleine, contenu ORANGE. C'est l'inverse du rail
-   (sombre sur clair), donc l'onglet actif se détache sans ambiguïté. */
+/* Sélection : pastille BLANCHE pleine, contenu NOIR.
+
+   La pastille était noire à contenu orange. Le blanc se détache tout autant du
+   rail gris clair (#ebebeb) — c'est le même principe de contraste inversé —
+   mais sans introduire une seconde couleur d'accent dans une interface qui
+   n'en emploie aucune ailleurs.
+
+   Le contenu passe en noir et non en blanc : une icône blanche sur pastille
+   blanche serait invisible. C'est bien le couple qui s'inverse, pas chacun de
+   ses termes séparément.
+
+   L'ombre portée remplace le contraste que la pastille noire apportait à elle
+   seule : sans elle, le blanc sur gris très clair manquerait de relief. */
 .icon-nav-item.active {
-  background: #000000;
-  color: #ff6b35;
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .12);
 }
 
 /* L'icône et le libellé héritent mal de `color` selon les navigateurs (le SVG
    a sa propre règle plus bas, à la spécificité supérieure) : on force les deux
-   ici, sinon seul le libellé passait en orange. */
+   ici, sinon seul le libellé changeait de couleur. */
 .icon-nav-item.active svg,
 .icon-nav-item.active .icon-nav-label {
-  color: #ff6b35;
+  color: #1a1a1a;
 }
 
-/* Liseré : BLANC sur la pastille noire. En orange il se confondait avec les
-   icônes désormais orange, et disparaissait visuellement. */
+/* Liseré : NOIR sur la pastille blanche — il était blanc sur la pastille
+   noire. Même raison qu'au-dessus : c'est le couple qui s'inverse. */
 .icon-nav-item.active::before {
-  background: #ffffff;
+  background: #1a1a1a;
 }
 
 .icon-nav-item svg {

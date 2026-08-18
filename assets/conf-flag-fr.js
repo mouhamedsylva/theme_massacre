@@ -65,6 +65,22 @@
     var zone = zoneCourante();
     window.applyUpload(zone, src);
 
+    /* PERSISTANCE. `applyUpload` ne fait que poser l'image dans le DOM : seul
+       `doUpload` (chemin d'un fichier choisi par le client) écrit en session.
+       Le drapeau disparaissait donc au premier rechargement, alors que le
+       supplément manches, lui, restait facturé — un écart silencieux entre ce
+       que le client voyait et ce qu'il payait.
+
+       On passe par saveUploadSafe plutôt que saveUpload : c'est le point
+       d'écriture unique, qui compresse et borne. Ici il n'a rien à faire —
+       `src` est une URL du CDN Shopify (ASSET_URLS.franceFlag), donc stockée
+       telle quelle, pour ~80 octets. */
+    if (typeof window.saveUploadSafe === 'function') {
+      window.saveUploadSafe(zone, src);
+    } else if (typeof window.saveUpload === 'function') {
+      window.saveUpload(zone, src);   // repli : ancien contrat
+    }
+
     /* Le supplément « manches » est PAYANT (+4 €/manche) : l'activer est
        indispensable, sans quoi le drapeau serait floqué sans être facturé.
 

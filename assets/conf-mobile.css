@@ -464,13 +464,26 @@
   }
 
   /* Actif : sans libellé visible, le seul repère est l'icône — le fond doit
-     donc être plus franc qu'avant pour rester lisible d'un coup d'œil. */
+     donc être plus franc qu'avant pour rester lisible d'un coup d'œil.
+
+     CONTENU BLANC ici, alors que le desktop passe au NOIR : la barre mobile est
+     posée sur fond NOIR (#000, plus haut) et non sur le rail gris clair du
+     desktop. Une icône noire y serait invisible. Dans les deux cas la règle est
+     la même — le contenu contraste avec son fond — seule la couleur diffère.
+
+     `box-shadow` du desktop annulée : sur fond noir elle ne se voit pas et
+     alourdit le rendu. */
   .icon-nav-item.active {
     background: rgba(255,255,255,.18);
     color: #fff;
     border-left: none;
+    box-shadow: none;
   }
   .icon-nav-item.active svg { color: #fff; }
+  /* Liseré desktop neutralisé : il est passé en NOIR pour la pastille blanche
+     du desktop, donc invisible sur cette barre noire. La barre mobile signale
+     déjà l'onglet actif par son fond éclairci. */
+  .icon-nav-item.active::before { background: transparent; }
   /* Sans effet visuel (le libellé est masqué), conservé pour l'a11y. */
   .icon-nav-item.active .icon-nav-label {
     color: #fff;

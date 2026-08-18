@@ -239,6 +239,24 @@
       var raw = (content.textContent || '').trim();
       if (!raw) return null;
 
+      /* `canReproject` FORCÉ À FAUX si les boîtes sont inutilisables.
+
+         La branche de reprojection (:357-365) lit `layerBox.left`,
+         `imgBox.width`… Quand l'image produit n'est pas encore mesurable —
+         cache vide, décodage en cours — ces objets sont nuls et l'accès levait
+         une exception. Celle-ci remontait jusqu'au `catch` de
+         resolveDesignImage, qui perdait alors TOUS les logos déjà collectés :
+         la vignette du panier sortait nue. Le timing explique le caractère
+         intermittent du défaut.
+
+         On ne renonce PAS au texte pour autant : le repli par pourcentages
+         (:355-356) existe précisément pour ce cas — il sert déjà à la planche
+         de l'atelier quand la vue est masquée. On se contente d'empêcher le
+         code d'emprunter une branche dont les données manquent. */
+      var boitesOk = !!(imgBox && imgBox.width && imgBox.height &&
+                        layerBox && layerBox.width && layerBox.height);
+      if (!boitesOk) canReproject = false;
+
       return new Promise(function (resolve) {
         // Dimensions écran de la zone de texte (pour reprojeter comme un logo).
         var pct = function (v) {

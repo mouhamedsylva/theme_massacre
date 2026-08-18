@@ -1143,7 +1143,19 @@
         }
         if (typeof window.setTextZoneMode === "function")
           window.setTextZoneMode(zone, true);
-      } else {
+      } else if (!window.__ouvertureDepuisPanier) {
+        /* La branche « aucun texte » est DESTRUCTIVE : renderTextOnCanvas(null)
+           pose display:none et vide le contenu (voir :971-973).
+
+           On la saute pendant l'ouverture d'un article du panier. La clé de
+           lecture est `window.currentProductType`, qui n'est posé qu'au milieu
+           de selProd : tout appel antérieur lit l'ANCIEN produit, ne trouve
+           rien, et efface les trois zones — y compris celles que la session
+           porte bien pour le produit qu'on est en train d'ouvrir.
+
+           Ne rien faire est sans risque : la passe suivante, une fois le
+           produit aligné, rendra le texte s'il existe. Même principe que le
+           garde de conf-logo-store.js. */
         renderTextOnCanvas(zone, null);
         if (chip) chip.style.display = "none";
         if (typeof window.setTextZoneMode === "function")
