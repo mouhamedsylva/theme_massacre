@@ -52,8 +52,35 @@
          on repasse au prochain rendu. Sans cette reprise, revenir depuis un
          autre produit laissait le design en petite vignette — le cadre de
          rognage n'était jamais posé. */
+      /* GARDE ALIGNÉE SUR CELLE DES COINS (conf-coin-cover.js:68).
+
+         Elle mesurait l'IMAGE elle-même : `offsetWidth` vaut 0 tant que le
+         bitmap n'est pas décodé. Or loadDrapeauxCanvas recrée cette balise avec
+         un `src` neuf à chaque changement de produit — la fonction sortait donc
+         avant d'avoir posé le cadre, et le logo n'était ni reparenté dans
+         `.flag-crop`, ni marqué `is-cover`, ni redimensionné. Sans `is-cover`
+         le CSS retombe sur `contain` et les pourcentages se rapportent au
+         mauvais parent : le design existait mais s'affichait hors cadre — d'où
+         « le design est perdu » au retour depuis le panier.
+
+         Le coin, lui, mesure son conteneur — une div dimensionnée par CSS, non
+         nulle dès l'insertion. C'est ce qui le fait réussir du premier coup.
+
+         On attend donc que le WRAPPER soit mesurable (immédiat), puis que
+         l'image le soit à son tour. Cette seconde attente reste nécessaire :
+         le calcul des marges ci-dessous lit `img.offsetWidth`. La différence
+         est que l'écouteur `load` posé plus bas garantit désormais une reprise,
+         là où le seul réessai temporisé pouvait épuiser son quota. */
       var img = wrap.querySelector('.flag-base-img');
-      if (!img || !img.offsetWidth || !img.offsetHeight) {
+      if (!img || !wrap.offsetWidth || !wrap.offsetHeight) {
+        retryLater(f);
+        return;
+      }
+      if (!img.offsetWidth || !img.offsetHeight) {
+        /* Image pas encore décodée : on se replanifie sur son chargement plutôt
+           que sur un simple délai — l'événement arrive toujours, le quota de
+           réessais non. */
+        img.addEventListener('load', function () { syncFlagCrop(f); }, { once: true });
         retryLater(f);
         return;
       }

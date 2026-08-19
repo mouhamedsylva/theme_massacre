@@ -1,6 +1,21 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
+      /* Police de TOUT le configurateur.
+
+         Définie sur `:root` et non sur `.conf-app-root` : plusieurs éléments
+         vivent HORS de ce conteneur — tiroir du panier et vue d'ensemble
+         (déclarés après sa fermeture), modales d'alerte, de détourage et de
+         partage, menus de la barre texte (injectés dans <body>). Ils
+         n'héritaient donc pas de sa police et recevaient celle du thème
+         MASSACRE : le panier s'affichait dans une police à empattements,
+         étrangère au reste de l'application.
+
+         Une VARIABLE plutôt qu'une valeur recopiée sur chacun : la déclaration
+         était écrite en dur à un seul endroit, la dupliquer neuf fois
+         garantissait une divergence au premier changement — précisément le
+         défaut corrigé ici. */
+      --conf-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --black: #1a1a1a;
       --white: #ffffff;
       --border: #e5e5e5;
@@ -27,7 +42,7 @@
          sans le menu, le configurateur retrouve exactement 100vh. */
       height: calc(100vh - var(--shop-header-h, 0px));
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--conf-font);
       color: var(--black);
       background: var(--white);
       font-size: 12px;
@@ -38,6 +53,53 @@
         "header  header"
         "typebar recap"
         "main    recap";
+    }
+
+    /* ══ ÉLÉMENTS FLOTTANTS ══
+       Tout ce qui vit HORS de .conf-app-root et n'hérite donc pas de sa police.
+
+       Deux origines :
+         • déclarés après sa fermeture (configurateur.liquid:1097) — le tiroir
+           du panier et la vue d'ensemble ;
+         • injectés dans <body> par JavaScript — alertes (conf-alert.js:89),
+           détourage (conf-bgremoval2.js:248), quantité (conf-main-inline.js:3102),
+           partage (conf-share.js:54), menus de la barre texte
+           (conf-text-toolbar.js:299).
+
+       Cette sortie du conteneur est DÉLIBÉRÉE : elle leur évite un rognage par
+       `overflow: hidden` ou les fait passer au-dessus d'autres calques. On ne
+       corrige donc pas la structure, seulement l'héritage de la police.
+
+       On ne vise PAS `body` : cela imposerait la police du configurateur à
+       l'en-tête MASSACRE et à la bande d'annonce, qui partagent la page.
+
+       Les enfants héritent — inutile d'énumérer `.cd-*` ou `.ov-*`. */
+    .cart-drawer, .cart-overlay,
+    .ov-modal, .ov-overlay,
+    .ca-overlay, .ca-toast-wrap,
+    .conf-bgr-overlay,
+    .qm-overlay,
+    .txt-tb-pop,
+    /* Le menu de partage est identifié par un `id`, pas une classe
+       (conf-share.js:33) — d'où ce sélecteur d'une autre forme. */
+    #share-menu {
+      font-family: var(--conf-font);
+    }
+
+    /* Les contrôles de formulaire n'héritent JAMAIS de la police de leur
+       parent : les navigateurs leur imposent celle du système. Sans cette
+       règle, le bouton « Commander » et les champs de quantité du tiroir
+       restaient en police système alors que le texte voisin était corrigé.
+       Même raison que les `font-family: inherit` déjà présents ailleurs dans
+       ce fichier. */
+    .cart-drawer button, .cart-drawer input, .cart-drawer select,
+    .ov-modal button, .ov-modal input,
+    .ca-overlay button, .ca-overlay input,
+    .conf-bgr-overlay button,
+    .qm-overlay button, .qm-overlay input,
+    .txt-tb-pop button, .txt-tb-pop input,
+    #share-menu button, #share-menu input {
+      font-family: inherit;
     }
 
     /* ══ HEADER ══ */

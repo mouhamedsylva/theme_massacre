@@ -422,7 +422,24 @@
     if (!range || !el) return;
     var fit = parseFloat(el.getAttribute('data-max-fit'));
     if (isNaN(fit)) return;
-    range.max = Math.max(8, fit);
+
+    /* PLAGE MINIMALE GARANTIE.
+
+       `data-max-fit` est la plus grande taille en PIXELS D'ÉCRAN que la zone
+       accepte. Elle suit donc la largeur de l'appareil : ~19 px sur ordinateur,
+       mais ~8 px sur un téléphone, où la zone de 20 cm ne mesure plus que 38 px.
+
+       Le curseur porte `min="8"` en dur : sur mobile, min et max se rejoignaient
+       et la plage devenait NULLE — la poignée ne pouvait plus bouger, ce qui se
+       lisait comme un curseur désactivé.
+
+       On garantit donc un écart exploitable. Le texte n'échappe pas pour autant
+       à la contrainte atelier : clampTextToZone le réduit ensuite s'il déborde
+       — c'est lui qui fait autorité sur la surface imprimable, pas le curseur.
+       Le client peut viser plus grand ; c'est la zone qui tranche. */
+    var MIN_PLAGE = 24;   // amplitude minimale entre min et max
+    var plancher = parseFloat(range.min) || 8;
+    range.max = Math.max(plancher + MIN_PLAGE, fit);
     /* Le curseur ne doit pas rester au-delà du nouveau plafond : un texte
        rallongé réduit la taille tenable, et une poignée restée à droite
        laisserait croire à une marge qui n'existe plus. */

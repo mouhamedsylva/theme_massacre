@@ -510,6 +510,36 @@
     padding: 8px 4px;
   }
 
+  /* ZONE D'UPLOAD DE LA FACE AFFICHÉE, mise en évidence.
+
+     Les deux zones — RECTO et VERSO — sont côte à côte et visuellement
+     identiques : seul leur libellé les distingue. Le client devait donc LIRE
+     pour savoir laquelle correspond à la face qu'il regarde, et rien ne
+     signalait l'erreur avant l'upload.
+
+     On souligne celle qui correspond à la face active. L'autre reste
+     accessible : le client peut toujours préparer les deux faces sans
+     basculer, ce qui serait une régression.
+
+     Piloté par `data-face-active` sur .conf-app-root, posé par
+     conf-mobile.js en miroir de l'attribut de la scène. Un sélecteur CSS
+     suffit : aucune classe à maintenir en JavaScript. */
+  .conf-app-root[data-face-active="recto"] .upload-zone-btn[data-upzone$="-recto"],
+  .conf-app-root[data-face-active="verso"] .upload-zone-btn[data-upzone$="-verso"] {
+    border-color: #c2410c;
+    border-style: solid;
+    background: #fff7f4;
+  }
+  /* Le libellé de la zone active reprend la teinte de son cadre : le lien
+     entre la bascule du haut et la zone d'upload devient évident au premier
+     coup d'œil, sans avoir à lire. */
+  .conf-app-root[data-face-active="recto"] .upload-zone-btn[data-upzone$="-recto"] svg,
+  .conf-app-root[data-face-active="verso"] .upload-zone-btn[data-upzone$="-verso"] svg,
+  .conf-app-root[data-face-active="recto"] .upload-zone-btn[data-upzone$="-recto"] span,
+  .conf-app-root[data-face-active="verso"] .upload-zone-btn[data-upzone$="-verso"] span {
+    color: #c2410c;
+  }
+
   /* Face masquée. `data-face-active` est posé sur la scène par le JS ;
      l'attribut porte la face à montrer (recto | verso). */
   .flag-stage[data-face-active="recto"] #flag-verso,
@@ -1145,6 +1175,29 @@
     top: 56px;
     z-index: 42;
     max-width: calc(100% - 16px);
+
+    /* DÉFILEMENT SIGNALÉ par un voile sur le bord droit.
+
+       La barre contient Police, B, I, U, Taille, Couleur et Supprimer : sur une
+       largeur de téléphone elle déborde et se fait couper. Elle défile déjà
+       (`overflow-x: auto`), mais rien ne l'indiquait — le bouton COULEUR était
+       hors écran et le client n'avait aucune raison de le chercher.
+
+       Technique des « ombres de défilement » : deux dégradés en
+       `background-attachment: local` (le contenu, qui défile) masquent celui en
+       `scroll` (l'élément, fixe). Le voile disparaît donc de lui-même une fois
+       le bord atteint, sans une ligne de JavaScript.
+
+       Un `::after` n'aurait pas convenu : posé dans un conteneur défilant, il
+       serait parti avec le contenu au lieu de rester sur le bord. */
+    background-image:
+      linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+      linear-gradient(to left,  #fff 30%, rgba(255,255,255,0)),
+      linear-gradient(to left, rgba(0,0,0,.16), rgba(0,0,0,0));
+    background-position: left center, right center, right center;
+    background-repeat: no-repeat;
+    background-size: 24px 100%, 24px 100%, 18px 100%;
+    background-attachment: local, local, scroll;
     /* `overflow-x: auto` (conf-styles.css, media 768) permet de faire défiler
        la barre quand elle déborde — mais il ROGNE aussi ses menus, qui
        s'ouvrent en dessous. Les menus sont donc sortis du flux en `fixed`

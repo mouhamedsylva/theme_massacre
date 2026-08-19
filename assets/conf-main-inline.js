@@ -2930,7 +2930,19 @@
         qty: qty,
         img: imgSrc,
         sheet: sheetSrc,   // planche recto/verso pour l'_Aperçu de la commande
-        assets: collectCustomAssets()   // logos utilisés -> visibles dans la commande
+        assets: collectCustomAssets(),   // logos utilisés -> visibles dans la commande
+        /* ÉTAT COMPLET du design, pour pouvoir rouvrir cette ligne plus tard.
+
+           Les textiles le portent déjà (:2518) ; coins, drapeaux et patchs
+           l'avaient été oubliés. Sans lui, cliquer la vignette d'un de ces
+           articles ne restaurait que sa couleur : le design dépendait alors de
+           `conf_uploads`, la mémoire de TRAVAIL du canvas, qu'un changement de
+           produit ou une suppression efface.
+
+           `assets` ne suffit pas : il ne porte qu'un libellé et une URL, de
+           quoi imprimer mais pas de quoi rééditer — ni face, ni position, ni
+           recadrage. */
+        design: (typeof capturerEtatDesign === 'function') ? capturerEtatDesign() : null
       };
 
       // replaceQty = true : la quantité est le nombre d'unités commandé (pas un cumul d'ajouts)
@@ -3819,7 +3831,38 @@
         { label: 'VERSO', disc: 'coin-disc-verso', logo: 'coin-logo-verso', base: 'coin-base-verso' }
       ];
 
+      /* MOBILE : les DEUX faces doivent être mesurables pendant la capture.
+
+         Sur téléphone, la scène n'affiche qu'une face à la fois — l'autre est
+         masquée en CSS par `data-face-active` (conf-mobile.css:513-520). Un
+         élément en `display: none` n'a pas de boîte : `getBoundingClientRect()`
+         renvoie zéro, `coinCoverDataUrl` abandonne (conf-coin-thumb.js:141), et
+         la face inactive était capturée VIDE. La vue d'ensemble ne montrait donc
+         que la face affichée au moment du clic.
+
+         On lève l'attribut le temps de la mesure, puis on le restaure. Les deux
+         faces redeviennent mesurables sans que l'écran change : la capture est
+         synchrone, aucun rendu intermédiaire n'est peint.
+
+         Le « recto simple » n'est PAS affecté : sa face verso porte
+         `display: none` en style INLINE, posé par selectCoinType(), que cette
+         levée ne touche pas. La distinction est la même que celle de
+         conf-mobile.js:1030-1035 — l'inline exprime un choix du client, le CSS
+         un simple état d'affichage. */
+      var scene = document.querySelector('.coin-stage[data-face-active]');
+      var faceActive = scene ? scene.getAttribute('data-face-active') : null;
+      if (scene) {
+        scene.removeAttribute('data-face-active');
+        /* Même nécessité que pour les drapeaux : lire `offsetHeight` force le
+           recalcul de mise en page — sans quoi la face démasquée garde des
+           dimensions nulles — puis le cadre de rognage doit être reposé, ses
+           pixels ayant été figés à zéro pendant le masquage. */
+        void scene.offsetHeight;
+        if (typeof window.syncCoinCrop === 'function') window.syncCoinCrop();
+      }
+
       var views = [];
+      try {
       faces.forEach(function (f) {
         var baseImg = document.getElementById(f.base);
         if (!baseImg || !baseImg.getAttribute('src')) return;
@@ -3867,6 +3910,19 @@
 
         views.push({ label: f.label, background: baseImg.src, logos: logos });
       });
+
+      } finally {
+        /* L'affichage retrouve son état, MÊME si la boucle a échoué. L'oublier
+           laisserait les deux faces visibles sur un écran de téléphone — un
+           défaut permanent, bien pire que celui qu'on corrige ici. */
+        if (scene && faceActive) {
+          scene.setAttribute('data-face-active', faceActive);
+          /* Le cadre de rognage a été recalculé sur DEUX faces visibles : il
+             faut le reposer sur la disposition réelle, sinon le design de la
+             face affichée resterait mal calé après la capture. */
+          if (typeof window.syncCoinCrop === 'function') window.syncCoinCrop();
+        }
+      }
 
       return views.length ? views : null;
     }
@@ -3991,7 +4047,35 @@
         { label: 'VERSO', key: 'verso', base: 'flag-base-verso', logo: 'flag-logo-verso' }
       ];
 
+      /* MÊME LEVÉE QUE LES COINS : sur téléphone, la scène ne montre qu'une face
+         (`data-face-active`, conf-mobile.css:515-516). La face masquée n'a pas
+         de boîte, sa capture sortait donc vide et la vue d'ensemble ne
+         présentait que la face affichée au moment du clic. */
+      var scene = document.querySelector('.flag-stage[data-face-active]');
+      var faceActive = scene ? scene.getAttribute('data-face-active') : null;
+      if (scene) {
+        scene.removeAttribute('data-face-active');
+
+        /* RECALCUL FORCÉ, puis resynchronisation du cadre de rognage.
+
+           Retirer l'attribut ne suffit pas : le navigateur ne recalcule la mise
+           en page qu'au prochain rendu, si bien que la face démasquée gardait
+           des dimensions NULLES pendant toute la capture. flagCoverDataUrl
+           abandonnait alors (conf-flag-cover.js:426) et la vignette du panier
+           sortait vide — le défaut restait donc entier sur mobile, alors que la
+           levée seule avait suffi pour la vue d'ensemble.
+
+           Lire `offsetHeight` force ce recalcul de façon synchrone. Il faut
+           ensuite reposer `.flag-crop` : ses dimensions ont été FIGÉES EN PIXELS
+           par syncFlagCrop alors que la face était masquée, donc à zéro. Sans
+           cette reprise, le cadre reste inutilisable même une fois la face
+           visible. */
+        void scene.offsetHeight;
+        if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop();
+      }
+
       var views = [];
+      try {
       faces.forEach(function (f) {
         var baseImg = document.getElementById(f.base);
         if (!baseImg || !baseImg.getAttribute('src')) return;
@@ -4059,6 +4143,15 @@
         // On ne garde que les faces AVEC un logo (évite un verso vide).
         if (logos.length) views.push({ label: f.label, background: baseImg.src, logos: logos });
       });
+      } finally {
+        /* Restauré même en cas d'échec : sans cela, les deux faces resteraient
+           visibles sur téléphone — un défaut permanent. */
+        if (scene && faceActive) {
+          scene.setAttribute('data-face-active', faceActive);
+          // Cadre reposé sur la disposition réelle (voir captureCoinDesign).
+          if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop();
+        }
+      }
 
       return views.length ? views : null;
     }
@@ -4257,6 +4350,45 @@
      *
      * @returns {object} état sérialisable, sûr à écrire en session
      */
+
+    /** Une source d'image est-elle HÉBERGÉE (donc légère à mémoriser) ? */
+    function srcHeberge(s) {
+      return typeof s === 'string' && /^(https?:)?\/\//i.test(s);
+    }
+
+    /**
+     * Ne conserve d'un magasin d'uploads que les zones dont l'image est
+     * hébergée — les data-URLs sont écartées.
+     *
+     * Le magasin d'origine n'est PAS modifié : on renvoie une copie. Sans cela,
+     * filtrer pour le panier amputerait aussi `conf_uploads`, et le design
+     * disparaîtrait du canvas.
+     *
+     * @param {object|null} store - magasin { _v, byProduct }
+     * @returns {object|null} copie filtrée, ou null si rien à garder
+     */
+    function filtrerUploadsHeberges(store) {
+      if (!store || !store.byProduct) return store;
+      var out = { _v: store._v || 2, byProduct: {} };
+      var garde = false;
+
+      Object.keys(store.byProduct).forEach(function (produit) {
+        var zones = store.byProduct[produit];
+        if (!zones || typeof zones !== 'object') return;
+        var propres = {};
+        Object.keys(zones).forEach(function (z) {
+          var e = zones[z];
+          var src = (typeof e === 'string') ? e : (e && e.src);
+          if (!srcHeberge(src)) return;      // data-URL : trop lourde, écartée
+          propres[z] = (typeof e === 'string') ? { src: e, geo: null } : e;
+          garde = true;
+        });
+        if (Object.keys(propres).length) out.byProduct[produit] = propres;
+      });
+
+      return garde ? out : null;
+    }
+
     function capturerEtatDesign() {
       var state = {
         product: null, color: null, patchColor: null, coinFinish: null,
@@ -4268,6 +4400,24 @@
       try { state.coinFinish = sessionStorage.getItem('conf_coin_finish') || null; } catch (e) {}
       try { state.uploads = JSON.parse(sessionStorage.getItem('conf_uploads') || 'null'); } catch (e) {}
       try { state.texts = JSON.parse(sessionStorage.getItem('conf_texts') || 'null'); } catch (e) {}
+
+      /* SEULES LES IMAGES DÉJÀ HÉBERGÉES sont retenues.
+
+         Cet état est recopié dans CHAQUE ligne de panier : le design s'y
+         retrouvait donc stocké deux fois — une dans `conf_uploads`, une dans la
+         ligne. Sur un drapeau recto/verso non encore uploadé, cela faisait
+         ~5,6 Mo pour un quota de 5 Mo : une seule ligne saturait la session, et
+         la modale « Panier non mémorisé » s'affichait au premier ajout.
+
+         Une URL Cloudinary pèse quelques centaines d'octets ; une data-URL
+         plusieurs mégaoctets. On ne garde donc que les premières. Une image
+         encore en cours d'envoi est simplement omise : la ligne reste ouvrable
+         tant que le canvas la porte, et le cas nominal — upload terminé — est
+         couvert. La version lourde vit déjà dans `conf_uploads`, et la commande
+         part avec les URL via `assets`.
+
+         Ce champ sert à ROUVRIR une ligne, pas à archiver le design. */
+      state.uploads = filtrerUploadsHeberges(state.uploads);
 
       /* COMPLÉMENT DEPUIS LE DOM — ce qui est à l'écran fait foi.
 
@@ -4286,20 +4436,44 @@
         if (!state.uploads.byProduct) state.uploads.byProduct = {};
         var zonesProduit = state.uploads.byProduct[produit] || {};
 
-        ['f', 'fr', 'b', 'sl', 'sr'].forEach(function (zone) {
+        /* Toutes les zones, TEXTILES ET NON TEXTILES.
+
+           La liste s'arrêtait aux zones de vêtement : un coin, un drapeau ou un
+           patch ajouté au panier AVANT la fin de l'upload Cloudinary partait
+           donc sans son design, sans que rien ne le signale. Les identifiants
+           DOM diffèrent d'une famille à l'autre, d'où la table ci-dessous
+           plutôt qu'un préfixe unique. */
+        var ZONES_DOM = {
+          'f': 'logo-f', 'fr': 'logo-fr', 'b': 'logo-b',
+          'sl': 'logo-sl', 'sr': 'logo-sr',
+          'c': 'patch-logo',
+          'coin-recto': 'coin-logo-recto', 'coin-verso': 'coin-logo-verso',
+          'flag-recto': 'flag-logo-recto', 'flag-verso': 'flag-logo-verso'
+        };
+
+        Object.keys(ZONES_DOM).forEach(function (zone) {
           if (zonesProduit[zone] && zonesProduit[zone].src) return;  // déjà en session
-          var el = document.getElementById('logo-' + zone);
+          var el = document.getElementById(ZONES_DOM[zone]);
           if (!el || el.style.display === 'none') return;
           var img = el.querySelector('img');
           var src = img && img.getAttribute('src');
-          if (!src || !/^(data:image\/|https?:\/\/|\/\/)/i.test(src)) return;
+          /* Sources HÉBERGÉES seulement, même règle que le filtre ci-dessus :
+             ce complément acceptait les data-URLs et réintroduisait donc le
+             poids qu'on vient d'écarter. Une image encore en cours d'envoi est
+             omise — elle rejoindra la session dès que son URL arrivera. */
+          if (!srcHeberge(src)) return;
 
           zonesProduit[zone] = {
             src: src,
             geo: {
               left: el.style.left || null,
               top: el.style.top || null,
-              width: el.style.width || null
+              width: el.style.width || null,
+              /* `height` est indispensable aux modes COUVERTURE (coins,
+                 drapeaux), où la boîte grandit sur les deux axes. Les logos
+                 ordinaires gardent `auto` : la valeur est alors vide et
+                 applyUploadGeo l'ignore. */
+              height: el.style.height || null
             }
           };
         });
@@ -4548,10 +4722,27 @@
           var estUrl = function (u) {
             return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : '';
           };
-          if (/^data:/i.test(it.img || '') || /^data:/i.test(it.sheet || '')) {
+          /* Le champ `design` est filtré LUI AUSSI.
+
+             Ce nettoyage ne couvrait que `img` et `sheet` : `design` a été
+             ajouté après lui, et transportait tout le magasin d'uploads —
+             data-URLs comprises. C'est ce qui saturait la session dès le
+             premier drapeau recto/verso.
+
+             Dernier rempart avant l'écriture : même si capturerEtatDesign
+             filtre déjà en amont, une ligne ajoutée par un autre chemin, ou
+             mémorisée avant ce correctif, ne doit pas pouvoir passer. */
+          var designLourd = !!(it.design && it.design.uploads &&
+                            /"src"\s*:\s*"data:/i.test(JSON.stringify(it.design.uploads)));
+
+          if (/^data:/i.test(it.img || '') || /^data:/i.test(it.sheet || '') || designLourd) {
             var copie = Object.assign({}, it);
             copie.img = estUrl(it.img);
             copie.sheet = estUrl(it.sheet);
+            if (designLourd && typeof filtrerUploadsHeberges === 'function') {
+              copie.design = Object.assign({}, it.design);
+              copie.design.uploads = filtrerUploadsHeberges(it.design.uploads);
+            }
             return copie;
           }
           return it;
@@ -4572,9 +4763,13 @@
           if (!window.__cartQuotaWarned) {
             window.__cartQuotaWarned = true;
             if (typeof window.confAlert === 'function') {
+              /* Le message n'accuse plus « les aperçus de vos designs » : cette
+                 cause était celle du champ `design` non filtré, désormais
+                 réduit aux seules URL hébergées. La modale ne devrait plus
+                 apparaître ; si elle survient, la cause sera ailleurs et
+                 désigner la mauvaise induirait le client en erreur. */
               window.confAlert(
-                'Votre navigateur ne peut plus mémoriser le contenu de votre panier ' +
-                '(mémoire de session saturée par les aperçus de vos designs). ' +
+                'Votre navigateur ne peut plus mémoriser le contenu de votre panier. ' +
                 'Les articles restent affichés ici, mais ils seront perdus si vous ' +
                 'rechargez la page. Terminez votre commande maintenant, ou retirez ' +
                 'un article pour libérer de la place.',
@@ -6055,12 +6250,32 @@
          `maxWidth` est absent pour le dos : sa zone de 30 cm correspond déjà à
          la contrainte atelier, aucun plafond supplémentaire n'y a de sens. */
       var maxW = null;
-      if (TEXT_MAX_ZONES[zone] && typeof CM !== 'undefined') {
-        /* Le facteur cm -> % suit la SILHOUETTE, pas le tissu : le polyester
-           partage le cadrage du t-shirt coton, et CM n'a donc que deux
-           entrées. Même repli que buildZones() (:1474). */
-        var ref = (currentProductType === 'sweatshirt') ? CM.sweatshirt : CM.tshirt;
-        if (ref && ref.w) maxW = Math.min(z.width, TEXT_MAX_CM * ref.w);
+      if (TEXT_MAX_ZONES[zone]) {
+        /* MOBILE : la moitié de la zone, et non une conversion en centimètres.
+
+           `TEXT_MAX_CM * ref.w` traduit 20 cm en % du CONTENEUR — le référentiel
+           du desktop. Le calque mobile, lui, est calé sur l'IMAGE (voir
+           syncLayerToImage) et sa zone de poitrine fait 38 % au lieu de 24 %.
+           Appliqué tel quel, ce plafond ne laissait au texte que 30 % de sa
+           zone contre 47 % sur ordinateur : le mot se réduisait à un trait.
+
+           Les deux référentiels ne sont pas convertibles — le rapport
+           image/conteneur n'est pas une constante, c'est ce que documente déjà
+           l'en-tête des zones mobile. On raisonne donc en PROPORTION de la
+           zone, la seule grandeur qui garde le même sens des deux côtés.
+
+           50 % : proche des 47 % obtenus sur ordinateur, donc un rendu
+           cohérent d'un appareil à l'autre. */
+        var estMobile = window.matchMedia('(max-width: 767px)').matches;
+        if (estMobile) {
+          maxW = z.width * 0.5;
+        } else if (typeof CM !== 'undefined') {
+          /* Le facteur cm -> % suit la SILHOUETTE, pas le tissu : le polyester
+             partage le cadrage du t-shirt coton, et CM n'a donc que deux
+             entrées. Même repli que buildZones() (:1474). */
+          var ref = (currentProductType === 'sweatshirt') ? CM.sweatshirt : CM.tshirt;
+          if (ref && ref.w) maxW = Math.min(z.width, TEXT_MAX_CM * ref.w);
+        }
       }
 
       return {
@@ -6096,6 +6311,36 @@
     /* Exposé : conf-text-clamp.js le lit. Les getters restent dynamiques, la
        référence suffit — ne pas remplacer par une copie. */
     window.TEXT_ZONE_HORIZ = TEXT_ZONE_HORIZ;
+
+    /**
+     * Facteur de conversion entre une taille de police EN PIXELS D'ÉCRAN et sa
+     * taille RÉELLE en centimètres imprimés.
+     *
+     * Pourquoi c'est nécessaire : le curseur de taille pilote `font-size`, une
+     * valeur en pixels dont la signification dépend de la largeur du calque —
+     * donc de l'appareil. Un même réglage donne 0,05 cm sur ordinateur et
+     * 0,10 cm sur téléphone : deux clients obtiennent des flocages différents,
+     * et sur mobile la plage utile devient si étroite que le curseur ne peut
+     * plus bouger (min et max se rejoignent à 8 px).
+     *
+     * On réutilise `CM`, la table qui sert déjà à borner la largeur du texte à
+     * 20 cm (textZone) — plutôt que d'introduire un second facteur, qui
+     * divergerait du premier au premier ajustement de gabarit.
+     *
+     * @returns {number} pixels d'écran par centimètre, ou 0 si non mesurable
+     */
+    function pxParCm() {
+      var layer = document.getElementById('logo-layer');
+      if (!layer) return 0;
+      var lb = layer.getBoundingClientRect();
+      if (!lb.width) return 0;
+      /* Le facteur suit la SILHOUETTE : le polyester partage le cadrage du
+         t-shirt coton, d'où le repli — même règle que textZone. */
+      var ref = (currentProductType === 'sweatshirt') ? CM.sweatshirt : CM.tshirt;
+      if (!ref || !ref.w) return 0;
+      return lb.width * ref.w;
+    }
+    window.pxParCm = pxParCm;
 
     /* clampTextToZone() vit desormais dans assets/conf-text-clamp.js (limite
        Shopify de 256 Ko). Appelee via window.clampTextToZone ; depend de

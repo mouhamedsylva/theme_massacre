@@ -1038,6 +1038,24 @@
       return !!el && el.style.display !== "none";
     }
 
+    /**
+     * Reporte la face affichée sur la RACINE de l'application.
+     *
+     * Les zones d'upload vivent dans la feuille latérale, hors de la scène :
+     * un sélecteur CSS ne pouvait donc pas remonter jusqu'à l'attribut de
+     * celle-ci. En le reflétant sur `.conf-app-root`, ancêtre commun, le CSS
+     * met en évidence la zone correspondante sans une ligne de logique
+     * supplémentaire (voir conf-mobile.css, « ZONE D'UPLOAD »).
+     *
+     * @param {string|null} face - 'recto', 'verso', ou null pour effacer
+     */
+    function refletFaceActive(face) {
+      var root = document.querySelector(".conf-app-root");
+      if (!root) return;
+      if (face) root.setAttribute("data-face-active", face);
+      else root.removeAttribute("data-face-active");
+    }
+
     var faces = [];
     if (
       available(stage.querySelector("#flag-recto")) ||
@@ -1056,6 +1074,9 @@
     if (faces.length < 2) {
       if (existing) existing.remove();
       stage.removeAttribute("data-face-active");
+      /* Une seule face : plus rien à distinguer, la mise en évidence n'aurait
+         pas de sens — et laisserait un cadre orange sans contrepartie. */
+      refletFaceActive(null);
       return;
     }
 
@@ -1063,6 +1084,7 @@
     var current = stage.getAttribute("data-face-active");
     if (faces.indexOf(current) === -1) current = "recto";
     stage.setAttribute("data-face-active", current);
+    refletFaceActive(current);
 
     /* Déjà en place et rattachée au bon aperçu : on n'y touche pas.
        Important — cette fonction écrit dans .canvas, que watchStage()
@@ -1099,6 +1121,7 @@
         if (stage.getAttribute("data-face-active") === f) return;
 
         stage.setAttribute("data-face-active", f);
+        refletFaceActive(f);
         box.querySelectorAll(".face-switch-btn").forEach(function (o) {
           o.classList.remove("active");
         });

@@ -430,6 +430,34 @@
           const patchLogo = document.getElementById('patch-logo');
           if (coinsPreviewImg) coinsPreviewImg.src = src;
           if (patchLogo) patchLogo.style.display = 'block';
+
+          /* PLACEMENT INITIAL REPOSÉ quand aucune géométrie n'est enregistrée.
+
+             Le coin et le drapeau obtiennent leur remise en état par une
+             fonction de synchronisation (syncCoinCrop / syncFlagCrop). Le patch
+             n'en a aucune, et son seul recours — clampPatchLogo — sort
+             immédiatement quand `reset === false`, c'est-à-dire précisément en
+             restauration (conf-main-inline.js:6239).
+
+             Or restoreUploads n'appelle applyUploadGeo QUE si une géométrie
+             existe, et `geo` n'est écrit que par un glisser ou un
+             redimensionnement. Un patch JAMAIS DÉPLACÉ n'avait donc personne
+             pour le placer : il gardait les valeurs par défaut du HTML
+             fraîchement reconstruit et disparaissait dans le rognage de
+             `.patch-body`. C'est le cas le plus sûrement perdu.
+
+             On rejoue donc le placement initial dans ce cas précis — le même
+             que pour un vrai upload, ce qui est légitime : sans géométrie
+             mémorisée, il n'y a rien à préserver. Un patch déplacé, lui, garde
+             sa géométrie, applyUploadGeo la repose, et ce bloc ne s'applique
+             pas. */
+          if (patchLogo && window.__restoringUploads &&
+              typeof window.clampPatchLogo === 'function') {
+            var sansGeo = !patchLogo.style.left && !patchLogo.style.top;
+            if (sansGeo) {
+              setTimeout(function () { window.clampPatchLogo(true); }, 120);
+            }
+          }
           if (coinsCanvas) {
             coinsCanvas.classList.add('has-image');
             // Masquer le placeholder

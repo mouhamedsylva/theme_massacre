@@ -194,32 +194,22 @@
          couleur, puis uploads, puis textes. Différé, car selColor() recharge
          les images du vêtement — un design posé avant serait effacé. */
       var reposerDesign = function () {
-        try {
-          var up = JSON.parse(sessionStorage.getItem('conf_uploads') || '{}');
-          var parProduit = (up.byProduct || {})[window.currentProductType] || {};
-          var zones = {};
-          Object.keys(parProduit).forEach(function (z) {
-            var e = parProduit[z];
-            var s = (typeof e === 'string') ? e : (e && e.src);
-            zones[z] = s ? String(s).slice(0, 45) : null;
-          });
-          console.log('[panier] produit=' + window.currentProductType,
-                      '| produits en session=' + JSON.stringify(Object.keys(up.byProduct || {})),
-                      '| zones=', zones);
-          var tx = JSON.parse(sessionStorage.getItem('conf_texts') || '{}');
-          console.log('[panier] textes du produit=',
-                      JSON.stringify(Object.keys(tx[window.currentProductType] || {})));
-          var lf = document.getElementById('logo-f');
-          var lfi = lf && lf.querySelector('img');
-          console.log('[panier] DOM logo-f : display=' + (lf && lf.style.display) +
-                      ' src=' + (lfi ? String(lfi.getAttribute('src')).slice(0, 45) : 'ABSENT'));
-        } catch (e) { console.log('[panier] lecture session impossible', e); }
 
         if (typeof window.restoreUploads === 'function') window.restoreUploads();
         if (typeof window.restoreTexts === 'function') window.restoreTexts();
         // Cadres de rognage des modes « couverture » (coins, drapeaux).
         if (typeof window.syncCoinCrop === 'function') window.syncCoinCrop();
         if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop();
+        /* PATCH : il n'a pas de cadre de rognage, donc pas de fonction de
+           synchronisation. Son seul recours est clampPatchLogo, et uniquement
+           quand aucune géométrie n'a été enregistrée — sans quoi on écraserait
+           le recadrage du client. La condition est la même que dans
+           conf-share.js : ni `left` ni `top` posés. */
+        var pl = document.getElementById('patch-logo');
+        if (pl && pl.style.display !== 'none' && !pl.style.left && !pl.style.top &&
+            typeof window.clampPatchLogo === 'function') {
+          window.clampPatchLogo(true);
+        }
         // Repères de zone : alignés sur ce qui est réellement posé.
         if (typeof window.refreshZoneGuides === 'function') window.refreshZoneGuides();
       };
