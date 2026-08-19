@@ -129,13 +129,58 @@
      DOM, seul son rendu est neutralisé — d'où `font-size: 0` sur le lien et
      sa restauration sur l'icône, plutôt qu'un `display: none` sur le libellé
      (qui, lui, l'aurait rendu inaudible). */
+  /* « Accueil » DÉPLACÉ à droite, auprès de « réinitialiser ».
+
+     Depuis que le titre est masqué (:150), il se retrouvait collé au logo : les
+     deux se lisaient comme un seul bloc de marque, et rien ne signalait une
+     commande. Il rejoint donc les autres actions, à l'opposé de l'identité.
+
+     Le déplacement se fait par `order` plutôt qu'en modifiant le HTML : ce
+     dernier sert aussi au desktop, où la position actuelle convient. `.hdr`
+     étant un conteneur flex, `order: 3` suffit à l'envoyer en fin de ligne —
+     `margin-left: auto` sur le groupe de droite les réunit visuellement.
+
+     Dimensions ALIGNÉES sur `.hdr-btns .obtn` (:1490) : même cible de 44 px,
+     même icône de 18 px. Trois boutons voisins de tailles différentes se
+     liraient comme trois niveaux d'importance, ce qu'ils ne sont pas. */
   a.hdr-home {
     font-size: 0;
-    padding: 7px 8px;
-    margin-left: 4px;
+    /* `order: 2`, contre 3 pour `.hdr-btns` : « accueil » se place juste AVANT
+       les autres boutons. Les éléments sans `order` valent 0 — le logo reste
+       donc en tête, et ces deux valeurs suffisent à ranger la fin de ligne.
+
+       `margin-left: auto` sur ce bouton, premier du bloc de droite : il pousse
+       tout ce qui suit contre le bord. La porter sur `.hdr-btns` aurait séparé
+       « accueil » du reste. */
+    order: 2;
+    margin-left: auto;
+    margin-right: 6px;
+    padding: 0 12px;
     gap: 0;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  a.hdr-home svg { font-size: 13px; }
+  a.hdr-home svg { font-size: 18px; width: 18px; height: 18px; }
+
+  /* TITRE MASQUÉ sur téléphone, au profit des deux icônes.
+
+     « TEXTILE PERSONNALISÉ » consommait la moitié de la largeur de l'en-tête,
+     réduisant « accueil » et « réinitialiser » à des cibles minuscules. Le logo
+     MASSACRE suffit à identifier la page, et le titre est de toute façon
+     redondant avec le produit affiché juste en dessous.
+
+     `display: none` et non `font-size: 0` : contrairement à `.hdr-home`, ce
+     texte n'est pas le libellé d'une commande — le retirer ne prive donc aucun
+     lecteur d'écran d'une action. Le sous-titre `.hdr-sub` était déjà masqué
+     pour la même raison. */
+  .hdr-name { display: none; }
+
+  /* Les boutons de l'en-tête sont agrandis plus bas (:1068), là où ils sont
+     déjà réglés — les redéfinir ici serait sans effet, la règle suivante
+     l'emportant à spécificité égale. */
 
   /* ─────────────────────────────────────────────────────────────────
      2. ZONE PRODUIT — occupe tout l'espace restant
@@ -1042,12 +1087,29 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    /* `order: 3` : ce groupe ferme la ligne, juste après « accueil » (ordre 2).
+       Sans ces deux valeurs, l'ordre du HTML placerait « accueil » avant le
+       fil d'étapes, donc loin des autres commandes.
+
+       Pas de `margin-left: auto` ici : c'est « accueil » qui la porte, en tant
+       que premier élément du bloc de droite. Deux marges automatiques se
+       partageraient l'espace et sépareraient les boutons au lieu de les
+       réunir.
+
+       Sur desktop, ce rôle revient à `.hdr-steps { flex: 1 }`, masqué ici
+       (:111) : c'est sa disparition qui laissait les boutons collés au logo. */
+    order: 3;
   }
 
   /* Les deux boutons du header : icône seule, les libellés mangeaient la
-     ligne sur un écran étroit. */
+     ligne sur un écran étroit.
+
+     Seule l'ICÔNE est agrandie ici (15 → 18 px), depuis que « TEXTILE
+     PERSONNALISÉ » est masqué (:150) : la place libérée revient aux commandes.
+     La taille de la CIBLE, elle, est déjà portée à 44 × 44 px plus bas
+     (:1486) — la régler ici serait sans effet, cette règle-là venant après. */
   .hdr-btns .obtn { font-size: 0; padding: 7px 9px; }
-  .hdr-btns .obtn svg { width: 15px; height: 15px; margin: 0; }
+  .hdr-btns .obtn svg { width: 18px; height: 18px; margin: 0; }
   /* Le compteur du panier garde sa taille (il porte un font-size inline). */
   .hdr-btns #hdr-cart-count { font-size: 10px !important; }
 

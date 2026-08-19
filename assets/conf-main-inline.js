@@ -2707,6 +2707,21 @@
        +1 par ajout. Le cumul a disparu avec la fusion des lignes — un même
        produit ré-ajouté met à jour sa ligne — et tous suivent désormais la
        quantité affichée dans le panneau. */
+    /* Valeur NUE d'un libellé d'option, pour comparer deux lignes de panier.
+
+       Couleur et taille sont stockées tantôt nues (« Black »), tantôt préfixées
+       (« Couleur : Black ») selon le chemin d'ajout — commande de groupe ou
+       ajout unitaire. Sans normalisation, deux ajouts identiques passant par
+       des chemins différents ne fusionneraient pas.
+
+       Même règle que applyColor() / applySize() dans conf-cart-open-design.js,
+       qui dépouillent ce préfixe pour retrouver la pastille correspondante.
+       La casse est ignorée : les libellés viennent de sources hétérogènes
+       (métadonnées produit, CSV importé). */
+    function valOption(v) {
+      return String(v == null ? '' : v).replace(/^.*:\s*/, '').trim().toLowerCase();
+    }
+
     function pushToCart(item, btnEl, replaceQty) {
       // Vérifie si le même article existe déjà (même nom+détails).
       // personName entre dans la clé : deux personnes d'une liste de groupe
@@ -2719,10 +2734,20 @@
       // panier affichait « 6 » pour une liste de 2). Chaque ligne d'une liste
       // porte un groupIndex unique (« 2/5 ») ; les ajouts hors groupe n'en ont
       // pas, leur cumul habituel est donc préservé.
-      /* Un même produit ré-ajouté MET À JOUR sa ligne au lieu d'en créer une
-         seconde. Couleur et taille ne sont donc plus dans la clé : le client
-         qui repasse son sweatshirt de Black à Atoll retrouvait deux lignes,
-         alors qu'il venait de changer d'avis sur un seul article.
+      /* Un même produit ré-ajouté À L'IDENTIQUE met à jour sa ligne au lieu
+         d'en créer une seconde.
+
+         COULEUR ET TAILLE FONT PARTIE DE LA CLÉ. Elles en avaient été retirées
+         pour couvrir le client qui « change d'avis » — mais ce choix ne
+         distinguait pas *changer d'avis* de *vouloir les deux* : commander le
+         même sweat en Black ET en Atoll ne donnait qu'une ligne, la première
+         écrasée en silence. Sur une boutique, couleur et taille sont des
+         articles distincts, chacun avec son variant au checkout.
+
+         Les valeurs sont comparées NORMALISÉES : le libellé arrive tantôt nu
+         (« Black »), tantôt préfixé (« Couleur : Black ») selon le chemin
+         d'ajout — groupe ou unitaire. Comparer les chaînes brutes ferait
+         échouer la fusion entre deux ajouts pourtant identiques.
 
          `productType` accompagne `name` : le libellé affiché peut coïncider
          entre deux produits distincts (coton et polyester s'intitulent tous
@@ -2737,6 +2762,8 @@
          Sans eux, une liste de cinq personnes s'effondrerait en une ligne. */
       const existing = cartItems.find(i => i.productType === item.productType &&
                                            i.name === item.name &&
+                                           valOption(i.color) === valOption(item.color) &&
+                                           valOption(i.size) === valOption(item.size) &&
                                            (i.personName || '') === (item.personName || '') &&
                                            (i.groupIndex || '') === (item.groupIndex || ''));
       if (existing) {
@@ -2762,9 +2789,39 @@
         existing.sheet = item.sheet;
         existing.assets = item.assets;
         existing.sleeveCount = item.sleeveCount;
+        /* `design` est l'instantané rouvert par la vignette du tiroir. Omis de
+           cette liste, il gardait celui du PREMIER ajout : la ligne montrait la
+           nouvelle image mais rouvrait l'ancien design. */
+        existing.design = item.design;
       } else {
         cartItems.push(item);
       }
+      /* RÉSERVE MÉMOIRE du design COMPLET — data-URL comprises.
+
+         `item.design` ne porte que les images déjà hébergées : les data-URL en
+         sont filtrées pour ne pas saturer les 5 Mo de sessionStorage. Un client
+         qui ajoute au panier avant la fin de l'envoi Cloudinary — quelques
+         centaines de millisecondes, donc le cas COURANT — voyait son design
+         capturé vide, et rouvrir sa vignette ne restaurait rien.
+
+         Cette réserve vit en mémoire vive et n'est JAMAIS persistée : le quota
+         reste intact. Elle ne survit pas à un rechargement, où le champ
+         `design` filtré prend le relais.
+
+         Centralisée ici plutôt qu'aux trois sites d'ajout : tous passent par
+         cette fonction, et la clé doit suivre l'identifiant RÉELLEMENT retenu —
+         celui de la ligne fusionnée, pas celui de l'objet entrant. */
+      try {
+        window.__designsPanier = window.__designsPanier || {};
+        var cible = existing || item;
+        if (cible && cible.id != null && typeof capturerEtatDesign === 'function') {
+          window.__designsPanier[cible.id] = capturerEtatDesign(true);
+        }
+      } catch (e) {
+        /* Sans réserve, on retombe sur le champ persisté : dégradé, pas cassé. */
+        console.warn('Réserve de design non enregistrée :', e);
+      }
+
       cartCount = cartItems.reduce((s, i) => s + (i.qty || 1), 0);
 
       // Afficher le bouton panier dans le header
@@ -4389,7 +4446,14 @@
       return garde ? out : null;
     }
 
-    function capturerEtatDesign() {
+    /**
+     * @param {boolean} [complet] - si vrai, AUCUN filtre : les data-URL sont
+     *   conservées. Réservé à la réserve mémoire des lignes de panier
+     *   (window.__designsPanier), qui ne va jamais en sessionStorage.
+     *   Par défaut (faux), seules les images hébergées sont retenues — c'est
+     *   la version persistée, qui doit rester légère.
+     */
+    function capturerEtatDesign(complet) {
       var state = {
         product: null, color: null, patchColor: null, coinFinish: null,
         uploads: null, texts: null
@@ -4416,8 +4480,11 @@
          couvert. La version lourde vit déjà dans `conf_uploads`, et la commande
          part avec les URL via `assets`.
 
-         Ce champ sert à ROUVRIR une ligne, pas à archiver le design. */
-      state.uploads = filtrerUploadsHeberges(state.uploads);
+         Ce champ sert à ROUVRIR une ligne, pas à archiver le design.
+
+         `complet` court-circuite ce filtre : la réserve mémoire des lignes de
+         panier a besoin des data-URL, et n'est jamais persistée. */
+      if (!complet) state.uploads = filtrerUploadsHeberges(state.uploads);
 
       /* COMPLÉMENT DEPUIS LE DOM — ce qui est à l'écran fait foi.
 
@@ -4460,8 +4527,10 @@
           /* Sources HÉBERGÉES seulement, même règle que le filtre ci-dessus :
              ce complément acceptait les data-URLs et réintroduisait donc le
              poids qu'on vient d'écarter. Une image encore en cours d'envoi est
-             omise — elle rejoindra la session dès que son URL arrivera. */
-          if (!srcHeberge(src)) return;
+             omise — elle rejoindra la session dès que son URL arrivera.
+             `complet` lève cette restriction pour la réserve mémoire. */
+          if (!src) return;
+          if (!complet && !srcHeberge(src)) return;
 
           zonesProduit[zone] = {
             src: src,
@@ -4609,9 +4678,20 @@
 
       let total = 0;
       cartItems.forEach(item => {
+       /* CHAQUE ARTICLE EST ISOLÉ. Sans ce filet, une exception sur l'article
+          n interrompait la boucle : les suivants existaient bien en session
+          mais n'étaient jamais peints — le client voyait son panier amputé.
+
+          Le risque vient des tarifs, calculés par des fonctions externes
+          (window.effectiveUnitPrice, window.tierMinQty) qu'une ligne au type
+          inconnu ou au prix manquant peut faire échouer. Un article de trop
+          vaut mieux qu'un panier tronqué : on le passe, et on le signale. */
+       try {
         // Palier dégressif + supplément manches (voir cartUnitPrice).
-        const unit = cartUnitPrice(item, totalsByType);
-        total += unit * item.qty;
+        const unit = Number(cartUnitPrice(item, totalsByType)) || 0;
+        /* Un seul NaN contaminerait le TOTAL de tout le panier — il s'affiche
+           alors « NaN € », et le client ne peut plus commander. */
+        total += unit * (Number(item.qty) || 0);
         const div = document.createElement('div');
         div.className = 'cd-item';
         /* ÉCHAPPEMENT OBLIGATOIRE — `item.*` vient du client (nom floqué saisi
@@ -4648,9 +4728,14 @@
           </button>
         `;
         container.appendChild(div);
+       } catch (e) {
+        console.warn('Article du panier non affiché :', item && item.name, e);
+       }
       });
 
-      const totalCount = cartItems.reduce((s, i) => s + i.qty, 0);
+      /* `i.qty || 0` : une quantité manquante donnait « NaN article ». Les
+         lignes équivalentes (totalsByType, pushToCart) sont déjà défensives. */
+      const totalCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
       countEl.textContent = totalCount + ' article' + (totalCount > 1 ? 's' : '');
       totalEl.textContent = total.toFixed(2).replace('.',',') + ' €';
 
@@ -4813,8 +4898,8 @@
     function changeCartQty(id, delta) {
       const item = cartItems.find(i => i.id === id);
       if (!item) return;
-      item.qty = Math.max(minQtyPour(item.productType), item.qty + delta);
-      cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+      item.qty = Math.max(minQtyPour(item.productType), (Number(item.qty) || 0) + delta);
+      cartCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
       const cartCountEl = document.getElementById('hdr-cart-count');
       if (cartCountEl) cartCountEl.textContent = cartCount;
       persistCart();
@@ -4827,6 +4912,9 @@
         cartCount -= cartItems[idx].qty;
         cartItems.splice(idx, 1);
       }
+      /* La réserve mémoire suit la ligne : sans cela, une session longue
+         accumulerait les images des articles supprimés. */
+      try { if (window.__designsPanier) delete window.__designsPanier[id]; } catch (e) {}
       if (cartCount < 1) {
         cartCount = 0;
         const cartBtn = document.getElementById('hdr-cart-btn');

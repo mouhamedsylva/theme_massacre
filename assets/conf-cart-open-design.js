@@ -19,13 +19,21 @@
   /**
    * @returns {object|null} l'article du panier portant cet id.
    *
-   * La source est sessionStorage : `cartItems` est un `let` dans la portée
-   * fermée du template, invisible d'ici. persistCart() y réécrit le panier à
-   * chaque ajout, suppression et changement de quantité, donc la valeur lue
-   * est à jour.
+   * La source est `window.getCartItems()` — le tableau VIVANT du template.
+   *
+   * Ce code lisait `window.cartItems`, qui n'existe pas : rien ne l'assigne
+   * nulle part. Il retombait donc toujours sur sessionStorage, et c'était
+   * nuisible. persistCartSafe() y écrit une version ALLÉGÉE des lignes : les
+   * data-URLs trop lourdes sont retirées de `img` et de `design.uploads` pour
+   * ne pas saturer le quota. Le tiroir affichait donc la version riche (en
+   * mémoire) pendant que l'ouverture lisait la version pauvre (en session) —
+   * un article rouvrait alors le design du précédent, faute du sien.
+   *
+   * sessionStorage reste le repli, pour la page Récapitulatif : elle vit hors
+   * du template et n'a pas accès au tableau en mémoire.
    */
   function findItem(id) {
-    var cart = window.cartItems;
+    var cart = (typeof window.getCartItems === 'function') ? window.getCartItems() : null;
     if (!Array.isArray(cart)) {
       try { cart = JSON.parse(sessionStorage.getItem('conf_cart') || '[]'); }
       catch (e) { return null; }
@@ -92,8 +100,43 @@
    * @param {object} item - la ligne de panier
    * @returns {boolean} true si un design a été reposé
    */
+  /**
+   * @returns {boolean} true si le magasin porte AU MOINS UNE image.
+   *
+   * Un magasin peut exister sans rien contenir : capturerEtatDesign construit
+   * toujours `{_v:2, byProduct:{<produit>:{}}}`, même quand tous ses filtres
+   * ont tout écarté. Distinguer « vide » de « absent » est indispensable —
+   * l'écrire en session effacerait le design réel.
+   */
+  function aDesImages(store) {
+    if (!store || !store.byProduct) return false;
+    return Object.keys(store.byProduct).some(function (p) {
+      var zones = store.byProduct[p];
+      if (!zones || typeof zones !== 'object') return false;
+      return Object.keys(zones).some(function (z) {
+        var e = zones[z];
+        var src = (typeof e === 'string') ? e : (e && e.src);
+        return !!src;
+      });
+    });
+  }
+
   function reposerEtatDesign(item) {
-    var d = item && item.design;
+    /* RÉSERVE MÉMOIRE d'abord, champ persisté ensuite.
+
+       `item.design` ne porte que les images DÉJÀ HÉBERGÉES : les data-URL en
+       sont filtrées pour ne pas saturer le quota de session (un drapeau
+       recto/verso pèse à lui seul plus que les 5 Mo disponibles). Un client
+       qui ajoute au panier avant la fin de l'envoi Cloudinary — quelques
+       centaines de millisecondes, le cas courant — voyait donc son design
+       capturé vide.
+
+       La réserve comble ce trou : elle vit en MÉMOIRE VIVE, hors de
+       sessionStorage, et garde le design complet, data-URL comprises. Le quota
+       n'est pas touché. Elle ne survit pas à un rechargement — le champ
+       persisté prend alors le relais. */
+    var reserve = window.__designsPanier && item && window.__designsPanier[item.id];
+    var d = (reserve && aDesImages(reserve.uploads)) ? reserve : (item && item.design);
     if (!d) return false;   // article ajouté avant cette mémorisation
 
     try {
@@ -102,7 +145,18 @@
       if (d.patchColor) sessionStorage.setItem('conf_patch_color', JSON.stringify(d.patchColor));
       if (d.coinFinish) sessionStorage.setItem('conf_coin_finish', d.coinFinish);
 
-      if (d.uploads) {
+      /* CONTENU RÉEL exigé — un magasin VIDE ne doit rien écraser.
+
+         `if (d.uploads)` ne suffisait pas : capturerEtatDesign ne renvoie
+         jamais null mais `{_v:2, byProduct:{"tshirt":{}}}` quand aucune image
+         n'est encore hébergée (upload Cloudinary en cours ou en échec). Or un
+         objet vide est truthy : la branche s'exécutait et écrasait
+         `conf_uploads`, qui portait pourtant les images du client.
+
+         Le clic DÉTRUISAIT donc le design au lieu de le restaurer —
+         restoreUploads relisait un magasin vidé et, purement additive, ne
+         reposait rien. */
+      if (aDesImages(d.uploads)) {
         /* `d.product` fait foi : le design appartient au produit de la LIGNE,
            pas à celui affiché à l'écran. Les deux normaliseurs sont ceux du
            chemin de partage — migrateUploadStore range un ancien format plat

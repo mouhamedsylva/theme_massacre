@@ -62,16 +62,24 @@
   
   
   function restoreLogosForProduct(productKey) {
-    /* RETOUR DEPUIS LE PANIER : on laisse la main à restoreUploads.
+    /* RETOUR DEPUIS LE PANIER : la SESSION fait autorité, pas l'instantané.
 
-       C'est la SESSION qui fait autorité dans ce cas, pas l'instantané mémoire
-       — celui-ci reflète l'état du canvas au dernier changement de produit, pas
-       le design de la ligne que le client vient d'ouvrir. Appliqué tel quel, il
-       reposait un design périmé, ou vidait le canvas.
+       L'instantané mémoire (LOGO_STORE) reflète le canvas au dernier changement
+       de produit, pas le design de la ligne que le client vient d'ouvrir.
+       Appliqué tel quel, il reposait un design périmé ou vidait le canvas.
 
-       `saveLogosForProduct` porte déjà ce garde (:34) ; il manquait ici, alors
-       que cette fonction-ci est la seule des deux à ÉCRIRE dans le DOM. */
-    if (window.__ouvertureDepuisPanier) return;
+       Cette fonction SORTAIT alors immédiatement. Mais elle est la seule à
+       peindre les aperçus de la barre latérale (`p{zone}`, `i{zone}`) et les
+       lignes du récapitulatif — `restoreUploads` ne les touche jamais. Après
+       une ouverture depuis le panier, ils restaient donc vides alors que le
+       canvas, lui, était correct.
+
+       On ne sort donc plus : on IGNORE l'instantané et on lit directement la
+       session, que reposerEtatDesign vient de remplir avec le bon design.
+       C'est exactement ce que fait le repli ci-dessous ; il suffit de le
+       déclencher. `saveLogosForProduct` garde son `return` (:34) — capturer un
+       instantané pendant l'ouverture n'aurait aucun sens. */
+    const depuisPanier = !!window.__ouvertureDepuisPanier;
 
     const zones = ['f', 'fr', 'b', 'sl', 'sr'];
     /* LOGO_STORE ne vit QU'EN MÉMOIRE : il est vide après un rechargement
@@ -90,9 +98,11 @@
        le canvas au lieu de le repeupler. C'est ce qui rendait le défaut
        invisible : le stockage persisté contenait bien le design, mais on ne
        l'atteignait jamais. */
-    const aQuelqueChose = saved && Object.keys(saved).some(function (z) {
+    const aQuelqueChose = !depuisPanier && saved && Object.keys(saved).some(function (z) {
       return !!saved[z];
     });
+    /* `depuisPanier` force ce repli : l'instantané mémoire est périmé dans ce
+       cas, la session porte le design de la ligne ouverte. */
     if (!aQuelqueChose) {
       saved = {};
       try {
