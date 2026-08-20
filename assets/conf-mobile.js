@@ -989,15 +989,50 @@
      agit dès que la face est dans le flux, la seconde une fois la mise en
      page stabilisée.
 
-     Les coins n'ont pas d'équivalent (leur repère est en CSS pur, donc
-     indépendant de toute mesure) : rien à rejouer de ce côté.             */
+     Le REPÈRE de zone des coins est en CSS pur, donc indépendant de toute
+     mesure : rien à rejouer de ce côté. Leur CADRE DE ROGNAGE, lui, se
+     calcule — il est rejoué avec celui des drapeaux (voir dans `run`).     */
 
   function refreshFaceZones() {
     var run = function () {
       if (typeof window.syncFlagSafeZones === "function") {
         window.syncFlagSafeZones();
       }
-      /* Un design déjà déposé doit rester dans les nouvelles bornes. */
+      /* CADRE DE ROGNAGE de la face qui vient d'apparaître.
+
+         Même cause que les zones de sécurité ci-dessus, mais ce cas n'avait
+         pas été traité. syncFlagCrop et syncCoinCrop mesurent elles aussi
+         l'élément (conf-flag-cover.js:75, conf-coin-cover.js:68) : sur la face
+         masquée, la largeur vaut 0, elles abandonnent après 20 réessais — soit
+         2 secondes — sans rien signaler.
+
+         La face n'obtenait donc jamais son cadre : le logo restait hors de
+         `.flag-crop`, sans la classe `is-cover`, et le CSS retombait sur
+         `contain`. Le design était bien là, mais en petite vignette mal
+         placée — ce qui se lit comme un design perdu.
+
+         C'est ICI que la reprise doit vivre, et nulle part ailleurs : c'est le
+         seul instant où la face est enfin mesurable. La rejouer depuis
+         l'ouverture d'un article du panier échouerait de la même façon, le
+         verso y étant encore masqué. */
+      /* QUOTA RÉARMÉ AVANT DE SYNCHRONISER.
+
+         Les reprises de syncFlagCrop / syncCoinCrop sont bornées à 20, et le
+         compteur ne repart qu'après un succès. Or la face qu'on vient
+         d'afficher était masquée jusqu'ici : chaque tentative sur elle a
+         échoué et consommé un jeton. Le budget est donc souvent épuisé au
+         moment précis où la face devient enfin mesurable — la bascule
+         manuelle, seul recours du client, restait alors sans effet. */
+      if (typeof window.resetFlagCropRetries === "function") window.resetFlagCropRetries();
+      if (typeof window.resetCoinCropRetries === "function") window.resetCoinCropRetries();
+
+      if (typeof window.syncFlagCrop === "function") window.syncFlagCrop();
+      if (typeof window.syncCoinCrop === "function") window.syncCoinCrop();
+
+      /* Un design déjà déposé doit rester dans les nouvelles bornes.
+         APRÈS le cadre : clampFlagLogo borne le logo dans son parent, et ce
+         parent n'est le bon qu'une fois `.flag-crop` posé. Appelé avant, il
+         bornait une géométrie correcte dans le mauvais référentiel. */
       if (typeof window.clampFlagLogo === "function") {
         window.clampFlagLogo();
       }
@@ -1389,6 +1424,20 @@
       z.width = cw;
       z.height = CHEST_MOBILE.height;
 
+      /* maxW borne la largeur d'un logo : il doit suivre la zone, comme le
+         dos (:1445) et les manches (:1480).
+
+         OUBLIÉ ICI : la poitrine gardait la valeur du bureau (CHEST.width = 24,
+         conf-main-inline.js:1507) alors que sa zone mobile en fait 38. Un logo
+         restauré plus large était donc RÉDUIT par clampLogoToZone à chaque
+         passage — et, sa hauteur dépassant alors les 14 % de la zone, sa
+         position verticale était plaquée en haut. C'est ce qui ramenait le
+         logo au centre-haut de la poitrine après restauration.
+
+         Posé AVANT la lecture ci-dessous, qui s'en sert pour le placement
+         initial. */
+      z.maxW = cw;
+
       /* Position de départ d'un logo fraîchement posé : « cœur » à droite
          du bandeau (le cœur du porteur), « poitrine droite » à gauche. */
       var pad = cw * 0.06;
@@ -1488,6 +1537,22 @@
        tourne jamais pendant un drag — c'est faux : ses observateurs
        réagissent aux styles qu'écrit le drag lui-même. */
     if (window.__logoManipulating) return;
+
+    /* OUVERTURE DEPUIS LE PANIER : on ne replace rien.
+
+       placeLogoInZone() plus bas RECALCULE position et taille depuis les
+       valeurs de départ de la zone, et les PERSISTE (conf-main-inline.js:1654).
+       Rejouée pendant une restauration — ce que font les observateurs mobiles
+       à chaque rechargement d'image — elle écrasait la géométrie que le panier
+       venait de reposer, puis l'enregistrait : la passe suivante trouvait une
+       géométrie « valide » mais fausse, et le design ne revenait plus jamais.
+
+       Même garde que saveLogosForProduct (conf-logo-store.js:34) et
+       elaguerUploads (conf-main-inline.js:5944). Le drapeau couvre toute la
+       durée de l'ouverture ; les restaurateurs posent eux-mêmes la géométrie
+       enregistrée, il n'y a rien à recaler ici. */
+    if (window.__ouvertureDepuisPanier) return;
+
     var Z = window.LOGO_ZONES;
     if (!Z) return;
 
@@ -1499,6 +1564,29 @@
       : null;
     var parProduit = (store && store.byProduct &&
                       store.byProduct[window.currentProductType]) || {};
+
+    /* REPLI SUR LA RÉSERVE MÉMOIRE quand la session est muette.
+
+       readUploadStore ne lit QUE sessionStorage. Or son écriture échoue sur un
+       design lourd (quota ~5 Mo) : `parProduit` était alors vide, aucune
+       géométrie n'était trouvée, et les cinq zones partaient en replacement —
+       exactement ce que la restauration venait d'éviter.
+
+       La réserve porte le design complet d'une ligne de panier, hors session
+       (conf-cart-open-design.js:239). La consulter suffit à faire reconnaître
+       la géométrie et à basculer sur clampLogoToZone, qui borne sans replacer. */
+    if (!Object.keys(parProduit).length) {
+      var res = window.__uploadsAAppliquer;
+      if (res && res.byProduct) {
+        parProduit = res.byProduct[window.currentProductType] || {};
+        /* Produit inconnu : une ligne de panier ne concerne qu'un seul
+           produit — s'il n'y a qu'une entrée, c'est la bonne. */
+        if (!Object.keys(parProduit).length) {
+          var cles = Object.keys(res.byProduct);
+          if (cles.length === 1) parProduit = res.byProduct[cles[0]] || {};
+        }
+      }
+    }
 
     // Manches incluses : leurs zones sont désormais recalculées pour le
     // mobile (voir SLEEVE_MOBILE), un logo posé doit suivre.
@@ -1671,6 +1759,112 @@
 
   /* ── Init ─────────────────────────────────────────────────────────── */
 
+  /* ═══════════ GARDIEN DE GÉOMÉTRIE (ouverture depuis le panier) ═══════════
+
+     Trois écrivains distincts replaçaient le logo après sa restauration, et
+     les neutraliser un par un a échoué trois fois — le suivant reprenait.
+     On surveille donc la CIBLE plutôt que les écrivains : toute divergence
+     par rapport à la géométrie publiée par conf-cart-open-design.js est
+     corrigée sur-le-champ, quelle qu'en soit l'origine.
+
+     Deux d'entre eux vivent dans conf-main-inline.js (placeLogoInZone via
+     restoreUploads, clampLogoToZone via applyZonesForProduct), partagé avec
+     le bureau qui fonctionne : ils ne peuvent pas être modifiés.
+
+     TROIS PROTECTIONS CONTRE L'EMBALLEMENT, cumulées :
+       a) n'écrire QUE si la valeur diffère — sans quoi aucune notification ;
+       b) purger les notifications que l'on vient de provoquer ;
+       c) un verrou de réentrance pendant l'écriture.
+
+     Le gardien s'efface devant le client : il se coupe au premier geste et
+     s'arrête de toute façon après GARDE_MS. Mobile uniquement. */
+  var GARDE_MS = 1600;   // couvre les deux passes (700 ms) + la marge du drapeau
+
+  function installerGardienGeo() {
+    var ZONES = ["f", "fr", "b", "sl", "sr"];
+    var obs = null, minuteur = null, actif = false, enCours = false;
+
+    /** Repose la géométrie publiée d'une zone. @returns {boolean} corrigée ? */
+    function reposer(zone) {
+      var reg = window.__geoOuverture;
+      var g = reg && reg[zone];
+      if (!g) return false;
+      var el = document.getElementById(g.id);
+      if (!el) return false;
+
+      var change = false;
+      if (g.left != null && el.style.left !== g.left) { el.style.left = g.left; change = true; }
+      if (g.top != null && el.style.top !== g.top) { el.style.top = g.top; change = true; }
+      if (g.width != null && el.style.width !== g.width) { el.style.width = g.width; change = true; }
+      return change;
+    }
+
+    function reposerTout() {
+      if (enCours || window.__logoManipulating) return;   // le client a la main
+      enCours = true;
+      try {
+        var change = false;
+        ZONES.forEach(function (z) { if (reposer(z)) change = true; });
+        // File purgée : nos propres écritures ne doivent pas nous rappeler.
+        if (change && obs) obs.takeRecords();
+      } finally { enCours = false; }
+    }
+
+    function arreter() {
+      if (!actif) return;
+      actif = false;
+      if (obs) { obs.disconnect(); obs = null; }
+      if (minuteur) { clearTimeout(minuteur); minuteur = null; }
+      document.removeEventListener("pointerdown", surGeste, true);
+    }
+
+    /* Le client touche un calque : sa main prime, le gardien se retire. */
+    function surGeste(e) {
+      var t = e.target;
+      if (t && typeof t.closest === "function" &&
+          t.closest(".design-logo, .design-text")) arreter();
+    }
+
+    function demarrer() {
+      if (actif || !isMobile() || !window.__geoOuverture) return;
+      actif = true;
+
+      obs = new MutationObserver(function () {
+        if (actif && !enCours) reposerTout();
+      });
+
+      /* Observation CIBLÉE sur les calques : seul leur attribut `style`
+         compte, inutile de surveiller un ancêtre. */
+      ZONES.forEach(function (z) {
+        var g = window.__geoOuverture && window.__geoOuverture[z];
+        var el = g && document.getElementById(g.id);
+        if (el) obs.observe(el, { attributes: true, attributeFilter: ["style"] });
+      });
+
+      document.addEventListener("pointerdown", surGeste, true);
+      reposerTout();                       // remise en place immédiate
+      minuteur = setTimeout(arreter, GARDE_MS);
+    }
+
+    /* Le registre paraît à la première passe (+260 ms), bien après init().
+       On guette donc son apparition — l'objet n'étant pas dans le DOM, un
+       observateur ne conviendrait pas. Sonde légère et bornée. */
+    var sonde = setInterval(function () {
+      if (!window.__geoOuverture || !isMobile()) return;
+      if (!actif) demarrer();
+    }, 200);
+
+    /* Une nouvelle ouverture réarme le gardien : le registre est purgé puis
+       republié par conf-cart-open-design.js. */
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      if (t && typeof t.closest === "function" && t.closest(".cd-thumb")) arreter();
+    }, true);
+
+    // La sonde ne s'arrête jamais : chaque ouverture doit pouvoir l'armer.
+    void sonde;
+  }
+
   function init() {
     var panels = document.querySelectorAll(".side-panel");
     if (!panels.length) return;
@@ -1718,6 +1912,11 @@
     buildFaceSwitch();
     moveOverviewBtn();
     watchStage();
+
+    /* Protège la géométrie restaurée à l'ouverture d'un article du panier.
+       N'entre en action que lorsque conf-cart-open-design.js publie sa
+       géométrie cible — inerte le reste du temps. */
+    installerGardienGeo();
 
     /* Rotation / redimensionnement : en repassant en desktop le voile doit
        disparaître, et les panneaux retrouver le comportement permanent. */

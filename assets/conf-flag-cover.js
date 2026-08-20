@@ -33,6 +33,18 @@
     setTimeout(function () { syncFlagCrop(face); }, 100);
   }
 
+  /* REMISE À ZÉRO du quota, pour un CONTEXTE NEUF.
+
+     Le quota ne se réarme qu'après un succès (plus bas, `retries[f] = 0`).
+     Épuisé une fois — canvas non encore mis en page, produit absent — il le
+     restait pour toute la vie de la page : toute tentative ultérieure sortait
+     en silence, et le cadre n'était plus jamais posé.
+
+     C'est ce qui rendait la panne définitive au lieu de se résorber. Ouvrir un
+     article du panier reconstruit le canvas : le budget doit repartir de zéro,
+     comme au chargement de la page. */
+  window.resetFlagCropRetries = function () { retries = {}; };
+
   /**
    * Place le conteneur de rognage sur la zone imprimable, et y déplace le
    * logo s'il n'y est pas encore.

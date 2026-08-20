@@ -38,6 +38,12 @@
     setTimeout(function () { syncCoinCrop(face); }, 100);
   }
 
+  /* REMISE À ZÉRO du quota, pour un CONTEXTE NEUF — même raison que pour les
+     drapeaux (conf-flag-cover.js) : épuisé une fois, il ne se réarmait qu'après
+     un succès, donc plus jamais. Ouvrir un article du panier reconstruit le
+     canvas et mérite un budget neuf. */
+  window.resetCoinCropRetries = function () { retries = {}; };
+
   /**
    * Place le cadre de rognage sur la zone frappée et y déplace le logo.
    *

@@ -35,6 +35,12 @@
    */
   function captureFn() {
     var t = window.currentProductType;
+    /* Chaque produit va vers la capture de SON canvas. Les gardes internes de
+       ces fonctions (conf-main-inline.js) portent la chaîne complète
+       produit -> catégorie -> canvas, et doivent rester d'accord avec ces
+       lignes-ci : les croiser fait renvoyer null à la capture, et la modale
+       annonce alors « Aucune personnalisation » sur un design pourtant
+       présent. */
     if (isTextile()) return window.captureAllViews;
     if (t === 'coins') return window.captureCoinDesign;
     if (t === 'drapeaux') return window.captureFlagDesign;

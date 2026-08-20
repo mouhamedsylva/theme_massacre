@@ -164,6 +164,38 @@
         if (input) input.value = '';
       }
 
+      /* APERÇU DU PANNEAU MODERNE — la vignette avec le bouton « Supprimer ».
+
+         La barre latérale porte DEUX jeux d'aperçus : l'ancien (#p/#i/#l,
+         traité juste au-dessus) et celui-ci. Seul le premier était nettoyé
+         d'un produit à l'autre.
+
+         Ce jeu-ci n'est affiché qu'à l'upload (conf-share.js:610) et masqué
+         qu'à la suppression (:888) : RIEN ne le masquait au changement de
+         produit. Un logo posé sur le sweatshirt laissait donc sa vignette
+         visible sur le t-shirt, dont le canvas était pourtant vide — comme si
+         les deux produits partageaient le même emplacement.
+
+         On réutilise les fonctions de l'upload plutôt que de manipuler ce DOM
+         à la main : deux chemins d'affichage divergeraient au premier
+         ajustement de la vignette. Elles vivent dans conf-share.js, chargé en
+         `defer` — d'où les gardes, comme partout dans ce fichier.
+
+         La garde `protegee` s'applique ICI AUSSI : une zone que la session
+         déclare encore pourvue sera repeuplée par restoreUploads. L'effacer
+         maintenant la ferait disparaître sans retour. */
+      var boxId = 'up-preview-' + zone;
+      var imgId = 'up-preview-img-' + zone;
+      if (src) {
+        if (typeof window.showUpPreview === 'function') {
+          window.showUpPreview(boxId, imgId, src);
+        }
+      } else if (!protegee) {
+        if (typeof window.hideUpPreview === 'function') {
+          window.hideUpPreview(boxId, imgId);
+        }
+      }
+
       // Logo draggable sur le canvas
       const logoEl = document.getElementById('logo-' + zone);
       if (logoEl) {

@@ -725,6 +725,38 @@
     /* Passe à true dès que l'utilisateur règle le zoom lui-même : le zoom
        automatique à l'upload cesse alors d'intervenir (voir autoZoomOnUpload). */
     let zoomUserControlled = false;
+
+    /* ZOOM MÉMORISÉ PAR PRODUIT.
+
+       `zl` est une variable unique : rapprocher la vue sur le sweatshirt
+       rapprochait aussi celle des deux t-shirts, alors que chaque produit a son
+       propre cadrage. Même principe que les couleurs, déjà propres à chaque
+       textile (applyColorForProduct).
+
+       `zoomUserControlled` suit le même chemin : il dit que le client a réglé
+       le zoom LUI-MÊME sur CE produit, et doit donc empêcher le zoom
+       automatique à l'upload — sur ce produit seulement. Partagé, un réglage
+       manuel sur le sweatshirt privait les t-shirts de leur rapprochement
+       automatique.
+
+       En mémoire uniquement : un cadrage de confort n'a pas à survivre à un
+       rechargement, et n'a rien à faire dans le quota de session. */
+    const ZOOM_PAR_PRODUIT = {};
+
+    /** Mémorise le cadrage courant sous le produit qui l'affiche. */
+    function memoriserZoom(produit) {
+      if (!produit) return;
+      ZOOM_PAR_PRODUIT[produit] = { zl: zl, userControlled: zoomUserControlled };
+    }
+
+    /** Repose le cadrage propre à un produit, ou le cadrage par défaut. */
+    function restaurerZoom(produit) {
+      var m = produit && ZOOM_PAR_PRODUIT[produit];
+      zl = m ? m.zl : 100;
+      zoomUserControlled = m ? m.userControlled : false;
+      setZoomLabel(zl);
+      applyZoom();
+    }
     let currentColor = '#0a0a0a';
     let currentColorName = 'Black';
     let currentColorSlug = 'black';
@@ -2097,6 +2129,14 @@
       el.classList.add('on');
 
       const productType = el.dataset.product;
+
+      /* Le cadrage de l'ANCIEN produit est mis de côté AVANT la bascule —
+         `currentProductType` va changer à la ligne suivante, et il désigne
+         encore ici le produit qu'on quitte. Le nouveau est reposé plus bas,
+         une fois le canvas en place. */
+      var produitQuitte = currentProductType;
+      if (productType && productType !== produitQuitte) memoriserZoom(produitQuitte);
+
       // Mémorise le type courant pour TOUS les produits (utilisé au checkout).
       if (productType) currentProductType = productType;
       /* Exposé : conf-overview.js s'en sert pour n'afficher l'onglet
@@ -2195,6 +2235,19 @@
         // (sweat 60 € gardé sur les t-shirts, ou inversement). Limité aux
         // textiles : coins/drapeaux ont leur propre affichage de prix.
         if (typeof updateTotalPrice === 'function') updateTotalPrice();
+      }
+
+      /* CADRAGE PROPRE AU NOUVEAU PRODUIT.
+
+         Hors du bloc textile ci-dessus : coins, drapeaux et patchs ont eux
+         aussi leur cadrage, et `applyZoom` les couvre déjà (:5101).
+
+         Différé : applyZoom écrit un `transform` sur des éléments du canvas,
+         que conf-dynamic-layout.js réinjecte pour les produits non textiles.
+         Appliqué trop tôt, le style partirait avec l'ancien DOM. Le rendez-vous
+         est posé après la reconstruction (250 ms) et sa restauration. */
+      if (productType && productType !== produitQuitte) {
+        setTimeout(function () { restaurerZoom(productType); }, 300);
       }
     }
 
@@ -2917,7 +2970,10 @@
          quelle — la faire recomposer par le serveur ajouterait un aller-retour
          pour un résultat identique.
          Le repli « canvas taint » renvoie encore un calque séparé : dans ce
-         cas seulement, on passe par le serveur. */
+         cas seulement, on passe par le serveur.
+
+         Le PATCH est le produit `patches` — voir la garde de
+         capturePatchDesign, qui donne la chaîne produit -> canvas. */
       if (currentProductType === 'patches') {
         var patch = null;
         try { patch = await capturePatchDesign(); } catch (e) { patch = null; }
@@ -2936,9 +2992,12 @@
         }
       }
 
-      // DRAPEAU / COINS : compose le design côté serveur.
-      // - img (vignette panier) = RECTO seul.
-      // - sheet (Aperçu commande) = planche recto + verso.
+      /* DRAPEAU / COIN : compose le design côté serveur.
+         - img (vignette panier) = RECTO seul.
+         - sheet (Aperçu commande) = planche recto + verso.
+
+         Le COIN est le produit `coins` — voir la garde de captureCoinDesign,
+         qui donne la chaîne produit -> catégorie -> canvas. */
       var customViews = null;
       try {
         if (currentProductType === 'drapeaux') customViews = captureFlagDesign();
@@ -2970,8 +3029,23 @@
         if (thumbImg && thumbImg.src) {
           imgSrc = thumbImg.src;
         } else {
+          /* `.coin-base-img` A ÉTÉ RETIRÉ de cette liste.
+
+             C'est le DISQUE VIERGE du coin — le métal nu, sans aucun design.
+             Il donnait au panier une vignette de rond blanc, que le client
+             lisait comme un design perdu alors que son écran montrait deux
+             disques logotés.
+
+             Les autres sélecteurs restent : l'image du drapeau porte déjà sa
+             couleur, et celle du patch sa forme — retomber dessus reste
+             informatif. Un fond de coin nu, non.
+
+             Avec le filtre des vues sans logo (captureCoinDesign) et la
+             détection par boîte réelle, ce repli ne devrait plus être atteint
+             pour un coin pourvu d'un design. S'il l'est, mieux vaut une
+             vignette vide qu'une vignette trompeuse. */
           const canvasImg = document.querySelector(
-            '.flag-base-img, .coin-base-img, #coins-preview-img, .coins-canvas-circle img'
+            '.flag-base-img, #coins-preview-img, .coins-canvas-circle img'
           );
           if (canvasImg && canvasImg.src) imgSrc = canvasImg.src;
         }
@@ -3880,6 +3954,21 @@
        (fond métallique) est le background ; le logo posé dessus est superposé.
        Renvoie null si le produit courant n'est pas un coin. */
     function captureCoinDesign() {
+      /* LE TYPE ATTENDU EST BIEN 'coins'. La chaîne complète, vérifiable :
+
+           productType 'coins'
+             -> categoryMap donne la catégorie "patches"   (conf-dynamic-layout.js:139)
+             -> switchLayout appelle loadPatchesCanvas()   (:184-186)
+             -> ce gabarit injecte #coin-disc-recto, #coin-logo-recto  (:891-946)
+
+         Autrement dit : le produit `coins` affiche le canvas du COIN, que cette
+         fonction manipule. Les noms sont inversés dans le projet, mais PAS ici —
+         la clé du mapping (`coins`) est le produit, sa valeur (`patches`) est la
+         catégorie interne. Confondre les deux mène à croire l'inverse.
+
+         Preuve indépendante : updateCoinRecapThumb (conf-coin-thumb.js:44) lit
+         les MÊMES éléments et fonctionne — elle n'a simplement aucune garde de
+         type produit. */
       if (currentProductType !== 'coins') return null;
 
       // (label, id du disque conteneur, id du logo déplaçable)
@@ -3933,7 +4022,25 @@
 
         var logos = [];
         var logoEl = document.getElementById(f.logo);
-        if (logoEl && logoEl.style.display !== 'none') {
+
+        /* VISIBILITÉ RÉELLE, pas le style inline.
+
+           Le test portait sur `logoEl.style.display !== 'none'`. Or le gabarit
+           pose ce `display:none` en INLINE (conf-dynamic-layout.js:914, :928),
+           et selon le chemin d'affichage il n'est pas toujours levé alors que
+           le motif est bien à l'écran — le logo peut être rendu visible par sa
+           classe, ou reparenté dans `.coin-crop` par syncCoinCrop.
+
+           La capture repartait alors SANS logo. Comme la vue était publiée
+           quand même (voir plus bas), le panier retombait sur le disque vierge
+           en guise de vignette : un rond blanc.
+
+           On mesure donc la boîte, seul juge de ce qui est réellement peint.
+           Un élément masqué — par l'inline ou par le CSS — a des dimensions
+           nulles ; c'est le même critère que le repli quelques lignes plus bas,
+           qui n'était jamais atteint. */
+        var logoBox = logoEl ? logoEl.getBoundingClientRect() : null;
+        if (logoEl && logoBox && logoBox.width > 0 && logoBox.height > 0) {
           var limg = logoEl.querySelector('img');
           if (limg && limg.getAttribute('src') && discBox.width > 0) {
             /* Motif en couverture : il déborde et le rognage n'existe qu'en
@@ -3944,15 +4051,25 @@
             if (flat) {
               logos.push({ src: flat, x: 0, y: 0, w: 1 });
             } else {
-              var r = logoEl.getBoundingClientRect();
-              if (r.width > 0 && r.height > 0) {
-                logos.push({
-                  src: limg.src,
-                  x: (r.left - discBox.left) / discBox.width,
-                  y: (r.top - discBox.top) / discBox.height,
-                  w: r.width / discBox.width
-                });
-              }
+              /* REPLI — l'aplatissement a échoué.
+
+                 coinCoverDataUrl a cinq sorties à vide : mode « découpé »
+                 (qui retire `is-cover`), image non décodée, cadre de rognage
+                 absent, boîte non mesurable, ou canvas bloqué par les règles
+                 de sécurité sur les images distantes.
+
+                 On envoie alors l'image brute et sa géométrie. Le rendu est
+                 moins fidèle qu'une image déjà rognée, mais il PORTE le
+                 design — là où l'absence de repli donnait un disque nu.
+
+                 `logoBox` est la boîte déjà mesurée plus haut : la recalculer
+                 ici ferait diverger la garde et le calcul. */
+              logos.push({
+                src: limg.src,
+                x: (logoBox.left - discBox.left) / discBox.width,
+                y: (logoBox.top - discBox.top) / discBox.height,
+                w: logoBox.width / discBox.width
+              });
             }
           }
         }
@@ -3965,7 +4082,21 @@
           if (numImg) logos.push(numImg);
         }
 
-        views.push({ label: f.label, background: baseImg.src, logos: logos });
+        /* SEULES LES FACES AVEC UN LOGO sont publiées — comme le drapeau
+           (:4295), dont c'est la seule différence structurelle avec ce code.
+
+           Une vue sans logo était publiée quand même. En aval,
+           addCustomToCartInner teste `recto.logos.length` : faux, donc la
+           composition de la vignette était SAUTÉE, et le repli attrapait
+           `.coin-base-img` — le disque vierge. Le client voyait un rond blanc
+           alors que son écran montrait deux disques logotés.
+
+           Sans aucune face pourvue, la fonction renvoie null (voir la fin) :
+           le repli s'applique alors franchement, au lieu d'être déclenché par
+           une vue creuse. */
+        if (logos.length) {
+          views.push({ label: f.label, background: baseImg.src, logos: logos });
+        }
       });
 
       } finally {
@@ -4234,6 +4365,15 @@
        superposé à sa position (% du canvas = % de l'image). Renvoie une Promise
        de { background, logos } ou null. */
     async function capturePatchDesign() {
+      /* LE TYPE ATTENDU EST BIEN 'patches'. Symétrique de captureCoinDesign :
+
+           productType 'patches'
+             -> catégorie "coins"                        (conf-dynamic-layout.js:141)
+             -> loadCoinsCanvas()                        (:169-171)
+             -> injecte #patch-stage, #patch-logo        (:300-325)
+
+         Cette fonction manipule `patch-logo` : elle sert donc bien le produit
+         `patches`. */
       if (currentProductType !== 'patches') return null;
 
       var logoEl = document.getElementById('patch-logo');
@@ -4456,12 +4596,27 @@
     function capturerEtatDesign(complet) {
       var state = {
         product: null, color: null, patchColor: null, coinFinish: null,
+        flagColor: null, flagColorName: null, flagOrientation: null,
         uploads: null, texts: null
       };
       try { state.product = sessionStorage.getItem('conf_current_product') || currentProductType; } catch (e) {}
       try { state.color = JSON.parse(sessionStorage.getItem('conf_current_color') || 'null'); } catch (e) {}
       try { state.patchColor = JSON.parse(sessionStorage.getItem('conf_patch_color') || 'null'); } catch (e) {}
       try { state.coinFinish = sessionStorage.getItem('conf_coin_finish') || null; } catch (e) {}
+
+      /* RÉGLAGES DU DRAPEAU — fond et orientation.
+
+         Ils manquaient : un drapeau rouvert depuis le panier revenait à son
+         fond par défaut. L'orientation compte doublement, car elle pilote le
+         calcul du cadre de rognage (conf-flag-cover.js:100) — un drapeau
+         portrait recadré comme un paysage affiche son design décalé, ce qui
+         passe pour une restauration ratée alors que l'image est bien là.
+
+         L'orientation ne vit QU'EN MÉMOIRE (conf-drapeaux.js:80) : elle n'est
+         nulle part en session, d'où la lecture sur window. */
+      try { state.flagColor = sessionStorage.getItem('conf_flag_color') || null; } catch (e) {}
+      try { state.flagColorName = sessionStorage.getItem('conf_flag_color_name') || null; } catch (e) {}
+      state.flagOrientation = window.__flagOrientation || null;
       try { state.uploads = JSON.parse(sessionStorage.getItem('conf_uploads') || 'null'); } catch (e) {}
       try { state.texts = JSON.parse(sessionStorage.getItem('conf_texts') || 'null'); } catch (e) {}
 
@@ -4842,26 +4997,15 @@
         );
         if (quotaHit) {
           console.warn('Panier non mémorisé : stockage de session saturé.', e);
-          /* Une seule alerte par session : cette fonction est appelée à chaque
-             modification du panier, et répéter le message à chaque clic serait
-             pire que le problème. */
-          if (!window.__cartQuotaWarned) {
-            window.__cartQuotaWarned = true;
-            if (typeof window.confAlert === 'function') {
-              /* Le message n'accuse plus « les aperçus de vos designs » : cette
-                 cause était celle du champ `design` non filtré, désormais
-                 réduit aux seules URL hébergées. La modale ne devrait plus
-                 apparaître ; si elle survient, la cause sera ailleurs et
-                 désigner la mauvaise induirait le client en erreur. */
-              window.confAlert(
-                'Votre navigateur ne peut plus mémoriser le contenu de votre panier. ' +
-                'Les articles restent affichés ici, mais ils seront perdus si vous ' +
-                'rechargez la page. Terminez votre commande maintenant, ou retirez ' +
-                'un article pour libérer de la place.',
-                { title: 'Panier non mémorisé' }
-              );
-            }
-          }
+          /* AUCUNE MODALE — même décision que pour la saturation du magasin
+             d'uploads (voir writeUploadStore).
+
+             Le panier reste AFFICHÉ et la commande part correctement : le
+             message interrompait sans que le client ait quoi que ce soit à
+             corriger. Il apparaissait notamment à la réouverture d'un article,
+             où il n'y avait rien à signaler.
+
+             La trace console suffit au diagnostic. */
         } else {
           // Navigation privée Safari, cookies bloqués… : l'affichage reste bon.
           console.warn('Écriture du panier dans sessionStorage impossible :', e);
@@ -5608,16 +5752,23 @@
             }
           } catch (e2) { /* la tentative a echoue : on poursuit vers l alerte */ }
 
+          /* AUCUNE MODALE — décision produit, assumée.
+
+             Elle interrompait le client alors que rien n'est cassé pour lui :
+             le design reste AFFICHÉ (l'application directe ne dépend pas de la
+             session) et part BIEN avec la commande, qui transporte ses propres
+             URL. Elle s'ouvrait notamment à chaque réouverture d'un article du
+             panier, où il n'y avait rien à corriger — et son conseil
+             « utilisez une image plus légère » n'avait alors aucun sens.
+
+             Le seul cas non couvert : un client qui recharge la page après un
+             upload très lourd perd ce design sans avoir été prévenu. C'est le
+             compromis retenu, l'interruption étant jugée plus coûteuse que ce
+             cas limite.
+
+             L'avertissement console demeure : il documente la situation pour
+             le diagnostic, sans rien imposer au client. */
           console.warn('Stockage local saturé : le design ne survivra pas au rechargement.', e);
-          if (typeof window.confAlert === 'function') {
-            window.confAlert(
-              'Votre navigateur ne peut plus mémoriser ce design (mémoire de session ' +
-              'saturée). Il reste affiché et sera bien transmis avec votre commande, ' +
-              'mais il disparaîtra si vous rechargez la page. Pour éviter cela, ' +
-              'utilisez une image plus légère.',
-              { title: 'Mémoire de session saturée' }
-            );
-          }
         } else {
           // Mode privé Safari, cookies bloqués… : l'affichage reste correct.
           console.warn('Écriture dans sessionStorage impossible :', e);
@@ -5625,6 +5776,12 @@
         return false;
       }
     }
+
+    /* Exposée : conf-cart-open-design.js repose le design d'une ligne de panier
+       et doit bénéficier de la MÊME gestion du quota — éviction des autres
+       produits puis nouvelle tentative. Elle écrivait en direct, et un design
+       trop lourd échouait sans seconde chance. */
+    window.writeUploadStore = writeUploadStore;
 
     /** Zones du produit courant uniquement — ce que manipule tout l'appelant. */
     function getUploads() {

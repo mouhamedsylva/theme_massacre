@@ -336,12 +336,32 @@
        version mobile l a — le meme defaut existait donc entre 768 et 1023 px. */
     if (window.__logoManipulating) return;
 
+    /* OUVERTURE DEPUIS LE PANIER : on ne replace rien — meme raison que dans
+       conf-mobile.js. placeLogoInZone recalcule la geometrie et la PERSISTE
+       (conf-main-inline.js:1654), ecrasant celle que le panier vient de
+       reposer. Les restaurateurs s en chargent, il n y a rien a recaler. */
+    if (window.__ouvertureDepuisPanier) return;
+
     /* Geometrie deja enregistree ? Lue une seule fois pour tout le lot. */
     var store = (typeof window.readUploadStore === "function")
       ? window.readUploadStore()
       : null;
     var parProduit = (store && store.byProduct &&
                       store.byProduct[window.currentProductType]) || {};
+
+    /* REPLI SUR LA RESERVE MEMOIRE quand la session est muette : son ecriture
+       echoue sur un design lourd (quota), et les zones partaient alors en
+       replacement. Meme correctif que conf-mobile.js. */
+    if (!Object.keys(parProduit).length) {
+      var res = window.__uploadsAAppliquer;
+      if (res && res.byProduct) {
+        parProduit = res.byProduct[window.currentProductType] || {};
+        if (!Object.keys(parProduit).length) {
+          var cles = Object.keys(res.byProduct);
+          if (cles.length === 1) parProduit = res.byProduct[cles[0]] || {};
+        }
+      }
+    }
 
     ["f", "fr", "b"].forEach(function (k) {
       var z = Z[k];
