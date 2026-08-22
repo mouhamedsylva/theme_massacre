@@ -328,6 +328,24 @@
 }
 
 .ov-card { margin: 0; }
+
+/* VUE UNIQUE — centrée plutôt que collée à gauche.
+
+   Le patch n'a qu'une face : sa carte occupait la première colonne de la
+   grille et laissait la seconde vide, l'aperçu paraissant décalé.
+
+   `:only-child` ne vise QUE ce cas : les textiles, coins et drapeaux, qui ont
+   plusieurs vues, gardent leur disposition à deux colonnes.
+
+   La carte s'étend sur toute la grille pour pouvoir se centrer, mais sa
+   largeur reste celle d'une colonne — l'aperçu ne change pas de taille.
+   `calc((100% - 18px) / 2)` reprend la géométrie de la grille : deux colonnes
+   séparées par le `gap` de 18px. */
+.ov-card:only-child {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: calc((100% - 18px) / 2);
+}
 /* La scène porte le ratio : les calques sont positionnés en % de l'image. */
 .ov-stage {
   position: relative; border-radius: 10px; overflow: hidden;
@@ -355,6 +373,8 @@
 @media (max-width: 560px) {
   .ov-body { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
   .ov-modal { width: calc(100vw - 16px); max-height: calc(100vh - 32px); }
+  /* Le `gap` passe à 12px ici : la largeur d'une colonne suit. */
+  .ov-card:only-child { width: calc((100% - 12px) / 2); }
 }
 
 /* En-tête des canvas NON textiles : titre à gauche, bouton « Vue d'ensemble »

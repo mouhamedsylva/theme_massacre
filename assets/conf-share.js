@@ -483,8 +483,16 @@
               if (typeof window.updatePatchRecapThumb === 'function') window.updatePatchRecapThumb();
             });
           }
-          // Recap - miniature : image du patch (forme + couleur) + logo positionné.
-          window.updatePatchRecapThumb();
+          /* Recap - miniature : image du patch (forme + couleur) + logo
+             positionné.
+
+             GARDE ALIGNÉE SUR SES VOISINS (:422 updatePatchZoneGuide, :476
+             clampPatchLogo). Seul appel non protégé de la branche, il laissait
+             remonter toute exception de l'affichage jusqu'au `.catch` de
+             l'envoi Cloudinary, qui l'attribuait au réseau. */
+          if (typeof window.updatePatchRecapThumb === 'function') {
+            window.updatePatchRecapThumb();
+          }
 
           return;
         }

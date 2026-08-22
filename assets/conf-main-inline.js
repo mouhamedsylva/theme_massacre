@@ -1983,14 +1983,36 @@
       ['rond', 'carre', 'rectangle', 'blason'].forEach(function (s) { thumb.classList.remove('shape-' + s); });
       thumb.classList.add('coins-canvas-circle', 'shape-' + shape);
 
-      var inner = '<div class="patch-body">';
+      /* L'IMAGE EST POSÉE EN PROPRIÉTÉ, JAMAIS DANS DU BALISAGE.
+
+         Elle était interpolée dans une chaîne HTML confiée à `innerHTML`. Or
+         `logoSrc` est une data-URL COMPLÈTE — plusieurs mégaoctets. Le parseur
+         du navigateur devait analyser un attribut de plusieurs millions de
+         caractères, et son tokenizer récursif épuisait la pile :
+         « Maximum call stack size exceeded ».
+
+         Pire, cette exception remontait la chaîne de promesses et tombait dans
+         le `.catch` de l'envoi Cloudinary (:5511), qui l'attribuait au réseau —
+         « Upload Cloudinary échoué ». L'URL hébergée n'était donc jamais
+         mémorisée, et le design du patch disparaissait au changement de
+         produit.
+
+         Affecter `src` en PROPRIÉTÉ contourne entièrement le parseur : aucune
+         limite de longueur, aucun coût d'analyse. C'est aussi pourquoi
+         `safeImgSrc` n'a plus lieu d'être ici — sans interpolation dans du
+         balisage, il n'y a plus de surface d'injection à couvrir. */
+      thumb.innerHTML = '';
+      var body = document.createElement('div');
+      body.className = 'patch-body';
       if (logoSrc) {
-        inner += '<img src="' + logoSrc + '" alt="" ' +
-                 'style="position:absolute;inset:0;width:100%;height:100%;' +
-                 'object-fit:cover;pointer-events:none;">';
+        var im = document.createElement('img');
+        im.alt = '';
+        im.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;' +
+                           'object-fit:cover;pointer-events:none;';
+        im.src = logoImg.getAttribute('src');
+        body.appendChild(im);
       }
-      inner += '</div>';
-      thumb.innerHTML = inner;
+      thumb.appendChild(body);
     }
 
 
@@ -5437,8 +5459,22 @@
 
         decide.then(function (src) {
           /* Applique l'image dans l'interface EN PREMIER, en pleine résolution :
-             l'aperçu reste instantané et net. */
-          window.applyUpload(zone, src);
+             l'aperçu reste instantané et net.
+
+             ISOLÉ DU RESTE DE LA CHAÎNE. Une exception d'affichage remontait
+             jusqu'au `.catch` de l'envoi Cloudinary plus bas, qui l'attribuait
+             au réseau — et la persistance de l'image n'était jamais atteinte.
+             C'est ainsi qu'un défaut de vignette a fait perdre les designs de
+             patch, sous un message parlant d'upload.
+
+             Un aperçu manquant est visible et rattrapable ; une image non
+             mémorisée est perdue en silence. L'affichage ne doit donc jamais
+             pouvoir emporter la mémorisation. */
+          try {
+            window.applyUpload(zone, src);
+          } catch (e) {
+            console.warn('Affichage du design échoué (' + zone + ') :', e);
+          }
 
           /* Persistance PROVISOIRE, le temps que l'upload Cloudinary aboutisse.
 

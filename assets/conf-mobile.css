@@ -480,36 +480,46 @@
     transition: background .15s ease;
   }
 
-  /* Icônes seules : plus grandes, puisqu'elles portent seules le sens. */
+  /* Icônes légèrement réduites depuis que le libellé les accompagne : à 24px
+     elles poussaient la barre trop haut une fois le texte ajouté. */
   .icon-nav-item svg {
-    width: 24px;
-    height: 24px;
+    width: 21px;
+    height: 21px;
     color: #fff;
     flex: none;
     stroke-width: 1.8;               /* trait plus fin = plus net en petit */
   }
 
-  /* Libellés masqués : sur un téléphone, « Type de Produit » ou « Options
-     Drapeau » se tassaient en 8,5px à peine lisibles et gonflaient la barre.
-     Les icônes suffisent — c'est aussi ce que fait CustomInk.
+  /* LIBELLÉS VISIBLES sous les icônes.
 
-     Le libellé reste dans le DOM (et non `display:none` sur le bouton) : il
-     sert de nom accessible au lecteur d'écran. `clip` le retire de l'affichage
-     sans le retirer de l'arbre d'accessibilité. */
+     Ils étaient masqués — une icône seule était jugée suffisante. Mais rien
+     ne distingue « Options Coin » d'« Options Patch » quand seule la forme
+     change : le client devait ouvrir pour savoir.
+
+     Ils restent COMPACTS : une seule ligne, taille réduite, coupés par des
+     points de suspension s'ils débordent. La barre ne gagne que la hauteur
+     d'une ligne de texte. */
   .icon-nav-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
+    font-size: 9px;
+    line-height: 1.15;
+    margin-top: 3px;
     white-space: nowrap;
-    border: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    /* Discret par défaut : l'onglet actif reprend le blanc franc plus bas. */
+    color: rgba(255,255,255,.72);
+    letter-spacing: .01em;
   }
 
-  /* Actif : sans libellé visible, le seul repère est l'icône — le fond doit
-     donc être plus franc qu'avant pour rester lisible d'un coup d'œil.
+  /* Le <br> des libellés (« Type de<br>Produit ») ferait DEUX lignes et
+     doublerait la hauteur de la barre. On le rend inopérant et on le remplace
+     par une espace insécable — même traitement qu'en tablette
+     (conf-tablet.css:462-463), pour que les deux ne divergent pas. */
+  .icon-nav-label br { display: inline; font-size: 0; }
+  .icon-nav-label br::after { content: "\00a0"; font-size: 9px; }
+
+  /* Actif : fond éclairci, doublé par le libellé en gras (voir plus bas).
 
      CONTENU BLANC ici, alors que le desktop passe au NOIR : la barre mobile est
      posée sur fond NOIR (#000, plus haut) et non sur le rail gris clair du
@@ -529,7 +539,8 @@
      du desktop, donc invisible sur cette barre noire. La barre mobile signale
      déjà l'onglet actif par son fond éclairci. */
   .icon-nav-item.active::before { background: transparent; }
-  /* Sans effet visuel (le libellé est masqué), conservé pour l'a11y. */
+  /* Le libellé de l'onglet ACTIF passe au blanc franc et en gras : avec les
+     libellés désormais visibles, il double le repère du fond éclairci. */
   .icon-nav-item.active .icon-nav-label {
     color: #fff;
     font-weight: 700;
@@ -1027,8 +1038,10 @@
   .side-panel-content select,
   .side-panel-content textarea { font-size: 11.5px; }
 
-  /* Le rail : libellés très compacts, ils tiennent sur une ligne. */
-  .icon-nav-label { font-size: 8px; }
+  /* Le rail : libellés très compacts, ils tiennent sur une ligne.
+     Cette règle vient APRÈS celle de la barre du bas (:502) et l'écrasait —
+     elle reprend donc la même valeur, pour que les deux ne divergent pas. */
+  .icon-nav-label { font-size: 9px; }
 
   /* Seul le contenu défile. */
   .side-panel-content {
