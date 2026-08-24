@@ -1923,6 +1923,36 @@
     var mq = window.matchMedia(MQ);
     var onChange = function () {
       if (!isMobile()) {
+        /* ZONES DU BUREAU RÉTABLIES.
+
+           applyMobileZones (:1416) n'a pas ses propres zones : elle ÉCRASE les
+           propriétés de window.LOGO_ZONES, l'objet que le bureau partage. Les
+           valeurs d'origine sont donc perdues, pas mises de côté.
+
+           Or applyZonesForProduct — la seule fonction qui les reconstruise —
+           n'est appelée qu'au CHANGEMENT DE PRODUIT
+           (conf-main-inline.js:2210, :2292) et au chargement (:923). Rien ne
+           réagissait au redimensionnement : en revenant d'une largeur mobile,
+           les zones gardaient leurs dimensions mobiles, plus larges et plus
+           hautes, jusqu'au prochain changement de produit.
+
+           On rappelle donc cette fonction : elle repart des constantes en
+           centimètres (buildZones), reporte les bornes sur les rectangles
+           pointillés, et recontraint les logos et textes déjà posés
+           (:1617-1620). Rien à recopier ici — une sauvegarde des valeurs du
+           bureau serait une seconde source de vérité, vouée à diverger.
+
+           DIFFÉRÉ : la mise en page doit d'abord reprendre ses dimensions de
+           bureau. Mesurée trop tôt, elle le serait sur un canvas encore
+           étroit. */
+        setTimeout(function () {
+          if (isMobile()) return;   // bascule à nouveau entre-temps
+          if (typeof window.applyZonesForProduct === 'function' &&
+              typeof window.currentProductType === 'string') {
+            window.applyZonesForProduct(window.currentProductType);
+          }
+        }, 120);
+
         removeActionBar();
         showScrim(false);
         document.querySelectorAll(".side-panel").forEach(function (p) {
@@ -1980,5 +2010,140 @@
     });
   } else {
     setTimeout(init, 0);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     COMMANDE DE GROUPE — lignes repliables, numérotées, résumées
+
+     Le CSS transforme le tableau en liste (conf-mobile.css). Il manque le
+     comportement : numéroter, résumer une ligne repliée, et la déplier au
+     toucher.
+
+     TOUT EST ICI, dans le fichier mobile : le tableau du bureau ne doit pas
+     changer. Aucune modification de conf-main-inline.js n'est nécessaire —
+     on lit le DOM qu'il produit, sans y toucher.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /** Résumé d'une ligne repliée : « M · Black · ×2 ». */
+  function grpMajResume(tr) {
+    if (!tr) return;
+    var td = tr.querySelector('td:nth-child(1)');
+    if (!td) return;
+
+    var taille = (tr.querySelector('.grp-f-size') || {}).value || '';
+    var couleur = (tr.querySelector('.grp-f-color') || {}).value || '';
+    var qte = (tr.querySelector('.grp-f-qty') || {}).value || '1';
+
+    var box = td.querySelector('.grp-resume');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'grp-resume';
+      td.appendChild(box);
+    }
+
+    /* La pastille reprend la couleur RÉELLE : `.grp-color-dot` est déjà
+       peinte par grpSyncDot (conf-main-inline.js), on relit son fond plutôt
+       que de refaire la correspondance nom → teinte. */
+    var source = tr.querySelector('.grp-color-dot');
+    var fond = source ? source.style.background : '';
+
+    box.innerHTML = '';
+    if (fond) {
+      var dot = document.createElement('span');
+      dot.className = 'grp-resume-dot';
+      dot.style.background = fond;
+      box.appendChild(dot);
+    }
+    var txt = document.createElement('span');
+    /* textContent : ces valeurs viennent de champs saisis ou importés. */
+    txt.textContent = [taille, couleur, '×' + qte].filter(Boolean).join(' · ');
+    box.appendChild(txt);
+  }
+
+  /** Renumérote et rafraîchit tous les résumés. */
+  function grpMajLignes() {
+    var lignes = document.querySelectorAll('#grp-rows tr');
+    for (var i = 0; i < lignes.length; i++) {
+      lignes[i].setAttribute('data-num', i + 1);
+      grpMajResume(lignes[i]);
+    }
+
+    /* PREMIÈRE LIGNE DÉPLIÉE — le mode d'emploi le plus court qui soit.
+
+       Montrer une ligne ouverte vaut mieux que l'expliquer : le client voit
+       immédiatement ce que contient une ligne et comment la remplir. Les
+       suivantes restent repliées, la liste garde sa compacité.
+
+       Seulement si AUCUNE n'est déjà ouverte : rouvrir la modale ne doit pas
+       refermer la ligne sur laquelle le client travaillait. */
+    if (lignes.length && !document.querySelector('#grp-rows tr.is-open')) {
+      lignes[0].classList.add('is-open');
+    }
+  }
+
+  function initGroupeMobile() {
+    var tbody = document.getElementById('grp-rows');
+    if (!tbody || tbody.dataset.mobInit === '1') return;
+    tbody.dataset.mobInit = '1';
+
+    /* DÉPLIAGE AU TOUCHER, une ligne à la fois.
+
+       Délégation sur le conteneur : les lignes sont créées dynamiquement — à
+       l'ouverture, à l'ajout, à l'import — et s'y abonner une à une les
+       manquerait.
+
+       On ignore les clics sur un CHAMP ou un BOUTON : toucher le nom pour le
+       saisir ne doit pas replier la ligne sous le doigt. */
+    tbody.addEventListener('click', function (e) {
+      if (!isMobile()) return;
+      var tr = e.target.closest && e.target.closest('tr');
+      if (!tr) return;
+      if (e.target.closest('input, select, button, .grp-cpick-menu')) return;
+
+      var ouvert = tr.classList.contains('is-open');
+      tbody.querySelectorAll('tr.is-open').forEach(function (o) {
+        o.classList.remove('is-open');
+        grpMajResume(o);
+      });
+      if (!ouvert) tr.classList.add('is-open');
+    });
+
+    /* Le résumé suit les modifications : `change` couvre les listes et la
+       quantité, `input` la frappe dans le nom. */
+    tbody.addEventListener('change', function () { grpMajLignes(); });
+
+    /* Lignes ajoutées ou retirées : renuméroter. Un observateur plutôt que
+       des appels dans conf-main-inline.js — le bureau reste intact. */
+    new MutationObserver(function () {
+      if (isMobile()) grpMajLignes();
+    }).observe(tbody, { childList: true });
+
+    /* OUVERTURE DE LA MODALE : rafraîchir les lignes DÉJÀ présentes.
+
+       L'observateur ci-dessus ne voit que les ajouts. Rouvrir une liste
+       validée réutilise les lignes en place (conf-main-inline.js:93-98) sans
+       en créer : sans ce rappel, elles seraient dépourvues de numéro et de
+       résumé. On observe la classe `open` de l'overlay. */
+    var ov = document.getElementById('grp-overlay');
+    if (ov) {
+      new MutationObserver(function () {
+        if (isMobile() && ov.classList.contains('open')) {
+          /* Différé : openGroupOrder peuple les lignes APRÈS avoir ouvert. */
+          setTimeout(grpMajLignes, 0);
+        }
+      }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    grpMajLignes();
+  }
+
+  /* La modale existe dès le rendu de la section, mais son contenu est peuplé
+     à l'ouverture : on s'accroche au conteneur, pas aux lignes. */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(initGroupeMobile, 0);
+    });
+  } else {
+    setTimeout(initGroupeMobile, 0);
   }
 })();

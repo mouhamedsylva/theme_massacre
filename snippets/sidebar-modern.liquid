@@ -6,29 +6,47 @@
 <!-- BARRE D'ICÔNES VERTICALE -->
 <nav class="icon-nav">
   <!-- Type de produit -->
-  {%- comment -%}
-    Icône T-SHIRT et non sac de courses : ce panneau sert à choisir le SUPPORT
-    à personnaliser (sweat, t-shirt, coin, drapeau, patch), pas à faire ses
-    achats. Un sac évoquait le panier, déjà présent en haut de page — deux
-    sens différents pour un même symbole.
-  {%- endcomment -%}
   <button class="icon-nav-item active" data-panel="panel-product">
+    {%- comment -%}
+      ÉTIQUETTE et non t-shirt : ce panneau sert à choisir le SUPPORT — sweat,
+      t-shirt, coin, drapeau, patch. Un t-shirt n'en désignait qu'un seul sur
+      les cinq, et devenait trompeur dès qu'on personnalisait un coin.
+
+      Une étiquette dit « catégorie de produit » sans privilégier aucune
+      famille. Le sac de courses reste écarté : il évoquerait le panier, déjà
+      présent en haut de page.
+    {%- endcomment -%}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-         stroke-linejoin="round">
-      <path d="M8 3 4 5 2.5 9.5 5.5 11V21h13V11l3-1.5L20 5l-4-2"/>
-      <path d="M8 3a4 4 0 0 0 8 0"/>
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 3 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.6z"/>
+      <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/>
     </svg>
     <span class="icon-nav-label">Type de<br>Produit</span>
+    {%- comment -%}
+      Libellé COURT, affiché à la place du précédent sur la barre horizontale
+      du mobile : « Type de Produit » y tenait sur deux lignes et se faisait
+      couper. Le rail vertical du bureau garde la version complète.
+    {%- endcomment -%}
+    <span class="icon-nav-short">Produits</span>
   </button>
 
   <!-- Upload Image -->
   <button class="icon-nav-item" data-panel="panel-upload">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-      <polyline points="17 8 12 3 7 8"/>
-      <line x1="12" y1="3" x2="12" y2="15"/>
+    {%- comment -%}
+      IMAGE marquée d'un « + », et non une flèche montante : celle-ci évoquait
+      autant un partage ou un envoi qu'un ajout de visuel. Le cadre photo dit
+      ce qu'on ajoute, le plus dit qu'on l'ajoute.
+    {%- endcomment -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 13V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8"/>
+      <circle cx="8.5" cy="8.5" r="1.5"/>
+      <path d="M3 16l4.5-4.5a2 2 0 0 1 2.8 0L14 15"/>
+      <line x1="18" y1="15" x2="18" y2="21"/>
+      <line x1="15" y1="18" x2="21" y2="18"/>
     </svg>
     <span class="icon-nav-label">Upload<br>Image</span>
+    <span class="icon-nav-short">Images</span>
   </button>
 
   <!-- Options du coin : visible uniquement pour la catégorie « coins ».
@@ -48,6 +66,7 @@
       <path d="M4 11v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5"/>
     </svg>
     <span class="icon-nav-label">Options<br>Coin</span>
+    <span class="icon-nav-short">Coin</span>
   </button>
 
   <!-- Options du drapeau : visible uniquement pour la catégorie « drapeaux ». -->
@@ -57,6 +76,7 @@
       <line x1="4" y1="22" x2="4" y2="15"/>
     </svg>
     <span class="icon-nav-label">Options<br>Drapeau</span>
+    <span class="icon-nav-short">Drapeau</span>
   </button>
 
   <!-- Options du patch : visible uniquement pour la catégorie « patchs ». -->
@@ -66,16 +86,43 @@
       <circle cx="12" cy="12" r="4.5"/>
     </svg>
     <span class="icon-nav-label">Options<br>Patch</span>
+    <span class="icon-nav-short">Patch</span>
   </button>
 
   <!-- Ajouter Texte -->
   <button class="icon-nav-item" id="text-nav-item" data-panel="panel-text">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="4 7 4 4 20 4 20 7"/>
-      <line x1="9" y1="20" x2="15" y2="20"/>
-      <line x1="12" y1="4" x2="12" y2="20"/>
+    {%- comment -%}
+      Lettre A plutôt qu'un « T » à empattements : la forme est lue d'un coup
+      d'œil comme « écrire », là où le T se confondait avec un curseur de
+      saisie. C'est aussi le symbole retenu par les configurateurs de
+      référence.
+    {%- endcomment -%}
+    {%- comment -%}
+      A À EMPATTEMENTS, dessiné au TRAIT.
+
+      Le glyphe se compose de quatre éléments distincts :
+        • les deux jambages obliques ;
+        • la barre transversale ;
+        • un empattement horizontal sous chaque jambage.
+
+      Au trait et non en aplat : c'est ce qui donne la finesse d'un caractère
+      à empattements. Une version pleine fusionnait les empattements avec les
+      jambages et noyait la barre transversale — la lettre devenait un
+      triangle noir.
+
+      `stroke-width` est laissé au CSS (conf-sidebar-modern.css:136), qui
+      l'affine à 1,5 sur ordinateur et 1,8 en mobile : l'icône reste alors
+      cohérente avec ses voisines à toutes les tailles.
+    {%- endcomment -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7.5 19 12 5l4.5 14"/>
+      <line x1="9.2" y1="14.2" x2="14.8" y2="14.2"/>
+      <line x1="5" y1="19" x2="10" y2="19"/>
+      <line x1="14" y1="19" x2="19" y2="19"/>
     </svg>
     <span class="icon-nav-label">Ajout<br>Texte</span>
+    <span class="icon-nav-short">Textes</span>
   </button>
 </nav>
 

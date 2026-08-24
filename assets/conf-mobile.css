@@ -436,12 +436,16 @@
     /* La barre du bas reste NOIRE en mobile, alors que le rail desktop est
        passé en gris clair (conf-sidebar-modern.css). Sans ce rappel explicite,
        elle héritait du gris et ses icônes blanches devenaient illisibles. */
-    background: #000000;
-
     border: none;
     border-right: none;
-    border-top: 1px solid rgba(255,255,255,.08);
+    /* PAS DE BORDURE HAUTE : elle dessinait un trait clair au-dessus de la
+       barre. L'ombre portée ci-dessous suffit à la détacher du canvas, sans
+       ligne visible. */
+    border-top: none;
     border-radius: 0;
+    /* Un SEUL fond. Deux déclarations se succédaient — `#000000` puis
+       `#1f1f1f` — et la seconde l'emportait en silence. On garde le gris très
+       sombre, plus doux que le noir pur sous les icônes blanches. */
     background: #1f1f1f;
     box-shadow: 0 -2px 10px rgba(0,0,0,.18);
 
@@ -500,15 +504,21 @@
      points de suspension s'ils débordent. La barre ne gagne que la hauteur
      d'une ligne de texte. */
   .icon-nav-label {
-    font-size: 9px;
+    /* 10px et non 9 : à 9px sur fond sombre, les libellés se lisaient mal —
+       or ils portent la seule distinction entre « Options Coin » et
+       « Options Patch ». Le gain d'un pixel sur la hauteur de barre ne valait
+       pas cette perte. */
+    font-size: 10px;
     line-height: 1.15;
     margin-top: 3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-    /* Discret par défaut : l'onglet actif reprend le blanc franc plus bas. */
-    color: rgba(255,255,255,.72);
+    /* Opacité relevée de .72 à .92 : un texte clair sur fond sombre perd
+       davantage en contraste qu'en clair sur clair — le gris à 72 % était
+       franchement pâle. L'onglet actif reste distinct : blanc pur et gras. */
+    color: rgba(255,255,255,.92);
     letter-spacing: .01em;
   }
 
@@ -516,8 +526,57 @@
      doublerait la hauteur de la barre. On le rend inopérant et on le remplace
      par une espace insécable — même traitement qu'en tablette
      (conf-tablet.css:462-463), pour que les deux ne divergent pas. */
-  .icon-nav-label br { display: inline; font-size: 0; }
-  .icon-nav-label br::after { content: "\00a0"; font-size: 9px; }
+  /* LIBELLÉ COURT EN MOBILE, complet au bureau.
+
+     Le markup porte les DEUX : `.icon-nav-label` (« Type de / Produit ») et
+     `.icon-nav-short` (« Produits »). Chacun s'affiche où il convient — la
+     barre latérale du bureau a la hauteur pour deux lignes, la barre
+     horizontale du mobile ne l'a pas, et le second mot s'y faisait couper.
+
+     Deux éléments distincts plutôt qu'un seul manipulé en CSS : on ne peut pas
+     cibler un mot isolé dans un nœud de texte de façon fiable. */
+  .icon-nav-label { display: none; }
+  .icon-nav-short {
+    display: block;
+    font-size: 10px;
+    line-height: 1.15;
+    margin-top: 3px;
+    color: rgba(255,255,255,.92);
+    letter-spacing: .01em;
+    white-space: nowrap;
+  }
+  .icon-nav-item.active .icon-nav-short { color: #fff; font-weight: 700; }
+
+  /* LE LIBELLÉ NE DOIT PAS ÊTRE ROGNÉ.
+
+     `overflow: hidden` + `text-overflow: ellipsis` (plus haut) coupaient la
+     seconde moitié — « Produit », « Image », « Texte » disparaissaient sous le
+     bord de la barre. Le libellé devenait alors moins lisible qu'absent : il
+     annonçait une information tronquée.
+
+     `line-height` légèrement resserré et `padding-bottom` retiré du bas de la
+     barre : la place gagnée revient au texte, sans augmenter la hauteur
+     totale. */
+  .icon-nav-label {
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.1;
+    /* DEUX LIGNES ASSUMÉES plutôt qu'une ligne tronquée.
+
+       `nowrap` (plus haut) supposait que le `<br>` soit neutralisé et le
+       libellé tenu sur une ligne. Les captures montrent le contraire : le
+       texte passe bien sur deux lignes et se faisait couper.
+
+       On laisse donc le retour se produire, et on réserve la place. Deux
+       lignes lisibles valent mieux qu'une seule amputée — c'est d'ailleurs la
+       mise en forme d'origine des libellés (« Type de<br>Produit »). */
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* La barre laisse respirer ses deux lignes de libellé. Le plancher iOS reste
+     couvert par `env(safe-area-inset-bottom)`, déjà présent dans le padding. */
+  .icon-nav-item { padding: 6px 2px 4px; }
 
   /* Actif : fond éclairci, doublé par le libellé en gras (voir plus bas).
 
@@ -1505,6 +1564,292 @@
      d'adresse fausse `vh`. `dvh` suit la hauteur réellement visible. */
   .sg-modal { max-height: 90dvh; }
   .grp-modal { max-height: 90dvh; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     COMMANDE DE GROUPE — le tableau devient une LISTE DE CARTES
+
+     Le tableau du bureau était servi tel quel : `min-width: 560px`
+     (conf-styles.css:1110) dans une modale de ~334px utiles sur un iPhone,
+     soit 40 % hors écran. La colonne d'aperçu étant la dernière, son bouton
+     était le plus difficile à atteindre.
+
+     REFONTE PUREMENT CSS. Le markup ne change pas : `<tr>` et `<td>` sont
+     conservés, seul leur `display` bascule. C'est délibéré —
+     `conf-group-preview.js:47` fait `btn.closest('tr')`, et `grpVal`
+     (conf-main-inline.js:485) lit ses classes dans la ligne. Reconstruire en
+     `<div>` aurait cassé l'aperçu, la duplication et les totaux.
+
+     Le bureau n'est pas touché : tout vit sous `max-width: 767px`.
+
+     Les libellés de colonnes sont réinjectés par `::before` sur chaque
+     cellule : sans en-tête de tableau, rien n'indiquerait plus ce que
+     contient un champ.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* SOUS-TITRE RACCOURCI.
+
+     Celui du bureau fait trois lignes sur un téléphone et décrit ce que la
+     modale montre déjà — chaque ligne porte ses champs, avec leur libellé.
+     Trois lignes de texte redondant, c'est une ligne de liste en moins.
+
+     On garde la seule information que rien d'autre ne donne : le design est
+     commun à tout le groupe.
+
+     `line-clamp` plutôt qu'un texte de remplacement en `content` : le vrai
+     texte reste dans le DOM, donc lisible par un lecteur d'écran. Le
+     substituer aurait fait lire au client aveugle une phrase que le voyant ne
+     voit pas — deux interfaces divergentes pour un même écran. */
+  .grp-sub {
+    font-size: 12px;
+    line-height: 1.45;
+    margin-top: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Note de pied resserrée : elle dit que valider n'ajoute PAS au panier —
+     information réelle, à conserver, mais en deux lignes plutôt qu'en cinq. */
+  .grp-note { font-size: 11.5px; line-height: 1.45; }
+
+  /* Plus de piste horizontale : c'est la source du défilement. */
+  .grp-table-wrap {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+  }
+  .grp-table {
+    min-width: 0;          /* annule les 560px du bureau */
+    display: block;
+    font-size: 13px;
+  }
+  /* En-tête inutile : chaque champ porte son libellé (voir ::before). */
+  .grp-table thead { display: none; }
+  .grp-table tbody { display: block; }
+
+  /* LA LIGNE — une personne, REPLIÉE par défaut.
+
+     La première version dépliait tout : une seule personne occupait presque
+     tout l'écran, et à dix noms le client faisait défiler sans jamais voir sa
+     liste. Une liste sert d'abord à être PARCOURUE.
+
+     Repliée, la ligne tient sur deux lignes de texte : le nom, puis
+     taille · couleur · quantité en résumé. Une dizaine de personnes tiennent
+     alors à l'écran.
+
+     Toucher la ligne la déplie (classe `is-open`, posée par conf-mobile.js).
+     Une seule à la fois : le contexte reste lisible. */
+  .grp-table tbody tr {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #fff;
+    position: relative;
+  }
+  .grp-table tbody tr:last-child { margin-bottom: 0; }
+
+  /* NUMÉRO DE LIGNE — posé par conf-mobile.js en `data-num`.
+
+     Sur une liste de trente noms, c'est le seul repère qui permette de se
+     situer et de reprendre où l'on s'est arrêté.
+
+     À GAUCHE : un numéro se lit en début de ligne, et la droite est désormais
+     occupée par le chevron. */
+  .grp-table tbody tr::before {
+    content: attr(data-num);
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #c4c4c4;
+    min-width: 14px;
+  }
+
+  /* CHEVRON — le seul indice que la ligne s'ouvre.
+
+     Sans lui, rien ne signalait qu'une ligne est dépliable : le client devait
+     le découvrir par hasard. Un chevron est une convention universelle, et il
+     dit ce qu'aucune phrase d'aide n'aurait à expliquer.
+
+     Il pivote à l'ouverture — l'état se lit alors sans réfléchir. */
+  .grp-table tbody tr::after {
+    content: "";
+    position: absolute;
+    top: 16px;
+    right: 14px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #b0b0b0;
+    border-bottom: 2px solid #b0b0b0;
+    transform: rotate(45deg);        /* pointe vers le bas : « ça s'ouvre » */
+    transition: transform .2s ease;
+    pointer-events: none;            /* le toucher passe à la ligne */
+  }
+  .grp-table tbody tr.is-open::after {
+    transform: rotate(-135deg);      /* pointe vers le haut : « ça se referme » */
+    border-color: var(--black);
+  }
+
+  /* Le nom laisse la place au numéro et au chevron. */
+  .grp-table tbody tr:not(.is-open) td:nth-child(1) {
+    padding-left: 22px;
+    padding-right: 24px;
+  }
+
+  .grp-table td {
+    display: block;
+    padding: 0;
+    border-bottom: none;
+  }
+
+  /* REPLIÉE : seul le nom reste visible. Le résumé est rendu par
+     conf-mobile.js dans `.grp-resume`, sous le champ. */
+  .grp-table tbody tr:not(.is-open) td:nth-child(2),
+  .grp-table tbody tr:not(.is-open) td:nth-child(3),
+  .grp-table tbody tr:not(.is-open) td:nth-child(4),
+  .grp-table tbody tr:not(.is-open) td:nth-child(5) {
+    display: none;
+  }
+  .grp-table tbody tr:not(.is-open) td:nth-child(1) { margin-bottom: 0; }
+  /* Le libellé « Nom floqué » disparaît une fois replié : le champ porte déjà
+     le nom saisi, et le résumé dit le reste. */
+  .grp-table tbody tr:not(.is-open) td:nth-child(1)::before { display: none; }
+  .grp-table tbody tr:not(.is-open) .grp-inp {
+    border-color: transparent;
+    padding-left: 0;
+    font-weight: 600;
+  }
+
+  /* RÉSUMÉ de la ligne repliée : taille · couleur · quantité. */
+  .grp-resume {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .grp-table tbody tr.is-open .grp-resume { display: none; }
+  .grp-resume-dot {
+    width: 11px; height: 11px; border-radius: 3px;
+    border: 1px solid rgba(0,0,0,.15); flex: none;
+  }
+
+  /* Libellé au-dessus de chaque champ, repris des en-têtes supprimés. */
+  .grp-table td::before {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--muted);
+  }
+
+  /* 1 — Nom floqué : pleine largeur, c'est le champ principal.
+     `padding-left` : le numéro reste lisible une fois la ligne dépliée. */
+  .grp-table td:nth-child(1) { margin-bottom: 10px; padding-left: 22px; }
+  .grp-table td:nth-child(1)::before { content: "Nom floqué (option)"; }
+  .grp-table .grp-inp {
+    font-size: 15px;       /* ≥16px éviterait le zoom iOS, mais casse la carte :
+                              15px + le champ n'est pas en pleine largeur écran */
+    padding: 10px;
+    min-height: 44px;
+  }
+
+  /* ESPACE RÉSERVÉ ATTÉNUÉ.
+
+     « ex. JEAN 10 » s'affichait aussi nettement qu'une vraie saisie : sur une
+     liste de dix lignes vides, impossible de distinguer d'un coup d'œil ce qui
+     est rempli de ce qui ne l'est pas. Un exemple doit s'effacer devant la
+     donnée. */
+  .grp-table .grp-inp::placeholder {
+    color: #c8c8c8;
+    font-weight: 400;
+    opacity: 1;            /* Firefox l'atténue déjà : sans cela, il cumule */
+  }
+
+  /* 2 et 3 — Taille et couleur, côte à côte : deux champs courts. */
+  .grp-table td:nth-child(2),
+  .grp-table td:nth-child(3) {
+    display: inline-block;
+    width: calc(50% - 5px);
+    vertical-align: top;
+    margin-bottom: 10px;
+  }
+  .grp-table td:nth-child(2) { margin-right: 10px; }
+  .grp-table td:nth-child(2)::before { content: "Taille"; }
+  .grp-table td:nth-child(3)::before { content: "Couleur"; }
+  .grp-table .grp-sel:not([hidden]),
+  .grp-table .grp-cpick-btn {
+    font-size: 14px;
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+
+  /* 4 — Quantité. */
+  .grp-table td:nth-child(4) { margin-bottom: 12px; }
+  .grp-table td:nth-child(4)::before { content: "Quantité"; }
+  .grp-table .grp-qty input {
+    width: 88px;
+    min-height: 44px;
+    font-size: 15px;
+    padding: 10px 4px;
+  }
+
+  /* 5 — Actions : aperçu et suppression, en pied de carte.
+
+     Le bouton d'aperçu porte enfin son nom : rien ne distinguait une icône
+     d'œil de 26px au bout d'une ligne qu'il fallait aller chercher. */
+  .grp-table td:nth-child(5) {
+    display: flex;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .grp-table .grp-row-btn {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    /* `line-height: 0` du bureau (conf-styles.css:1178) centrait une icône
+       seule ; il écraserait le libellé ajouté ci-dessous. */
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--black);
+  }
+  .grp-table .grp-row-btn:not(.danger)::after { content: "Aperçu"; }
+  .grp-table .grp-row-btn.danger {
+    flex: 0 0 auto;
+    min-width: 44px;       /* icône seule : l'action est destructive, pas à
+                              élargir au risque d'un appui involontaire */
+    color: #d33;
+    border-color: #f0d0d0;
+  }
+
+  /* Le menu de couleur reste en `position: fixed` (conf-styles.css:1148) :
+     il était calculé ainsi à cause des deux conteneurs défilants imbriqués.
+     Le défilement horizontal disparaît, mais `.grp-body` défile toujours —
+     on n'y touche pas. */
+  .grp-cpick-menu { max-height: 50dvh; }
+
+  /* Bouton « Ajouter une ligne » : cible pleine largeur. */
+  .grp-add { min-height: 44px; font-size: 14px; }
+
+  /* Import et pied de modale : cibles confortables. */
+  .grp-btn-import { min-height: 44px; }
+  .grp-foot .grp-btn-primary,
+  .grp-foot .grp-btn-secondary { min-height: 44px; font-size: 14px; }
 
   /* ══════════════════════════════════════════════════════════════════════
      Zones tactiles — plancher WCAG 2.5.5 (44×44 px CSS)

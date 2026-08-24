@@ -440,6 +440,21 @@
     var MIN_PLAGE = 24;   // amplitude minimale entre min et max
     var plancher = parseFloat(range.min) || 8;
     range.max = Math.max(plancher + MIN_PLAGE, fit);
+
+    /* LE PLAFOND ATELIER A LE DERNIER MOT.
+
+       `MIN_PLAGE` garantit une course exploitable au curseur — utile quand la
+       zone ne tolère qu'une petite police, sur téléphone notamment. Mais elle
+       poussait le maximum à `8 + 24 = 32`, au-dessus de MAX_TEXT_SIZE : la
+       jauge affichait 32 alors que la limite est 20, et promettait une taille
+       que clampTextToZone refusait ensuite.
+
+       Un curseur ne doit pas offrir ce qu'il ne peut pas tenir. On borne donc
+       APRÈS l'élargissement, jamais avant — sans quoi cette ligne le
+       reprendrait. */
+    if (window.MAX_TEXT_SIZE) {
+      range.max = Math.min(range.max, window.MAX_TEXT_SIZE);
+    }
     /* Le curseur ne doit pas rester au-delà du nouveau plafond : un texte
        rallongé réduit la taille tenable, et une poignée restée à droite
        laisserait croire à une marge qui n'existe plus. */

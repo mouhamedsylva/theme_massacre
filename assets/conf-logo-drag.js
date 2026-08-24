@@ -726,12 +726,23 @@
       if (active.classList.contains('design-text') && !active.classList.contains('is-shaped')) {
         var ratio = newW / (startW || newW);
         if (!startFont) startFont = parseFloat(getComputedStyle(active).fontSize) || 20;
-        var newFont = Math.max(8, Math.min(120, startFont * ratio));
+        /* PLAFOND LU SUR window.MAX_TEXT_SIZE, et non codé en dur.
+
+           120 était écrit ici : l'étirement contournait donc la limite que la
+           jauge respecte (conf-text-toolbar.js:594). Deux chemins, deux
+           plafonds — le client pouvait dépasser à la poignée ce que le curseur
+           lui refusait. */
+        var plafondTx = window.MAX_TEXT_SIZE || 120;
+        var newFont = Math.max(8, Math.min(plafondTx, startFont * ratio));
         active.style.fontSize = newFont + 'px';
         // La taille visée par l'utilisateur = ce qu'il tire ; clampTextToZone
         // la respecte tant qu'elle tient dans la zone, sinon la borne.
         active.setAttribute('data-wanted-size', newFont);
-        var tz = active.id === 'text-f' ? 'f' : (active.id === 'text-b' ? 'b' : null);
+        /* `fr` — poitrine droite — MANQUAIT : son texte n'était donc jamais
+           borné après un étirement, ni en taille ni en position. */
+        var tz = active.id === 'text-f' ? 'f'
+               : (active.id === 'text-fr' ? 'fr'
+               : (active.id === 'text-b' ? 'b' : null));
         if (tz && typeof window.clampTextToZone === 'function') window.clampTextToZone(tz);
       }
     } else {

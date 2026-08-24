@@ -1028,6 +1028,31 @@
             <select class="grp-textzone-sel" id="grp-textzone-sel"></select>
           </div>
 
+          {%- comment -%}
+            TEXTE COURBÉ — la substitution des noms est IMPOSSIBLE.
+
+            Un texte courbé est rendu en SVG : son `textContent` est vide, et
+            les deux chemins qui remplacent le nom (conf-group-preview.js:140,
+            conf-main-inline.js:2466) le détectent et s'abstiennent.
+
+            Jusqu'ici en SILENCE : le client validait trente surnoms et recevait
+            trente articles portant le même texte. L'erreur n'apparaissait qu'à
+            la livraison, sans rattrapage possible ni pour lui ni pour
+            l'atelier.
+
+            On bloque donc la validation plutôt que d'avertir : un simple
+            avertissement serait franchi par le premier client pressé, et le
+            coût de l'erreur est une commande entière à refaire.
+
+            Révélé par grpRefreshCurveWarning() (conf-main-inline.js).
+          {%- endcomment -%}
+          <div class="grp-curve-warn" id="grp-curve-warn" style="display:none" role="alert">
+            <strong>Texte courbé : les noms individuels ne s'appliqueront pas.</strong>
+            <span>Chaque article porterait le même texte. Redressez le texte sur le
+            vêtement (barre d'outils du texte, bouton « Courbe ») pour pouvoir
+            attribuer un nom à chaque personne.</span>
+          </div>
+
           <!-- Import d'une liste existante : en tête de modale, avant le tableau. -->
           <div class="grp-import-bar">
             <input type="file" id="grp-file" accept=".csv,.txt,.xlsx,.xls"

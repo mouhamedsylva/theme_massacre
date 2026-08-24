@@ -145,6 +145,12 @@
   color: inherit;
 }
 
+/* Libellé COURT, réservé à la barre horizontale du mobile — masqué ici.
+   Le rail du bureau est vertical : il a la hauteur pour deux lignes, et
+   « Type de Produit » y est plus explicite que « Produits ».
+   Révélé par conf-mobile.css. */
+.icon-nav-short { display: none; }
+
 /* Séparateur */
 .icon-nav-separator {
   width: 32px;

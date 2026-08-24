@@ -1187,6 +1187,24 @@
     }
     .grp-add:hover { border-color: var(--black); }
 
+    /* Texte courbé : la substitution des noms est impossible.
+
+       Teinte d'ALERTE et non d'information : ce n'est pas une suggestion, la
+       validation est bloquée tant que le texte n'est pas redressé. Le message
+       vaut pour les deux affichages — le défaut n'est pas propre au mobile. */
+    .grp-curve-warn {
+      padding: 12px 14px; margin-bottom: 14px;
+      background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;
+      font-size: 12.5px; line-height: 1.5; color: #7f1d1d;
+    }
+    .grp-curve-warn strong { display: block; margin-bottom: 4px; font-size: 13px; }
+
+    /* Bouton de validation désactivé : l'état doit se voir, sans quoi le
+       client clique sans comprendre pourquoi rien ne se passe. */
+    .grp-btn-primary:disabled {
+      opacity: .45; cursor: not-allowed;
+    }
+
     /* Barre d'import : en tête de modale, au-dessus du tableau. */
     .grp-import-bar {
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;

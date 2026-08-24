@@ -108,6 +108,12 @@
   document.addEventListener('change', function (e) {
     if (e.target && e.target.id === 'grp-textzone-sel') {
       choisie = e.target.value;
+      /* La zone visée change : la nouvelle n'est pas forcément courbée comme
+         l'ancienne. On rejoue le contrôle, sans quoi la validation resterait
+         bloquée — ou le serait à tort. */
+      if (typeof window.grpRefreshCurveWarning === 'function') {
+        window.grpRefreshCurveWarning();
+      }
     }
   });
 })();

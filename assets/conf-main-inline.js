@@ -109,7 +109,46 @@
       if (typeof window.grpRefreshTextZonePicker === 'function') {
         window.grpRefreshTextZonePicker();
       }
+      grpRefreshCurveWarning();
     }
+
+    /**
+     * Signale un TEXTE COURBÉ et bloque la validation.
+     *
+     * Un texte courbé est rendu en SVG : son `textContent` est vide, et les
+     * deux chemins de substitution s'abstiennent — l'aperçu
+     * (conf-group-preview.js:140) comme l'ajout au panier (:2466, `peutSubstituer`).
+     * Le client validait donc trente surnoms et recevait trente articles
+     * portant le même texte, sans le moindre signal.
+     *
+     * On BLOQUE plutôt qu'on avertit : le coût de l'erreur est une commande
+     * entière à refaire, et un avertissement serait franchi par le premier
+     * client pressé.
+     *
+     * Même test que les deux chemins ci-dessus — la classe `is-shaped` — pour
+     * qu'ils ne puissent pas diverger.
+     */
+    function grpRefreshCurveWarning() {
+      var box = document.getElementById('grp-curve-warn');
+      var submit = document.getElementById('grp-submit');
+      if (!box) return;
+
+      var zone = (typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f';
+      var el = document.getElementById('text-' + zone);
+      var courbe = !!(el && el.classList.contains('is-shaped') &&
+                      el.style.display !== 'none');
+
+      box.style.display = courbe ? 'block' : 'none';
+      if (submit) {
+        submit.disabled = courbe;
+        submit.title = courbe
+          ? 'Redressez le texte pour attribuer un nom à chaque personne'
+          : '';
+      }
+    }
+    /* Exposée : le sélecteur de zone (conf-group-textzone.js) peut changer la
+       zone visée, et la nouvelle n'est pas forcément courbée comme l'ancienne. */
+    window.grpRefreshCurveWarning = grpRefreshCurveWarning;
     function closeGroupOrder() {
       var ov = document.getElementById('grp-overlay');
       if (ov) ov.classList.remove('open');
@@ -328,7 +367,7 @@
            caracteres partait au backend puis en atelier — tronque a l'aveugle
            ou rejete en 400. Les deux autres champs texte du projet sont bornes
            a 40 (texte libre) et 25 (panneau texte) caracteres. */
-        '<td><input class="grp-inp grp-f-flock" type="text" maxlength="20" placeholder="ex. JEAN 10" value="' + grpEsc(preset.flock || '') + '"></td>' +
+        '<td><input class="grp-inp grp-f-flock" type="text" maxlength="20" placeholder="JEAN 10" value="' + grpEsc(preset.flock || '') + '"></td>' +
         '<td><select class="grp-sel grp-f-size" onchange="grpUpdateTotals()">' + sizeOpts + '</select></td>' +
         /* Sélecteur de couleur : le <select> natif est CONSERVÉ mais masqué, et
            doublé d'une liste maison.
@@ -1561,6 +1600,12 @@
     /* Recalcule les zones pour le produit courant et repositionne les guides.
        Appelé au changement de produit : sweat et t-shirt n'ont pas la même
        échelle, les bornes en % doivent donc être recalculées. */
+    /* Exposée : conf-mobile.js la rappelle au retour d'une largeur mobile vers
+       le bureau. applyMobileZones écrase les propriétés de LOGO_ZONES — l'objet
+       partagé — et rien ne les rétablissait, cette fonction n'étant appelée
+       qu'au changement de produit. */
+    window.applyZonesForProduct = applyZonesForProduct;
+
     function applyZonesForProduct(productType) {
       var isSweat = String(productType || '').indexOf('sweat') === 0;
       LOGO_ZONES = buildZones(isSweat ? CM.sweatshirt : CM.tshirt, isSweat, productType);
@@ -6460,19 +6505,24 @@
     /* Taille de police maximale du texte personnalisé (px CSS).
 
        Portée de 28 à 200 le 12/08/2026, à la demande du commerçant : le texte
-       doit pouvoir remplir sa zone comme le fait un logo. À 28, il butait à
-       environ un tiers du bandeau de poitrine alors qu'il restait de la place.
+       doit pouvoir remplir sa zone comme le fait un logo.
 
-       C'était un plafond ATELIER, pas une contrainte technique — la qualité
-       d'impression d'un très grand texte relève désormais du commerçant.
+       REVENU À UNE LIMITE FERME, à la demande : 200 px laissait la zone seule
+       arbitrer, et un mot court comme « Papa » y atteignait 34 px — trop grand
+       pour un flocage de poitrine.
 
-       La borne n'est PAS supprimée : `clampTextToZone` compare `cur` et `wanted`
-       à cette valeur, et un `undefined` rendrait ces tests faux en permanence.
-       200 px est hors d'atteinte dans une zone de configurateur — c'est un
-       garde-fou contre une valeur aberrante (saisie forgée, état corrompu), pas
-       une limite que le client rencontrera : c'est la zone qui l'arrête, via la
-       boucle d'agrandissement de conf-text-clamp.js. */
-    var MAX_TEXT_SIZE = 200;
+       20 px est désormais le plafond RÉEL, celui que le client rencontrera.
+
+       Il couvre les DEUX chemins d'agrandissement, car tous deux passent par
+       clampTextToZone (conf-text-clamp.js:162, :171) :
+         • la jauge de la barre d'outils — qui lit cette valeur pour son `max`
+           (conf-text-toolbar.js:594) ;
+         • l'étirement à la poignée, qui serait sinon resté libre.
+
+       C'est aussi ce qui rend la borne indispensable : `clampTextToZone`
+       compare `cur` et `wanted` à cette valeur, un `undefined` fausserait ces
+       tests en permanence. */
+    var MAX_TEXT_SIZE = 20;
     window.MAX_TEXT_SIZE = MAX_TEXT_SIZE;
 
     /* Zones de TEXTE : dérivées des zones de logo (LOGO_ZONES), qui sont
@@ -6509,6 +6559,18 @@
        jusqu'aux coutures latérales). */
     var TEXT_MAX_CM = 20;
 
+    /* HAUTEUR du texte : bornée par la ZONE de poitrine (9 % du visuel, soit
+       6,8 cm réels), et non par une constante propre.
+
+       Un plafond dédié a été essayé à 9 cm — proportionné aux 20 cm de largeur
+       ci-dessus, dans un rapport 2:1 usuel en flocage. Le rendu s'est révélé
+       TROP GRAND à l'usage : « Papa » atteignait 34 px et couvrait presque tout
+       le buste.
+
+       La hauteur de zone est donc le bon plafond. Ce n'est pas un oubli : le
+       rapport 3:1 qu'elle produit correspond à ce qu'un flocage de poitrine
+       doit rester — un texte large et discret, pas un visuel dorsal. */
+
     /* VUE DE FACE UNIQUEMENT. Le dos garde sa zone d'origine (17 %, soit les
        30 cm de la contrainte atelier « L30 max ») : un visuel dorsal occupe
        légitimement toute la largeur imprimable, ce n'est pas un flocage de nom. */
@@ -6518,6 +6580,7 @@
       var z = (typeof LOGO_ZONES !== 'undefined') ? LOGO_ZONES[zone] : null;
       if (!z) return null;
       var hh = z.height * TEXT_ZONE_RATIO;
+
 
       /* La zone sert à DEUX choses dans clampTextToZone() : plafonner la
          TAILLE du texte, mais aussi borner sa POSITION (:143-148). Rétrécir la
