@@ -110,9 +110,12 @@
 
       C'est une generation abandonnee : le vrai conteneur est `.conf-app-root`,
       defini dans conf-styles.css, et les deux feuilles n'ont AUCUNE classe en
-      commun (47 contre 256). Les seules occurrences de ces classes vivent dans
-      des snippets jamais rendus (snippets/conf-recap.liquid,
-      snippets/conf-stepper.liquid).
+      commun (47 contre 256). Les seules occurrences de ces classes vivaient
+      dans des snippets jamais rendus, depuis supprimes (conf-recap.liquid,
+      conf-stepper.liquid, conf-color-picker.liquid, conf-size-selector.liquid,
+      conf-upload-zone.liquid, simple-group-modal.liquid) : ils decrivaient
+      l'interface anterieure a sidebar-modern, et leur lecture induisait en
+      erreur.
 
       C'etait la PREMIERE requete CSS de la page, en tete de cascade, pour
       10,7 Ko telecharges et parses sans qu'une seule regle ne s'applique.

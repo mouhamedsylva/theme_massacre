@@ -2839,7 +2839,36 @@
        La casse est ignorée : les libellés viennent de sources hétérogènes
        (métadonnées produit, CSV importé). */
     function valOption(v) {
-      return String(v == null ? '' : v).replace(/^.*:\s*/, '').trim().toLowerCase();
+      var s = String(v == null ? '' : v).trim();
+
+      /* DESCRIPTION COMPLÈTE : on la garde ENTIÈRE.
+
+         Les non-textiles rangent toute leur description dans ce champ (:3125) :
+           « Type : Recto verso · Couleur : Rouge · … · Finition : 2 anneaux »
+
+         Le dépouillement ci-dessous est GLOUTON — `.*` consomme jusqu'au
+         DERNIER deux-points. Il renvoyait donc « 2 anneaux » pour un drapeau
+         rouge comme pour un bleu : les deux avaient la même clé de fusion, et
+         le second ÉCRASAIT le premier. Le client croyait commander deux
+         drapeaux, il en payait un seul, sans le moindre signal.
+
+         Coins et patchs y échappaient par hasard : leur champ discriminant
+         — Type, Finition — se trouve être le dernier de la liste. Un champ
+         ajouté après lui aurait cassé leur fusion à son tour.
+
+         Une description à plusieurs champs est déjà normalisée : elle vient du
+         récapitulatif, jamais d'une saisie libre. La comparer telle quelle
+         distingue donc TOUTE différence — couleur, taille, finition — pour les
+         trois familles, sans dépendre de l'ordre des champs.
+
+         Le séparateur « · » signe ce format : il ne peut pas apparaître dans un
+         simple libellé de couleur ou de taille. */
+      if (s.indexOf('·') !== -1) return s.toLowerCase();
+
+      /* Libellé SIMPLE — « Couleur : Black » ou « Black ». Un seul préfixe à
+         retirer, et le dépouillement est ici sans danger : sans séparateur, il
+         n'y a qu'un deux-points. */
+      return s.replace(/^[^:·]*:\s*/, '').trim().toLowerCase();
     }
 
     function pushToCart(item, btnEl, replaceQty) {
