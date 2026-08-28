@@ -86,6 +86,33 @@
        RECHARGÉE (badge vert) : on corrige une taille sans tout ressaisir.
        On repart de zéro, le tableau pouvant garder des lignes abandonnées. */
     function openGroupOrder() {
+      /* PLUS DE MODALE — on bascule sur l'étape « Configurer » du parcours.
+
+         Le tableau vit désormais dans le canvas : une fenêtre par-dessus
+         ferait un cadre dans un cadre, et le déplacer entre les deux
+         emplacements à chaque ouverture était fragile — les écouteurs suivent
+         l'élément, les mesures en cours l'ignorent.
+
+         Cette fonction reste le POINT D'ENTRÉE UNIQUE : elle est appelée
+         depuis la barre latérale (conf-sidebar-modern.js:751), le panneau
+         texte (:667) et un bouton du markup. Les rediriger un par un les
+         aurait fait diverger ; on redirige ici, une fois.
+
+         Le mode groupe est activé au passage : demander la liste des surnoms
+         EST le mode groupe, même si le client n'est pas passé par l'écran de
+         choix. */
+      var root = document.querySelector('.conf-app-root');
+      if (root && typeof allerEtapeGroupe === 'function') {
+        if (root.getAttribute('data-mode') !== 'groupe') {
+          try { sessionStorage.setItem(MODE_KEY, 'groupe'); } catch (e) {}
+          window.__modePerso = 'groupe';
+          root.setAttribute('data-mode', 'groupe');
+          root.removeAttribute('data-etape');
+        }
+        allerEtapeGroupe('configurer');
+        return;
+      }
+
       var ov = document.getElementById('grp-overlay');
       if (!ov) return;
       var tbody = document.getElementById('grp-rows');
@@ -2251,6 +2278,18 @@
         if (ptImg) rcProdImg.src = ptImg.src;
       }
 
+      /* VIGNETTES DE L'ÉCRAN DE CHOIX — elles suivent le produit sélectionné.
+
+         Le client choisit son support AVANT le mode : les deux cartes doivent
+         montrer ce qu'il vient de sélectionner, pas un t-shirt figé.
+
+         Greffé ici plutôt que dans un observateur : c'est déjà le point qui
+         propage le produit courant aux autres vignettes de l'interface. */
+      if (typeof window.majVignettesMode === 'function') {
+        var ptImgMode = el.querySelector('.pt-img, .product-card-icon img');
+        if (ptImgMode) window.majVignettesMode(ptImgMode.src);
+      }
+
       const rcProd = document.getElementById('rc-prod');
       if (rcProd) {
         const ptLabel = el.querySelector('.product-card-name') ||
@@ -3629,6 +3668,10 @@
         sessionStorage.removeItem('conf_flag_color');      // couleur de fond drapeau
         sessionStorage.removeItem('conf_flag_color_name');
         sessionStorage.removeItem('conf_active_panel');    // onglet ouvert du sidebar
+        /* Mode de personnalisation : « Réinitialiser » doit ramener au tout
+           début du parcours, donc à l'écran de choix. Le conserver aurait
+           laissé le client dans un mode qu'il vient pourtant d'effacer. */
+        sessionStorage.removeItem('conf_mode_perso');
         sessionStorage.removeItem('conf_group_rows');      // liste de noms validée
         /* Option manches (payante, +4 €/manche) : elle échappait au reset et
            restait donc active sur un design pourtant vidé — le surcoût
@@ -6899,3 +6942,283 @@
       updateProductImages();
     });
 
+
+    /* ══════════════════════════════════════════════════════════════════════
+       ÉCRAN DE CHOIX DU MODE — première étape du parcours
+       ══════════════════════════════════════════════════════════════════════ */
+
+    var MODE_KEY = 'conf_mode_perso';
+
+    /**
+     * Quitte l'écran de choix et révèle le configurateur.
+     *
+     * @param {string} mode - 'individuelle' ou 'groupe'
+     */
+    function choisirMode(mode) {
+      var root = document.querySelector('.conf-app-root');
+      if (!root) return;
+
+      try { sessionStorage.setItem(MODE_KEY, mode); } catch (e) {}
+      window.__modePerso = mode;
+
+      root.removeAttribute('data-etape');
+
+      /* MODE GROUPE : le parcours en quatre étapes s'active.
+
+         `data-mode` révèle le stepper et la barre d'action (conf-styles.css).
+         Le mode libre ne le porte pas : son parcours reste direct, sans cadre
+         supplémentaire — c'est la promesse de son nom. */
+      root.setAttribute('data-mode', mode);
+      if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
+        allerEtapeGroupe('designer');
+      }
+
+      /* RECALAGE OBLIGATOIRE après la révélation.
+
+         Les zones et le calque sont dimensionnés à partir de mesures prises à
+         l'écran. Tant que le canvas était masqué, ces mesures valaient ZÉRO :
+         les rectangles seraient posés de travers et le calque des logos calé
+         sur une boîte inexistante.
+
+         On rejoue donc le calcul, exactement comme le fait le retour depuis une
+         largeur mobile (conf-mobile.js). Différé d'un tour de boucle : la mise
+         en page doit d'abord être calculée par le navigateur.
+
+         `syncLayerToImage` est propre au mobile — d'où la garde. */
+      var recaler = function () {
+        if (typeof window.applyZonesForProduct === 'function' &&
+            typeof window.currentProductType === 'string') {
+          window.applyZonesForProduct(window.currentProductType);
+        }
+        if (typeof window.syncLayerToImage === 'function') window.syncLayerToImage();
+        if (typeof window.refreshZoneGuides === 'function') window.refreshZoneGuides();
+      };
+
+      /* DEUX rendus d'attente, et non un report immédiat.
+
+         Le premier laisse le navigateur appliquer la révélation ; le second
+         lui laisse CALCULER la mise en page qui en découle. Un seul tour de
+         boucle mesurait un canvas révélé mais pas encore dessiné : les zones
+         étaient posées sur des dimensions intermédiaires, d'où un rectangle
+         plus étroit et plus bas que la zone réelle. */
+      requestAnimationFrame(function () {
+        requestAnimationFrame(recaler);
+      });
+
+      /* ET APRÈS LE CHARGEMENT DE L'IMAGE.
+
+         Les zones sont exprimées en % de l'image du vêtement. Tant qu'elle
+         n'est pas décodée, sa boîte est vide : le calcul ci-dessus porterait
+         alors sur du vide. L'événement arrive toujours ; s'il est déjà passé —
+         image en cache — la mesure précédente suffit.
+
+         Les trois vues sont écoutées : le client peut avoir quitté l'écran de
+         choix sur le dos ou le côté. */
+      ['view-face', 'view-dos', 'view-cote'].forEach(function (id) {
+        var im = document.getElementById(id);
+        if (im && !(im.complete && im.naturalWidth > 0)) {
+          im.addEventListener('load', recaler, { once: true });
+        }
+      });
+    }
+    window.choisirMode = choisirMode;   // appelée depuis un onclick inline
+
+    /* Un mode déjà retenu dans la session : on passe l'écran de choix.
+
+       Sans cela, un rechargement — ou un retour depuis le récapitulatif —
+       ramènerait le client au début alors qu'il a déjà commencé son design. */
+    document.addEventListener('DOMContentLoaded', function () {
+      var mode = null;
+      try { mode = sessionStorage.getItem(MODE_KEY); } catch (e) {}
+      if (mode) choisirMode(mode);
+    });
+
+    /**
+     * Reflète le produit sélectionné dans les vignettes de l'écran de choix.
+     *
+     * Les deux cartes portent une image d'illustration — un t-shirt logoté,
+     * un t-shirt floqué. Elles montrent le RÉSULTAT de chaque mode, ce qu'une
+     * icône de produit ne saurait faire.
+     *
+     * On ne remplace donc que la SOURCE, en gardant l'illustration d'origine
+     * en repli : si le client choisit un sweatshirt, il voit un sweatshirt.
+     *
+     * @param {string} src - image du produit courant
+     */
+    function majVignettesMode(src) {
+      if (!src) return;
+      var imgs = document.querySelectorAll('.mode-card-visuel img');
+      for (var i = 0; i < imgs.length; i++) {
+        /* L'illustration d'origine est mémorisée au premier passage : sans
+           elle, revenir en arrière laisserait la vignette sur le dernier
+           produit consulté, sans moyen de retrouver le visuel de départ. */
+        if (!imgs[i].dataset.srcOrigine) imgs[i].dataset.srcOrigine = imgs[i].src;
+        imgs[i].src = src;
+      }
+    }
+    window.majVignettesMode = majVignettesMode;
+
+    /**
+     * Revient à l'écran de choix du mode.
+     *
+     * Le design en cours n'est PAS effacé : le client peut se tromper de mode
+     * après avoir commencé, et perdre son travail pour cela serait brutal.
+     * Seul l'affichage change ; `conf_uploads` et `conf_texts` restent
+     * intacts, et le mode retenu ensuite les retrouve.
+     */
+    function retourChoixMode() {
+      var root = document.querySelector('.conf-app-root');
+      if (!root) return;
+      try { sessionStorage.removeItem(MODE_KEY); } catch (e) {}
+      window.__modePerso = null;
+      root.setAttribute('data-etape', 'choix');
+      /* Le stepper et la barre d'action repartent avec le mode : les laisser
+         afficherait un parcours groupe par-dessus l'écran de choix. */
+      root.removeAttribute('data-mode');
+      root.removeAttribute('data-etape-groupe');
+    }
+    window.retourChoixMode = retourChoixMode;
+
+    /* ══════════════════════════════════════════════════════════════════════
+       PARCOURS GROUPE — quatre étapes
+
+       ORDRE : designer → configurer → prévisualiser → valider.
+
+       Designer AVANT configurer, à l'inverse de la maquette : le client
+       compose son design commun, PUIS liste les personnes qui le porteront.
+       Saisir des noms avant de savoir à quoi ressemblera le vêtement
+       demanderait de se projeter dans le vide.
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /* TROIS ÉTAPES, et non quatre.
+
+       « Prévisualiser » et « Valider » ont été fusionnées : elles
+       appartiennent au même moment du parcours — le client vérifie, puis
+       confirme. Les séparer aurait donné un quatrième écran portant un seul
+       bouton, que le récapitulatif offre déjà.
+
+       Une étape de plus n'ajoute pas de la clarté ; elle ajoute un clic. */
+    var ETAPES_GROUPE = ['designer', 'configurer', 'valider'];
+
+    /* Libellé et information de la barre d'action, par étape. Le bouton dit ce
+       qu'il FAIT, jamais « Suivant » : le client doit savoir où il va. */
+    var LIBELLES_ETAPE = {
+      designer:   { btn: 'Continuer vers la configuration', info: 'Composez le design commun à toute l\'équipe.' },
+      configurer: { btn: 'Continuer vers l\'aperçu',         info: '' },
+      valider:    { btn: 'Ajouter la commande au panier',    info: 'Vérifiez votre commande avant de l\'ajouter au panier.' }
+    };
+
+    var etapeGroupeCourante = 'designer';
+
+    /**
+     * Affiche une étape du parcours groupe.
+     * @param {string} etape - clé de ETAPES_GROUPE
+     */
+    function allerEtapeGroupe(etape) {
+      var idx = ETAPES_GROUPE.indexOf(etape);
+      if (idx === -1) return;
+
+      var root = document.querySelector('.conf-app-root');
+      if (!root || root.getAttribute('data-mode') !== 'groupe') return;
+
+      etapeGroupeCourante = etape;
+      root.setAttribute('data-etape-groupe', etape);
+
+      /* État visuel du stepper : franchie, courante, ou à venir.
+
+         Les étapes À VENIR sont désactivées — on ne saute pas en avant sans
+         avoir renseigné ce qui précède. Les étapes FRANCHIES restent
+         cliquables : revenir corriger son design est légitime. */
+      var boutons = document.querySelectorAll('.grp-step');
+      for (var i = 0; i < boutons.length; i++) {
+        var b = boutons[i];
+        var bIdx = ETAPES_GROUPE.indexOf(b.getAttribute('data-step'));
+        b.classList.toggle('is-current', bIdx === idx);
+        b.classList.toggle('is-done', bIdx < idx);
+        b.disabled = bIdx > idx;
+      }
+
+      var lib = LIBELLES_ETAPE[etape] || {};
+      var btn = document.getElementById('grp-actions-btn');
+      var info = document.getElementById('grp-actions-info');
+      if (btn) btn.childNodes[0].nodeValue = (lib.btn || 'Continuer') + ' ';
+
+      /* À l'étape « configurer », l'information est le NOMBRE DE PERSONNES —
+         le seul chiffre qui compte à ce moment, et celui que le client vérifie
+         avant de continuer. Le texte fixe des autres étapes ne dirait rien
+         d'utile ici. */
+      if (info) {
+        if (etape === 'configurer') {
+          var n = (groupOrderRows && groupOrderRows.length) ||
+                  document.querySelectorAll('#grp-rows tr').length;
+          info.textContent = n + (n > 1 ? ' personnes ajoutées' : ' personne ajoutée');
+        } else {
+          info.textContent = lib.info || '';
+        }
+      }
+
+      /* CONFIGURER — la liste des personnes remplace le produit, DANS le
+         canvas. Plus de modale : le parcours est déjà cadré par le stepper,
+         une fenêtre par-dessus ferait un cadre dans un cadre. */
+      if (etape === 'configurer') deplacerTableauGroupe(true);
+      else deplacerTableauGroupe(false);
+    }
+    window.allerEtapeGroupe = allerEtapeGroupe;
+
+    /** Avance d'une étape. Appelée par le bouton de la barre d'action. */
+    function etapeGroupeSuivante() {
+      var idx = ETAPES_GROUPE.indexOf(etapeGroupeCourante);
+      if (idx === -1 || idx >= ETAPES_GROUPE.length - 1) return;
+      allerEtapeGroupe(ETAPES_GROUPE[idx + 1]);
+    }
+    window.etapeGroupeSuivante = etapeGroupeSuivante;
+
+    /**
+     * Déplace le corps de la liste de groupe entre la modale et le canvas.
+     *
+     * DÉPLACER, et non dupliquer : le tableau, l'import CSV et les totaux
+     * existent déjà et sont éprouvés. Une seconde copie divergerait de la
+     * première au premier ajustement — et surtout, les deux porteraient les
+     * mêmes identifiants (`#grp-rows`, `#grp-file`), que `getElementById`
+     * résoudrait alors au hasard de l'ordre du DOM.
+     *
+     * @param {boolean} versCanvas - true pour l'étape « configurer »
+     */
+    function deplacerTableauGroupe(versCanvas) {
+      var corps = document.querySelector('.grp-body');
+      var hote = document.getElementById('grp-inline-hote');
+      if (!corps || !hote) return;
+
+      if (versCanvas) {
+        /* Déplacement DÉFINITIF, à la première entrée dans l'étape : le
+           tableau ne repart jamais dans la modale, qui n'est plus ouverte par
+           personne (openGroupOrder redirige ici). Un aller-retour à chaque
+           changement d'étape déplaçait un élément vivant — ses écouteurs le
+           suivent, mais une mesure en cours l'ignore. */
+        if (corps.parentElement !== hote) hote.appendChild(corps);
+
+        /* Peuplement, repris de openGroupOrder : sans lui, le client arrive
+           sur un tableau vide alors qu'il a peut-être déjà saisi sa liste.
+
+           `deferTotals` : le total est calculé une fois après la boucle, pas à
+           chaque ligne — une liste de 200 personnes se rouvrait sinon avec un
+           temps d'attente visible. */
+        var tbody = document.getElementById('grp-rows');
+        if (tbody) {
+          if (groupOrderRows && groupOrderRows.length) {
+            tbody.innerHTML = '';
+            groupOrderRows.forEach(function (r) { grpAddRow(r, true); });
+          } else if (!tbody.children.length) {
+            grpAddRow(); grpAddRow();      // deux lignes pour démarrer
+          }
+        }
+        if (typeof grpUpdateTotals === 'function') grpUpdateTotals();
+        if (typeof window.grpRefreshTextZonePicker === 'function') {
+          window.grpRefreshTextZonePicker();
+        }
+        if (typeof grpRefreshCurveWarning === 'function') grpRefreshCurveWarning();
+      }
+      /* Pas de branche « retour » : le tableau reste dans le canvas. Le CSS
+         le masque hors de l'étape (`.grp-inline`), ce qui suffit — et évite un
+         second déplacement à chaque navigation. */
+    }

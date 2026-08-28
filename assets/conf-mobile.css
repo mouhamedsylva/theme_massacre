@@ -1998,4 +1998,98 @@
      5×44 + 4×gap. À 320px le panneau est pleine largeur, donc ça tient — mais
      on borne la pastille pour absorber un padding plus large sans déborder. */
   .color-swatch { width: 40px; height: 40px; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     ÉCRAN DE CHOIX DU MODE — cartes empilées
+
+     Côte à côte sur un téléphone, chaque carte ferait moins de 170 px : le
+     titre passerait sur trois lignes et la description deviendrait illisible.
+     Une colonne unique laisse à chacune toute la largeur.
+     ══════════════════════════════════════════════════════════════════════ */
+  .mode-cards { grid-template-columns: 1fr; gap: 26px; }
+
+  .mode-choice { padding: 24px 16px; }
+  .mode-choice-title { font-size: 20px; }
+  .mode-choice-sub { margin-bottom: 24px; font-size: 13px; }
+
+  .mode-card { padding: 26px 18px 20px; }
+  /* Vignette plus basse : à 150px, les deux cartes empilées repoussaient les
+     boutons hors de l'écran sur un petit téléphone. */
+  .mode-card-visuel img { height: 120px; }
+  /* Le survol n'existe pas au doigt : on retire le décalage, qui ne se
+     déclencherait qu'au moment du toucher — un mouvement parasite. */
+  .mode-card:hover { transform: none; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PARCOURS GROUPE — stepper et barre d'action sur petit écran
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Les LIBELLÉS disparaissent, les NUMÉROS restent : « Prévisualiser » et
+     « Configurer » côte à côte ne tiennent pas sur 375 px, et les tronquer
+     rendrait les deux illisibles. Le libellé de l'étape COURANTE est conservé
+     — c'est le seul qui renseigne sur l'instant présent. */
+  /* Le retour repasse AU-DESSUS du stepper : réservé à droite, il ne laissait
+     plus la place aux quatre étapes sur 375 px. */
+  [data-mode="groupe"] .grp-steps {
+    padding: 0 0 8px;
+    gap: 4px;
+  }
+  [data-mode="groupe"] .cv-retour-mode { position: static; margin-bottom: 4px; }
+
+  /* Étape « configurer » : marges réduites, le tableau a besoin de la largeur.
+     Les lignes y sont déjà des cartes empilées (voir plus haut). */
+  [data-etape-groupe="configurer"] .grp-inline { padding: 16px 12px; }
+  .grp-inline-title { font-size: 18px; }
+  .grp-inline-sub { margin-bottom: 14px; font-size: 13px; }
+  .grp-step { padding: 4px 6px; gap: 6px; }
+  .grp-step .grp-step-lbl { display: none; }
+  .grp-step.is-current .grp-step-lbl { display: inline; font-size: 11px; }
+  .grp-step-num { width: 24px; height: 24px; }   /* cible tactile */
+  .grp-step-sep { min-width: 6px; }
+
+  /* La barre d'action passe en pleine largeur : un bouton d'étape est
+     l'action principale de l'écran, il ne doit pas partager sa ligne. */
+  /* Flottante ici aussi — même raison : la hauteur rendue au produit compte
+     davantage sur un écran de téléphone. Marges réduites, et l'information
+     passe sur la même ligne que le bouton faute de place verticale. */
+  [data-mode="groupe"] .grp-actions {
+    left: 10px; right: 10px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    padding: 8px 10px;
+    gap: 10px;
+  }
+  [data-etape-groupe="configurer"] .grp-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  }
+  /* L'information disparaît de la barre FLOTTANTE : sur 375 px, elle réduisait
+     le bouton à un libellé tronqué. Elle reste à l'étape « configurer », où
+     elle porte le nombre de personnes — le seul chiffre que le client vérifie
+     avant de continuer. */
+  [data-mode="groupe"] .grp-actions-info { display: none; }
+  [data-etape-groupe="configurer"] .grp-actions-info {
+    display: block;
+    font-size: 12px;
+    text-align: center;
+  }
+  .grp-actions-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 13px;
+    padding: 12px 16px;
+  }
+  /* Descriptions de longueurs différentes : sans hauteur imposée, la carte
+     s'ajuste à son texte — l'alignement des boutons n'a plus de sens une fois
+     les cartes empilées. */
+  .mode-card-desc { flex: 0 0 auto; margin-bottom: 18px; }
+
+  /* La barre du bas remplace la barre latérale : on y grise les mêmes onglets,
+     pour la même raison — ils n'ont pas de sens avant le choix du mode. */
+  [data-etape="choix"] .icon-nav-item[data-panel="panel-upload"],
+  [data-etape="choix"] .icon-nav-item[data-panel="panel-text"] {
+    opacity: .38;
+    pointer-events: none;
+  }
 }

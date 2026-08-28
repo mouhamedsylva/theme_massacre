@@ -8,7 +8,13 @@
   dans un <div class="shopify-section">, et un <div> avant le doctype fait
   basculer le navigateur en mode quirks — la page devient blanche.
 {%- endcomment -%}
-  <div class="conf-app-root">
+  {%- comment -%}
+    `data-etape="choix"` est posé DÈS LE RENDU SERVEUR, et non par JavaScript :
+    l'interface complète apparaîtrait sinon une fraction de seconde avant d'être
+    masquée. Le script la révèle ensuite si un mode a déjà été retenu dans la
+    session (voir choisirMode / restaurerMode).
+  {%- endcomment -%}
+  <div class="conf-app-root" data-etape="choix">
 
   <!-- ══ HEADER ══ -->
   <header class="hdr">
@@ -555,6 +561,123 @@
 
     <!-- ══ CANVAS ══ -->
     <main class="canvas">
+      {%- comment -%}
+        PARCOURS GROUPE — quatre étapes.
+
+        Visible uniquement en mode groupe (`data-mode="groupe"` sur
+        .conf-app-root) : le mode libre garde le parcours direct d'aujourd'hui,
+        sans cadre supplémentaire.
+
+        ORDRE VALIDÉ — designer AVANT configurer, à l'inverse de la maquette :
+        le client compose d'abord son design commun, puis liste les personnes
+        qui le porteront. Saisir des noms avant de savoir à quoi ressemblera le
+        vêtement demanderait de se projeter dans le vide.
+
+        Le libellé de l'étape 1 dit donc « Designer » et non « Configurer » —
+        les numéros suivent l'ordre réel du parcours, jamais celui du dessin.
+      {%- endcomment -%}
+      <nav class="grp-steps" id="grp-steps" aria-label="Étapes de la commande groupe">
+        <button type="button" class="grp-step is-current" data-step="designer"
+                onclick="allerEtapeGroupe('designer')">
+          <span class="grp-step-num">1</span>
+          <span class="grp-step-lbl">Designer</span>
+        </button>
+        <span class="grp-step-sep" aria-hidden="true"></span>
+        <button type="button" class="grp-step" data-step="configurer"
+                onclick="allerEtapeGroupe('configurer')">
+          <span class="grp-step-num">2</span>
+          <span class="grp-step-lbl">Configurer</span>
+        </button>
+        <span class="grp-step-sep" aria-hidden="true"></span>
+        {%- comment -%}
+          TROIS étapes : « Prévisualiser » et « Valider » ont été fusionnées.
+          Elles appartiennent au même moment — vérifier puis confirmer — et les
+          séparer donnait un écran portant un seul bouton, que le
+          récapitulatif offre déjà.
+        {%- endcomment -%}
+        <button type="button" class="grp-step" data-step="valider"
+                onclick="allerEtapeGroupe('valider')">
+          <span class="grp-step-num">3</span>
+          <span class="grp-step-lbl">Vérifier</span>
+        </button>
+
+        {%- comment -%}
+          RETOUR AUX MODES — sur la ligne du stepper, à droite.
+
+          Au-dessus du titre, il occupait une ligne entière prise sur la
+          hauteur du produit. Sa place est d'ailleurs plus juste ici : c'est un
+          pas en arrière dans le parcours, au même titre que les étapes
+          voisines.
+
+          Le design en cours est CONSERVÉ (voir retourChoixMode).
+        {%- endcomment -%}
+        <button type="button" class="cv-retour-mode" onclick="retourChoixMode()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 18 9 12l6-6"/>
+          </svg>
+          Changer de mode
+        </button>
+      </nav>
+
+      {%- comment -%}
+        ÉCRAN DE CHOIX DU MODE — première étape du parcours.
+
+        Il occupe le canvas AVANT que le produit ne soit présenté. Le reste de
+        l'interface — en-tête, aperçu, récapitulatif — est masqué par
+        `[data-etape="choix"]` sur .conf-app-root (conf-styles.css), et non
+        retiré du DOM : les scripts continuent de trouver les éléments qu'ils
+        cherchent, et rien de l'existant ne peut se casser.
+
+        La barre latérale RESTE visible, « Type de Produit » actif : le client
+        peut choisir son support avant même de décider du mode. Upload et Texte
+        y sont grisés — ils n'ont pas de sens tant que le mode n'est pas retenu.
+      {%- endcomment -%}
+      <div class="mode-choice" id="mode-choice">
+        <div class="mode-choice-inner">
+          <h2 class="mode-choice-title">Comment souhaitez-vous personnaliser votre commande ?</h2>
+          <p class="mode-choice-sub">Choisissez le mode qui correspond le mieux à vos besoins.</p>
+
+          <div class="mode-cards">
+            <!-- LIBRE -->
+            <div class="mode-card">
+              {%- comment -%}
+                La vignette MONTRE le résultat : un logo posé sur la poitrine.
+                Une image du produit fini dit en un regard ce qu'aucune
+                description ne rend aussi vite.
+
+                `loading="eager"` : ces deux images sont le contenu principal de
+                l'écran, visibles d'emblée. Les différer les ferait apparaître
+                après coup, au moment même du choix.
+              {%- endcomment -%}
+              <div class="mode-card-visuel">
+                <img src="{{ 'mode-libre.png' | asset_url }}" alt="T-shirt avec un logo sur la poitrine"
+                     loading="eager" width="600" height="440">
+              </div>
+              <h3 class="mode-card-title">Personnalisation libre</h3>
+              <p class="mode-card-desc">Personnalisez vos articles, ajoutez design sur la face et votre design au dos.</p>
+              <button type="button" class="mode-card-btn" onclick="choisirMode('individuelle')">
+                Sélectionner
+              </button>
+            </div>
+
+            <!-- GROUPE -->
+            <div class="mode-card is-featured">
+              <span class="mode-card-badge">Populaire</span>
+              <div class="mode-card-visuel">
+                <img src="{{ 'mode-groupe.png' | asset_url }}" alt="T-shirt avec un surnom floqué sur la poitrine"
+                     loading="eager" width="600" height="440">
+              </div>
+              <h3 class="mode-card-title">Personnalisation groupe avec surnoms</h3>
+              <p class="mode-card-desc">Gérez facilement une commande d'équipe. Ajoutez vos surnoms côté face sur chaque article et votre design de groupe au dos.</p>
+              <button type="button" class="mode-card-btn is-primary" onclick="choisirMode('groupe')">
+                Sélectionner
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="cv-hdr">
         <h2 class="cv-title">Personnalisez votre article</h2>
         <p class="cv-sub">Visualisez votre design en temps réel</p>
@@ -803,6 +926,43 @@
         </div><!-- /cv-canvas-row -->
 
       </div><!-- /cv-wrap -->
+
+      {%- comment -%}
+        ÉTAPE « CONFIGURER » — la liste des personnes, DANS le canvas.
+
+        Ce conteneur est vide au chargement : le corps de la modale de groupe
+        y est DÉPLACÉ à l'entrée dans l'étape, puis remis en place à la sortie
+        (voir allerEtapeGroupe).
+
+        Déplacer plutôt que dupliquer : le tableau, l'import CSV et les totaux
+        existent déjà et sont éprouvés. Une seconde copie divergerait de la
+        première au premier ajustement — et les deux liraient le même
+        `groupOrderRows`, avec des identifiants en double dans le DOM.
+      {%- endcomment -%}
+      <div class="grp-inline" id="grp-inline">
+        <h2 class="grp-inline-title">Configurez votre groupe</h2>
+        <p class="grp-inline-sub">Ajoutez chaque personne et définissez sa couleur et sa taille.</p>
+        <div class="grp-inline-hote" id="grp-inline-hote"></div>
+      </div>
+
+      {%- comment -%}
+        BARRE D'ACTION DU PARCOURS GROUPE — pied d'écran.
+
+        Visible en mode groupe seulement, comme le stepper. Le libellé et le
+        compteur sont réécrits par allerEtapeGroupe() selon l'étape : ils
+        dépendent de l'avancement, pas du markup.
+      {%- endcomment -%}
+      <div class="grp-actions" id="grp-actions">
+        <span class="grp-actions-info" id="grp-actions-info"></span>
+        <button type="button" class="grp-actions-btn" id="grp-actions-btn"
+                onclick="etapeGroupeSuivante()">
+          Continuer vers la configuration
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+      </div>
     </main>
 
   </div><!-- /app -->

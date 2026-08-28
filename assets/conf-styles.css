@@ -2059,3 +2059,437 @@
 .txt-custom-label span {
   font-weight: 500;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ÉCRAN DE CHOIX DU MODE — première étape du parcours
+
+   Le client choisit entre personnalisation individuelle et groupe avant que
+   le produit ne lui soit présenté.
+
+   MASQUAGE PAR ÉTAT, sans retirer d'élément du DOM : les scripts continuent
+   de trouver `.recap`, `#logo-layer` et les zones. Rien de l'existant ne peut
+   se casser — c'est ce qui rend ce changement sûr sur un configurateur en
+   production.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Masqué par défaut : révélé uniquement à l'étape « choix ». */
+.mode-choice { display: none; }
+
+[data-etape="choix"] .mode-choice { display: flex; }
+
+/* Les trois zones entourées sur la maquette. */
+[data-etape="choix"] .cv-hdr,
+[data-etape="choix"] .cv-wrap,
+[data-etape="choix"] .recap { display: none; }
+
+/* La barre latérale RESTE visible : le client peut choisir son support avant
+   de décider du mode. Mais Upload et Texte n'ont pas de sens à ce stade — ils
+   sont grisés et inertes.
+
+   `pointer-events: none` en plus de l'opacité : un onglet seulement pâli
+   resterait cliquable, et ouvrirait un panneau hors sujet. */
+[data-etape="choix"] .icon-nav-item[data-panel="panel-upload"],
+[data-etape="choix"] .icon-nav-item[data-panel="panel-text"] {
+  opacity: .38;
+  pointer-events: none;
+}
+
+.mode-choice {
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  padding: 32px 24px;
+  /* Même fond de scène que l'aperçu produit (`.cv-wrap`, :847) : l'écran de
+     choix appartient au même espace, il ne doit pas trancher en blanc. */
+  background: var(--stage);
+  border-radius: 14px;
+  overflow-y: auto;
+}
+.mode-choice-inner { width: 100%; max-width: 780px; text-align: center; }
+
+.mode-choice-title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--black);
+  line-height: 1.25;
+}
+.mode-choice-sub {
+  margin: 0 0 32px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 24px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  text-align: center;
+}
+/* CADRE BLEU AU SURVOL SEULEMENT.
+
+   Il était permanent sur la carte « groupe » : les deux choix paraissaient
+   alors inégaux, alors que le mode libre est tout aussi légitime. Réservé au
+   survol, il devient un retour au geste plutôt qu'une recommandation.
+
+   `border` de 2px dès l'état normal — en transparent : passer de 1 à 2px au
+   survol décalerait le contenu d'un pixel. */
+.mode-card {
+  border-width: 2px;
+  border-color: transparent;
+  box-shadow: 0 0 0 1px var(--border);
+  transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+}
+/* ORANGE, comme les cartes produit de la barre latérale
+   (conf-sidebar-modern.css:812-816) : mêmes teinte, ombre et décalage. Deux
+   sélections voisines dans le même écran ne doivent pas répondre par deux
+   couleurs différentes. */
+.mode-card:hover {
+  border-color: #c2410c;
+  box-shadow: 0 4px 12px rgba(194, 65, 12, .1);
+  transform: translateY(-2px);
+}
+
+/* VIGNETTE — le produit fini, plutôt qu'un pictogramme.
+
+   `contain` : ces images sont des photos de vêtement, aux proportions
+   propres. Les rogner couperait le motif, qui est précisément ce qu'elles
+   doivent montrer. */
+.mode-card-visuel {
+  width: 100%;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eceff1;
+}
+.mode-card-visuel img {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: contain;
+}
+
+.mode-card-badge {
+  position: absolute;
+  top: -11px; left: 50%; transform: translateX(-50%);
+  padding: 4px 12px;
+  background: #059669;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mode-card-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--black);
+}
+.mode-card-desc {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  /* Pousse le bouton en bas : les deux cartes ont des descriptions de
+     longueurs différentes, leurs boutons doivent rester alignés. */
+  flex: 1 1 auto;
+}
+
+.mode-card-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 20px;
+  background: #fff;
+  color: var(--black);
+  border: 1.5px solid var(--black);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.mode-card-btn:hover { background: var(--black); color: #fff; }
+
+/* Le bouton de la carte « groupe » ne se distingue plus par la couleur : le
+   cadre étant désormais réservé au survol, un bouton bleu permanent aurait
+   rétabli le déséquilibre qu'on vient de retirer.
+
+   La pastille « Populaire » suffit à signaler ce choix — elle informe sans
+   orienter la main. */
+.mode-card-btn.is-primary {
+  background: #fff;
+  border-color: var(--black);
+  color: var(--black);
+}
+.mode-card-btn.is-primary:hover { background: var(--black); color: #fff; }
+
+/* Retour à l'écran de choix — discret : c'est une porte de sortie, pas une
+   action attendue. Elle doit rester trouvable sans concurrencer le titre. */
+/* Remonté SUR LA LIGNE du stepper (à droite), et non au-dessus du titre : il
+   y occupait une ligne entière, prise sur la hauteur du produit. Sa place est
+   d'ailleurs plus juste ici — c'est un pas en arrière dans le parcours, au
+   même titre que les étapes voisines. */
+/* Le bouton de retour reste DANS le flux, en fin de ligne : réservé par un
+   `padding-right` fixe, il chevauchait la dernière étape dès que les libellés
+   s'allongeaient — une largeur devinée ne peut pas suivre le texte.
+
+   `margin-left: auto` le pousse à droite quelle que soit la place occupée par
+   les étapes, et `flex-shrink: 0` l'empêche d'être compressé. */
+[data-mode="groupe"] .cv-retour-mode {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.cv-retour-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 4px 8px 4px 4px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.cv-retour-mode:hover { color: #c2410c; background: rgba(194, 65, 12, .06); }
+.cv-retour-mode svg { width: 14px; height: 14px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PARCOURS GROUPE — stepper et barre d'action
+
+   Masqués par défaut : ils n'apparaissent qu'en mode groupe. Le mode libre
+   garde le parcours direct d'aujourd'hui, sans cadre supplémentaire.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grp-steps,
+.grp-actions { display: none; }
+
+/* MODE LIBRE : le stepper est masqué, mais le RETOUR doit rester — le client
+   peut s'être trompé de mode dans les deux sens. On révèle donc le conteneur
+   en n'y laissant que ce bouton. */
+[data-mode="libre"] .grp-steps,
+[data-mode="individuelle"] .grp-steps {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 0 6px;
+}
+[data-mode="libre"] .grp-step,
+[data-mode="libre"] .grp-step-sep,
+[data-mode="individuelle"] .grp-step,
+[data-mode="individuelle"] .grp-step-sep { display: none; }
+
+/* HAUTEUR CONTENUE — le canvas prend la place restante (`.cv-wrap { flex: 1 }`,
+   :846). Chaque pixel pris ici est un pixel de moins pour le vêtement : à
+   `14px` de marge haute et basse, le produit et ses zones rétrécissaient
+   visiblement par rapport au mode libre.
+
+   `border-top` retiré de la barre d'action : le fond gris du canvas la sépare
+   déjà du contenu, un trait n'ajoutait qu'une ligne de plus à l'écran. */
+/* Le stepper garde sa place dans le flux : il coiffe l'écran, et le
+   superposer au produit le rendrait moins lisible qu'une barre d'action —
+   quatre libellés sur un vêtement sombre, contre un seul bouton.
+
+   Sa hauteur est en revanche réduite au strict nécessaire. */
+[data-mode="groupe"] .grp-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 0 0 6px;
+}
+/* BARRE FLOTTANTE — posée SUR le canvas, hors du flux.
+
+   Dans le flux, elle retranchait sa hauteur à `.cv-wrap` (`flex: 1`) : le
+   vêtement du mode groupe était visiblement plus petit que celui du mode
+   libre, alors que rien ne le justifiait.
+
+   En `absolute`, elle ne prend plus de place : le produit retrouve la même
+   taille dans les deux modes. Le fond translucide et le flou la détachent du
+   vêtement sans le masquer.
+
+   `.canvas` porte déjà `position: relative` ? Non — on le pose plus bas, sans
+   quoi la barre se rattacherait au premier ancêtre positionné, hors du
+   canvas. */
+[data-mode="groupe"] .canvas { position: relative; }
+
+[data-mode="groupe"] .grp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: absolute;
+  left: 20px; right: 20px; bottom: 12px;
+  /* 12 : le canvas monte déjà jusqu'à 6 (calques, poignées —
+     conf-canvas-single.css:75, :206). En dessous, la barre serait recouverte
+     par un logo posé bas sur le vêtement. */
+  z-index: 12;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+}
+
+/* L'étape « Configurer » affiche un TABLEAU, pas un produit : la barre y
+   reprend sa place dans le flux, sinon elle recouvrirait les dernières
+   lignes de la liste. */
+[data-etape-groupe="configurer"] .grp-actions {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  padding: 8px 0 4px;
+}
+
+/* Chaque étape est un BOUTON : le client peut revenir sur une étape franchie.
+   Les étapes à venir sont désactivées par le script — on ne saute pas en
+   avant sans avoir renseigné ce qui précède. */
+.grp-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.grp-step:hover:not(:disabled) { background: rgba(0, 0, 0, .04); }
+.grp-step:disabled { cursor: default; opacity: .5; }
+
+.grp-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: #e8e8e8;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background .15s ease, color .15s ease;
+}
+
+/* ÉTAPE COURANTE — orange, comme toute sélection dans ce configurateur
+   (cartes produit, cartes de mode). */
+.grp-step.is-current { color: #c2410c; }
+.grp-step.is-current .grp-step-num { background: #c2410c; color: #fff; }
+
+/* ÉTAPE FRANCHIE — un ✓ remplace le numéro : le chiffre ne dit rien de plus
+   une fois l'étape passée, la coche dit qu'elle est faite. */
+.grp-step.is-done { color: var(--black); }
+.grp-step.is-done .grp-step-num {
+  background: #16a34a; color: #fff; font-size: 0;
+}
+.grp-step.is-done .grp-step-num::after { content: "✓"; font-size: 12px; }
+
+.grp-step-sep {
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 12px;
+  background: var(--border);
+}
+
+.grp-actions-info { font-size: 13px; color: var(--muted); }
+
+.grp-actions-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* 44px reste le plancher tactile : on gagne de la place sur la marge
+     verticale, jamais sur la cible. */
+  min-height: 44px;
+  padding: 10px 20px;
+  background: #c2410c;
+  border: none;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.grp-actions-btn:hover { background: #9a3412; }
+.grp-actions-btn:disabled { background: #d4d4d4; cursor: not-allowed; }
+.grp-actions-btn svg { width: 17px; height: 17px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ÉTAPE « CONFIGURER » — la liste REMPLACE le produit
+
+   Plus de modale : le parcours est déjà cadré par le stepper, une fenêtre
+   par-dessus ferait un cadre dans un cadre.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grp-inline { display: none; }
+
+[data-etape-groupe="configurer"] .grp-inline {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;                    /* autorise le défilement interne */
+  padding: 24px 28px;
+  background: var(--stage);
+  border-radius: 14px;
+  overflow-y: auto;
+}
+
+/* Le produit et son en-tête cèdent la place. `.cv-hdr` part avec : ses onglets
+   de vue et son sélecteur de couleur n'ont pas de sens devant un tableau. */
+[data-etape-groupe="configurer"] .cv-wrap,
+[data-etape-groupe="configurer"] .cv-hdr { display: none; }
+
+/* Le récapitulatif reste visible : le client suit son total pendant qu'il
+   remplit sa liste. */
+
+.grp-inline-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--black);
+}
+.grp-inline-sub {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Le corps déplacé perd les marges qu'il portait pour la modale : il occupe
+   ici toute la largeur du canvas. */
+.grp-inline .grp-body {
+  padding: 0;
+  overflow: visible;                /* c'est .grp-inline qui défile */
+}
