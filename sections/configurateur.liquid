@@ -94,6 +94,29 @@
         ">0</span>
       </button>
 
+      {%- comment -%}
+        CHANGER DE TYPE DE COMMANDE — dans l'en-tête, près de « Réinitialiser ».
+
+        Le libellé nomme ce que le client a réellement choisi — commander pour
+        lui ou pour une équipe. « Mode » relevait du vocabulaire interne : il
+        décrivait l'état du programme, pas la décision d'achat.
+
+        Il vivait au-dessus du stepper, où il concurrençait les étapes du
+        parcours et chevauchait la dernière dès que les libellés s'allongeaient.
+        Sa place est ici : c'est une action sur la SESSION, comme la
+        réinitialisation, pas une étape du parcours.
+
+        Même classe `obtn` que ses voisins — aucun style propre à maintenir.
+        Masqué hors mode groupe (voir conf-styles.css).
+      {%- endcomment -%}
+      <button type="button" class="obtn hdr-changer-mode" onclick="retourChoixMode()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18 9 12l6-6"/>
+        </svg>
+        Changer de type de commande
+      </button>
+
       <button type="button" class="obtn" onclick="confirmReset()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
         Réinitialiser
@@ -601,23 +624,6 @@
           <span class="grp-step-lbl">Vérifier</span>
         </button>
 
-        {%- comment -%}
-          RETOUR AUX MODES — sur la ligne du stepper, à droite.
-
-          Au-dessus du titre, il occupait une ligne entière prise sur la
-          hauteur du produit. Sa place est d'ailleurs plus juste ici : c'est un
-          pas en arrière dans le parcours, au même titre que les étapes
-          voisines.
-
-          Le design en cours est CONSERVÉ (voir retourChoixMode).
-        {%- endcomment -%}
-        <button type="button" class="cv-retour-mode" onclick="retourChoixMode()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M15 18 9 12l6-6"/>
-          </svg>
-          Changer de mode
-        </button>
       </nav>
 
       {%- comment -%}
@@ -662,8 +668,7 @@
             </div>
 
             <!-- GROUPE -->
-            <div class="mode-card is-featured">
-              <span class="mode-card-badge">Populaire</span>
+            <div class="mode-card">
               <div class="mode-card-visuel">
                 <img src="{{ 'mode-groupe.png' | asset_url }}" alt="T-shirt avec un surnom floqué sur la poitrine"
                      loading="eager" width="600" height="440">
@@ -770,7 +775,16 @@
             </div>
           </div>
 
-          <div class="cv-opt">
+          {%- comment -%}
+            La TAILLE a rejoint le bloc QUANTITÉ du récapitulatif : elle s'y
+            décide avec le nombre d'articles, ce qui en fait une seule opération.
+
+            Ce sélecteur reste dans le DOM, simplement MASQUÉ (`.cv-opt-taille`,
+            conf-styles.css) : `toggleCanvasOpt('size')` et la synchronisation du
+            libellé le visent toujours, et le retirer aurait cassé ces chemins
+            pour un gain nul.
+          {%- endcomment -%}
+          <div class="cv-opt cv-opt-taille">
             <button type="button" class="cv-opt-btn" id="cv-size-btn"
                     onclick="toggleCanvasOpt('size')"
                     aria-haspopup="true" aria-expanded="false">
@@ -946,6 +960,38 @@
       </div>
 
       {%- comment -%}
+        ÉTAPE 3 « VÉRIFIER » — une carte par personne.
+
+        Même patron que `.grp-inline` ci-dessus : un frère masqué par défaut,
+        révélé par `[data-etape-groupe="valider"]`. Le produit et son en-tête
+        cèdent la place, comme à l'étape « configurer ».
+
+        La grille est peuplée par grpRendreVerification() (conf-main-inline.js).
+        Les cartes reprennent le patron `.ov-stage` de la « Vue d'ensemble » :
+        les positions du texte y sont des FRACTIONS de l'image, seule géométrie
+        fidèle (cf. conf-group-preview.js:97-118).
+
+        Pagination à 12 : chaque carte exige une rasterisation du texte, et en
+        rendre trente-six d'un coup fige l'onglet près d'une seconde.
+      {%- endcomment -%}
+      <div class="grp-verif" id="grp-verif">
+        <div class="grp-verif-hdr">
+          <div>
+            <h2 class="grp-verif-title">Prévisualisation du groupe</h2>
+            <p class="grp-verif-sub">Vérifiez les designs pour chaque membre avant de valider.</p>
+          </div>
+          <div class="grp-verif-total">
+            <span class="grp-verif-total-lbl" id="grp-verif-count">Total</span>
+            <strong class="grp-verif-total-val" id="grp-verif-price"></strong>
+          </div>
+        </div>
+
+        <div class="grp-verif-grid" id="grp-verif-grid"></div>
+
+        <nav class="grp-verif-pages" id="grp-verif-pages" aria-label="Pages"></nav>
+      </div>
+
+      {%- comment -%}
         BARRE D'ACTION DU PARCOURS GROUPE — pied d'écran.
 
         Visible en mode groupe seulement, comme le stepper. Le libellé et le
@@ -1060,13 +1106,69 @@
       <div class="rp-section" id="rp-qty-textile">
         <div class="rp-qty-section">
           <div class="rp-qty-title">QUANTITÉ</div>
-          <div class="rp-qty-subtitle">Minimum de commande : 1 unité</div>
-          <div class="rp-qty-controls">
-            <button type="button" class="rp-qty-btn" onclick="changeTextileQty(-1)">−</button>
-            <input type="number" id="textile-qty-input" class="rp-qty-input"
-                   value="1" min="1" onchange="handleTextileQtyInput()">
-            <button type="button" class="rp-qty-btn" onclick="changeTextileQty(1)">+</button>
+
+          {%- comment -%}
+            TAILLE ET QUANTITÉ CÔTE À CÔTE.
+
+            La taille vivait en haut du canvas, près de la couleur. Elle rejoint
+            la quantité, car les deux se décident ensemble : « quatre M » est une
+            seule décision, pas deux réglages distincts.
+
+            La couleur reste en haut : elle se VOIT sur le produit, un aperçu
+            immédiat y a du sens. Une taille ne se voit pas.
+
+            Le `<select>` est natif : sur une liste courte et sans pastille à
+            afficher, il ouvre le sélecteur du système — familier, accessible au
+            clavier, et rien à maintenir. Ses options sont peuplées par
+            `syncSelectTaille` depuis les boutons `.sb` déjà en place, seule
+            source de vérité des tailles disponibles.
+          {%- endcomment -%}
+          <div class="rp-tq">
+            <label class="rp-tq-col">
+              <span class="rp-tq-lbl">Taille</span>
+              <select class="rp-tq-select" id="rp-taille-select"
+                      onchange="choisirTailleDepuisRecap(this.value)"></select>
+            </label>
+            <div class="rp-tq-col">
+              <span class="rp-tq-lbl">Qté</span>
+              <div class="rp-qty-controls">
+                <button type="button" class="rp-qty-btn" onclick="changeTextileQty(-1)">−</button>
+                <input type="number" id="textile-qty-input" class="rp-qty-input"
+                       value="1" min="1" onchange="handleTextileQtyInput()">
+                <button type="button" class="rp-qty-btn" onclick="changeTextileQty(1)">+</button>
+              </div>
+            </div>
           </div>
+
+          <button type="button" class="rp-multi-btn" onclick="ouvrirRepartitionTailles()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            <span class="rp-multi-txt">Répartir par tailles</span>
+            {%- comment -%}
+              Chevron : il annonce l'ouverture d'un panneau. Sans lui, rien ne
+              distinguait ce bouton d'une action immédiate.
+            {%- endcomment -%}
+            <svg class="rp-multi-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {%- comment -%}
+            Texte RACCOURCI : dans une colonne de 252px, la version longue
+            occupait cinq lignes et repoussait le prix hors de vue. L'exemple
+            suffit à faire comprendre — la précision sur la personnalisation
+            n'est utile qu'en mode groupe, où elle est déjà rappelée.
+          {%- endcomment -%}
+          <p class="rp-tq-aide">
+            Répartissez vos articles entre plusieurs tailles. Exemple&nbsp;:
+            S&nbsp;×&nbsp;2, M&nbsp;×&nbsp;4, L&nbsp;×&nbsp;3, XL&nbsp;×&nbsp;1.
+            Elle concerne la quantité, pas la personnalisation individuelle.
+          </p>
+
+          <div class="rp-qty-subtitle">Minimum de commande : 1 unité</div>
         </div>
       </div>
 

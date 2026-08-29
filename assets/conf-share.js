@@ -373,7 +373,12 @@
            dans le repère de l'image produit. */
         rasteriserTexte(el).then(function (src) {
           if (!src) { resolve(null); return; }
-          resolve({ src: src, x: geo.x, y: geo.y, w: geo.w });
+          /* `isText` distingue un texte rasterisé d'un logo uploadé. Les deux
+             arrivent dans la même liste de calques, et rien ne permettait de
+             les séparer en aval — la vignette de vérification, qui atténue le
+             texte, réduisait donc aussi les logos. Les autres lecteurs
+             ignorent ce champ. */
+          resolve({ src: src, x: geo.x, y: geo.y, w: geo.w, isText: true });
         });
       });
     }

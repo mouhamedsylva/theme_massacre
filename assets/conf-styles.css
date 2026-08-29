@@ -969,7 +969,18 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    .rp-items { flex: 1; overflow-y: auto; }
+    /* LA LISTE POUSSE LE RESTE, elle ne défile plus en interne.
+
+       `flex: 1` + `overflow-y: auto` lui donnaient une hauteur FIXE — celle
+       laissée par les blocs voisins. Une ligne d'asset ajoutée après coup
+       (« Logo cœur ») s'y empilait sans rien déplacer : elle passait sous le
+       bloc QUANTITÉ, qui la recouvrait.
+
+       En `flex: 0 0 auto`, la liste prend la hauteur de son contenu et
+       repousse les blocs suivants. Le défilement remonte d'un cran, sur
+       `.recap` (:960) qui le porte déjà : c'est la COLONNE qui défile, comme
+       un panneau ordinaire. */
+    .rp-items { flex: 0 0 auto; }
     .rp-items::-webkit-scrollbar { width: 3px; }
     .rp-items::-webkit-scrollbar-thumb { background: #ddd; }
 
@@ -1106,29 +1117,57 @@
     .grp-x:hover { background: #e6e6e6; }
     .grp-body { padding: 16px 20px; overflow-y: auto; }
 
-    .grp-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    /* ── TABLEAU DE GROUPE ────────────────────────────────────────────────
+       Une ligne = une personne. C'est un formulaire de saisie répété : ce sont
+       les CHAMPS qui doivent se voir, pas le tableau qui les porte.
+
+       D'où le parti pris : pas de cadre, pas de lignes alternées, pas de
+       survol coloré. Une simple ligne de séparation entre les personnes, et de
+       l'air. Tout ornement supplémentaire entre en concurrence avec la saisie
+       elle-même. */
+    .grp-table-wrap {
+      overflow-x: auto;
+    }
     .grp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 560px; }
     .grp-table th {
-      text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .4px; color: var(--muted); padding: 9px 8px;
-      background: #fafafa; border-bottom: 1px solid var(--border); white-space: nowrap;
+      text-align: left; font-size: 11px; font-weight: 600;
+      color: var(--muted); padding: 0 10px 8px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
     }
-    .grp-opt { font-weight: 500; text-transform: none; letter-spacing: 0; }
-    .grp-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    .grp-opt { font-weight: 400; color: #b0b0b0; }
+    .grp-table td {
+      padding: 8px 10px; border-bottom: 1px solid #f2f2f2; vertical-align: middle;
+    }
     .grp-table tr:last-child td { border-bottom: none; }
-    .grp-c-qty { width: 76px; }
-    .grp-c-act { width: 66px; }
+    .grp-c-qty { width: 84px; }
+    .grp-c-act { width: 72px; }
 
+    /* HAUTEUR COMMUNE à tous les champs d'une ligne. Sans elle, saisie,
+       sélecteur et quantité tombent à des hauteurs différentes selon le rendu
+       natif du navigateur, et la ligne paraît bancale. */
+    .grp-inp, .grp-sel, .grp-qty input {
+      height: 34px;
+      box-sizing: border-box;
+    }
     .grp-inp, .grp-sel {
-      width: 100%; padding: 7px 8px; border: 1px solid var(--border);
-      border-radius: 7px; font: inherit; font-size: 12.5px; background: #fff; outline: none;
+      width: 100%; padding: 7px 9px; border: 1px solid var(--border);
+      border-radius: 7px; font: inherit; font-size: 12.5px; background: #fff;
+      outline: none;
     }
     .grp-inp:focus, .grp-sel:focus { border-color: var(--black); }
+    .grp-inp::placeholder { color: #c9c9c9; }
     .grp-qty { display: flex; align-items: center; gap: 2px; }
     .grp-qty input {
-      width: 40px; text-align: center; padding: 6px 2px; border: 1px solid var(--border);
-      border-radius: 6px; font: inherit; font-size: 12.5px;
+      width: 48px; text-align: center; padding: 6px 2px; border: 1px solid var(--border);
+      border-radius: 7px; font: inherit; font-size: 12.5px; outline: none;
+      /* Les flèches natives réservent de la place à droite et décentrent le
+         chiffre — le même correctif que le bloc quantité du récapitulatif. */
+      appearance: textfield;
+      -moz-appearance: textfield;
     }
+    .grp-qty input::-webkit-outer-spin-button,
+    .grp-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .grp-qty input:focus { border-color: var(--black); }
     /* Pastille de couleur devant le select. */
     .grp-color-cell { display: flex; align-items: center; gap: 6px; }
     .grp-color-dot { width: 16px; height: 16px; border-radius: 4px; flex: none; border: 1px solid rgba(0,0,0,.15); }
@@ -1139,8 +1178,10 @@
     .grp-cpick { position: relative; }
     .grp-cpick-btn {
       display: flex; align-items: center; gap: 6px; width: 100%;
-      padding: 7px 9px; border: 1px solid #ddd; border-radius: 7px;
+      padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
       background: #fff; cursor: pointer; font: inherit; text-align: left;
+      /* Même hauteur que les autres champs de la ligne. */
+      height: 34px; box-sizing: border-box;
     }
     .grp-cpick-btn:hover { border-color: #bbb; }
     .grp-cpick-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1173,19 +1214,29 @@
       width: 16px; height: 16px; border-radius: 4px; flex: none;
       border: 1px solid rgba(0,0,0,.15);
     }
-    .grp-row-btn {
-      border: none; background: none; cursor: pointer; padding: 5px; border-radius: 6px;
-      color: #888; line-height: 0;
+    /* ACTIONS DE LIGNE — côte à côte, jamais empilées.
+       La cellule n'imposait aucune direction : les deux boutons tombaient l'un
+       sous l'autre et débordaient de la hauteur de leur propre ligne. */
+    .grp-c-act, .grp-table td:last-child {
+      white-space: nowrap;
+      text-align: right;
     }
-    .grp-row-btn:hover { background: #f2f2f2; color: var(--black); }
+    .grp-row-acts { display: inline-flex; align-items: center; gap: 2px; }
+    .grp-row-btn {
+      border: none; background: none; cursor: pointer; border-radius: 6px;
+      color: #a8a8a8; line-height: 0;
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .grp-row-btn:hover { color: var(--black); }
     .grp-row-btn.danger:hover { color: #d33; }
 
     .grp-add {
-      margin-top: 12px; padding: 9px 14px; background: #fff; color: var(--black);
-      border: 1.5px dashed var(--border); border-radius: 8px; font: inherit;
-      font-size: 12.5px; font-weight: 600; cursor: pointer; width: 100%;
+      margin-top: 10px; padding: 9px 14px; background: none; color: #555;
+      border: 1px dashed var(--border); border-radius: 8px; font: inherit;
+      font-size: 12.5px; font-weight: 500; cursor: pointer; width: 100%;
     }
-    .grp-add:hover { border-color: var(--black); }
+    .grp-add:hover { border-color: var(--black); color: var(--black); }
 
     /* Texte courbé : la substitution des noms est impossible.
 
@@ -1206,10 +1257,12 @@
     }
 
     /* Barre d'import : en tête de modale, au-dessus du tableau. */
+    /* Import : action FACULTATIVE, sans cadre ni fond. Le bloc gris lui donnait
+       le même poids que le tableau lui-même, alors que la plupart des clients
+       saisissent directement. */
     .grp-import-bar {
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      padding: 12px 14px; margin-bottom: 14px;
-      background: #f7f8fa; border: 1px solid var(--border); border-radius: 10px;
+      padding: 0 2px; margin-bottom: 16px;
     }
     /* Choix de la zone de texte remplacée par le nom floqué. Révélé par
        grpRefreshTextZonePicker() uniquement quand PLUSIEURS textes coexistent
@@ -1227,13 +1280,15 @@
       background: #fff; font: inherit; font-size: 12.5px; cursor: pointer;
       max-width: 100%;
     }
+    /* Contour plutôt que plein : l'action principale de cet écran est de
+       remplir le tableau, pas d'importer un fichier. */
     .grp-btn-import {
-      padding: 9px 14px; border-radius: 8px; font: inherit; font-size: 12.5px;
-      font-weight: 600; cursor: pointer; white-space: nowrap;
+      padding: 8px 13px; border-radius: 7px; font: inherit; font-size: 12.5px;
+      font-weight: 500; cursor: pointer; white-space: nowrap;
       display: flex; align-items: center; gap: 7px; flex-shrink: 0;
-      background: var(--black); color: #fff; border: 1.5px solid var(--black);
+      background: #fff; color: var(--black); border: 1px solid var(--border);
     }
-    .grp-btn-import:hover { opacity: .85; }
+    .grp-btn-import:hover { border-color: var(--black); }
     .grp-import-hint {
       margin: 0; flex: 1; min-width: 180px;
       font-size: 11.5px; color: #6b7280; line-height: 1.5;
@@ -1246,15 +1301,24 @@
       .grp-btn-import { justify-content: center; }
     }
 
+    /* TOTAL — une simple ligne soulignée. Le gras du chiffre suffit à le
+       distinguer ; un bloc coloré pèserait plus que l'information qu'il porte. */
     .grp-summary {
       display: flex; align-items: center; justify-content: space-between;
-      margin-top: 14px; padding: 10px 12px; background: #f7f7f7; border-radius: 8px;
-      font-size: 13px;
+      margin-top: 14px; padding: 10px 2px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--muted);
     }
-    .grp-summary strong { font-size: 15px; font-weight: 800; }
+    .grp-summary strong {
+      font-size: 14px; font-weight: 700; color: var(--black);
+      font-variant-numeric: tabular-nums;
+    }
+    /* NOTE — information de contexte, lue une fois. Gris neutre et sans cadre :
+       la teinte ambrée la faisait concurrencer l'avertissement de texte courbé,
+       qui, lui, bloque la validation. */
     .grp-note {
-      margin-top: 12px; font-size: 11.5px; color: var(--muted); line-height: 1.55;
-      background: #fbf7ee; border: 1px solid #f0e6cf; border-radius: 8px; padding: 10px 12px;
+      margin-top: 10px; font-size: 11.5px; color: #8a8a8a; line-height: 1.55;
+      padding: 0 2px;
     }
 
     .grp-foot {
@@ -2181,19 +2245,8 @@
   object-fit: contain;
 }
 
-.mode-card-badge {
-  position: absolute;
-  top: -11px; left: 50%; transform: translateX(-50%);
-  padding: 4px 12px;
-  background: #059669;
-  color: #fff;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
+/* La pastille « Populaire » et sa classe `is-featured` ont été retirées : les
+   deux modes sont présentés à égalité, le client choisit selon son besoin. */
 
 .mode-card-title {
   margin: 0 0 8px;
@@ -2250,35 +2303,30 @@
    y occupait une ligne entière, prise sur la hauteur du produit. Sa place est
    d'ailleurs plus juste ici — c'est un pas en arrière dans le parcours, au
    même titre que les étapes voisines. */
-/* Le bouton de retour reste DANS le flux, en fin de ligne : réservé par un
-   `padding-right` fixe, il chevauchait la dernière étape dès que les libellés
-   s'allongeaient — une largeur devinée ne peut pas suivre le texte.
+/* « Changer de mode » vit dans l'en-tête, avec la classe `obtn` de ses
+   voisins : aucun style propre à maintenir, il suit automatiquement toute
+   évolution de « Réinitialiser ».
 
-   `margin-left: auto` le pousse à droite quelle que soit la place occupée par
-   les étapes, et `flex-shrink: 0` l'empêche d'être compressé. */
-[data-mode="groupe"] .cv-retour-mode {
-  margin-left: auto;
+   VISIBLE DANS LES DEUX MODES. Il avait d'abord été réservé au groupe, au
+   motif qu'il n'y a pas d'étapes à quitter en mode libre. C'était confondre
+   deux choses : le bouton ne quitte pas une étape, il revient au CHOIX DU
+   MODE — et un client qui s'est trompé de mode doit pouvoir se reprendre,
+   qu'il ait pris l'un ou l'autre.
+
+   Sans lui, le mode libre n'offrait que « Réinitialiser », qui efface le
+   design : un aller simple, pour une simple erreur de porte.
+
+   Masqué à l'étape de CHOIX, où il n'y a rien à quitter — d'où la condition
+   sur `data-mode`, posé seulement une fois un mode retenu. */
+.hdr-changer-mode { display: none; }
+[data-mode] .hdr-changer-mode {
+  display: inline-flex;
+  /* Le libellé est le plus long de l'en-tête : sans cela, il se couperait sur
+     deux lignes dès que la fenêtre se resserre, et le bouton grandirait en
+     hauteur au milieu de ses voisins. */
+  white-space: nowrap;
   flex-shrink: 0;
 }
-
-.cv-retour-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 6px;
-  padding: 4px 8px 4px 4px;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color .15s ease, background .15s ease;
-}
-.cv-retour-mode:hover { color: #c2410c; background: rgba(194, 65, 12, .06); }
-.cv-retour-mode svg { width: 14px; height: 14px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    PARCOURS GROUPE — stepper et barre d'action
@@ -2322,6 +2370,20 @@
   gap: 6px;
   flex-shrink: 0;
   padding: 0 0 6px;
+}
+
+/* STEPPER DÉPLACÉ DANS L'EN-TÊTE (placerStepperGroupe, conf-main-inline.js).
+
+   Il y remplace le stepper général : deux barres d'étapes l'une sous l'autre
+   se disputaient l'attention, alors qu'une seule concerne le client.
+
+   Il reprend la mise en page de `.hdr-steps` (:159) — centré, occupant
+   l'espace libre entre le logo et les boutons — et perd la marge basse qui le
+   décollait du canvas, sans objet ici. */
+[data-mode="groupe"] .grp-steps--hdr {
+  flex: 1;
+  justify-content: center;
+  padding: 0;
 }
 /* BARRE FLOTTANTE — posée SUR le canvas, hors du flux.
 
@@ -2475,6 +2537,206 @@
 /* Le récapitulatif reste visible : le client suit son total pendant qu'il
    remplit sa liste. */
 
+/* ══════════════════════════════════════════════════════════════════════════
+   ÉTAPE « VÉRIFIER » — une carte par personne, plein écran
+
+   Contrairement à « configurer », les barres latérales disparaissent : c'est
+   un écran de RELECTURE. Les outils de personnalisation n'y ont plus leur
+   place, et la largeur récupérée sert aux cartes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grp-verif { display: none; }
+
+[data-etape-groupe="valider"] .grp-verif {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;                    /* autorise le défilement interne */
+  padding: 24px 28px 8px;
+  overflow-y: auto;
+}
+
+/* Le produit, son en-tête et le tableau cèdent la place. */
+[data-etape-groupe="valider"] .cv-wrap,
+[data-etape-groupe="valider"] .cv-hdr,
+[data-etape-groupe="valider"] .grp-inline { display: none; }
+
+/* BARRES LATÉRALES MASQUÉES.
+   Le rail d'icônes et ses panneaux sont en flex : `display:none` suffit. Le
+   récapitulatif, lui, occupe une COLONNE de la grille racine — le masquer
+   seul laisserait une bande vide de la largeur du récapitulatif. Il faut donc
+   aussi refermer la colonne. */
+[data-etape-groupe="valider"] .icon-nav,
+[data-etape-groupe="valider"] .side-panel,
+[data-etape-groupe="valider"] .recap { display: none; }
+
+.conf-app-root[data-etape-groupe="valider"] { grid-template-columns: 1fr 0; }
+
+/* La barre d'action reprend sa place dans le flux : flottante, elle
+   recouvrirait la dernière rangée de cartes. Même traitement qu'à l'étape
+   « configurer ». */
+[data-etape-groupe="valider"] .grp-actions {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+}
+
+.grp-verif-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.grp-verif-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--black);
+}
+.grp-verif-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.grp-verif-total { text-align: right; flex-shrink: 0; }
+.grp-verif-total-lbl {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.grp-verif-total-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+}
+.gv-ttc {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* GRILLE — TROIS cartes par rangée sur écran large.
+
+   `auto-fill` avec un minimum de 260px en laissait tenir quatre, voire cinq :
+   chaque vêtement devenait trop petit pour qu'on y vérifie un nom floqué. Un
+   nombre de colonnes FIXE garantit la taille d'aperçu ; les paliers plus bas
+   ramènent à deux puis une colonne. */
+.grp-verif-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+}
+@media (max-width: 1100px) {
+  .grp-verif-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+}
+@media (max-width: 700px) {
+  .grp-verif-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.gv-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Étiquette du nom, posée sur l'image : elle identifie la carte avant même
+   qu'on lise ses caractéristiques. */
+.gv-tag {
+  position: absolute;
+  top: 10px; left: 10px;
+  z-index: 2;
+  padding: 3px 9px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--black);
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gv-scene { background: var(--stage); padding: 14px; }
+/* La scène hérite du cadre de la carte : son propre cadre ferait doublon. */
+.gv-scene .ov-stage { border: none; background: transparent; }
+.gv-vide {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 150px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gv-info { padding: 14px; border-top: 1px solid var(--border); }
+.gv-produit {
+  margin: 0 0 7px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--black);
+}
+.gv-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.gv-dot {
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid rgba(0, 0, 0, .15);
+}
+.gv-sep { color: #d0d0d0; }
+
+.gv-attente {
+  grid-column: 1 / -1;
+  padding: 40px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* PAGINATION */
+.grp-verif-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 22px 0 8px;
+  flex-wrap: wrap;
+}
+.gv-page {
+  min-width: 32px; height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--black);
+  cursor: pointer;
+}
+.gv-page:hover:not(:disabled) { border-color: var(--black); }
+.gv-page.is-on {
+  background: var(--black);
+  border-color: var(--black);
+  color: #fff;
+  font-weight: 700;
+}
+.gv-page:disabled { opacity: .35; cursor: not-allowed; }
+.gv-page-gap { padding: 0 2px; color: var(--muted); font-size: 12.5px; }
+
 .grp-inline-title {
   margin: 0 0 6px;
   font-size: 22px;
@@ -2492,4 +2754,394 @@
 .grp-inline .grp-body {
   padding: 0;
   overflow: visible;                /* c'est .grp-inline qui défile */
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TAILLE + QUANTITÉ dans le récapitulatif
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Le sélecteur de taille du CANVAS est masqué : la taille se choisit désormais
+   dans le bloc quantité. L'élément reste dans le DOM — toggleCanvasOpt('size')
+   et la synchronisation du libellé le visent toujours. */
+.cv-opt-taille { display: none; }
+
+/* DIMENSIONS CONTENUES — la colonne fait 252px (`--recap-w`, :31), soit
+   ~220px utiles une fois les marges déduites. Le bloc y débordait et
+   recouvrait le récapitulatif du produit.
+
+   Chaque valeur est réduite au strict nécessaire : marges, espacements,
+   corps de texte. Le compteur garde en revanche sa hauteur de 40px — c'est
+   une cible tactile, pas un ornement. */
+/* LE BLOC NE PEUT PLUS DÉBORDER, quelles que soient les marges héritées.
+
+   `max-width: 100%` et `box-sizing` bornent la boîte à son conteneur ; le
+   `minmax(0, 1fr)` autorise la colonne de gauche à SE COMPRIMER — sans lui,
+   une grille refuse de descendre sous la largeur naturelle de son contenu et
+   pousse le reste dehors. C'est ce qui coupait le texte à droite. */
+.rp-tq {
+  display: grid;
+  /* ESPACE FRANC entre les deux champs : à 6px ils se touchaient presque, et
+     le regard les lisait comme un seul contrôle. 16px suffit à les séparer
+     sans les éloigner — ils restent une même décision.
+
+     La place vient du sélecteur : il occupait toute sa colonne alors qu'une
+     taille tient en trois caractères. Sa largeur est bornée plus bas. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  background: #f7f8f9;
+  border: 1px solid var(--border);
+  /* Coins arrondis en HAUT seulement : le bouton juste dessous prolonge le
+     même cadre, comme sur la maquette. Deux boîtes distinctes se lisaient
+     comme deux réglages sans rapport. */
+  border-radius: 9px 9px 0 0;
+  border-bottom: none;
+}
+.rp-tq-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* MINUSCULES, comme sur la maquette : « Taille » et « Qté » sont des mots
+   ordinaires, pas des intitulés de section. En capitales ils prenaient le même
+   poids que « QUANTITÉ » juste au-dessus, et la hiérarchie s'aplatissait. */
+.rp-tq-lbl {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Le titre du bloc s'aligne sur les autres intitulés du récapitulatif, sans
+   les dominer : c'est une section parmi d'autres. */
+#rp-qty-textile .rp-qty-title { font-size: 11px; }
+
+/* RESPIRATION AUTOUR DU BLOC QUANTITÉ.
+
+   Il touchait la vignette du produit au-dessus et le prix en dessous : les
+   trois se lisaient comme une seule masse, alors que ce sont trois
+   informations distinctes.
+
+   L'espace porte sur la SECTION entière — titre, champs et mention d'aide se
+   déplacent ensemble. L'appliquer au seul cadre gris aurait détaché celui-ci
+   de son propre titre. */
+/* Sous requête média BUREAU, et non en règle nue : la neutralisation mobile
+   (:1814) est écrite plus haut dans le fichier, donc à spécificité égale une
+   règle nue posée ici l'emporterait et le tiroir mobile hériterait des
+   marges. */
+@media (min-width: 769px) {
+  #rp-qty-textile {
+    margin-top: 30px;
+    margin-bottom: 34px;
+  }
+}
+.rp-tq-select {
+  width: 100%;
+  /* Borné : « XXL » et sa flèche tiennent en 92px. Au-delà, le champ s'étirait
+     jusqu'au compteur pour n'afficher qu'une lettre au milieu du vide. */
+  /* 74px : « XXL » et la flèche y tiennent. La place rendue va tout entière
+     à l'écart entre les deux champs. */
+  max-width: 74px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--black);
+  cursor: pointer;
+}
+.rp-tq-select:focus { outline: none; border-color: var(--black); }
+
+/* Le compteur perd sa largeur pleine : il partage la ligne avec la taille.
+   Ses dimensions sont fixées ICI plutôt qu'héritées : dans une colonne de
+   252px, la version pleine largeur poussait le sélecteur de taille hors du
+   bloc. La cible reste à 36px de haut — sous ce seuil, le pointage devient
+   pénible. */
+/* 4px entre les boutons et le champ : à 1px, le compteur formait un bloc
+   compact où l'on ne distinguait plus les zones cliquables. */
+.rp-tq .rp-qty-controls { margin: 0; gap: 4px; }
+.rp-tq .rp-qty-btn {
+  width: 26px; height: 34px;
+  min-width: 0;
+  padding: 0;
+  font-size: 14px;
+  flex: none;
+}
+.rp-tq .rp-qty-input {
+  width: 40px; height: 34px;
+  min-width: 0;
+  padding: 0;
+  font-size: 13px;
+  text-align: center;
+  flex: none;
+  /* FLÈCHES NATIVES RETIRÉES.
+
+     `text-align: center` était déjà là, mais le navigateur réserve à droite la
+     place de ses propres flèches haut/bas : le chiffre se centrait dans
+     l'espace RESTANT, donc décalé à gauche. Les boutons − et + les remplacent
+     déjà. Même traitement que la modale de tailles
+     (conf-size-quantity-modal.css:160). */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.rp-tq .rp-qty-input::-webkit-outer-spin-button,
+.rp-tq .rp-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Le bouton PROLONGE le cadre du dessus : même largeur, coins arrondis en bas
+   seulement, et un trait de séparation plutôt qu'une bordure complète. */
+.rp-multi-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 0;
+  padding: 9px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0 0 9px 9px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.rp-multi-btn:hover { background: #f5f9ff; border-color: #2563eb; }
+.rp-multi-btn svg { width: 14px; height: 14px; flex: none; }
+/* Le chevron se détache à droite ; l'icône et le libellé restent groupés au
+   centre — la lecture va du sens de l'action vers son indicateur. */
+.rp-multi-caret { margin-left: auto; width: 13px; height: 13px; opacity: .55; }
+.rp-multi-txt { flex: none; }
+/* CONTREPOIDS : le chevron poussé à droite décalait l'ensemble vers la gauche.
+   Une marge automatique symétrique rétablit le centrage optique, sans élément
+   fantôme dans le markup. */
+.rp-multi-btn > svg:first-child { margin-left: auto; }
+
+/* Les textes sont bornés eux aussi : sans `max-width`, une ligne longue
+   élargit son conteneur et pousse le reste hors de la colonne. */
+.rp-tq-aide,
+#rp-qty-textile .rp-qty-subtitle,
+.rp-multi-btn {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* 10px : le plancher que je m'autorise ici. En dessous, le texte devient
+   pénible à lire sur un écran ordinaire — et ces deux lignes portent une
+   information utile, pas un ornement. */
+.rp-tq-aide {
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--muted);
+  /* Coupe les mots trop longs plutôt que de déborder. */
+  overflow-wrap: anywhere;
+}
+#rp-qty-textile .rp-qty-subtitle { font-size: 10px; margin-top: 5px; }
+
+/* ── RÉPARTITION PAR TAILLES — confinée à la barre latérale ──
+
+   La modale s'affichait au CENTRE de la page, par-dessus tout. Elle monte
+   désormais depuis le bas du récapitulatif et ne le déborde pas : le client
+   reste dans l'espace où il vient de cliquer.
+
+   `position: absolute` et non `fixed` : le panneau doit se rattacher au
+   récapitulatif, pas à la fenêtre. D'où le `position: relative` ci-dessous —
+   sans lui, il remonterait jusqu'au premier ancêtre positionné. */
+.recap { position: relative; }
+
+/* Le récapitulatif DÉFILE (`overflow-y: auto`, :960) : un panneau en
+   `absolute` s'y ancrerait au CONTENU et défilerait avec lui — il quitterait
+   l'écran dès que le client fait défiler la colonne.
+
+   `sticky` sur le récapitulatif ne convient pas non plus. On fige donc le
+   défilement pendant l'ouverture : la colonne ne bouge plus, le panneau reste
+   en place. C'est aussi le comportement attendu — on ne consulte pas le prix
+   pendant qu'on répartit ses tailles. */
+.recap.repartition-ouverte { overflow: hidden; }
+
+.recap.repartition-ouverte .size-qty-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  padding: 0;
+  /* Voile plus léger qu'au centre de page : il ne couvre qu'une colonne, un
+     noir à 50 % y serait écrasant. */
+  background: rgba(255, 255, 255, .7);
+  backdrop-filter: blur(2px);
+  align-items: flex-end;         /* le panneau monte depuis le bas */
+}
+
+.recap.repartition-ouverte .size-qty-modal {
+  width: 100%;
+  max-width: none;
+  max-height: 100%;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, .12);
+  animation: repartition-monte .28s cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes repartition-monte {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recap.repartition-ouverte .size-qty-modal { animation: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PANNEAU « MON ÉQUIPE » — parcours groupe uniquement
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* L'onglet n'existe qu'en mode groupe : un aperçu de surnoms n'a pas de sens
+   sur une commande individuelle. */
+.icon-nav-equipe { display: none !important; }
+[data-mode="groupe"] .icon-nav-equipe { display: flex !important; }
+
+/* APERÇU CADRÉ À MI-POITRINE.
+
+   Le vêtement entier, réduit à la largeur d'un panneau, rendrait le surnom
+   illisible — or c'est précisément ce qu'il faut vérifier ici.
+
+   `object-fit: none` avec un décalage : on ne redimensionne pas l'image, on
+   la DÉCALE pour n'en montrer que le haut du buste. Un `cover` aurait rogné
+   au centre, souvent sous la zone de flocage. */
+.eq-apercu { margin-bottom: 14px; }
+.eq-apercu-cadre {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--stage);
+  border: 1px solid var(--border);
+}
+.eq-apercu-img {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 190%;                 /* zoom : la poitrine occupe le cadre */
+  transform: translateX(-50%);
+  display: block;
+}
+.eq-apercu-nom {
+  margin: 6px 0 0;
+  font-size: 11px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.eq-liste-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.eq-liste-titre {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eq-liste-compte {
+  min-width: 22px;
+  padding: 2px 7px;
+  background: #f1f1f1;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--black);
+}
+
+/* La liste défile au-delà d'une dizaine de noms : le champ d'ajout et l'aide
+   doivent rester atteignables sans faire défiler tout le panneau. */
+.eq-noms {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+.eq-nom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.eq-nom.is-actif { border-color: #c2410c; background: #fff7f4; }
+.eq-nom-txt {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--black);
+  cursor: pointer;
+}
+.eq-nom-txt:hover { background: #fafafa; }
+.eq-nom.is-actif .eq-nom-txt { color: #c2410c; }
+.eq-nom-x {
+  flex: none;
+  width: 34px;
+  min-height: 38px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #b0b0b0;
+  cursor: pointer;
+}
+.eq-nom-x:hover { color: #d33; }
+
+.eq-vide {
+  margin: 0;
+  padding: 14px 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.eq-ajout { display: flex; gap: 6px; }
+.eq-ajout-champ {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+.eq-ajout-champ:focus { outline: none; border-color: var(--black); }
+.eq-ajout-champ::placeholder { color: #c8c8c8; }
+.eq-ajout-btn {
+  flex: none;
+  width: 40px;
+  min-height: 40px;
+  background: var(--black);
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  color: #fff;
+  cursor: pointer;
+}
+.eq-ajout-btn:hover { background: #000; }
+
+.eq-aide {
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--muted);
 }

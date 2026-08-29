@@ -741,23 +741,24 @@
   }
 
   /**
-   * Ouvre la modale « plusieurs surnoms » (commande de groupe).
-   * openGroupOrder() est défini dans configurateur.liquid.
+   * Ouvrait la modale « plusieurs surnoms » depuis le panneau Texte.
+   *
+   * NEUTRALISÉE : ce bouton a été retiré (snippets/sidebar-modern.liquid). Il
+   * basculait en mode groupe SANS passer par l'écran de choix, ce qui en
+   * faisait le seul chemin où le design devait être conservé plutôt que
+   * permuté — une exception permanente à maintenir.
+   *
+   * La fonction reste exportée : elle figure dans l'objet public du module
+   * (:1021) et la retirer casserait toute référence extérieure subsistante.
    */
-  function openMultiNames() {
-    if (typeof window.openGroupOrder === "function") {
-      // Bascule plutôt que fermeture : la sidebar reste toujours visible.
-      openPanel("panel-product");
-      window.openGroupOrder();
-    } else {
-      console.warn("⚠️ openGroupOrder() indisponible.");
-    }
-  }
+  function openMultiNames() {}
 
   /**
-   * Affiche « Ajouter plusieurs surnoms » pour les seuls textiles : un coin ou
-   * un drapeau n'a pas de nom floqué par personne.
-   * @param {string} productType - Type de produit courant.
+   * Réglait la visibilité du bouton « Ajouter plusieurs surnoms ».
+   *
+   * Sans effet depuis son retrait : la garde ci-dessous sort d'elle-même,
+   * l'élément n'existant plus. Conservée pour ses appelants
+   * (conf-main-inline.js:960, :2257 et :993 ici même).
    */
   function refreshMultiNameBtn(productType) {
     const btn = document.getElementById("mtxt-multi-btn");

@@ -428,22 +428,21 @@
           '<input class="grp-f-qty" type="number" min="1" max="10000" value="' +
             (Math.min(10000, Math.max(1, parseInt(preset.qty, 10) || 1))) + '" onchange="grpUpdateTotals()">' +
         '</div></td>' +
-        '<td>' +
-          /* Aperçu de la ligne : montre le vêtement à SA couleur, avec le logo
-             commun et le nom floqué de CETTE personne à la place du texte du
-             canvas. Sans lui, le client saisissait une liste de surnoms sans
-             jamais voir le rendu — d'où sa réactivation.
-             Placé AVANT la corbeille : action non destructive en premier. */
-          '<button type="button" class="grp-row-btn" title="Aperçu" onclick="grpPreviewRow(this)">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
-          '</button>' +
+        /* Les deux actions dans un conteneur EN LIGNE : sans lui, la cellule
+           n'imposait aucune direction et les boutons s'empilaient l'un sous
+           l'autre, débordant de la hauteur de leur propre ligne. */
+        /* L'œil d'aperçu par ligne a été RETIRÉ : l'étape « Vérifier » montre
+           désormais le rendu de chaque personne côte à côte, ce qui rend la
+           vérification ligne par ligne inutile. grpPreviewRow() est conservée
+           dans conf-group-preview.js — cet écran s'en sert. */
+        '<td class="grp-c-act"><div class="grp-row-acts">' +
           // '<button type="button" class="grp-row-btn" title="Dupliquer" onclick="grpDupRow(this)">' +
           //   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>' +
           // '</button>' +
           '<button type="button" class="grp-row-btn danger" title="Supprimer" onclick="grpDelRow(this)">' +
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>' +
           '</button>' +
-        '</td>';
+        '</div></td>';
       tbody.appendChild(tr);
       grpSyncDot(tr.querySelector('.grp-f-color'));
       if (!deferTotals) grpUpdateTotals();
@@ -680,6 +679,15 @@
     /* Lecture : conf-size-quantity-modal.js recharge ses quantités depuis la
        liste validée. */
     window.getGroupOrderRows = function () { return groupOrderRows; };
+
+    /* Lecture DIRECTE du tableau à l'écran, sans passer par la liste validée.
+
+       `groupOrderRows` n'est rempli qu'à la VALIDATION de la liste : à l'étape
+       « Vérifier », il porte encore l'état précédent — ou rien du tout. Les
+       cartes sortaient donc sans taille ni couleur, toutes au coloris affiché
+       sur le canvas. L'écran de vérification doit refléter ce que le client
+       vient de saisir, pas un état antérieur. */
+    window.grpCollectRows = grpCollect;
 
     /* Rouvre la modale d'où vient la liste. Les lignes de la modale « Pour
        Groupe » portent _sizeGroupSummary ; celles des surnoms, non. Sans ce
@@ -1030,7 +1038,15 @@
          `conf_patch_color` (couleur du patch) ni `conf_coin_finish` (finition du
          coin), que restoreColor() doit continuer de restaurer. Et le sweatshirt
          ne passe PAS par selProd — il a besoin des deux parties. */
+      /* Génération au moment du DÉPART. Cette restauration est différée de 200
+         à 300 ms ; si le client change de mode dans cet intervalle, elle
+         arriverait APRÈS le nettoyage et reposerait le design de l'ancien
+         mode. On la laisse alors expirer. */
+      var generationDepart = window.__genDesignMode || 0;
+
       var doRestore = function (textileDejaFait) {
+        if ((window.__genDesignMode || 0) !== generationDepart) return;
+
         /* Chaque restauration est ISOLÉE : une exception dans l'une ne doit pas
            emporter les suivantes. La couleur est la moins critique des trois —
            perdre les logos et les textes du client parce qu'une finition est
@@ -2341,6 +2357,11 @@
         // (sweat 60 € gardé sur les t-shirts, ou inversement). Limité aux
         // textiles : coins/drapeaux ont leur propre affichage de prix.
         if (typeof updateTotalPrice === 'function') updateTotalPrice();
+
+        /* Les tailles diffèrent d'un textile à l'autre et la grille vient
+           d'être reconstruite : le sélecteur du récapitulatif se repeuple,
+           sinon il proposerait celles du produit précédent. */
+        if (typeof window.syncSelectTaille === 'function') window.syncSelectTaille();
       }
 
       /* CADRAGE PROPRE AU NOUVEAU PRODUIT.
@@ -5312,6 +5333,11 @@
       var rcSize = document.getElementById('rc-size');
       if (rcSize) rcSize.textContent = 'Taille : ' + size;
 
+      /* Le sélecteur du récapitulatif suit : la taille peut aussi être choisie
+         depuis la grille du canvas ou restaurée depuis le panier, et les deux
+         affichages ne doivent jamais diverger. */
+      if (typeof window.syncSelectTaille === 'function') window.syncSelectTaille();
+
       /* L'aperçu ne change PLUS avec la taille (voir applyProductSize) :
          l'appel ne sert qu'à effacer une échelle héritée. */
       applyProductSize(size);
@@ -6949,14 +6975,205 @@
 
     var MODE_KEY = 'conf_mode_perso';
 
+    /* ══════════════════════════════════════════════════════════════════════
+       UN DESIGN PAR MODE
+
+       Les deux modes — libre et groupe — partageaient le même espace de
+       travail : composer un design en libre puis basculer en groupe le
+       retrouvait intact, mélangeant deux commandes sans rapport.
+
+       On ne l'EFFACE pas pour autant : le design du mode quitté est RANGÉ, et
+       y revenir le retrouve. L'intention d'origine (« perdre son travail
+       serait brutal », :7082) est préservée, la confusion disparaît.
+
+       Ce qui appartient au design : textes, images, couleurs, finitions,
+       option manches, et la liste des surnoms — sans objet en mode libre.
+       Ce qui reste COMMUN : le produit choisi (un choix transverse) et le
+       panier, qui ne doit jamais être touché.
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /** Clé de rangement du design d'un mode. */
+    function cleDesignMode(mode) {
+      return 'conf_design_mode_' + mode;
+    }
+
+    /* Clés de session qui composent le design en cours. `conf_current_product`
+       en est ABSENT volontairement : changer de mode ne doit pas ramener au
+       sweatshirt si le client travaillait sur un t-shirt. */
+    var CLES_DESIGN = [
+      'conf_texts', 'conf_uploads', 'conf_current_color', 'conf_patch_color',
+      'conf_coin_finish', 'conf_flag_color', 'conf_flag_color_name',
+      'conf_sleeve_opt', 'conf_group_rows'
+    ];
+
+    /**
+     * Range le design du mode qu'on quitte.
+     * @param {string} mode - mode sortant
+     */
+    function rangerDesignMode(mode) {
+      if (!mode) return;
+      var paquet = {};
+      try {
+        for (var i = 0; i < CLES_DESIGN.length; i++) {
+          var v = sessionStorage.getItem(CLES_DESIGN[i]);
+          if (v !== null) paquet[CLES_DESIGN[i]] = v;
+        }
+        sessionStorage.setItem(cleDesignMode(mode), JSON.stringify(paquet));
+      } catch (e) {
+        /* QUOTA DÉPASSÉ — deux designs pèsent plus qu'un, et l'espace de
+           session est limité. On abandonne le rangement plutôt que de garder
+           un paquet partiel : mieux vaut un vêtement vierge au retour qu'un
+           design à moitié restauré, dont le client ne comprendrait pas l'état. */
+        try { sessionStorage.removeItem(cleDesignMode(mode)); } catch (e2) {}
+      }
+    }
+
+    /**
+     * Retire tous les logos AFFICHÉS, dans leurs quatre emplacements.
+     *
+     * UN LOGO VIT À QUATRE ENDROITS : le calque du vêtement (`logo-f`…), la
+     * vignette du panneau Upload (`up-preview-f`…), l'ancienne barre latérale
+     * (`pf`/`if`/`lf`…) et le champ de fichier (`uf`…).
+     *
+     * N'en vider qu'un ne suffit pas — et c'est ce qui faisait échouer
+     * l'isolation entre modes. Le stock de logos en mémoire se RECONSTRUIT en
+     * lisant `#i{zone}` (conf-logo-store.js:36-60) : tant que cette image
+     * garde son `src`, le stock se repeuple et se réinjecte sur le vêtement
+     * (:2327). Mettre LOGO_STORE à null sans vider `#i{zone}` ne sert donc à
+     * rien.
+     *
+     * On délègue à rmUp() (conf-share.js:821), qui fait déjà exactement ce
+     * travail — vignettes du récap comprises, et cas particuliers des coins,
+     * drapeaux et patchs délégués à leurs modules. Réécrire ce nettoyage
+     * garantirait qu'il diverge du premier au prochain ajout de zone.
+     *
+     * ORDRE : rmUp supprime AUSSI l'entrée en session (removeUpload, :6178).
+     * Le rangement du design sortant doit donc être terminé avant l'appel,
+     * sinon on rangerait un paquet déjà amputé.
+     */
+    function viderLogosAffiches() {
+      /* Invalide toute restauration différée encore en vol (:1041) : sans ce
+         jeton, un setTimeout parti avant le nettoyage reposerait le design de
+         l'ancien mode 200 ms plus tard. */
+      window.__genDesignMode = (window.__genDesignMode || 0) + 1;
+
+      if (typeof window.rmUp !== 'function') return;
+      var ZONES = [
+        'f', 'fr', 'b', 'sl', 'sr', 'c',
+        'coin-recto', 'coin-verso', 'flag-recto', 'flag-verso'
+      ];
+      for (var z = 0; z < ZONES.length; z++) {
+        /* Une zone absente du produit courant (un coin n'a pas de manches)
+           doit rester sans effet, pas interrompre le nettoyage des autres. */
+        try { window.rmUp(ZONES[z]); } catch (e) {}
+      }
+    }
+
+    /**
+     * Écrit en session le design d'un mode — SANS toucher à l'affichage.
+     *
+     * C'est tout ce que le rechargement demande : le démarrage lira ces clés
+     * et reconstruira l'écran par son chemin habituel.
+     *
+     * @param {string} mode - mode entrant
+     */
+    function poserDesignModeEnSession(mode) {
+      var paquet = null;
+      try {
+        var brut = sessionStorage.getItem(cleDesignMode(mode));
+        if (brut) paquet = JSON.parse(brut);
+      } catch (e) { paquet = null; }
+
+      try {
+        for (var i = 0; i < CLES_DESIGN.length; i++) {
+          var k = CLES_DESIGN[i];
+          /* Absente du paquet = le mode n'avait pas cette valeur. On SUPPRIME
+             plutôt que de laisser celle du mode précédent : c'est ce qui
+             faisait persister la couleur d'un mode à l'autre. */
+          if (paquet && paquet[k] != null) sessionStorage.setItem(k, paquet[k]);
+          else sessionStorage.removeItem(k);
+        }
+      } catch (e) {}
+    }
+
+    /* Le nettoyage manuel de l'espace de travail — vidage du stock mémoire,
+       des vignettes, reprojection dans le DOM — a été RETIRÉ : le rechargement
+       de page le fait entièrement, et de façon exhaustive. Le conserver aurait
+       laissé deux chemins d'isolation, dont le second aurait divergé du
+       premier au prochain ajout de zone. */
+
+    /**
+     * Bascule de mode AVEC RECHARGEMENT de la page.
+     *
+     * POURQUOI RECHARGER plutôt que nettoyer à la main.
+     *
+     * Le design ne vit pas qu'en session : stock de logos en mémoire (qui se
+     * reconstruit en lisant le DOM), vignettes de panneau, champs de fichier,
+     * variables de module. Et les fonctions de restauration du projet
+     * AJOUTENT sans jamais remettre par défaut — restoreColor (:1096) ne fait
+     * rien quand le mode entrant n'a pas de couleur, laissant celle du mode
+     * précédent à l'écran.
+     *
+     * Nettoyer à la main exige donc de connaître chaque état, et le prochain
+     * élément ajouté au configurateur devra y penser aussi. Trois correctifs
+     * successifs ont révélé trois fuites différentes.
+     *
+     * Le rechargement supprime la question : l'état mémoire repart de zéro par
+     * construction, et le design se restaure par le chemin du DÉMARRAGE —
+     * celui qui est éprouvé à chaque visite, pas un second chemin qui
+     * divergerait. Même mécanique que le bouton « Réinitialiser » (:3709), en
+     * rangeant au lieu d'effacer.
+     *
+     * @param {string} sortant
+     * @param {string} entrant
+     * @returns {boolean} true si un rechargement est lancé (l'appelant doit
+     *   alors s'arrêter : la page est en train de partir).
+     */
+    function basculerModeAvecRechargement(sortant, entrant) {
+      if (window.__ouvertureDepuisPanier) return false;
+
+      /* `sortant` vaut null après un passage par l'écran de choix, qui a
+         retiré le mode (:7307). On recharge QUAND MÊME : le design y a été
+         rangé, mais l'état mémoire du mode précédent, lui, est toujours vivant.
+         Ne sortir que si l'on reprend exactement le même mode sans détour. */
+      if (sortant && sortant === entrant) return false;
+
+      if (sortant) rangerDesignMode(sortant);
+
+      /* L'ORDRE COMPTE : la session doit porter le design du mode entrant
+         AVANT le rechargement — c'est elle que le démarrage lira. */
+      try { sessionStorage.setItem(MODE_KEY, entrant); } catch (e) {}
+      poserDesignModeEnSession(entrant);
+
+      window.location.href = '/pages/configurateur';
+      return true;
+    }
+
     /**
      * Quitte l'écran de choix et révèle le configurateur.
      *
      * @param {string} mode - 'individuelle' ou 'groupe'
+     * @param {boolean} [reprise] - true quand l'appel vient de la reprise de
+     *   session au chargement : le design ne doit alors PAS être permuté.
      */
-    function choisirMode(mode) {
+    function choisirMode(mode, reprise) {
       var root = document.querySelector('.conf-app-root');
       if (!root) return;
+
+      /* CHANGEMENT DE MODE = RECHARGEMENT de la page.
+
+         `reprise` distingue un changement VOLONTAIRE d'une reprise de session
+         au chargement (:7247). Sans cette garde, le rechargement se
+         redéclencherait à chaque démarrage : BOUCLE INFINIE. C'est le risque
+         principal de cette approche.
+
+         La fonction s'arrête ici quand la page part : tout ce qui suit
+         (attributs, recalage) sera refait par le démarrage. */
+      if (!reprise) {
+        var precedent = null;
+        try { precedent = sessionStorage.getItem(MODE_KEY); } catch (e) {}
+        if (basculerModeAvecRechargement(precedent, mode)) return;
+      }
 
       try { sessionStorage.setItem(MODE_KEY, mode); } catch (e) {}
       window.__modePerso = mode;
@@ -7020,6 +7237,62 @@
           im.addEventListener('load', recaler, { once: true });
         }
       });
+
+      placerStepperGroupe(mode);
+
+      /* MODE GROUPE : on ouvre sur « Mon Équipe ».
+         C'est l'écran de travail de ce parcours — le client vient composer un
+         design pour une liste de personnes, pas choisir un produit. Différé
+         d'un tour de boucle : la sidebar doit d'abord être révélée, sinon le
+         panneau s'ouvre sur une largeur nulle et son aperçu ne se calcule pas
+         (voir eqSyncApercu). */
+      if (mode === 'groupe') {
+        requestAnimationFrame(function () {
+          if (typeof window.modernSidebar === 'object' &&
+              typeof window.modernSidebar.openPanel === 'function') {
+            window.modernSidebar.openPanel('panel-equipe');
+          }
+        });
+      }
+    }
+
+    /**
+     * Déplace le stepper du parcours groupe DANS l'en-tête, à la place du
+     * stepper général — et l'en ressort quand on quitte le mode.
+     *
+     * Les deux se succédaient verticalement : deux barres d'étapes l'une sous
+     * l'autre, dont une seule concernait le client. Le parcours groupe est le
+     * seul pertinent tant qu'on y est.
+     *
+     * Un DÉPLACEMENT plutôt qu'un second markup : le stepper porte son état
+     * (étape courante, franchies, à venir) et ses gestionnaires de clic.
+     * Le dupliquer imposerait de tenir les deux copies synchronisées.
+     *
+     * @param {string} mode
+     */
+    function placerStepperGroupe(mode) {
+      var steps = document.getElementById('grp-steps');
+      var hdr = document.querySelector('.hdr-steps');
+      if (!steps || !hdr) return;
+
+      /* BUREAU SEULEMENT. L'en-tête mobile est déjà à l'étroit — logo, retour
+         et boutons s'y partagent la largeur. Y glisser quatre étapes de plus
+         les rendrait illisibles ; le stepper garde donc sa place dans le
+         canvas, où il a la largeur nécessaire. */
+      if (window.innerWidth <= 768) return;
+
+      if (mode === 'groupe') {
+        /* Le stepper général cède la place plutôt que de disparaître : le
+           client garde un repère de progression, celui de SON parcours. */
+        hdr.style.display = 'none';
+        if (steps.parentNode !== hdr.parentNode) {
+          hdr.parentNode.insertBefore(steps, hdr);
+        }
+        steps.classList.add('grp-steps--hdr');
+      } else {
+        hdr.style.display = '';
+        steps.classList.remove('grp-steps--hdr');
+      }
     }
     window.choisirMode = choisirMode;   // appelée depuis un onclick inline
 
@@ -7030,7 +7303,9 @@
     document.addEventListener('DOMContentLoaded', function () {
       var mode = null;
       try { mode = sessionStorage.getItem(MODE_KEY); } catch (e) {}
-      if (mode) choisirMode(mode);
+      /* `true` = reprise de session : le design en cours est celui de ce mode,
+         il ne faut surtout pas le permuter. */
+      if (mode) choisirMode(mode, true);
     });
 
     /**
@@ -7061,17 +7336,37 @@
     /**
      * Revient à l'écran de choix du mode.
      *
-     * Le design en cours n'est PAS effacé : le client peut se tromper de mode
-     * après avoir commencé, et perdre son travail pour cela serait brutal.
-     * Seul l'affichage change ; `conf_uploads` et `conf_texts` restent
-     * intacts, et le mode retenu ensuite les retrouve.
+     * Le design en cours n'est pas effacé mais RANGÉ, sous la clé de son mode.
+     * Reprendre ce même mode le retrouvera intact ; prendre l'autre partira
+     * d'un espace propre. Le client peut se tromper de mode après avoir
+     * commencé, et perdre son travail pour cela serait brutal.
      */
     function retourChoixMode() {
       var root = document.querySelector('.conf-app-root');
       if (!root) return;
+
+      /* Rangement AVANT le retrait du mode : après, on ne saurait plus sous
+         quelle clé ranger. */
+      var courant = null;
+      try { courant = sessionStorage.getItem(MODE_KEY); } catch (e) {}
+      if (courant && !window.__ouvertureDepuisPanier) {
+        rangerDesignMode(courant);
+
+        /* NETTOYAGE VISUEL de l'écran de choix. Sans lui, la vignette du
+           dernier logo y restait affichée alors qu'aucun mode n'est choisi.
+
+           Le paquet vient d'être rangé : rien n'est perdu. Et l'isolation
+           réelle ne repose plus sur ce nettoyage — c'est le rechargement du
+           clic suivant qui l'assure. */
+        viderLogosAffiches();
+      }
+
       try { sessionStorage.removeItem(MODE_KEY); } catch (e) {}
       window.__modePerso = null;
       root.setAttribute('data-etape', 'choix');
+      /* Le stepper général reprend sa place dans l'en-tête : sans cet appel,
+         celui du groupe y resterait alors qu'aucun mode n'est choisi. */
+      placerStepperGroupe(null);
       /* Le stepper et la barre d'action repartent avec le mode : les laisser
          afficherait un parcours groupe par-dessus l'écran de choix. */
       root.removeAttribute('data-mode');
@@ -7121,6 +7416,17 @@
       var root = document.querySelector('.conf-app-root');
       if (!root || root.getAttribute('data-mode') !== 'groupe') return;
 
+      /* CAPTURE AVANT MASQUAGE — l'ordre est critique.
+
+         L'attribut ci-dessous masque le canvas en CSS. Or la capture des
+         designs MESURE le DOM live : sur un élément caché, ses mesures valent
+         zéro et les aperçus sortiraient vides ou décalés. On amorce donc la
+         capture pendant que le canvas est encore visible. Même précaution que
+         conf-overview.js:65-70. */
+      if (etape === 'valider' && typeof window.grpPreparerVerification === 'function') {
+        window.grpPreparerVerification();
+      }
+
       etapeGroupeCourante = etape;
       root.setAttribute('data-etape-groupe', etape);
 
@@ -7162,13 +7468,28 @@
          une fenêtre par-dessus ferait un cadre dans un cadre. */
       if (etape === 'configurer') deplacerTableauGroupe(true);
       else deplacerTableauGroupe(false);
+
+      /* VÉRIFIER — les cartes sont peintes ici, à partir des captures
+         amorcées plus haut, avant le masquage du canvas. */
+      if (etape === 'valider' && typeof window.grpRendreVerification === 'function') {
+        window.grpRendreVerification();
+      }
     }
     window.allerEtapeGroupe = allerEtapeGroupe;
 
     /** Avance d'une étape. Appelée par le bouton de la barre d'action. */
     function etapeGroupeSuivante() {
       var idx = ETAPES_GROUPE.indexOf(etapeGroupeCourante);
-      if (idx === -1 || idx >= ETAPES_GROUPE.length - 1) return;
+      if (idx === -1) return;
+
+      /* DERNIÈRE ÉTAPE : le bouton porte « Ajouter la commande au panier » et
+         doit le faire. Il ne faisait rien jusqu'ici — le client cliquait sans
+         que rien ne se passe, au terme du parcours. */
+      if (idx >= ETAPES_GROUPE.length - 1) {
+        if (typeof window.addToCart === 'function') window.addToCart();
+        return;
+      }
+
       allerEtapeGroupe(ETAPES_GROUPE[idx + 1]);
     }
     window.etapeGroupeSuivante = etapeGroupeSuivante;
@@ -7222,3 +7543,245 @@
          le masque hors de l'étape (`.grp-inline`), ce qui suffit — et évite un
          second déplacement à chaque navigation. */
     }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       TAILLE ET QUANTITÉ DANS LE RÉCAPITULATIF
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * Peuple le sélecteur de taille depuis les boutons `.sb`.
+     *
+     * Ceux-ci restent la SEULE source de vérité : ils sont reconstruits à
+     * chaque changement de produit, et chaque textile a ses propres tailles.
+     * Lire ailleurs aurait créé une seconde liste, vouée à diverger.
+     */
+    function syncSelectTaille() {
+      var sel = document.getElementById('rp-taille-select');
+      if (!sel) return;
+
+      /* `.sg:not(.cv-opt-clone)` : la grille de tailles est CLONÉE dans le
+         sélecteur du canvas. Sans ce filtre, chaque taille apparaîtrait deux
+         fois dans la liste. */
+      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb');
+      if (!btns.length) return;
+
+      var actuelle = '';
+      var html = '';
+      for (var i = 0; i < btns.length; i++) {
+        var t = btns[i].textContent.trim();
+        if (!t) continue;
+        var on = btns[i].classList.contains('on');
+        if (on) actuelle = t;
+        html += '<option value="' + grpEsc(t) + '"' + (on ? ' selected' : '') + '>' +
+                grpEsc(t) + '</option>';
+      }
+      sel.innerHTML = html;
+      if (actuelle) sel.value = actuelle;
+    }
+    window.syncSelectTaille = syncSelectTaille;
+
+    /**
+     * Applique la taille choisie dans le récapitulatif.
+     *
+     * On CLIQUE le bouton correspondant plutôt que de réimplémenter selSize :
+     * celui-ci met à jour le libellé du récap, l'échelle du produit et le prix.
+     * Dupliquer cette chaîne l'aurait fait diverger au premier ajustement.
+     */
+    function choisirTailleDepuisRecap(taille) {
+      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb');
+      for (var i = 0; i < btns.length; i++) {
+        if (btns[i].textContent.trim() === taille) { btns[i].click(); return; }
+      }
+    }
+    window.choisirTailleDepuisRecap = choisirTailleDepuisRecap;
+
+    /**
+     * Ouvre la répartition par tailles DANS la barre latérale.
+     *
+     * La modale existante (`#size-qty-overlay`) s'affichait au centre de la
+     * page, par-dessus tout. Ici elle monte depuis le bas du récapitulatif et
+     * ne le déborde pas : le client reste dans le même espace visuel, celui où
+     * il vient de cliquer.
+     *
+     * On réutilise la modale telle quelle — son contenu, ses compteurs et sa
+     * validation sont éprouvés. Seule sa POSITION change, par une classe.
+     */
+    function ouvrirRepartitionTailles() {
+      var recap = document.querySelector('.recap');
+      var ov = document.getElementById('size-qty-overlay');
+      if (recap) recap.classList.add('repartition-ouverte');
+      if (typeof window.openSizeQuantityModal === 'function') {
+        window.openSizeQuantityModal();
+      } else if (ov) {
+        ov.classList.add('open');
+      }
+    }
+    window.ouvrirRepartitionTailles = ouvrirRepartitionTailles;
+
+    /* La classe doit partir avec la fermeture, quel qu'en soit le chemin —
+       bouton « Annuler », validation, ou clic hors du panneau. On observe
+       l'overlay plutôt que d'intercepter chaque sortie. */
+    document.addEventListener('DOMContentLoaded', function () {
+      syncSelectTaille();
+
+      var ov = document.getElementById('size-qty-overlay');
+      var recap = document.querySelector('.recap');
+      if (ov && recap) {
+        new MutationObserver(function () {
+          if (!ov.classList.contains('open')) recap.classList.remove('repartition-ouverte');
+        }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+      }
+    });
+
+    /* ══════════════════════════════════════════════════════════════════════
+       PANNEAU « MON ÉQUIPE » — surnoms et aperçu (parcours groupe)
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /* La liste vit dans `groupOrderRows`, le MÊME stockage que le tableau de
+       l'étape « Configurer » (:679). Une seconde liste aurait divergé de la
+       première dès qu'un nom serait ajouté d'un côté seulement. */
+
+    /** Redessine la liste des surnoms du panneau. */
+    function eqRendreNoms() {
+      var hote = document.getElementById('eq-noms');
+      var compte = document.getElementById('eq-liste-compte');
+      if (!hote) return;
+
+      var rows = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []) : [];
+
+      if (compte) compte.textContent = rows.length;
+
+      if (!rows.length) {
+        hote.innerHTML = '<p class="eq-vide">Aucun surnom pour le moment.</p>';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < rows.length; i++) {
+        var nom = rows[i].flock || rows[i].name || '';
+        /* grpEsc : ces valeurs viennent d'une saisie libre ou d'un import CSV. */
+        html += '<div class="eq-nom" data-index="' + i + '">' +
+                  '<button type="button" class="eq-nom-txt" onclick="eqEssayerNom(' + i + ')">' +
+                    grpEsc(nom) +
+                  '</button>' +
+                  '<button type="button" class="eq-nom-x" onclick="eqRetirerNom(' + i + ')" ' +
+                          'aria-label="Retirer ' + grpEsc(nom) + '">✕</button>' +
+                '</div>';
+      }
+      hote.innerHTML = html;
+    }
+    window.eqRendreNoms = eqRendreNoms;
+
+    /** Ajoute un surnom depuis le champ du panneau. */
+    function eqAjouterNom() {
+      var champ = document.getElementById('eq-ajout-champ');
+      if (!champ) return;
+      var nom = champ.value.trim();
+      if (!nom) return;
+
+      var rows = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []).slice() : [];
+
+      /* Taille et couleur RESTENT VIDES : elles se choisissent à l'étape
+         « Configurer ». Les pré-remplir ici imposerait un défaut que le client
+         n'a pas choisi, et qu'il pourrait ne pas remarquer. */
+      rows.push({ name: nom, flock: nom, size: '', color: '', qty: 1 });
+
+      if (typeof window.setGroupOrderRows === 'function') window.setGroupOrderRows(rows);
+      champ.value = '';
+      champ.focus();          // saisie en série : le clavier reste ouvert
+      eqRendreNoms();
+      eqEssayerNom(rows.length - 1);
+    }
+    window.eqAjouterNom = eqAjouterNom;
+
+    /** Retire un surnom. */
+    function eqRetirerNom(i) {
+      var rows = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []).slice() : [];
+      if (i < 0 || i >= rows.length) return;
+      rows.splice(i, 1);
+      if (typeof window.setGroupOrderRows === 'function') window.setGroupOrderRows(rows);
+      eqRendreNoms();
+    }
+    window.eqRetirerNom = eqRetirerNom;
+
+    /**
+     * Pose un surnom SUR LE VÊTEMENT, à la place du texte courant.
+     *
+     * Même mécanisme que l'aperçu de ligne (conf-group-preview.js:143) : on
+     * remplace le `textContent` de la zone de texte, sans toucher à sa police,
+     * sa taille ni sa position. Le client voit donc le rendu RÉEL — c'est tout
+     * l'objet de cette étape.
+     */
+    function eqEssayerNom(i) {
+      var rows = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []) : [];
+      if (i < 0 || i >= rows.length) return;
+
+      var nom = rows[i].flock || rows[i].name || '';
+      var zone = (typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f';
+      var el = document.getElementById('text-' + zone);
+      var contenu = el ? el.querySelector('.dt-content') : null;
+
+      /* TEXTE COURBÉ : la substitution est impossible (rendu SVG, textContent
+         vide). Même garde que les deux autres chemins — sans elle, le client
+         verrait le nom ne pas changer, sans comprendre pourquoi. */
+      if (!contenu || el.classList.contains('is-shaped')) {
+        var lbl0 = document.getElementById('eq-apercu-nom');
+        if (lbl0) lbl0.textContent = 'Texte courbé : redressez-le pour essayer les surnoms';
+        return;
+      }
+
+      contenu.textContent = nom;
+      if (el.style.display === 'none') el.style.display = '';
+      if (typeof window.clampTextToZone === 'function') window.clampTextToZone(zone);
+
+      var lbl = document.getElementById('eq-apercu-nom');
+      if (lbl) lbl.textContent = 'Aperçu : ' + nom;
+
+      /* Marque la ligne active — le client sait quel nom il regarde. */
+      var noms = document.querySelectorAll('#eq-noms .eq-nom');
+      for (var k = 0; k < noms.length; k++) {
+        noms[k].classList.toggle('is-actif', k === i);
+      }
+    }
+    window.eqEssayerNom = eqEssayerNom;
+
+    /* Entrée au clavier : ajouter sans quitter le champ. */
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && e.target && e.target.id === 'eq-ajout-champ') {
+        e.preventDefault();
+        eqAjouterNom();
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () { eqRendreNoms(); });
+
+    /**
+     * Cale l'aperçu du panneau « Mon équipe » sur la vue affichée.
+     *
+     * Il reprend l'image ACTIVE du canvas — face, dos ou côté — pour que le
+     * client vérifie le rendu là où il travaille. Sans cela, l'aperçu serait
+     * resté sur la face, alors qu'un design dorsal est fréquent en groupe.
+     */
+    function eqSyncApercu() {
+      var img = document.getElementById('eq-apercu-img');
+      if (!img) return;
+      var active = document.querySelector('.product-img-single.on');
+      if (active && active.getAttribute('src')) img.src = active.src;
+    }
+    window.eqSyncApercu = eqSyncApercu;
+
+    /* L'aperçu suit CHAQUE changement d'image : vue, couleur, produit. On
+       observe les images plutôt que d'appeler depuis chaque fonction — celles
+       qui les modifient sont nombreuses, et en oublier une laisserait un
+       aperçu périmé. */
+    document.addEventListener('DOMContentLoaded', function () {
+      eqSyncApercu();
+      var vue = document.querySelector('.cv-single-view');
+      if (!vue) return;
+      new MutationObserver(function () { eqSyncApercu(); })
+        .observe(vue, { attributes: true, subtree: true, attributeFilter: ['src', 'class'] });
+    });

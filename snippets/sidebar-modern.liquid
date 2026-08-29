@@ -5,6 +5,32 @@
 
 <!-- BARRE D'ICÔNES VERTICALE -->
 <nav class="icon-nav">
+  {%- comment -%}
+    ÉQUIPE — premier onglet, réservé au parcours GROUPE.
+
+    Il porte l'aperçu du design et la liste des surnoms : le client vérifie le
+    rendu de chaque nom à sa place réelle sur le vêtement, avant d'aller plus
+    loin. Ces noms alimentent ensuite l'étape « Configurer ».
+
+    En TÊTE de barre parce qu'il est l'entrée du parcours : le produit se
+    choisit encore dans l'onglet suivant, mais c'est ici que le travail
+    commence.
+
+    Masqué hors mode groupe (`.icon-nav-equipe`, conf-styles.css) : un aperçu
+    de surnoms n'a pas de sens sur une commande individuelle.
+  {%- endcomment -%}
+  <button class="icon-nav-item icon-nav-equipe" data-panel="panel-equipe">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8" r="3.2"/>
+      <path d="M2.5 21v-1a5.5 5.5 0 0 1 5.5-5.5h2a5.5 5.5 0 0 1 5.5 5.5v1"/>
+      <path d="M16.5 5.4a3.2 3.2 0 0 1 0 5.2"/>
+      <path d="M18 14.7a5.5 5.5 0 0 1 3.5 5.1v1.2"/>
+    </svg>
+    <span class="icon-nav-label">Mon<br>Équipe</span>
+    <span class="icon-nav-short">Équipe</span>
+  </button>
+
   <!-- Type de produit -->
   <button class="icon-nav-item active" data-panel="panel-product">
     {%- comment -%}
@@ -127,6 +153,52 @@
 </nav>
 
 <!-- PANNEAU : TYPE DE PRODUIT -->
+{%- comment -%}
+  PANNEAU « MON ÉQUIPE » — aperçu du design et liste des surnoms.
+
+  L'aperçu est CADRÉ À MI-POITRINE : c'est là que se pose le surnom, et un
+  vêtement entier réduit à la largeur d'un panneau rendrait le texte illisible.
+  Le cadrage suit la vue courante — face ou dos — pour que le client vérifie
+  aussi le design dorsal.
+
+  Cliquer un nom le pose sur le vêtement, À LA PLACE du texte courant et à sa
+  position exacte. C'est le mécanisme de l'aperçu de ligne existant
+  (conf-group-preview.js:143), appliqué au canvas plutôt qu'à une modale.
+{%- endcomment -%}
+<aside class="side-panel" id="panel-equipe">
+  <div class="side-panel-header">
+    <h3 class="side-panel-title">MON ÉQUIPE</h3>
+    <p class="side-panel-subtitle">Vérifiez le rendu de chaque surnom</p>
+  </div>
+
+  <div class="side-panel-content">
+    <div class="eq-apercu" id="eq-apercu">
+      <div class="eq-apercu-cadre" id="eq-apercu-cadre">
+        <img class="eq-apercu-img" id="eq-apercu-img" src="" alt="Aperçu du design">
+      </div>
+      <p class="eq-apercu-nom" id="eq-apercu-nom">Touchez un surnom pour l'essayer</p>
+    </div>
+
+    <div class="eq-liste-hdr">
+      <span class="eq-liste-titre">Surnoms</span>
+      <span class="eq-liste-compte" id="eq-liste-compte">0</span>
+    </div>
+
+    <div class="eq-noms" id="eq-noms"><!-- lignes injectées par conf-main-inline.js --></div>
+
+    <div class="eq-ajout">
+      <input type="text" class="eq-ajout-champ" id="eq-ajout-champ" maxlength="20"
+             placeholder="JEAN 10" aria-label="Ajouter un surnom">
+      <button type="button" class="eq-ajout-btn" onclick="eqAjouterNom()" aria-label="Ajouter">＋</button>
+    </div>
+
+    <p class="eq-aide">
+      Ces surnoms seront repris à l'étape suivante, où vous définirez la
+      couleur et la taille de chacun.
+    </p>
+  </div>
+</aside>
+
 <aside class="side-panel" id="panel-product">
   <div class="side-panel-header">
     <div class="side-panel-header-content">
@@ -1301,20 +1373,15 @@
         une fois ajouté.
       </p>
 
-      <!-- Séparateur : commande de groupe = autre intention, autre couleur. -->
-      <div class="mtxt-sep"><span>ou</span></div>
+      {%- comment -%}
+        Le bouton « Ajouter plusieurs surnoms » a été RETIRÉ, avec son
+        séparateur « ou » qui n'annonçait plus rien.
 
-      <!-- Visible uniquement pour les textiles (un coin n'a pas de surnom
-           floqué par personne) : modernSidebar.refreshMultiNameBtn() le gère. -->
-      <button type="button" class="mtxt-multi-btn" id="mtxt-multi-btn"
-              onclick="modernSidebar.openMultiNames()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-        <span>Ajouter plusieurs surnoms</span>
-      </button>
+        Il basculait en mode groupe sans passer par l'écran de choix : c'était
+        le seul chemin où le design devait être conservé plutôt que permuté —
+        une exception permanente à maintenir. Le mode groupe se prend
+        désormais par l'écran de choix, qui range et ressort le design.
+      {%- endcomment -%}
 
     </div>
   </div>

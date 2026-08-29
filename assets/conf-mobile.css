@@ -1146,6 +1146,24 @@
 
   .recap { display: none !important; }
 
+  /* La répartition par tailles reste une modale PLEIN ÉCRAN sur téléphone.
+
+     Le confinement au récapitulatif (conf-styles.css) n'a pas de sens ici :
+     cette colonne est masquée, et y enfermer le panneau le rendrait invisible.
+     Sur un écran étroit, une modale centrée est de toute façon le bon format —
+     il n'y a pas d'espace latéral à préserver. */
+  .recap.repartition-ouverte .size-qty-overlay {
+    position: fixed;
+    background: rgba(0, 0, 0, .5);
+    backdrop-filter: none;
+    align-items: center;
+    padding: 20px;
+  }
+  .recap.repartition-ouverte .size-qty-modal {
+    border-radius: 14px;
+    animation: none;
+  }
+
   /* ── Header : uniquement panier (si non vide) et Réinitialiser ──────
      Le prix et le bouton d'ajout descendent au-dessus de l'aperçu (voir
      plus bas). Le header ne garde que les deux icônes.
@@ -2034,7 +2052,9 @@
     padding: 0 0 8px;
     gap: 4px;
   }
-  [data-mode="groupe"] .cv-retour-mode { position: static; margin-bottom: 4px; }
+  /* « Changer de mode » suit le sort des autres boutons d'en-tête : le mobile
+     masque déjà leur libellé pour n'en garder que l'icône (`.hdr-btns .obtn`,
+     plus haut). Aucune règle propre. */
 
   /* Étape « configurer » : marges réduites, le tableau a besoin de la largeur.
      Les lignes y sont déjà des cartes empilées (voir plus haut). */
@@ -2059,6 +2079,25 @@
     gap: 10px;
   }
   [data-etape-groupe="configurer"] .grp-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  }
+
+  /* ÉTAPE « VÉRIFIER » — les cartes s'empilent d'elles-mêmes (la grille se
+     replie sous 260px). Restent l'en-tête, qui ne tient pas sur une ligne, et
+     la barre d'action, qui doit rester dans le flux. */
+  [data-etape-groupe="valider"] .grp-verif { padding: 16px 12px 4px; }
+  [data-etape-groupe="valider"] .grp-verif-hdr {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  [data-etape-groupe="valider"] .grp-verif-total { text-align: left; }
+  [data-etape-groupe="valider"] .grp-verif-title { font-size: 18px; }
+  [data-etape-groupe="valider"] .grp-verif-grid { gap: 14px; }
+  [data-etape-groupe="valider"] .grp-actions {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
