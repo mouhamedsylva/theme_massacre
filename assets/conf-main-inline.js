@@ -2694,6 +2694,23 @@
         groupOrderRows = null;
         saveGroupRows();        // efface aussi la copie en session
         refreshGroupBadge();
+
+        /* RETOUR À L'ÉCRAN DE CHOIX — le parcours de groupe est terminé.
+
+           Rester sur « Vérifier » laissait le client devant des cartes dont la
+           commande venait de partir : rien à y faire, et le bouton d'ajout
+           invitait à recommencer.
+
+           Le DESIGN COMMUN est conservé : seule la liste de personnes est
+           vidée. Enchaîner une seconde commande avec le même visuel est le cas
+           courant — un club qui commande pour deux équipes.
+
+           Différé : le tiroir du panier s'ouvre juste après l'ajout, et le
+           client doit voir ce qu'il vient de commander avant que l'écran ne
+           change. */
+        setTimeout(function () {
+          if (typeof retourChoixMode === 'function') retourChoixMode();
+        }, 1200);
         return;
       }
 
@@ -3729,6 +3746,9 @@
            restait donc active sur un design pourtant vidé — le surcoût
            réapparaissait sans logo pour le justifier. */
         sessionStorage.removeItem('conf_sleeve_opt');
+        /* URLs hébergées : sans cette ligne, la restauration les reposerait au
+           rechargement et le design reviendrait après un reset. */
+        sessionStorage.removeItem('conf_cloud_urls');
         localStorage.removeItem('last_design_id');
       } catch (e) {}
     }
@@ -5735,6 +5755,81 @@
     // Registre des URLs Cloudinary (une par zone) une fois l'upload backend terminé
     window.CLOUDINARY_URLS = window.CLOUDINARY_URLS || {};
 
+    /* ══════════════════════════════════════════════════════════════════════
+       URLS HÉBERGÉES PERSISTÉES — le filet de sécurité du design.
+
+       Le registre ci-dessus vit en MÉMOIRE : un rechargement l'efface. Deux
+       conséquences, l'une visible et l'autre coûteuse :
+
+       • le design disparaissait du vêtement au F5 quand la data-URL était trop
+         lourde pour la session (saveUploadSafe abandonne au-delà de 300 000
+         caractères) — il ne restait qu'une coquille `{src: null}` posée par
+         saveUploadGeo ;
+       • les articles partaient au checkout SANS leurs URLs, défaut déjà
+         documenté plus bas (:5969).
+
+       On persiste donc ces URLs. Quelques centaines d'octets par zone, contre
+       plusieurs mégaoctets pour une data-URL : c'est précisément pourquoi
+       elles avaient été choisies.
+
+       Indexé PAR PRODUIT, comme le magasin d'uploads : le logo d'un sweatshirt
+       n'a rien à faire sur un t-shirt.
+       ══════════════════════════════════════════════════════════════════════ */
+    var CLOUD_KEY = 'conf_cloud_urls';
+
+    /** @returns {Object} le registre complet, par produit puis par zone. */
+    function lireCloudUrls() {
+      try {
+        var brut = sessionStorage.getItem(CLOUD_KEY);
+        var obj = brut ? JSON.parse(brut) : null;
+        return (obj && typeof obj === 'object') ? obj : {};
+      } catch (e) { return {}; }
+    }
+
+    /**
+     * Mémorise l'URL hébergée d'une zone.
+     * @param {string} zone
+     * @param {string} url
+     * @param {string} [owner] - produit propriétaire ; voir saveUpload pour la
+     *   raison de ce paramètre (l'upload est asynchrone, le produit courant a
+     *   pu changer entre-temps).
+     */
+    function memoriserCloudUrl(zone, url, owner) {
+      if (!zone || !url) return;
+      var produit = owner || currentProductType;
+      if (!produit) return;
+      try {
+        var tout = lireCloudUrls();
+        tout[produit] = tout[produit] || {};
+        tout[produit][zone] = url;
+        sessionStorage.setItem(CLOUD_KEY, JSON.stringify(tout));
+      } catch (e) {
+        /* Quota ou mode privé : sans conséquence immédiate — le design reste
+           affiché et part avec la commande. Seule sa survie au F5 est perdue. */
+      }
+    }
+
+    /** @returns {string} l'URL hébergée d'une zone pour le produit courant. */
+    function cloudUrlDe(zone) {
+      var tout = lireCloudUrls();
+      var parProduit = tout[currentProductType];
+      return (parProduit && parProduit[zone]) || '';
+    }
+    window.cloudUrlDe = cloudUrlDe;
+
+    /* REPEUPLEMENT AU DÉMARRAGE : le registre mémoire est reconstruit depuis la
+       session. Sans lui, `window.CLOUDINARY_URLS` resterait vide après un F5 et
+       les images partiraient en commande sans leur adresse. */
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        var parProduit = lireCloudUrls()[currentProductType];
+        if (!parProduit) return;
+        Object.keys(parProduit).forEach(function (z) {
+          if (!window.CLOUDINARY_URLS[z]) window.CLOUDINARY_URLS[z] = parProduit[z];
+        });
+      } catch (e) {}
+    });
+
     /* Taille maximale acceptée pour un design. Au-delà, le fichier est refusé :
        la lecture base64 d'une image de 20 Mo fige l'onglet plusieurs secondes
        avant de saturer sessionStorage. L'atelier n'a de toute façon pas besoin
@@ -5958,6 +6053,11 @@
               .then(res => {
                 if (res && res.url) {
                   window.CLOUDINARY_URLS[zone] = res.url;
+                  /* EN SESSION AUSSI : le registre mémoire ci-dessus ne
+                     survit pas à un rechargement. C'est cette copie qui permet
+                     au design de revenir après un F5, et aux articles de
+                     partir en commande avec leur visuel. */
+                  memoriserCloudUrl(zone, res.url, uploadOwner);
                   confLog('☁️ Uploadé sur Cloudinary (' + zone + ') :', res.url);
 
                   /* L'URL REMPLACE la base64 en session.
@@ -6473,6 +6573,23 @@
        n'est jamais persistée — le logo repart au centre après rechargement. */
     window.saveUploadGeo = saveUploadGeo;
     function removeUpload(zone) {
+      /* L'URL HÉBERGÉE PART AUSSI — et d'abord, car la suite peut sortir tôt.
+
+         La restauration s'en sert de repli quand la session n'a pas gardé
+         l'image : la laisser ferait REVENIR au rechargement un logo que le
+         client vient de supprimer. */
+      try {
+        var toutCloud = lireCloudUrls();
+        if (toutCloud[currentProductType]) {
+          delete toutCloud[currentProductType][zone];
+          if (!Object.keys(toutCloud[currentProductType]).length) {
+            delete toutCloud[currentProductType];
+          }
+          sessionStorage.setItem('conf_cloud_urls', JSON.stringify(toutCloud));
+        }
+      } catch (e) {}
+      if (window.CLOUDINARY_URLS) delete window.CLOUDINARY_URLS[zone];
+
       const store = readUploadStore();
       const u = store.byProduct[currentProductType];
       if (!u) return;
@@ -6492,15 +6609,34 @@
       // getUploads() ne renvoie QUE les zones du produit courant : les designs
       // des autres produits ne peuvent plus se poser sur celui-ci.
       const u = getUploads();
+
+      /* ZONES DES DEUX SOURCES. Une zone peut n'exister que dans les URLs
+         hébergées : si la data-URL a été refusée par la session ET que le logo
+         n'a jamais été déplacé, `conf_uploads` ne porte aucune entrée pour
+         elle. Ne parcourir que ce magasin la laisserait de côté. */
+      const zones = Object.keys(u);
       try {
-        var brut = JSON.parse(sessionStorage.getItem('conf_uploads') || '{}');
-        console.log('[restore] produit=' + currentProductType,
-                    '| produits en session=' + JSON.stringify(Object.keys(brut.byProduct || {})),
-                    '| zones de CE produit=' + JSON.stringify(Object.keys(u)));
-      } catch (e) { console.log('[restore] session illisible', e); }
-      Object.keys(u).forEach(zone => {
+        const cloudProduit = lireCloudUrls()[currentProductType] || {};
+        Object.keys(cloudProduit).forEach(function (z) {
+          if (zones.indexOf(z) === -1) zones.push(z);
+        });
+      } catch (e) {}
+
+      zones.forEach(zone => {
         const entry = u[zone];
-        const src = (typeof entry === 'string') ? entry : (entry && entry.src);
+        /* REPLI SUR L'URL HÉBERGÉE quand la session n'a pas gardé l'image.
+
+           Le cas est fréquent : saveUploadGeo pose `{src: null}` dès que le
+           logo s'affiche, et saveUploadSafe renonce ensuite si la data-URL
+           dépasse le plafond de session. Restait une coquille — géométrie
+           sans image — et le design disparaissait au rechargement.
+
+           L'URL hébergée, elle, tient en quelques centaines d'octets.
+           applyUpload ne fait aucune hypothèse sur la forme de la source :
+           une adresse `https` s'y pose comme une data-URL. */
+        const src = (typeof entry === 'string')
+          ? entry
+          : ((entry && entry.src) || cloudUrlDe(zone));
         const geo = (entry && typeof entry === 'object') ? entry.geo : null;
         if (src) {
           // Restauration : le visuel garde la taille/position sauvegardées.
@@ -7292,7 +7428,10 @@
     var CLES_DESIGN = [
       'conf_texts', 'conf_uploads', 'conf_current_color', 'conf_patch_color',
       'conf_coin_finish', 'conf_flag_color', 'conf_flag_color_name',
-      'conf_sleeve_opt', 'conf_group_rows'
+      'conf_sleeve_opt', 'conf_group_rows',
+      /* Les URLs hébergées suivent le design : sans cette ligne, celles d'un
+         mode ressurgiraient dans l'autre au rechargement. */
+      'conf_cloud_urls'
     ];
 
     /**
@@ -7475,6 +7614,16 @@
          Le mode libre ne le porte pas : son parcours reste direct, sans cadre
          supplémentaire — c'est la promesse de son nom. */
       root.setAttribute('data-mode', mode);
+
+      /* Le libellé du mode courant, au-dessus du produit. Écrit ici plutôt que
+         dans le markup : il dépend du mode retenu, et « individuelle » comme
+         « libre » désignent le même parcours selon l'endroit du code. */
+      var nomMode = document.getElementById('mode-actuel-nom');
+      if (nomMode) {
+        nomMode.textContent = (mode === 'groupe')
+          ? 'Personnalisation groupe'
+          : 'Personnalisation libre';
+      }
       if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
         /* REPRISE DE SESSION (rechargement) : on retrouve l'étape en cours.
            CHOIX DÉLIBÉRÉ du mode : on repart du début — le client vient de
@@ -7698,6 +7847,26 @@
          afficherait un parcours groupe par-dessus l'écran de choix. */
       root.removeAttribute('data-mode');
       root.removeAttribute('data-etape-groupe');
+
+      /* SWEATSHIRT REMIS PAR DÉFAUT.
+
+         Les produits sans surnom — coin, drapeau, patch — entrent directement
+         en commande individuelle (conf-sidebar-modern.js). Revenir ici avec
+         l'un d'eux sélectionné rouvrait donc un écran de choix dont les deux
+         cartes ne s'appliquent pas à lui : le client devait recliquer un
+         textile pour en sortir.
+
+         On repart d'un textile, celui qui ouvre le configurateur. Différé d'un
+         tour de boucle : l'attribut d'étape vient d'être posé, la sidebar doit
+         d'abord être révélée pour que les mesures du canvas soient justes. */
+      requestAnimationFrame(function () {
+        var carteSweat = document.querySelector('.product-card[data-product="sweatshirt"]');
+        if (carteSweat && !carteSweat.classList.contains('selected') &&
+            typeof window.modernSidebar === 'object' &&
+            typeof window.modernSidebar.selectProduct === 'function') {
+          window.modernSidebar.selectProduct(carteSweat, 'sweatshirt');
+        }
+      });
     }
     window.retourChoixMode = retourChoixMode;
 

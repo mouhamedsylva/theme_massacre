@@ -191,6 +191,36 @@
     } else if (productType === "patches") {
       setTimeout(syncPatchPanelToCanvas, 300);
     }
+
+    /* PRODUIT NON TEXTILE : on saute l'écran de choix du mode.
+
+       Coins, drapeaux et patchs ne portent pas de surnom floqué — la
+       personnalisation de groupe n'a donc aucun sens pour eux. Poser la
+       question reviendrait à proposer un choix dont une branche est un
+       cul-de-sac.
+
+       Seulement depuis l'ÉCRAN DE CHOIX (`data-etape="choix"`) : changer de
+       produit en cours de parcours ne doit pas basculer le client de mode. */
+    const racine = document.querySelector(".conf-app-root");
+    const surEcranChoix = racine && racine.getAttribute("data-etape") === "choix";
+    const sansSurnom = ["coins", "drapeaux", "patches"].indexOf(productType) !== -1;
+
+    if (surEcranChoix && sansSurnom && typeof window.choisirMode === "function") {
+      /* `true` = REPRISE DE SESSION : l'écran de choix est retiré EN PLACE,
+         sans rechargement de page.
+
+         Sans ce second argument, choisirMode traite l'appel comme un
+         changement volontaire de mode et passe par
+         basculerModeAvecRechargement (conf-main-inline.js:7421), dont la garde
+         `sortant && sortant === entrant` ne couvre pas le cas présent :
+         l'écran de choix a effacé le mode de la session, `sortant` vaut donc
+         null. La page se rechargeait, et l'écran de choix réapparaissait une
+         seconde fois — le clignotement observé.
+
+         La reprise est ici légitime : aucun mode n'est encore choisi, il n'y a
+         donc ni design à ranger ni état mémoire à isoler. */
+      window.choisirMode("individuelle", true);
+    }
   }
 
   /**

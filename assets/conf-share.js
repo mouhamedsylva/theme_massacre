@@ -268,10 +268,28 @@
         if (canReproject) {
           var r = el.getBoundingClientRect();
           if (r.width > 0 && r.height > 0) {
+            /* MARGE DU PNG COMPENSÉE.
+
+               La rastérisation entoure le texte d'une marge de 15 % de la
+               police (:196, `padX`). Le PNG est donc PLUS LARGE que les
+               glyphes, alors que `r.width` mesure les glyphes seuls.
+
+               Annoncer `r.width` faisait comprimer le PNG entier dans cette
+               largeur : le texte sortait plus petit et décalé vers la gauche
+               d'une demi-marge — visible sur l'étape « Vérifier », où il
+               venait recouvrir le logo voisin.
+
+               Le chemin de REPLI corrigeait déjà ce défaut (:341), pas
+               celui-ci : c'était une asymétrie entre deux branches du même
+               calcul. On aligne, et la correction vaut pour tous les rendus —
+               vue d'ensemble, vignette du panier, planche atelier. */
+            var fsPx = parseFloat(window.getComputedStyle(el).fontSize) || 0;
+            var margePx = fsPx * 0.15;
+
             geo = {
-              x: (r.left - imgBox.left) / imgBox.width,
+              x: (r.left - margePx - imgBox.left) / imgBox.width,
               y: (r.top - imgBox.top) / imgBox.height,
-              w: r.width / imgBox.width
+              w: (r.width + margePx * 2) / imgBox.width
             };
           }
         }

@@ -109,13 +109,11 @@
         Même classe `obtn` que ses voisins — aucun style propre à maintenir.
         Masqué hors mode groupe (voir conf-styles.css).
       {%- endcomment -%}
-      <button type="button" class="obtn hdr-changer-mode" onclick="retourChoixMode()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M15 18 9 12l6-6"/>
-        </svg>
-        Changer de type de commande
-      </button>
+      {%- comment -%}
+        « Changer de type de commande » a QUITTÉ l'en-tête : il vit désormais
+        au-dessus du produit (`.mode-actuel`, plus bas), accompagné du mode en
+        cours. Ici, il disait ce qu'on peut faire sans jamais dire où l'on est.
+      {%- endcomment -%}
 
       <button type="button" class="obtn" onclick="confirmReset()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
@@ -800,6 +798,26 @@
           </div>
         </div>
 
+      </div>
+
+      {%- comment -%}
+        MODE COURANT — au-dessus du produit, là où le client travaille.
+
+        Il vivait dans l'en-tête, parmi les boutons d'action : il disait ce
+        qu'on peut faire (« changer de type de commande ») sans jamais dire où
+        l'on est. Ici, il annonce d'abord le mode en cours, et le bouton n'est
+        que la sortie.
+
+        Le libellé est écrit par choisirMode() (conf-main-inline.js) : il
+        dépend du mode retenu, pas du markup.
+      {%- endcomment -%}
+      <div class="mode-actuel" id="mode-actuel">
+        <span class="mode-actuel-lbl">
+          Mode actuel : <strong id="mode-actuel-nom">Personnalisation libre</strong>
+        </span>
+        <button type="button" class="mode-actuel-btn" onclick="retourChoixMode()">
+          Changer de mode
+        </button>
       </div>
 
             <div class="cv-wrap">

@@ -135,14 +135,30 @@
     var txtEl = document.getElementById('text-' + zoneTexte);
     var txtContent = txtEl ? txtEl.querySelector('.dt-content') : null;
     var txtAncien = null;
-    var txtAfficheAncien = null;
+    var txtStyleAncien = null;
+    var txtDonneesAnciennes = null;
+    /* Attributs que clampTextToZone recalcule avec le style. */
+    var TXT_ATTRS = ['data-w', 'data-wanted-size', 'data-max-fit'];
 
     if (flock && txtEl && txtContent && !txtEl.classList.contains('is-shaped')) {
+      /* SAUVEGARDE COMPLÈTE DU STYLE — voir conf-group-verify.js pour le
+         raisonnement détaillé.
+
+         clampTextToZone recalcule `fontSize`, `left`, `top`, `maxWidth` et les
+         `data-*` sans conserver les anciennes valeurs. Ne remettre que le texte
+         et la visibilité laisse donc le canvas avec la géométrie du surnom.
+
+         Ici le défaut ne se voit pas : la modale ne masque pas le canvas, donc
+         clampTextToZone s'exécute à la restauration et rattrape le coup. Mais
+         il ne tient qu'à cela — le même code, appelé depuis un écran qui masque
+         le canvas, perdait le texte du client. */
       txtAncien = txtContent.textContent;
-      txtAfficheAncien = txtEl.style.display;
+      txtStyleAncien = txtEl.getAttribute('style');
+      txtDonneesAnciennes = TXT_ATTRS.map(function (a) { return txtEl.getAttribute(a); });
+
       txtContent.textContent = flock;
       /* Zone vide jusqu'ici : on la révèle, sinon captureAllViews l'ignore. */
-      if (txtAfficheAncien === 'none') txtEl.style.display = '';
+      if (txtEl.style.display === 'none') txtEl.style.display = '';
       /* Le surnom peut être plus long que le texte commun : la police doit
          être re-calée dans la zone imprimable avant la capture. */
       if (typeof window.clampTextToZone === 'function') window.clampTextToZone(zoneTexte);
@@ -151,8 +167,16 @@
     function restaurerTexte() {
       if (txtAncien === null || !txtContent) return;
       txtContent.textContent = txtAncien;
-      if (txtAfficheAncien !== null) txtEl.style.display = txtAfficheAncien;
-      if (typeof window.clampTextToZone === 'function') window.clampTextToZone(zoneTexte);
+
+      /* Style reposé TEL QUEL : aucun recalcul, donc aucune dépendance à une
+         mesure du DOM. */
+      if (txtStyleAncien === null) txtEl.removeAttribute('style');
+      else txtEl.setAttribute('style', txtStyleAncien);
+
+      for (var i = 0; i < TXT_ATTRS.length; i++) {
+        if (txtDonneesAnciennes[i] === null) txtEl.removeAttribute(TXT_ATTRS[i]);
+        else txtEl.setAttribute(TXT_ATTRS[i], txtDonneesAnciennes[i]);
+      }
     }
 
     Promise.resolve(

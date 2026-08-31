@@ -2404,33 +2404,63 @@
 
    Masqué à l'étape de CHOIX, où il n'y a rien à quitter — d'où la condition
    sur `data-mode`, posé seulement une fois un mode retenu. */
-.hdr-changer-mode { display: none; }
-[data-mode] .hdr-changer-mode {
+/* MODE COURANT — pastille posée au-dessus du produit.
+
+   Elle a remplacé le bouton de l'en-tête, qui disait ce qu'on peut faire sans
+   jamais dire où l'on est. Ici, le mode s'annonce d'abord ; le bouton n'est
+   que la sortie.
+
+   Masquée à l'étape de CHOIX, où aucun mode n'est encore retenu — d'où la
+   condition sur `data-mode`. */
+.mode-actuel { display: none; }
+[data-mode] .mode-actuel {
   display: inline-flex;
-  /* Le libellé est le plus long de l'en-tête : sans cela, il se couperait sur
-     deux lignes dès que la fenêtre se resserre, et le bouton grandirait en
-     hauteur au milieu de ses voisins. */
-  white-space: nowrap;
+  align-items: center;
+  gap: 10px;
+  /* `margin: auto` horizontal : la pastille se centre au-dessus du vêtement
+     plutôt que de s'étirer sur toute la largeur du canvas.
+
+     `align-self` et `flex-shrink` : le canvas est une colonne flexible, qui
+     étirerait sinon la pastille sur toute sa largeur et lui retirerait de la
+     hauteur quand la place manque. */
+  align-self: center;
   flex-shrink: 0;
-
-  /* MIS EN AVANT — il se confondait avec « Réinitialiser », son voisin, alors
-     que les deux actions n'ont rien de comparable : l'une change de parcours,
-     l'autre efface le design.
-
-     Bleu plutôt que l'orange du thème, réservé à l'action principale
-     (« Continuer ») : ce bouton est une sortie de route, pas la marche à
-     suivre. Le halo le détache sans l'alourdir d'un fond plein. */
-  color: #1d4ed8;
-  border-color: #93c5fd;
-  background: #f5f9ff;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, .13);
+  margin: 0 auto 10px;
+  padding: 5px 5px 5px 14px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
 }
-[data-mode] .hdr-changer-mode:hover {
-  color: #1e40af;
-  border-color: #3b82f6;
-  background: #eff6ff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, .2);
+.mode-actuel-lbl strong {
+  font-weight: 700;
+  color: var(--black);
 }
+/* Le bouton reprend le noir du thème : c'est une action, pas une information,
+   et le contraste le distingue du libellé qui le précède. */
+.mode-actuel-btn {
+  padding: 6px 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--black);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity .15s ease;
+}
+.mode-actuel-btn:hover { opacity: .85; }
+
+/* Masquée aux étapes qui n'affichent plus le produit : la pastille le coiffe,
+   elle n'a rien à coiffer devant un tableau ou des cartes. Le stepper y dit
+   déjà où l'on est. */
+[data-etape-groupe="configurer"] .mode-actuel,
+[data-etape-groupe="valider"] .mode-actuel { display: none; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    PARCOURS GROUPE — stepper et barre d'action
@@ -2942,16 +2972,25 @@
    chaque vêtement devenait trop petit pour qu'on y vérifie un nom floqué. Un
    nombre de colonnes FIXE garantit la taille d'aperçu ; les paliers plus bas
    ramènent à deux puis une colonne. */
+/* DEUX COLONNES, et non trois.
+
+   À trois par ligne, le vêtement faisait ~160 px de large contre ~500 px sur
+   le canvas : logos et texte y étaient trois fois plus petits. Leur proportion
+   était pourtant exacte — c'est la scène qui était trop étroite.
+
+   Les agrandir aurait rendu l'aperçu infidèle, sur l'écran même où le client
+   valide ce qui part en production. Élargir la carte donne la lisibilité sans
+   rien déformer. */
 .grp-verif-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 26px;
+  /* Une commande à deux personnes ne doit pas étirer ses cartes sur toute la
+     largeur d'un écran de bureau : le vêtement y paraîtrait démesuré. */
+  max-width: 1000px;
 }
-@media (max-width: 1100px) {
-  .grp-verif-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-}
-@media (max-width: 700px) {
-  .grp-verif-grid { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) {
+  .grp-verif-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 }
 
 .gv-card {
