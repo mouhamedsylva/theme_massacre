@@ -2137,6 +2137,14 @@
     grpMajLignes();
   }
 
+  /* Exposée : l'étape « Configurer » du parcours groupe l'appelle à son
+     entrée (conf-main-inline.js). L'observateur ci-dessus ne voit que les
+     lignes AJOUTÉES — quand elles existent déjà, rien ne les numérotait ni
+     n'en dépliait une, et le client arrivait sur des cartes toutes fermées. */
+  window.grpMajLignes = function () {
+    if (isMobile()) grpMajLignes();
+  };
+
   /* La modale existe dès le rendu de la section, mais son contenu est peuplé
      à l'ouverture : on s'accroche au conteneur, pas aux lignes. */
   if (document.readyState === 'loading') {

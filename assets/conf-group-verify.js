@@ -30,18 +30,21 @@
      Quatre rangées de trois sur un écran large. */
   var PAR_PAGE = 12;
 
-  /* RÉDUCTION DU TEXTE DANS LES CARTES.
+  /* ÉCHELLE DU TEXTE DANS LES CARTES — GROSSISSEMENT VOLONTAIRE.
 
-     La géométrie renvoyée par la capture est exacte : le texte occupe la même
-     fraction du vêtement que sur le canvas. Mais le canvas affiche le vêtement
-     sur 60 % de la hauteur d'écran, contre ~250 px ici. À cette échelle, un
-     rapport pourtant fidèle donne un texte qui barre tout le torse.
+     La capture renvoie une géométrie exacte : à 1.0, le nom occupe la même
+     fraction du vêtement qu'à l'impression. Mais la zone de floquage ne fait
+     que 22 % de la poitrine (configurateur.liquid:878) : à la taille d'une
+     carte, le nom devenait illisible.
 
-     On le réduit donc VOLONTAIREMENT pour la vignette, en conservant son
-     centre — la position reste juste, seule la taille est atténuée. C'est un
-     choix de lisibilité, pas une correction de géométrie : le rendu de
-     production, lui, reste celui du canvas. */
-  var ECHELLE_TEXTE = 0.62;
+     ATTENTION — ce coefficient rend l'aperçu VOLONTAIREMENT INFIDÈLE : le
+     client voit un nom plus grand que celui qui sera réellement floqué. C'est
+     un choix assumé de lisibilité pour cet écran ; le canvas, lui, reste la
+     référence du rendu de production.
+
+     Pour rendre l'aperçu fidèle à nouveau, ramener cette valeur à 1 — et
+     élargir plutôt la zone de texte du canvas. */
+  var ECHELLE_TEXTE = 1.25;
 
   var pageCourante = 0;
   var lignesCourantes = [];
@@ -50,6 +53,8 @@
      même PNG de texte, seule leur couleur de fond diffère. */
   var cacheCaptures = null;
   var jeton = 0;
+  /* Centre de la zone de texte, mesuré avant toute substitution de nom. */
+  var centreTexteCourant = null;
 
   function esc(s) {
     if (typeof window.grpEsc === 'function') return window.grpEsc(s);
@@ -117,6 +122,27 @@
     var imgs = document.querySelectorAll('#logo-layer .design-logo img');
     var attentes = [];
 
+    /* CALQUES NON MESURABLES → on attend une frame de plus.
+
+       Au rechargement, restoreUploads() (conf-main-inline.js:6212) pose la
+       source puis la géométrie dans la foulée, mais le navigateur n'a pas
+       encore calculé la mise en page : `offsetWidth` vaut zéro et la capture
+       lit une position par défaut — le logo sortait à gauche du texte au lieu
+       de sa vraie place.
+
+       On laisse donc passer deux rendus avant de mesurer : le premier applique
+       les styles, le second les met en page. */
+    var pasEncorePlace = false;
+    Array.prototype.forEach.call(imgs, function (im) {
+      var calque = im.parentElement;
+      if (calque && im.getAttribute('src') && !calque.offsetWidth) pasEncorePlace = true;
+    });
+    if (pasEncorePlace) {
+      attentes.push(new Promise(function (res) {
+        requestAnimationFrame(function () { requestAnimationFrame(res); });
+      }));
+    }
+
     /* forEach plutôt qu'une boucle `var` : chaque écouteur doit capturer SON
        image. Avec `var`, toutes les fonctions partageraient la dernière. */
     Array.prototype.forEach.call(imgs, function (im) {
@@ -182,29 +208,86 @@
     });
   }
 
+  /**
+   * Centre horizontal de la zone de texte, en fraction de l'IMAGE produit.
+   *
+   * POURQUOI. La boîte du texte épouse son contenu (`width: max-content`,
+   * conf-styles.css:461) et reste ancrée par sa GAUCHE. Un nom court occupe
+   * donc moins de large qu'un nom long, mais démarre au même point : dans les
+   * cartes, « Modou Ngom » glissait vers la gauche par rapport au « SURNOM »
+   * du canvas, jusqu'à toucher le logo.
+   *
+   * On mesure donc le centre RÉEL du texte à l'écran, avant toute
+   * substitution, et on y recentre ensuite chaque nom.
+   *
+   * Mesure directe plutôt que lecture des `%` inline : ceux-ci sont relatifs
+   * au #logo-layer, pas à l'image — les deux boîtes ne coïncident pas
+   * (conf-group-preview.js:97-118).
+   *
+   * @returns {number|null} fraction 0..1, ou null si non mesurable.
+   */
+  function centreZoneTexte() {
+    var zone = typeof window.grpTextZone === 'function' ? window.grpTextZone() : 'f';
+    var el = document.getElementById('text-' + zone);
+    var img = document.querySelector('.product-img-single.on');
+    if (!el || !img) return null;
+
+    var r = el.getBoundingClientRect();
+    var ri = img.getBoundingClientRect();
+    if (!r.width || !ri.width) return null;
+
+    return ((r.left + r.width / 2) - ri.left) / ri.width;
+  }
+
   /** Construit le HTML d'une carte. */
   function carteHTML(ligne, face) {
     var nom = ligne.flock || ligne.name || '';
     var fond = fondPourCouleur(ligne.color) ||
                (face && face.background) || '';
 
+    /* CENTRE DE LA ZONE DE TEXTE, mesuré AVANT toute substitution.
+
+       La boîte du texte épouse son contenu (`width: max-content`,
+       conf-styles.css:461) et reste ancrée par sa GAUCHE. Un nom court occupe
+       donc moins de large qu'un nom long, mais démarre au même point : dans
+       l'aperçu, « Modou Ngom » glissait vers la gauche par rapport au
+       « SURNOM » du canvas, jusqu'à toucher le logo.
+
+       On garde le centre de la zone telle qu'elle est sur le canvas, et on y
+       recentre chaque nom : tous les membres du groupe voient alors leur texte
+       au même endroit, quelle que soit la longueur du leur. */
+    /* Mesuré UNE FOIS par page, avant les substitutions (voir
+       capturerPuisPeindre) : après elles, le texte du canvas a repris sa
+       valeur d'origine et sa largeur ne correspond plus au nom rendu. */
+    var centreTexte = centreTexteCourant;
+
     var calques = (face && face.logos ? face.logos : []).map(function (g) {
       var w = g.w, x = g.x;
 
-      /* L'atténuation ne vaut QUE pour le texte. Appliquée à tous les calques,
-         elle réduisait aussi les logos uploadés — un logo de poitrine sortait
-         en point minuscule. Le texte est marqué à la source par `isText`
-         (conf-share.js). Réduction AUTOUR DU CENTRE : l'origine se décale de
-         la moitié de ce qui est retiré, sinon le texte glisserait vers la
-         gauche au lieu de rétrécir sur place. */
-      if (g.isText) {
-        w = g.w * ECHELLE_TEXTE;
-        x = g.x + (g.w - w) / 2;
-      }
+      /* AGRANDISSEMENT PAR TRANSFORMATION, et non par largeur.
+
+         Il ne vaut QUE pour le texte, marqué à la source par `isText`
+         (conf-share.js) : les images uploadées gardent leur taille réelle.
+
+         Modifier `width` faisait grandir le calque vers le bas et la droite
+         (`height: auto`, origine en haut à gauche) : agrandi ainsi, le texte
+         descendait et se détachait du logo. Corriger le décalage exigeait de
+         connaître le ratio du PNG, inconnu ici.
+
+         `transform: scale()` avec origine au CENTRE agrandit dans les quatre
+         directions à la fois : la position du milieu du texte ne bouge pas,
+         quel que soit le ratio de l'image. */
+      var transf = g.isText
+        ? 'transform:scale(' + ECHELLE_TEXTE + ');transform-origin:center center;'
+        : '';
+
+      /* Le nom est recentré sur la zone : sans cela, sa position dépendrait de
+         sa longueur (voir le commentaire de `centreTexte`). */
+      if (g.isText && centreTexte !== null) x = centreTexte - g.w / 2;
 
       return '<img class="ov-layer" src="' + safeSrc(g.src) + '" alt="" ' +
              'style="left:' + (x * 100) + '%;top:' + (g.y * 100) + '%;' +
-             'width:' + (w * 100) + '%">';
+             'width:' + (w * 100) + '%;' + transf + '">';
     }).join('');
 
     /* `max-width/height:none` : conf-styles.css impose max-height:60vh à toute
@@ -311,6 +394,11 @@
     /* Une capture par NOM DISTINCT : deux personnes portant le même nom
        partagent géométrie et PNG de texte — seule leur couleur de fond
        diffère, et elle est substituée après coup. */
+    /* AVANT toute substitution : le canvas porte encore son texte d'origine,
+       seul état où sa largeur — et donc son centre — est celle que le client
+       a composée. */
+    if (centreTexteCourant === null) centreTexteCourant = centreZoneTexte();
+
     var noms = [];
     for (var i = 0; i < page.length; i++) {
       var n = page[i].flock || page[i].name || '';
@@ -387,6 +475,8 @@
     lignesCourantes = lignes;
     cacheCaptures = {};
     pageCourante = 0;
+    /* Remesuré à chaque entrée : le client a pu déplacer son texte depuis. */
+    centreTexteCourant = null;
 
     if (!lignes.length) return;
     capturerPuisPeindre(lignes.slice(0, PAR_PAGE), ++jeton);

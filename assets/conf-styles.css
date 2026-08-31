@@ -1309,9 +1309,14 @@
       border-top: 1px solid var(--border);
       font-size: 12.5px; color: var(--muted);
     }
+    /* Le total de PIÈCES est masqué : isolé à droite du tableau, il redisait
+       ce que la colonne « Qté » montre déjà ligne par ligne. Le nombre de
+       lignes suffit à résumer la liste.
+
+       L'élément reste alimenté par grpUpdateTotals() (:614) — d'autres
+       lectures peuvent en dépendre ; seul son affichage disparaît. */
     .grp-summary strong {
-      font-size: 14px; font-weight: 700; color: var(--black);
-      font-variant-numeric: tabular-nums;
+      display: none;
     }
     /* NOTE — information de contexte, lue une fois. Gris neutre et sans cadre :
        la teinte ambrée la faisait concurrencer l'avertissement de texte courbé,
@@ -1561,6 +1566,71 @@
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
   }
+
+  /* ── COMMANDE DE GROUPE — une carte pour toute la liste ─────────────────
+     Cinq personnes donnaient cinq lignes identiques, seule la taille
+     changeant. La carte les réunit : une image, une couleur, puis les tailles
+     avec leurs quantités.
+
+     Le regroupement est purement visuel — le panier garde ses N lignes, et ce
+     qui part en commande est inchangé (voir renderCartDrawer). */
+  /* PILE — deux feuillets décalés derrière la vignette, quand la commande
+     compte plusieurs teintes. L'image n'en montre qu'une : la pile dit qu'il y
+     en a d'autres, sans avoir à toutes les afficher. */
+  .cd-thumb-pile { position: relative; flex-shrink: 0; }
+  /* VIGNETTE AGRANDIE sur une carte de groupe : elle résume toute une commande,
+     là où un article individuel n'en montre qu'un. Les articles isolés gardent
+     leurs 72 px. */
+  .cd-thumb-pile .cd-thumb { width: 110px; height: 110px; }
+  .cd-thumb-pile.is-pile::before,
+  .cd-thumb-pile.is-pile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    /* Derrière la vignette, sans intercepter le clic qui rouvre le design. */
+    z-index: -1;
+    pointer-events: none;
+  }
+  .cd-thumb-pile.is-pile::before { transform: translate(3px, 3px); }
+  .cd-thumb-pile.is-pile::after  { transform: translate(6px, 6px); }
+  /* Le conteneur crée son propre plan : sans cela, `z-index: -1` ferait passer
+     les feuillets DERRIÈRE le fond de la carte, donc invisibles. */
+  .cd-item-grp { isolation: isolate; }
+
+  .cd-grp-tailles { margin-top: 10px; }
+  .cd-grp-taille {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .cd-grp-lbl {
+    font-size: 13px; font-weight: 600; color: var(--black);
+    /* Largeur fixe : les tailles s'alignent en colonne, les boutons aussi. */
+    min-width: 42px;
+  }
+  /* Quantité en lecture seule : la commande se modifie à l'étape
+     « Configurer », où chaque personne a sa ligne. */
+  .cd-grp-qte {
+    font-size: 13px; font-weight: 600; color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Les surnoms restent VISIBLES sous la carte : une erreur de nom brodé coûte
+     une commande entière, le client doit pouvoir la vérifier avant de payer. */
+  .cd-grp-noms {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 11.5px; line-height: 1.5; color: var(--muted);
+    word-break: break-word;
+  }
+  .cd-grp-noms strong { font-weight: 600; color: #8a8a8a; }
+
+  /* `.cd-grp-total` a été retiré : le pied du panier porte déjà le nombre
+     d'articles et le total estimé. */
   /* Bouton depuis qu'un clic ramène au design de la ligne : on neutralise
      les styles natifs (padding, fonte) pour garder l'aspect vignette. */
   .cd-thumb {
@@ -2147,15 +2217,18 @@
 [data-etape="choix"] .recap { display: none; }
 
 /* La barre latérale RESTE visible : le client peut choisir son support avant
-   de décider du mode. Mais Upload et Texte n'ont pas de sens à ce stade — ils
-   sont grisés et inertes.
+   de décider du mode. Mais Upload et Texte n'ont pas de sens à ce stade.
 
-   `pointer-events: none` en plus de l'opacité : un onglet seulement pâli
-   resterait cliquable, et ouvrirait un panneau hors sujet. */
+   MASQUÉS plutôt que grisés : un onglet pâli reste un onglet, et invite
+   encore au clic. Le retirer pose la question plus clairement — à cette
+   étape, seul le type de produit se choisit.
+
+   L'onglet « Mon Équipe » part avec eux : il appartient au mode groupe, qui
+   n'est pas encore choisi. */
 [data-etape="choix"] .icon-nav-item[data-panel="panel-upload"],
-[data-etape="choix"] .icon-nav-item[data-panel="panel-text"] {
-  opacity: .38;
-  pointer-events: none;
+[data-etape="choix"] .icon-nav-item[data-panel="panel-text"],
+[data-etape="choix"] .icon-nav-equipe {
+  display: none;
 }
 
 .mode-choice {
@@ -2243,6 +2316,19 @@
   width: 100%;
   height: 150px;
   object-fit: contain;
+  /* Le survol agrandit le visuel. Le conteneur masque déjà le débordement
+     (`overflow: hidden`, ci-dessus) : l'image grandit sans pousser le titre
+     ni le bouton, la carte garde exactement sa hauteur. */
+  transition: transform .25s ease;
+}
+.mode-card:hover .mode-card-visuel img {
+  transform: scale(1.06);
+}
+/* Mouvement supprimé pour qui le demande — le réglage système existe pour les
+   personnes que l'animation gêne ou rend malades. */
+@media (prefers-reduced-motion: reduce) {
+  .mode-card-visuel img { transition: none; }
+  .mode-card:hover .mode-card-visuel img { transform: none; }
 }
 
 /* La pastille « Populaire » et sa classe `is-featured` ont été retirées : les
@@ -2326,6 +2412,24 @@
      hauteur au milieu de ses voisins. */
   white-space: nowrap;
   flex-shrink: 0;
+
+  /* MIS EN AVANT — il se confondait avec « Réinitialiser », son voisin, alors
+     que les deux actions n'ont rien de comparable : l'une change de parcours,
+     l'autre efface le design.
+
+     Bleu plutôt que l'orange du thème, réservé à l'action principale
+     (« Continuer ») : ce bouton est une sortie de route, pas la marche à
+     suivre. Le halo le détache sans l'alourdir d'un fond plein. */
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #f5f9ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, .13);
+}
+[data-mode] .hdr-changer-mode:hover {
+  color: #1e40af;
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .2);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -2385,6 +2489,48 @@
   justify-content: center;
   padding: 0;
 }
+
+/* COMPRESSÉ dans l'en-tête : il y partage la barre avec le logo, le retour et
+   deux boutons. Étalé sur toute la largeur, il repoussait « Changer de type de
+   commande » hors de sa place. Les traits de liaison cèdent le plus — leur
+   rôle est de relier, pas d'occuper. */
+[data-mode="groupe"] .grp-steps--hdr .grp-step { padding: 4px 8px; gap: 6px; }
+[data-mode="groupe"] .grp-steps--hdr .grp-step-num { width: 20px; height: 20px; }
+[data-mode="groupe"] .grp-steps--hdr .grp-step-lbl { font-size: 11px; }
+[data-mode="groupe"] .grp-steps--hdr .grp-step-sep { max-width: 60px; }
+
+/* APERÇU DU PANNEAU « MON ÉQUIPE » RETIRÉ.
+
+   Il montrait le vêtement en réduction, à côté du canvas qui montre le même
+   vêtement en grand. Deux fois la même chose, dont une illisible — la place
+   revient à la liste des surnoms, qui est le vrai travail de cet écran.
+
+   Le markup et eqSyncApercu() restent en place : c'est un retrait d'affichage,
+   réversible sans toucher au code. */
+.eq-apercu { display: none; }
+
+/* RÉCAPITULATIF MASQUÉ EN MODE GROUPE.
+
+   Ses quantités et son « Ajouter au panier » valent pour UN article ; en
+   groupe, la quantité vient du tableau et la commande part par le bouton du
+   parcours (« Ajouter la commande au panier »). Deux chemins d'achat côte à
+   côte, dont un faux, prêtaient à confusion.
+
+   `.recap` occupe une COLONNE de la grille racine : la masquer sans refermer
+   la colonne laisserait une bande vide de sa largeur. */
+[data-mode="groupe"] .recap { display: none; }
+
+/* LA COLONNE EST CONSERVÉE, seul son contenu disparaît.
+
+   La refermer élargissait le canvas de 252 px. Or #logo-layer est en
+   `inset: 0` sur `.cv-single-view` — il occupe TOUTE la largeur — alors que
+   l'image est centrée à hauteur fixe. Les zones, exprimées en % du calque,
+   s'étiraient donc avec lui : le bandeau poitrine et la zone dos débordaient
+   des coutures, alors qu'ils restaient justes en mode individuelle.
+
+   Garder la colonne rend au canvas exactement la géométrie de l'autre mode :
+   les zones y sont identiques, sans toucher à leur calcul. */
+.conf-app-root[data-mode="groupe"] { grid-template-columns: 1fr var(--recap-w); }
 /* BARRE FLOTTANTE — posée SUR le canvas, hors du flux.
 
    Dans le flux, elle retranchait sa hauteur à `.cv-wrap` (`flex: 1`) : le
@@ -2400,35 +2546,167 @@
    canvas. */
 [data-mode="groupe"] .canvas { position: relative; }
 
+/* CONSIGNE DE L'ÉTAPE — encadré au-dessus de la liste des surnoms.
+   Reprend le bleu d'information déjà employé par le panneau Upload : c'est un
+   repère, pas une alerte. */
+.eq-info {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1e40af;
+}
+
+/* BARRE D'ACTION — dans la colonne libérée par le récapitulatif.
+
+   Elle flottait SUR le vêtement, recouvrant le bas du produit et rivalisant
+   avec la consigne au même endroit. La colonne de droite est vide en mode
+   groupe (le récapitulatif y est masqué) : le bouton y trouve sa place, hors
+   du canvas, là où l'œil cherche naturellement l'action suivante.
+
+   `position: fixed` plutôt qu'absolute : la colonne est une zone de grille
+   sans conteneur propre à cette hauteur. */
+/* BOUTON SEUL, flottant en bas à droite du canvas.
+
+   Le conteneur n'est plus qu'un point d'ancrage : ni fond, ni cadre, ni
+   ombre. Le bandeau blanc barrait le vêtement sur toute sa largeur pour ne
+   porter qu'un bouton — c'est ce bouton qui doit se voir, pas son support.
+
+   Il reste ancré à DROITE : le sens de lecture du parcours, et la position
+   qu'occupe « Ajouter au panier » en mode individuel. */
 [data-mode="groupe"] .grp-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   position: absolute;
-  left: 20px; right: 20px; bottom: 12px;
+  left: 20px; right: 20px; bottom: 16px;
   /* 12 : le canvas monte déjà jusqu'à 6 (calques, poignées —
-     conf-canvas-single.css:75, :206). En dessous, la barre serait recouverte
+     conf-canvas-single.css:75, :206). En dessous, le bouton serait recouvert
      par un logo posé bas sur le vêtement. */
   z-index: 12;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, .92);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+  /* Le conteneur laisse passer les clics : il couvre toute la largeur du
+     canvas, et intercepterait sinon le glissé d'un logo posé bas. Le bouton,
+     lui, les reçoit à nouveau. */
+  pointer-events: none;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+[data-mode="groupe"] .grp-actions > * { pointer-events: auto; }
+
+/* Ombre portée sur le BOUTON : sans le bandeau, c'est elle qui le détache du
+   vêtement, quelle que soit la couleur derrière. */
+[data-mode="groupe"] .grp-actions-btn {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .22);
+  flex-shrink: 0;
 }
 
-/* L'étape « Configurer » affiche un TABLEAU, pas un produit : la barre y
-   reprend sa place dans le flux, sinon elle recouvrirait les dernières
-   lignes de la liste. */
-[data-etape-groupe="configurer"] .grp-actions {
+/* La consigne vit maintenant dans le panneau « Mon Équipe » (`.eq-info`) :
+   la garder ici la dédoublerait. */
+[data-mode="groupe"] .grp-actions-info { display: none; }
+
+/* ÉTAPES « CONFIGURER » ET « VÉRIFIER » — la barre reprend sa place dans le
+   flux, horizontale.
+
+   Ces écrans montrent un tableau ou des cartes, pas le vêtement : rien à
+   recouvrir, et la consigne y redevient utile puisqu'elle ne double plus
+   celle du panneau « Mon Équipe », lequel n'est pas ouvert ici. */
+[data-etape-groupe="configurer"] .grp-actions,
+[data-etape-groupe="valider"] .grp-actions {
   position: static;
+  flex-direction: row;
+  align-items: center;
+  /* Les deux boutons groupés à droite — voir plus bas. */
+  justify-content: flex-end;
+  width: auto;
   background: none;
   backdrop-filter: none;
   border: none;
   box-shadow: none;
-  padding: 8px 0 4px;
+  /* Marge à DROITE : la bulle de chat est ancrée dans ce coin (~60px de large
+     plus son propre écart au bord). Sans elle, « Ajouter la commande au
+     panier » passait dessous et son libellé se retrouvait tronqué. */
+  padding: 8px 96px 4px 0;
+}
+[data-etape-groupe="configurer"] .grp-actions-btn,
+[data-etape-groupe="valider"] .grp-actions-btn { width: auto; }
+
+[data-etape-groupe="configurer"] .grp-actions,
+[data-etape-groupe="valider"] .grp-actions { gap: 10px; }
+
+/* CONSIGNE MASQUÉE à ces deux étapes.
+
+   Elle affichait « 0 personne ajoutée » alors que le tableau porte déjà
+   « 2 lignes · 2 pièces » — deux compteurs pour la même chose, dont un faux.
+   Le tableau est la source juste, il la garde seul.
+
+   Les deux boutons sont GROUPÉS à droite : « Retour vers DESIGNER » et
+   « Continuer » se lisent alors comme une paire, dans l'ordre du parcours.
+   Isolé à l'autre bout de l'écran, le retour obligeait à traverser toute la
+   page pour reculer d'une étape. */
+[data-etape-groupe="configurer"] .grp-actions-info,
+[data-etape-groupe="valider"] .grp-actions-info { display: none; }
+[data-etape-groupe="configurer"] .grp-actions,
+[data-etape-groupe="valider"] .grp-actions { justify-content: flex-end; }
+
+/* RETOUR — discret par rapport à « Continuer ».
+   Deux boutons de même poids feraient hésiter : l'un est la marche à suivre,
+   l'autre un rattrapage. */
+.grp-actions-retour { display: none; }
+[data-etape-groupe="configurer"] .grp-actions-retour,
+[data-etape-groupe="valider"] .grp-actions-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  background: var(--black);
+  color: #fff;
+  border: 1px solid var(--black);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s ease;
+}
+/* Atténuation au survol plutôt qu'un changement de teinte : le bouton reste
+   noir, comme « Ajouter au panier » du récapitulatif. */
+.grp-actions-retour:hover { opacity: .85; }
+.grp-actions-retour svg { width: 16px; height: 16px; }
+
+/* ÉTAPE « CONFIGURER » — la barre latérale s'efface, le tableau prend la
+   largeur.
+
+   Cinq colonnes de saisie y tenaient à l'étroit. Le panneau des surnoms n'a
+   plus d'utilité ici : les noms se saisissent désormais dans le tableau
+   lui-même.
+
+   Le RAIL D'ICÔNES reste, lui : c'est le seul moyen de rouvrir « Mon Équipe »
+   ou de changer de produit. Le masquer enfermerait le client dans l'étape. */
+[data-etape-groupe="configurer"] .side-panel { display: none; }
+
+/* MODE GROUPE — seuls les TEXTILES sont proposés.
+
+   Une commande de groupe repose sur un surnom floqué par personne. Coins,
+   drapeaux et patchs n'ont pas de zone de texte : le parcours entier — liste
+   de surnoms, substitution des noms, aperçu par membre — n'a aucun sens pour
+   eux, et les proposer menait à une impasse silencieuse.
+
+   Leurs onglets d'options partent avec : sans produit à régler, ils ouvrent
+   un panneau vide. */
+[data-mode="groupe"] .product-card[data-product="coins"],
+[data-mode="groupe"] .product-card[data-product="drapeaux"],
+[data-mode="groupe"] .product-card[data-product="patches"],
+[data-mode="groupe"] .icon-nav-item[data-panel="panel-coin"],
+[data-mode="groupe"] .icon-nav-item[data-panel="panel-flag"],
+[data-mode="groupe"] .icon-nav-item[data-panel="panel-patch"] {
+  display: none;
 }
 
 /* Chaque étape est un BOUTON : le client peut revenir sur une étape franchie.
@@ -2506,8 +2784,45 @@
   transition: background .15s ease;
 }
 .grp-actions-btn:hover { background: #9a3412; }
-.grp-actions-btn:disabled { background: #d4d4d4; cursor: not-allowed; }
+/* ENFONCEMENT au clic : la réponse la plus immédiate possible, avant même que
+   le traitement ne démarre. Sans elle, le client doutait d'avoir appuyé. */
+.grp-actions-btn:active { transform: scale(.97); }
 .grp-actions-btn svg { width: 17px; height: 17px; }
+
+/* ── ÉTAT D'ATTENTE PENDANT L'AJOUT AU PANIER ──────────────────────────────
+   L'ajout compose une vignette par couleur et les envoie à Cloudinary : une
+   à deux secondes pendant lesquelles rien ne bougeait. Le bouton se
+   désactivait simplement (verrou anti-double-clic, conf-main-inline.js), et
+   le gris terne se lisait comme « indisponible », non comme « en cours ».
+
+   Il garde donc sa couleur, et une bande claire le traverse — le travail est
+   en cours, l'attente a une fin. */
+.grp-actions-btn:disabled {
+  background: #c2410c;
+  cursor: progress;
+  position: relative;
+  overflow: hidden;
+  opacity: .92;
+}
+.grp-actions-btn:disabled::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    transparent 20%, rgba(255, 255, 255, .32) 50%, transparent 80%);
+  animation: grp-btn-attente 1.1s linear infinite;
+}
+@keyframes grp-btn-attente {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+/* Le mouvement gêne certaines personnes, parfois physiquement : on le retire
+   sans perdre le signal, porté ici par la seule atténuation. */
+@media (prefers-reduced-motion: reduce) {
+  .grp-actions-btn:active { transform: none; }
+  .grp-actions-btn:disabled::after { animation: none; }
+  .grp-actions-btn:disabled { opacity: .75; }
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    ÉTAPE « CONFIGURER » — la liste REMPLACE le produit

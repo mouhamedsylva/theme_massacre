@@ -166,10 +166,11 @@
   (conf-group-preview.js:143), appliqué au canvas plutôt qu'à une modale.
 {%- endcomment -%}
 <aside class="side-panel" id="panel-equipe">
-  <div class="side-panel-header">
-    <h3 class="side-panel-title">MON ÉQUIPE</h3>
-    <p class="side-panel-subtitle">Vérifiez le rendu de chaque surnom</p>
-  </div>
+  {%- comment -%}
+    EN-TÊTE RETIRÉ. L'onglet de gauche porte déjà « Mon Équipe » et reste
+    surligné tant que le panneau est ouvert : le titre le répétait. La
+    consigne, elle, descend sous « SURNOMS », à l'endroit où l'on agit.
+  {%- endcomment -%}
 
   <div class="side-panel-content">
     <div class="eq-apercu" id="eq-apercu">
@@ -178,6 +179,15 @@
       </div>
       <p class="eq-apercu-nom" id="eq-apercu-nom">Touchez un surnom pour l'essayer</p>
     </div>
+
+    {%- comment -%}
+      CONSIGNE DE L'ÉTAPE, remontée de la barre d'action du canvas.
+
+      Elle y flottait sur le vêtement, à côté du bouton : deux messages
+      concurrents au même endroit. Ici elle coiffe le panneau de travail et
+      dit ce que le client fait à cette étape, avant qu'il ne commence.
+    {%- endcomment -%}
+    <p class="eq-info">Composez le design commun à toute l'équipe.</p>
 
     <div class="eq-liste-hdr">
       <span class="eq-liste-titre">Surnoms</span>

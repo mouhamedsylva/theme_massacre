@@ -2294,17 +2294,12 @@
         if (ptImg) rcProdImg.src = ptImg.src;
       }
 
-      /* VIGNETTES DE L'ÉCRAN DE CHOIX — elles suivent le produit sélectionné.
+      /* Les vignettes de l'écran de choix ne suivent PLUS le produit.
 
-         Le client choisit son support AVANT le mode : les deux cartes doivent
-         montrer ce qu'il vient de sélectionner, pas un t-shirt figé.
-
-         Greffé ici plutôt que dans un observateur : c'est déjà le point qui
-         propage le produit courant aux autres vignettes de l'interface. */
-      if (typeof window.majVignettesMode === 'function') {
-        var ptImgMode = el.querySelector('.pt-img, .product-card-icon img');
-        if (ptImgMode) window.majVignettesMode(ptImgMode.src);
-      }
+         Elles montrent le RÉSULTAT de chaque mode — un logo sur la poitrine,
+         un surnom floqué. Y substituer l'image du produit sélectionné les
+         remplaçait par deux vêtements nus, identiques : la différence entre
+         les deux modes disparaissait, et l'illustration soignée aussi. */
 
       const rcProd = document.getElementById('rc-prod');
       if (rcProd) {
@@ -2447,14 +2442,50 @@
         var wasDisabled = lockBtn ? lockBtn.disabled : false;
         if (lockBtn) lockBtn.disabled = true;
 
+        /* LE BOUTON DU PARCOURS GROUPE aussi. C'est lui que le client vient de
+           cliquer à l'étape « Vérifier » — le bouton du récapitulatif est
+           masqué à ce moment. Sans cette ligne, rien ne signalait le travail en
+           cours là où il regardait, et il pouvait recliquer. */
+        var lockGrp = document.getElementById('grp-actions-btn');
+        var grpEtaitDesactive = lockGrp ? lockGrp.disabled : false;
+        if (lockGrp) lockGrp.disabled = true;
+
+        /* DURÉE MINIMALE d'affichage de l'état d'attente. Un ajout servi par le
+           cache se termine en quelques dizaines de millisecondes : l'animation
+           n'apparaîtrait qu'en un éclair, plus déroutant que rassurant. */
+        var debutAjout = Date.now();
+
         try {
           return await fn.apply(this, arguments);
+        } catch (err) {
+          /* ÉCHEC RENDU VISIBLE.
+
+             Sans ce filet, une exception pendant l'ajout — composition d'une
+             vignette, envoi Cloudinary, quota de session — remontait dans le
+             vide : le bouton se réactivait et le client voyait un clic SANS
+             AUCUN EFFET, au terme de son parcours. Il ne pouvait ni comprendre
+             ni contourner.
+
+             On trace pour le diagnostic, et on le dit au client. */
+          console.error('Ajout au panier échoué :', err);
+          if (typeof confAlert === 'function') {
+            confAlert("L'ajout au panier a échoué. Réessayez ; si le problème persiste, rechargez la page.",
+                      { icon: 'warning', title: 'Ajout impossible' });
+          }
         } finally {
+          var ecoule = Date.now() - debutAjout;
+          if (ecoule < 420) {
+            await new Promise(function (r) { setTimeout(r, 420 - ecoule); });
+          }
           cartAddBusy = false;
           /* On ne réactive que si NOUS avons désactivé : sinon on annulerait
              une désactivation légitime posée entre-temps (bouton masqué parce
              que le panier bascule en devis, par exemple). */
           if (lockBtn && !wasDisabled) lockBtn.disabled = false;
+          /* Même règle pour le bouton du parcours : on ne réactive que si NOUS
+             l'avons désactivé. Sans cette remise en état, il resterait bloqué
+             après un ajout — le client ne pourrait plus rien commander. */
+          if (lockGrp && !grpEtaitDesactive) lockGrp.disabled = false;
         }
       };
     }
@@ -4964,6 +4995,86 @@
       return lignes.join('');
     }
 
+    /* ── REGROUPEMENT DES COMMANDES DE GROUPE ─────────────────────────────
+       Une liste de cinq personnes créait cinq lignes de panier identiques —
+       même produit, même design, seule la taille changeait. Le panier devenait
+       illisible dès qu'une équipe dépassait quelques personnes.
+
+       Le regroupement est PUREMENT VISUEL : `cartItems` garde ses N lignes,
+       et tout ce qui part en commande (buildShopifyItems, variantForItem)
+       reste inchangé. C'est ce qui rend l'opération sans risque.
+
+       Note : la taille n'est PAS une variante Shopify dans ce thème — la
+       variante se choisit par produit + couleur (recapitulatif.liquid:872).
+       Regrouper les tailles ne peut donc rien casser côté commande. */
+
+    /** Retire le préfixe « Couleur : » / « Taille : » d'une valeur. */
+    function sansPrefixeCd(v, p) {
+      return String(v == null ? '' : v)
+        .replace(new RegExp('^\\s*' + p + '\\s*:\\s*', 'i'), '').trim();
+    }
+
+    /**
+     * Clé de regroupement d'une ligne de panier.
+     *
+     * Le SEUL `groupLabel` : une commande de groupe forme une carte unique,
+     * même si ses membres ont choisi des couleurs différentes. La carte porte
+     * alors un effet de pile et liste les teintes — l'image montre la première,
+     * les autres sont nommées juste dessous.
+     *
+     * @returns {string|null} null pour un article individuel.
+     */
+    function cleGroupeCd(item) {
+      if (!item || !item.groupLabel) return null;
+      return item.groupLabel;
+    }
+
+    /**
+     * Couleurs distinctes d'un groupe, dans l'ordre d'apparition.
+     * @returns {string[]}
+     */
+    function couleursDuGroupe(lignes) {
+      const vues = [];
+      lignes.forEach(function (l) {
+        const c = sansPrefixeCd(l.color, 'Couleur');
+        if (c && vues.indexOf(c) === -1) vues.push(c);
+      });
+      return vues;
+    }
+
+    /**
+     * Partitionne le panier : groupes d'un côté, articles isolés de l'autre.
+     * L'ordre d'apparition est conservé — un groupe se place là où sa
+     * première ligne se trouvait.
+     * @returns {Array<{cle:string|null, lignes:Array}>}
+     */
+    function partitionnerPanier(items) {
+      const blocs = [];
+      const parCle = {};
+      items.forEach(function (it) {
+        const cle = cleGroupeCd(it);
+        if (!cle) { blocs.push({ cle: null, lignes: [it] }); return; }
+        if (!parCle[cle]) { parCle[cle] = { cle: cle, lignes: [] }; blocs.push(parCle[cle]); }
+        parCle[cle].lignes.push(it);
+      });
+      return blocs;
+    }
+
+    /**
+     * Agrège les tailles d'un groupe, dans l'ordre de leur première apparition.
+     * @returns {Array<{taille:string, qte:number}>}
+     */
+    function taillesDuGroupe(lignes) {
+      const ordre = [];
+      const parTaille = {};
+      lignes.forEach(function (l) {
+        const t = sansPrefixeCd(l.size, 'Taille') || '—';
+        if (!parTaille[t]) { parTaille[t] = { taille: t, qte: 0 }; ordre.push(parTaille[t]); }
+        parTaille[t].qte += Number(l.qty) || 0;
+      });
+      return ordre;
+    }
+
     function renderCartDrawer() {
       const container = document.getElementById('cd-items');
       const emptyEl   = document.getElementById('cd-empty');
@@ -4992,9 +5103,9 @@
       });
 
       let total = 0;
-      cartItems.forEach(item => {
-       /* CHAQUE ARTICLE EST ISOLÉ. Sans ce filet, une exception sur l'article
-          n interrompait la boucle : les suivants existaient bien en session
+      partitionnerPanier(cartItems).forEach(bloc => {
+       /* CHAQUE BLOC EST ISOLÉ. Sans ce filet, une exception sur l'un
+          interrompait la boucle : les suivants existaient bien en session
           mais n'étaient jamais peints — le client voyait son panier amputé.
 
           Le risque vient des tarifs, calculés par des fonctions externes
@@ -5002,6 +5113,83 @@
           inconnu ou au prix manquant peut faire échouer. Un article de trop
           vaut mieux qu'un panier tronqué : on le passe, et on le signale. */
        try {
+        /* GROUPE : une carte unique pour toute la liste. */
+        if (bloc.cle) {
+          const lignes = bloc.lignes;
+          const tete = lignes[0];
+          const unitG = Number(cartUnitPrice(tete, totalsByType)) || 0;
+          /* Le sous-total alimente le TOTAL du panier, même s'il n'est plus
+             affiché dans la carte : sans lui, une commande de groupe ne
+             compterait pas dans le montant du pied. */
+          let sousTotal = 0;
+          lignes.forEach(function (l) {
+            sousTotal += (Number(cartUnitPrice(l, totalsByType)) || 0) * (Number(l.qty) || 0);
+          });
+          total += sousTotal;
+
+          const cleJs = JSON.stringify(bloc.cle);
+          const tailles = taillesDuGroupe(lignes).map(function (t) {
+            const tj = JSON.stringify(t.taille);
+            /* À UNE PIÈCE, le « − » devient une CORBEILLE : le prochain clic
+               retire la taille de la commande, il ne décrémente plus. Le
+               changement d'icône l'annonce avant le clic. */
+            /* QUANTITÉ EN LECTURE SEULE. Les boutons − / + ont été retirés :
+               une commande de groupe se modifie à l'étape « Configurer », où
+               chaque personne a sa ligne avec son surnom. Les ajuster ici, sur
+               un total par taille, ne dirait pas À QUI la pièce ajoutée ou
+               retirée appartient. */
+            return '<div class="cd-grp-taille">' +
+                     '<span class="cd-grp-lbl">' + grpEsc(t.taille) + '</span>' +
+                     '<span class="cd-grp-qte">×' + t.qte + '</span>' +
+                   '</div>';
+          }).join('');
+
+          /* SURNOMS LISTÉS SOUS LA CARTE. Une erreur de nom brodé coûte une
+             commande entière : le client doit pouvoir les vérifier avant de
+             payer, même si la carte est compacte. */
+          const noms = lignes.map(function (l) { return l.personName; })
+                             .filter(function (n) { return n; });
+          const blocNoms = noms.length
+            ? '<div class="cd-grp-noms"><strong>Noms floqués :</strong> ' +
+              grpEsc(noms.join(' · ')) + '</div>'
+            : '';
+
+          /* PILE — l'image porte deux feuillets décalés derrière elle quand la
+             commande compte plusieurs teintes. La vignette n'en montre qu'une ;
+             la pile dit qu'il y en a d'autres, sans avoir à les afficher. */
+          const couleurs = couleursDuGroupe(lignes);
+          const estPile = couleurs.length > 1;
+
+          const divG = document.createElement('div');
+          divG.className = 'cd-item cd-item-grp';
+          divG.innerHTML =
+            '<div class="cd-thumb-pile' + (estPile ? ' is-pile' : '') + '">' +
+            '<button type="button" class="cd-thumb" onclick="openCartItemDesign(' +
+              (Number(tete.id) || 0) + ')" title="Revenir au design de cette commande">' +
+              '<img src="' + safeImgSrc(tete.img) + '" alt="' + grpEsc(tete.name) + '">' +
+            '</button>' +
+            '</div>' +
+            '<div class="cd-info">' +
+              '<div class="cd-name">' + grpEsc(tete.name) + '</div>' +
+              '<div class="cd-meta"><span class="cd-val">' +
+                grpEsc(couleurs.join(', ')) + '</span></div>' +
+              '<div class="cd-price">' + unitG.toFixed(2).replace('.', ',') +
+                ' € <span class="cd-tier">/u</span></div>' +
+              '<div class="cd-grp-tailles">' + tailles + '</div>' +
+              blocNoms +
+              /* La ligne « N articles — total » a été retirée : le pied du
+                 panier porte déjà le nombre d'articles et le total estimé.
+                 La répéter dans chaque carte doublait la même information. */
+            '</div>' +
+            '<button type="button" class="cd-delete" ' +
+              'onclick=\'removeGroupItems(' + cleJs + ')\' title="Supprimer cette commande">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6"/></svg>' +
+            '</button>';
+          container.appendChild(divG);
+          return;
+        }
+
+        const item = bloc.lignes[0];
         // Palier dégressif + supplément manches (voir cartUnitPrice).
         const unit = Number(cartUnitPrice(item, totalsByType)) || 0;
         /* Un seul NaN contaminerait le TOTAL de tout le panier — il s'affiche
@@ -5044,7 +5232,11 @@
         `;
         container.appendChild(div);
        } catch (e) {
-        console.warn('Article du panier non affiché :', item && item.name, e);
+        /* On lit le NOM depuis le bloc, pas depuis `item` : cette variable est
+           hors de portée quand l'exception vient de la branche « groupe », et
+           la lire y masquerait l'erreur d'origine par une seconde. */
+        const nomBloc = bloc.lignes && bloc.lignes[0] && bloc.lignes[0].name;
+        console.warn('Article du panier non affiché :', nomBloc, e);
        }
       });
 
@@ -5209,6 +5401,103 @@
       persistCart();
       renderCartDrawer();
     }
+
+    /**
+     * Recalcule le résumé des tailles d'un groupe.
+     *
+     * `_sizeGroupSummary` (« 2×M, 2×L, 1×XL ») est figé à la création et part
+     * TEL QUEL à l'atelier (recapitulatif.liquid:997). Modifier les quantités
+     * depuis le panier le rendrait faux : l'atelier recevrait une répartition
+     * qui n'est plus celle commandée.
+     */
+    function majResumeTailles(cle) {
+      const lignes = cartItems.filter(i => cleGroupeCd(i) === cle);
+      if (!lignes.length) return;
+      const resume = taillesDuGroupe(lignes)
+        .map(t => t.qte + '×' + t.taille).join(', ');
+      lignes.forEach(l => { if (l._sizeGroupSummary) l._sizeGroupSummary = resume; });
+    }
+
+    /**
+     * Ajuste la quantité d'UNE TAILLE dans une commande de groupe.
+     *
+     * Une taille peut couvrir PLUSIEURS lignes de panier : la modale de
+     * répartition crée une ligne par pièce (conf-size-quantity-modal.js:284).
+     * On agit donc sur l'ensemble, et non sur un identifiant unique comme le
+     * fait changeCartQty.
+     *
+     * @param {string} cle    - clé du groupe (cleGroupeCd)
+     * @param {string} taille - taille visée, sans préfixe
+     * @param {number} delta  - +1 ou -1
+     */
+    function changeGroupSizeQty(cle, taille, delta) {
+      const lignes = cartItems.filter(function (i) {
+        return cleGroupeCd(i) === cle &&
+               (sansPrefixeCd(i.size, 'Taille') || '—') === taille;
+      });
+      if (!lignes.length) return;
+
+      if (delta > 0) {
+        lignes[0].qty = (Number(lignes[0].qty) || 0) + 1;
+      } else {
+        /* RETRAIT — on décrémente la dernière ligne, et on la SUPPRIME quand
+           elle atteint zéro. changeCartQty, lui, plafonne à un minimum et ne
+           descend jamais à zéro : retirer une taille y serait impossible. */
+        const derniere = lignes[lignes.length - 1];
+        const q = (Number(derniere.qty) || 0) - 1;
+        if (q > 0) {
+          derniere.qty = q;
+        } else {
+          const idx = cartItems.indexOf(derniere);
+          if (idx !== -1) cartItems.splice(idx, 1);
+          try {
+            if (window.__designsPanier) delete window.__designsPanier[derniere.id];
+          } catch (e) {}
+        }
+      }
+
+      majResumeTailles(cle);
+
+      cartCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
+      if (cartCount < 1) {
+        cartCount = 0;
+        const btnVide = document.getElementById('hdr-cart-btn');
+        if (btnVide) btnVide.style.display = 'none';
+      }
+      const cel = document.getElementById('hdr-cart-count');
+      if (cel) cel.textContent = cartCount;
+      persistCart();
+      renderCartDrawer();
+    }
+    window.changeGroupSizeQty = changeGroupSizeQty;
+
+    /**
+     * Supprime TOUTES les lignes d'une commande de groupe.
+     * @param {string} cle - clé du groupe (cleGroupeCd)
+     */
+    function removeGroupItems(cle) {
+      const restants = [];
+      cartItems.forEach(function (i) {
+        if (cleGroupeCd(i) !== cle) { restants.push(i); return; }
+        cartCount -= (Number(i.qty) || 0);
+        /* La réserve mémoire suit CHAQUE ligne : sans cette purge, une session
+           longue accumulerait les images de toute la commande supprimée. */
+        try { if (window.__designsPanier) delete window.__designsPanier[i.id]; } catch (e) {}
+      });
+      cartItems.length = 0;
+      Array.prototype.push.apply(cartItems, restants);
+
+      if (cartCount < 1) {
+        cartCount = 0;
+        const cartBtn = document.getElementById('hdr-cart-btn');
+        if (cartBtn) cartBtn.style.display = 'none';
+      }
+      const cel = document.getElementById('hdr-cart-count');
+      if (cel) cel.textContent = cartCount;
+      persistCart();
+      renderCartDrawer();
+    }
+    window.removeGroupItems = removeGroupItems;
 
     function removeCartItem(id) {
       const idx = cartItems.findIndex(i => i.id === id);
@@ -7187,7 +7476,29 @@
          supplémentaire — c'est la promesse de son nom. */
       root.setAttribute('data-mode', mode);
       if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
-        allerEtapeGroupe('designer');
+        /* REPRISE DE SESSION (rechargement) : on retrouve l'étape en cours.
+           CHOIX DÉLIBÉRÉ du mode : on repart du début — le client vient de
+           décider de son parcours, il l'attend depuis sa première étape. */
+        var cible = (reprise && rappelerEtapeGroupe()) || 'designer';
+
+        /* « VÉRIFIER » AU RECHARGEMENT : on ATTEND la restauration du design.
+
+           Elle est différée de 200 à 300 ms (:1076), le temps que le produit
+           soit sélectionné et ses images décodées. Entrer dans l'étape avant
+           cela ferait capturer un vêtement encore VIERGE : les cartes
+           sortaient sans logo ni texte, et le rechargement paraissait perdre
+           le design.
+
+           Les autres étapes n'ont rien à mesurer : elles entrent tout de
+           suite. */
+        if (reprise && cible === 'valider') {
+          /* 900 ms : la restauration part à 300 ms (:1076), puis les images
+             doivent être décodées ET mises en page avant d'être mesurables.
+             L'étape affiche « Préparation des aperçus… » pendant ce temps. */
+          setTimeout(function () { allerEtapeGroupe('valider'); }, 900);
+        } else {
+          allerEtapeGroupe(cible);
+        }
       }
 
       /* RECALAGE OBLIGATOIRE après la révélation.
@@ -7239,6 +7550,25 @@
       });
 
       placerStepperGroupe(mode);
+
+      /* MODE GROUPE SUR UN NON-TEXTILE : on bascule sur le sweatshirt.
+
+         Coins, drapeaux et patchs n'ont pas de zone de texte — le parcours de
+         groupe, qui floque un surnom par personne, n'y mène nulle part. Leurs
+         cartes sont masquées (conf-styles.css), mais masquer la carte ne
+         change pas le produit DÉJÀ affiché : un client venu des coins serait
+         resté dessus, sans pouvoir en changer puisque les autres cartes de sa
+         famille ont disparu. */
+      if (mode === 'groupe') {
+        var TEXTILES = ['sweatshirt', 'tshirt', 'tshirt_polyester'];
+        if (TEXTILES.indexOf(window.currentProductType) === -1) {
+          var carte = document.querySelector('.product-card[data-product="sweatshirt"]');
+          if (carte && typeof window.modernSidebar === 'object' &&
+              typeof window.modernSidebar.selectProduct === 'function') {
+            window.modernSidebar.selectProduct(carte, 'sweatshirt');
+          }
+        }
+      }
 
       /* MODE GROUPE : on ouvre sur « Mon Équipe ».
          C'est l'écran de travail de ce parcours — le client vient composer un
@@ -7308,30 +7638,10 @@
       if (mode) choisirMode(mode, true);
     });
 
-    /**
-     * Reflète le produit sélectionné dans les vignettes de l'écran de choix.
-     *
-     * Les deux cartes portent une image d'illustration — un t-shirt logoté,
-     * un t-shirt floqué. Elles montrent le RÉSULTAT de chaque mode, ce qu'une
-     * icône de produit ne saurait faire.
-     *
-     * On ne remplace donc que la SOURCE, en gardant l'illustration d'origine
-     * en repli : si le client choisit un sweatshirt, il voit un sweatshirt.
-     *
-     * @param {string} src - image du produit courant
-     */
-    function majVignettesMode(src) {
-      if (!src) return;
-      var imgs = document.querySelectorAll('.mode-card-visuel img');
-      for (var i = 0; i < imgs.length; i++) {
-        /* L'illustration d'origine est mémorisée au premier passage : sans
-           elle, revenir en arrière laisserait la vignette sur le dernier
-           produit consulté, sans moyen de retrouver le visuel de départ. */
-        if (!imgs[i].dataset.srcOrigine) imgs[i].dataset.srcOrigine = imgs[i].src;
-        imgs[i].src = src;
-      }
-    }
-    window.majVignettesMode = majVignettesMode;
+    /* majVignettesMode() a été RETIRÉE : elle remplaçait les illustrations des
+       cartes de choix par l'image du produit sélectionné, effaçant ce qu'elles
+       montraient — le logo d'un côté, le surnom floqué de l'autre. Les deux
+       cartes devenaient alors deux vêtements nus identiques. */
 
     /**
      * Revient à l'écran de choix du mode.
@@ -7364,9 +7674,26 @@
       try { sessionStorage.removeItem(MODE_KEY); } catch (e) {}
       window.__modePerso = null;
       root.setAttribute('data-etape', 'choix');
+      /* L'étape mémorisée repart avec le mode : sans cela, un nouveau parcours
+         de groupe reprendrait à mi-chemin, sur une étape qui ne lui appartient
+         pas. */
+      try { sessionStorage.removeItem(ETAPE_KEY); } catch (e) {}
+      etapeGroupeCourante = 'designer';
       /* Le stepper général reprend sa place dans l'en-tête : sans cet appel,
          celui du groupe y resterait alors qu'aucun mode n'est choisi. */
       placerStepperGroupe(null);
+
+      /* RETOUR SUR « TYPE DE PRODUIT ».
+
+         Les onglets Upload, Texte et Mon Équipe sont masqués à cette étape
+         (conf-styles.css). Si l'un d'eux était ouvert au moment du retour, son
+         panneau resterait affiché sans onglet pour le désigner — et la
+         sidebar montrerait un contenu hors sujet. C'est le seul onglet qui a
+         un sens ici. */
+      if (typeof window.modernSidebar === 'object' &&
+          typeof window.modernSidebar.openPanel === 'function') {
+        window.modernSidebar.openPanel('panel-product');
+      }
       /* Le stepper et la barre d'action repartent avec le mode : les laisser
          afficherait un parcours groupe par-dessus l'écran de choix. */
       root.removeAttribute('data-mode');
@@ -7403,7 +7730,30 @@
       valider:    { btn: 'Ajouter la commande au panier',    info: 'Vérifiez votre commande avant de l\'ajouter au panier.' }
     };
 
+    /* Nom de chaque étape, tel qu'il s'affiche dans le stepper. Sert à nommer
+       la DESTINATION du bouton « Retour » : « Retour vers DESIGNER » dit où
+       l'on va, quand « Retour » seul laisse le client le deviner. */
+    var NOMS_ETAPE = {
+      designer:   'DESIGNER',
+      configurer: 'CONFIGURER',
+      valider:    'VÉRIFIER'
+    };
+
     var etapeGroupeCourante = 'designer';
+
+    /* Étape mémorisée en session, comme le mode l'est déjà (MODE_KEY).
+
+       Sans elle, un rafraîchissement depuis « Vérifier » ou « Configurer »
+       ramenait à « Designer » : le client perdait sa place au milieu de son
+       parcours, et devait recliquer chaque étape pour revenir. */
+    var ETAPE_KEY = 'conf_etape_groupe';
+
+    /** @returns {string|null} l'étape mémorisée, si elle est valide. */
+    function rappelerEtapeGroupe() {
+      var e = null;
+      try { e = sessionStorage.getItem(ETAPE_KEY); } catch (err) {}
+      return (e && ETAPES_GROUPE.indexOf(e) !== -1) ? e : null;
+    }
 
     /**
      * Affiche une étape du parcours groupe.
@@ -7427,7 +7777,27 @@
         window.grpPreparerVerification();
       }
 
+      /* SAUVEGARDE EN QUITTANT « CONFIGURER ».
+
+         Le tableau n'était enregistré qu'à la validation finale
+         (submitGroupOrder). Quitter l'étape autrement — « Retour », un clic
+         sur le stepper, « Continuer » — laissait les saisies dans le seul DOM.
+         deplacerTableauGroupe() repeuple ensuite depuis `groupOrderRows`, resté
+         périmé : noms, tailles, couleurs et quantités revenaient à leur état
+         d'avant. */
+      if (etapeGroupeCourante === 'configurer' && etape !== 'configurer') {
+        if (typeof grpCollect === 'function') {
+          var saisies = grpCollect();
+          if (saisies && saisies.length) {
+            groupOrderRows = saisies;
+            if (typeof saveGroupRows === 'function') saveGroupRows();
+            if (typeof refreshGroupBadge === 'function') refreshGroupBadge();
+          }
+        }
+      }
+
       etapeGroupeCourante = etape;
+      try { sessionStorage.setItem(ETAPE_KEY, etape); } catch (e) {}
       root.setAttribute('data-etape-groupe', etape);
 
       /* État visuel du stepper : franchie, courante, ou à venir.
@@ -7447,7 +7817,29 @@
       var lib = LIBELLES_ETAPE[etape] || {};
       var btn = document.getElementById('grp-actions-btn');
       var info = document.getElementById('grp-actions-info');
-      if (btn) btn.childNodes[0].nodeValue = (lib.btn || 'Continuer') + ' ';
+      /* LIBELLÉ COURT SUR TÉLÉPHONE aux étapes où le PRIX partage la ligne :
+         « Continuer vers la configuration » recouvrait le montant. Le stepper
+         juste au-dessus nomme déjà l'étape suivante — le libellé long n'y
+         apprend rien.
+
+         À la dernière étape, le libellé complet est conservé : « Ajouter la
+         commande au panier » engage un achat, il doit se lire en entier. */
+      var court = window.innerWidth <= 768 && etape !== 'valider';
+      if (btn) btn.childNodes[0].nodeValue = (court ? 'Continuer' : (lib.btn || 'Continuer')) + ' ';
+
+      /* Le RETOUR nomme sa destination : « Retour vers DESIGNER » plutôt qu'un
+         « Retour » nu, qui laisse le client deviner où il atterrit. Le libellé
+         suit donc l'étape précédente, quelle qu'elle soit. */
+      var retour = document.getElementById('grp-actions-retour');
+      if (retour) {
+        var precedente = ETAPES_GROUPE[idx - 1];
+        var lbl = retour.querySelector('.grp-retour-lbl');
+        if (lbl) {
+          lbl.textContent = precedente
+            ? 'Retour vers ' + (NOMS_ETAPE[precedente] || '')
+            : 'Retour';
+        }
+      }
 
       /* À l'étape « configurer », l'information est le NOMBRE DE PERSONNES —
          le seul chiffre qui compte à ce moment, et celui que le client vérifie
@@ -7466,8 +7858,20 @@
       /* CONFIGURER — la liste des personnes remplace le produit, DANS le
          canvas. Plus de modale : le parcours est déjà cadré par le stepper,
          une fenêtre par-dessus ferait un cadre dans un cadre. */
-      if (etape === 'configurer') deplacerTableauGroupe(true);
-      else deplacerTableauGroupe(false);
+      if (etape === 'configurer') {
+        deplacerTableauGroupe(true);
+        /* MOBILE : numérote les lignes, calcule leur résumé et déplie la
+           première. L'observateur de conf-mobile.js ne voit que les lignes
+           AJOUTÉES ; quand elles existent déjà — liste reprise, retour depuis
+           « Vérifier » — le client arrivait sur des cartes toutes fermées,
+           sans savoir qu'elles s'ouvrent. Différé : le tableau vient d'être
+           déplacé dans le canvas. */
+        if (typeof window.grpMajLignes === 'function') {
+          requestAnimationFrame(function () { window.grpMajLignes(); });
+        }
+      } else {
+        deplacerTableauGroupe(false);
+      }
 
       /* VÉRIFIER — les cartes sont peintes ici, à partir des captures
          amorcées plus haut, avant le masquage du canvas. */
@@ -7477,16 +7881,44 @@
     }
     window.allerEtapeGroupe = allerEtapeGroupe;
 
+    /**
+     * Recule d'une étape. Pendant du bouton « Continuer ».
+     *
+     * Le stepper permettait déjà de revenir sur une étape franchie, mais rien
+     * ne l'indiquait : le parcours paraissait à sens unique.
+     */
+    function etapeGroupePrecedente() {
+      var idx = ETAPES_GROUPE.indexOf(etapeGroupeCourante);
+      if (idx <= 0) return;
+      allerEtapeGroupe(ETAPES_GROUPE[idx - 1]);
+    }
+    window.etapeGroupePrecedente = etapeGroupePrecedente;
+
     /** Avance d'une étape. Appelée par le bouton de la barre d'action. */
     function etapeGroupeSuivante() {
       var idx = ETAPES_GROUPE.indexOf(etapeGroupeCourante);
       if (idx === -1) return;
 
       /* DERNIÈRE ÉTAPE : le bouton porte « Ajouter la commande au panier » et
-         doit le faire. Il ne faisait rien jusqu'ici — le client cliquait sans
-         que rien ne se passe, au terme du parcours. */
+         doit le faire.
+
+         LE CANVAS EST RÉVÉLÉ LE TEMPS DE L'AJOUT. L'étape « Vérifier » le
+         masque (conf-styles.css), or addToCart compose une vignette par
+         couleur en MESURANT le vêtement affiché : sur un élément caché, ces
+         mesures valent zéro et l'ajout échouait — silencieusement, le clic
+         restant sans effet.
+
+         On repasse donc à l'étape « designer », où le canvas est visible, puis
+         on ajoute. Le tiroir du panier s'ouvre par-dessus : le client ne voit
+         pas ce détour. */
       if (idx >= ETAPES_GROUPE.length - 1) {
-        if (typeof window.addToCart === 'function') window.addToCart();
+        if (typeof window.addToCart !== 'function') return;
+        /* On RESTE sur « Vérifier ». Le détour par « Designer » servait à
+           rendre le canvas mesurable, mais il faisait clignoter l'écran sous
+           les yeux du client au moment le plus important de son parcours.
+           Les vignettes sont composées à partir des URL d'images, pas de
+           mesures du canvas : ce détour était inutile. */
+        window.addToCart();
         return;
       }
 
@@ -7653,7 +8085,10 @@
       if (compte) compte.textContent = rows.length;
 
       if (!rows.length) {
-        hote.innerHTML = '<p class="eq-vide">Aucun surnom pour le moment.</p>';
+        /* Une CONSIGNE plutôt qu'un constat : « aucun surnom » décrivait l'état
+           sans dire quoi faire. Ce texte remplace aussi le sous-titre de
+           l'en-tête, retiré — il est ici plus près du champ de saisie. */
+        hote.innerHTML = '<p class="eq-vide">Ajoutez les surnoms de votre groupe</p>';
         return;
       }
 

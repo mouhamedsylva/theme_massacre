@@ -1991,6 +1991,275 @@
   /* Le pseudo-élément ne doit pas voler le clic au bouton lui-même : il fait
      partie du bouton, donc l'événement remonte naturellement. Aucun
      `pointer-events` à poser. */
+
+  /* ── ÉCRAN DE CHOIX DU MODE ──────────────────────────────────────────────
+     Les cartes restaient sur DEUX COLONNES : leurs règles mobiles n'existaient
+     que sous 359 px, un seuil qu'aucun téléphone courant n'atteint (iPhone XR
+     = 414 px). Elles débordaient donc latéralement, la seconde à moitié
+     coupée. */
+  /* CENTRAGE VERTICAL ABANDONNÉ sur écran étroit.
+
+     `justify-content: center` (conf-styles.css:2236) centre le contenu dans sa
+     boîte. Quand il est plus HAUT qu'elle — deux cartes empilées sur un
+     téléphone — il déborde des DEUX côtés, et la partie haute passe au-dessus
+     de l'origine du défilement : le titre était coupé, sans moyen de le
+     remonter.
+
+     Aligné en haut, le contenu part du bord et défile normalement. */
+  .mode-choice {
+    padding: 20px 14px;
+    justify-content: flex-start;
+  }
+  .mode-choice-title { font-size: 20px; line-height: 1.25; }
+  .mode-choice-sub { margin-bottom: 22px; font-size: 13px; }
+  .mode-cards { grid-template-columns: 1fr; gap: 16px; }
+  .mode-card { padding: 20px 16px 16px; }
+  .mode-card-visuel img { height: 130px; }
+  .mode-card-title { font-size: 15px; }
+  .mode-card-desc { font-size: 12.5px; }
+  /* Le survol n'existe pas au doigt : l'agrandissement de l'image resterait
+     figé après un appui. */
+  .mode-card:hover .mode-card-visuel img { transform: none; }
+
+  /* BARRE D'ACHAT MASQUÉE à l'étape de choix.
+
+     Elle proposait « Ajouter au panier » et un total de 60 € alors qu'aucun
+     mode n'est encore choisi — il n'y a rien à commander à ce stade.
+
+     On vise les ÉLÉMENTS que fillActionBar() y déplace (conf-mobile.js:296),
+     plutôt que le conteneur : ceux-ci portent des identifiants stables, le
+     conteneur est construit au vol. */
+  [data-etape="choix"] #main-add-to-cart,
+  [data-etape="choix"] .rp-btn-primary,
+  [data-etape="choix"] #rp-price-val,
+  [data-etape="choix"] .rp-unit-price-big,
+  /* `#mobile-price` est le conteneur CRÉÉ PAR LE SCRIPT mobile
+     (conf-mobile.js:445) : il porte son propre libellé « TOTAL » (`.mp-lbl`)
+     et accueille le montant déplacé du récapitulatif. Masquer `.rp-price`, son
+     emplacement d'origine, ne l'atteignait pas — le mot restait seul en bas
+     d'écran. */
+  [data-etape="choix"] #mobile-price,
+  [data-etape="choix"] .rp-price,
+  /* Le conteneur part avec eux : vidé de son contenu, il laisserait une bande
+     sombre en bas d'écran, sans rien à y montrer. */
+  [data-etape="choix"] .rp-acts { display: none !important; }
+  /* ══════════════════════════════════════════════════════════════════════
+     PARCOURS GROUPE — stepper et barre d'action sur petit écran
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* ── LE CANVAS GARDE SA POSITION ────────────────────────────────────────
+     C'EST LE CORRECTIF DÉCISIF : sans lui, l'écran du mode groupe restait
+     entièrement VIDE sur téléphone.
+
+     `conf-styles.css:2547` pose `[data-mode="groupe"] .canvas { position:
+     relative }` — hors de tout media query, donc appliqué ici aussi. Sa
+     spécificité (0,2,1) dépasse celle de `.canvas` (0,1,0) : elle l'emportait
+     même si cette feuille est chargée après.
+
+     Or le canvas mobile tient sa hauteur de ses quatre bords ancrés (:201).
+     En `relative` il les perd, `.app` ne lui en donne aucune, et tout son
+     contenu s'effondre à zéro.
+
+     D'où des symptômes qui semblaient sans rapport : la barre d'achat et
+     « Vue d'ensemble » sont positionnés PAR RAPPORT AU CANVAS. Ancrés « en
+     bas » d'une boîte de hauteur nulle collée sous l'en-tête, ils remontaient
+     en haut de l'écran.
+
+     Sur ordinateur cette règle est juste — elle ancre la barre d'action
+     flottante. Ici, `absolute` remplit ce rôle tout aussi bien. */
+  .conf-app-root[data-mode="groupe"] .canvas,
+  [data-mode="groupe"] .canvas {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    bottom: var(--nav-h, 56px);
+  }
+
+  /* La grille du bureau réserve une colonne pour le récapitulatif masqué
+     (conf-styles.css:2533). Sans effet ici — `.conf-app-root` est en flex sur
+     téléphone — mais neutralisée par sécurité, la règle bureau pouvant un jour
+     agir sur une mise en page différente. */
+  .conf-app-root[data-mode="groupe"] { grid-template-columns: 1fr; }
+
+  /* PANNEAUX RENDUS À L'ÉTAPE « CONFIGURER ».
+
+     Le bureau les masque ici (conf-styles.css:2692) : ils y occupent une
+     colonne permanente qui rognait la largeur du tableau. Sur mobile ce sont
+     des FEUILLES COULISSANTES (:1013), invisibles tant qu'on ne les ouvre
+     pas — les masquer enfermait le client dans l'étape, sans moyen de changer
+     de produit ni de rouvrir « Mon Équipe ». */
+  [data-etape-groupe="configurer"] .side-panel { display: flex; }
+
+  /* Les LIBELLÉS disparaissent, les NUMÉROS restent : « Prévisualiser » et
+     « Configurer » côte à côte ne tiennent pas sur 375 px, et les tronquer
+     rendrait les deux illisibles. Le libellé de l'étape COURANTE est conservé
+     — c'est le seul qui renseigne sur l'instant présent. */
+  /* Le retour repasse AU-DESSUS du stepper : réservé à droite, il ne laissait
+     plus la place aux quatre étapes sur 375 px. */
+  [data-mode="groupe"] .grp-steps {
+    /* Le stepper coiffe l'écran : il lui faut sa propre bande, sinon les
+       pastilles Couleur / Taille — posées en absolu à 8px du haut du canvas
+       (:227) — se superposent à lui et le rendent illisible. */
+    padding: 10px 10px 8px;
+    gap: 4px;
+    background: var(--white, #fff);
+    position: relative;
+    z-index: 3;
+  }
+  /* Les options descendent sous le stepper, qui occupe désormais le haut. */
+  [data-mode="groupe"] .cv-opts { top: 52px; }
+
+  /* ── BAS DE CANVAS : LE PRIX RESTE, LE BOUTON D'ACHAT PART ───────────────
+     « Ajouter au panier » n'a pas sa place ici : la commande s'ajoute au terme
+     du parcours, à l'étape « Vérifier », et la liste des personnes n'est même
+     pas saisie. Le bouton du parcours le remplace.
+
+     Le PRIX, lui, reste : le client suit son total pendant qu'il compose, comme
+     en mode individuel. */
+  [data-mode="groupe"] #main-add-to-cart,
+  [data-mode="groupe"] .rp-btn-primary { display: none !important; }
+
+  /* Le bouton du parcours laisse la place au prix, ancré à gauche (:1210).
+
+     `left: auto` plutôt qu'une valeur fixe : la largeur du bloc prix dépend du
+     montant affiché — « 60,00 € » et « 1 250,00 € » n'occupent pas la même
+     place. Le bouton se cale donc sur SA propre largeur, à droite, et ne
+     recouvre jamais le prix quel qu'il soit. */
+  /* Le positionnement de `.grp-actions` est défini plus bas, en un seul
+     endroit (« BAS DE CANVAS ») : le dédoubler ici le faisait annuler par la
+     règle suivante, de même spécificité. */
+  [data-mode="groupe"] .grp-actions-btn {
+    width: auto;
+    font-size: 12.5px;
+    padding: 12px 14px;
+  }
+
+  /* Aux étapes « Configurer » et « Vérifier », le produit cède la place à un
+     tableau ou à des cartes : le prix du canvas n'y est plus affiché, la barre
+     reprend donc toute la largeur. */
+  /* « Changer de mode » suit le sort des autres boutons d'en-tête : le mobile
+     masque déjà leur libellé pour n'en garder que l'icône (`.hdr-btns .obtn`,
+     plus haut). Aucune règle propre. */
+
+  /* Étape « configurer » : marges réduites, le tableau a besoin de la largeur.
+     Les lignes y sont déjà des cartes empilées (voir plus haut). */
+  [data-etape-groupe="configurer"] .grp-inline { padding: 16px 12px; }
+  .grp-inline-title { font-size: 18px; }
+  .grp-inline-sub { margin-bottom: 14px; font-size: 13px; }
+  .grp-step { padding: 4px 6px; gap: 6px; }
+  .grp-step .grp-step-lbl { display: none; }
+  .grp-step.is-current .grp-step-lbl { display: inline; font-size: 11px; }
+  .grp-step-num { width: 24px; height: 24px; }   /* cible tactile */
+  .grp-step-sep { min-width: 6px; }
+
+  /* La barre d'action passe en pleine largeur : un bouton d'étape est
+     l'action principale de l'écran, il ne doit pas partager sa ligne. */
+  /* Flottante ici aussi — même raison : la hauteur rendue au produit compte
+     davantage sur un écran de téléphone. Marges réduites, et l'information
+     passe sur la même ligne que le bouton faute de place verticale. */
+  /* Le bureau place la barre dans la colonne du récapitulatif, verticale
+     (conf-styles.css). Cette colonne n'existe pas ici : elle reprend la
+     largeur de l'écran, en bas, comme avant. */
+  /* Bouton seul, sans bandeau — comme sur le bureau. Sur un écran étroit, un
+     fond pleine largeur mangeait une part encore plus grande du vêtement. */
+  /* `left: auto` — le bouton s'ancre à DROITE et prend sa largeur naturelle.
+     Sans cela il s'étirait sur toute la ligne et recouvrait le prix, posé à
+     gauche (:1210). Cette règle annulait celle de :2127, plus haut, qui dit la
+     même chose : les deux ont été fusionnées ici. */
+  [data-mode="groupe"] .grp-actions {
+    position: absolute;
+    flex-direction: row;
+    width: auto;
+    left: auto; right: 10px;
+    max-width: calc(100% - 130px);
+    justify-content: flex-end;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 0;
+    gap: 10px;
+    background: none;
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  /* Aux étapes « Configurer » et « Vérifier », le produit cède la place à un
+     tableau ou à des cartes : le prix du canvas n'y figure plus, la barre
+     reprend donc toute la largeur. Posé APRÈS la règle ci-dessus, sans quoi
+     elle l'écraserait — même spécificité, c'est l'ordre qui tranche. */
+  [data-etape-groupe="configurer"] .grp-actions,
+  [data-etape-groupe="valider"] .grp-actions {
+    left: 10px;
+    max-width: none;
+  }
+
+  [data-etape-groupe="configurer"] .grp-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  }
+
+  /* PRIX MASQUÉ à ces deux étapes : il est ancré au bas du canvas, où la barre
+     d'action occupe désormais toute la largeur — les deux se recouvraient. Le
+     tableau porte déjà son propre compteur, et l'étape « Vérifier » son total
+     en tête d'écran. */
+  [data-etape-groupe="configurer"] #mobile-price,
+  [data-etape-groupe="valider"] #mobile-price { display: none !important; }
+
+  /* ÉTAPE « VÉRIFIER » — les cartes s'empilent d'elles-mêmes (la grille se
+     replie sous 260px). Restent l'en-tête, qui ne tient pas sur une ligne, et
+     la barre d'action, qui doit rester dans le flux. */
+  [data-etape-groupe="valider"] .grp-verif { padding: 16px 12px 4px; }
+  [data-etape-groupe="valider"] .grp-verif-hdr {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  [data-etape-groupe="valider"] .grp-verif-total { text-align: left; }
+  [data-etape-groupe="valider"] .grp-verif-title { font-size: 18px; }
+  [data-etape-groupe="valider"] .grp-verif-grid { gap: 14px; }
+  [data-etape-groupe="valider"] .grp-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+  }
+  /* L'information disparaît de la barre FLOTTANTE : sur 375 px, elle réduisait
+     le bouton à un libellé tronqué. Elle reste à l'étape « configurer », où
+     elle porte le nombre de personnes — le seul chiffre que le client vérifie
+     avant de continuer. */
+  /* Masquée à TOUTES les étapes, y compris « configurer » où elle
+     réapparaissait : le tableau porte déjà son propre compteur (« 2 lignes ·
+     2 pièces »), et cette ligne en donnait un second, désaccordé. */
+  [data-mode="groupe"] .grp-actions-info { display: none; }
+  .grp-actions-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 13px;
+    padding: 12px 16px;
+  }
+  /* « Retour » côte à côte avec « Continuer », et non empilé : la barre est
+     déjà basse sur l'écran, une seconde rangée mangerait l'aperçu. Il reste
+     étroit — l'action principale garde la place. */
+  [data-etape-groupe="configurer"] .grp-actions-retour,
+  [data-etape-groupe="valider"] .grp-actions-retour {
+    flex: 0 0 auto;
+    font-size: 13px;
+    padding: 12px 14px;
+  }
+  [data-etape-groupe="configurer"] .grp-actions-btn,
+  [data-etape-groupe="valider"] .grp-actions-btn { flex: 1; width: auto; }
+  /* Descriptions de longueurs différentes : sans hauteur imposée, la carte
+     s'ajuste à son texte — l'alignement des boutons n'a plus de sens une fois
+     les cartes empilées. */
+  .mode-card-desc { flex: 0 0 auto; margin-bottom: 18px; }
+
+  /* La barre du bas remplace la barre latérale : on y grise les mêmes onglets,
+     pour la même raison — ils n'ont pas de sens avant le choix du mode. */
+  [data-etape="choix"] .icon-nav-item[data-panel="panel-upload"],
+  [data-etape="choix"] .icon-nav-item[data-panel="panel-text"] {
+    opacity: .38;
+    pointer-events: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -2038,97 +2307,4 @@
      déclencherait qu'au moment du toucher — un mouvement parasite. */
   .mode-card:hover { transform: none; }
 
-  /* ══════════════════════════════════════════════════════════════════════
-     PARCOURS GROUPE — stepper et barre d'action sur petit écran
-     ══════════════════════════════════════════════════════════════════════ */
-
-  /* Les LIBELLÉS disparaissent, les NUMÉROS restent : « Prévisualiser » et
-     « Configurer » côte à côte ne tiennent pas sur 375 px, et les tronquer
-     rendrait les deux illisibles. Le libellé de l'étape COURANTE est conservé
-     — c'est le seul qui renseigne sur l'instant présent. */
-  /* Le retour repasse AU-DESSUS du stepper : réservé à droite, il ne laissait
-     plus la place aux quatre étapes sur 375 px. */
-  [data-mode="groupe"] .grp-steps {
-    padding: 0 0 8px;
-    gap: 4px;
-  }
-  /* « Changer de mode » suit le sort des autres boutons d'en-tête : le mobile
-     masque déjà leur libellé pour n'en garder que l'icône (`.hdr-btns .obtn`,
-     plus haut). Aucune règle propre. */
-
-  /* Étape « configurer » : marges réduites, le tableau a besoin de la largeur.
-     Les lignes y sont déjà des cartes empilées (voir plus haut). */
-  [data-etape-groupe="configurer"] .grp-inline { padding: 16px 12px; }
-  .grp-inline-title { font-size: 18px; }
-  .grp-inline-sub { margin-bottom: 14px; font-size: 13px; }
-  .grp-step { padding: 4px 6px; gap: 6px; }
-  .grp-step .grp-step-lbl { display: none; }
-  .grp-step.is-current .grp-step-lbl { display: inline; font-size: 11px; }
-  .grp-step-num { width: 24px; height: 24px; }   /* cible tactile */
-  .grp-step-sep { min-width: 6px; }
-
-  /* La barre d'action passe en pleine largeur : un bouton d'étape est
-     l'action principale de l'écran, il ne doit pas partager sa ligne. */
-  /* Flottante ici aussi — même raison : la hauteur rendue au produit compte
-     davantage sur un écran de téléphone. Marges réduites, et l'information
-     passe sur la même ligne que le bouton faute de place verticale. */
-  [data-mode="groupe"] .grp-actions {
-    left: 10px; right: 10px;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    padding: 8px 10px;
-    gap: 10px;
-  }
-  [data-etape-groupe="configurer"] .grp-actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
-  }
-
-  /* ÉTAPE « VÉRIFIER » — les cartes s'empilent d'elles-mêmes (la grille se
-     replie sous 260px). Restent l'en-tête, qui ne tient pas sur une ligne, et
-     la barre d'action, qui doit rester dans le flux. */
-  [data-etape-groupe="valider"] .grp-verif { padding: 16px 12px 4px; }
-  [data-etape-groupe="valider"] .grp-verif-hdr {
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  [data-etape-groupe="valider"] .grp-verif-total { text-align: left; }
-  [data-etape-groupe="valider"] .grp-verif-title { font-size: 18px; }
-  [data-etape-groupe="valider"] .grp-verif-grid { gap: 14px; }
-  [data-etape-groupe="valider"] .grp-actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
-  }
-  /* L'information disparaît de la barre FLOTTANTE : sur 375 px, elle réduisait
-     le bouton à un libellé tronqué. Elle reste à l'étape « configurer », où
-     elle porte le nombre de personnes — le seul chiffre que le client vérifie
-     avant de continuer. */
-  [data-mode="groupe"] .grp-actions-info { display: none; }
-  [data-etape-groupe="configurer"] .grp-actions-info {
-    display: block;
-    font-size: 12px;
-    text-align: center;
-  }
-  .grp-actions-btn {
-    width: 100%;
-    justify-content: center;
-    font-size: 13px;
-    padding: 12px 16px;
-  }
-  /* Descriptions de longueurs différentes : sans hauteur imposée, la carte
-     s'ajuste à son texte — l'alignement des boutons n'a plus de sens une fois
-     les cartes empilées. */
-  .mode-card-desc { flex: 0 0 auto; margin-bottom: 18px; }
-
-  /* La barre du bas remplace la barre latérale : on y grise les mêmes onglets,
-     pour la même raison — ils n'ont pas de sens avant le choix du mode. */
-  [data-etape="choix"] .icon-nav-item[data-panel="panel-upload"],
-  [data-etape="choix"] .icon-nav-item[data-panel="panel-text"] {
-    opacity: .38;
-    pointer-events: none;
-  }
 }

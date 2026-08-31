@@ -1000,6 +1000,27 @@
       {%- endcomment -%}
       <div class="grp-actions" id="grp-actions">
         <span class="grp-actions-info" id="grp-actions-info"></span>
+        {%- comment -%}
+          RETOUR À L'ÉTAPE PRÉCÉDENTE. Le stepper permet déjà de revenir en
+          arrière, mais rien ne le signale : un bouton explicite à côté de
+          « Continuer » rend le trajet réversible sans avoir à le deviner.
+
+          Masqué à la première étape (`etapeGroupePrecedente`, CSS) : il n'y a
+          rien à quitter, et « Changer de type de commande » couvre ce cas.
+        {%- endcomment -%}
+        <button type="button" class="grp-actions-retour" id="grp-actions-retour"
+                onclick="etapeGroupePrecedente()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5M11 18l-6-6 6-6"/>
+          </svg>
+          {%- comment -%}
+            Libellé dans son propre élément : allerEtapeGroupe() le réécrit à
+            chaque étape pour nommer la destination (« Retour vers DESIGNER »).
+            Sans cette balise, la mise à jour effacerait aussi l'icône.
+          {%- endcomment -%}
+          <span class="grp-retour-lbl">Retour</span>
+        </button>
         <button type="button" class="grp-actions-btn" id="grp-actions-btn"
                 onclick="etapeGroupeSuivante()">
           Continuer vers la configuration
