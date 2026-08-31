@@ -626,7 +626,27 @@
             ? (isBack ? "Le dos porte déjà un texte" : "Les 2 emplacements sont pris")
             : "Saisissez votre texte ici";
     }
-    if (btn) btn.disabled = isSleeve || blocked || !input || !input.value.trim();
+    /* UN TEXTE EXISTE DÉJÀ SUR LA VUE : le bouton devient « Modifier » et
+       reste ACTIF, champ vide ou non.
+
+       Le panneau s'ouvrait sinon inerte dès qu'un texte occupait la vue : le
+       champ était grisé, le bouton désactivé, et rien n'indiquait comment
+       corriger une faute. Le clic ouvre désormais le panneau d'ÉDITION
+       complet — police, couleur, taille — via `editText`.
+
+       Le texte n'est pas recopié dans ce champ : le retaper dans une case
+       étroite serait plus laborieux que de l'éditer sur le vêtement. */
+    var vueCourante = isBack ? "b" : (hasText("f") ? "f" : (hasText("fr") ? "fr" : null));
+    var texteSurLaVue = !isSleeve && vueCourante && hasText(vueCourante);
+
+    if (btn) {
+      btn.disabled = isSleeve || (!texteSurLaVue && (blocked || !input || !input.value.trim()));
+      btn.textContent = texteSurLaVue && !(input && input.value.trim())
+        ? "Modifier le texte"
+        : "Ajouter au design";
+    }
+    /* Le champ reste utilisable pour AJOUTER un second texte quand une zone
+       est encore libre — le plafond seul le grise. */
 
     // Emplacement poitrine : sans objet au dos comme sur les manches.
     const where = document.getElementById("mtxt-where");
@@ -692,6 +712,37 @@
   function addTextToDesign() {
     const input = document.getElementById("mtxt-input");
     const text = input ? input.value.trim() : "";
+    /* MODIFICATION D'UN TEXTE EXISTANT — testée AVANT la garde sur le champ
+       vide, qui sortait sinon immédiatement.
+
+       Champ vide + texte sur la vue affichée = le client veut CORRIGER, pas
+       ajouter. On ouvre alors le panneau d'édition complet. Corriger une faute
+       était jusqu'ici impossible dès que le plafond de deux textes était
+       atteint : la fonction refusait tout. */
+    var layerMod = document.getElementById("logo-layer");
+    var vueMod = layerMod ? layerMod.getAttribute("data-view") : "face";
+    var zoneMod = (vueMod === "dos") ? "b" : (hasText("f") ? "f" : "fr");
+    var elMod = document.getElementById("text-" + zoneMod);
+    var contenuMod = elMod ? elMod.querySelector(".dt-content") : null;
+    var texteExistant = (contenuMod && elMod.style.display !== "none" &&
+                         !elMod.classList.contains("is-shaped"))
+      ? (contenuMod.textContent || "").trim()
+      : "";
+
+    /* Le champ est VIDE : le clic veut dire « modifier ce qui est là », pas
+       « ajouter ». S'il porte une saisie, on poursuit vers l'ajout normal. */
+    var champVide = !(input && input.value.trim());
+
+    if (champVide && texteExistant && typeof window.editText === "function") {
+      /* On délègue à `editText`, le chemin prévu du projet : il charge l'état
+         complet du texte — police, couleur, taille, style — et ouvre le
+         panneau d'édition. Manipuler le contenu à la main ici aurait contourné
+         la persistance et perdu la modification au rechargement. */
+      window.editText(zoneMod);
+      return;
+    }
+
+    /* Aucun texte à modifier : il faut une saisie pour poser un texte neuf. */
     if (!text) return;
 
     /* Garde-fou : le champ est déjà grisé, mais la fonction reste appelable

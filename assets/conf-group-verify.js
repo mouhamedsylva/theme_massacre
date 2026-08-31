@@ -30,16 +30,16 @@
      Quatre rangées de trois sur un écran large. */
   var PAR_PAGE = 12;
 
-  /* LE TEXTE garde sa géométrie EXACTE : le grossissement qui existait ici
-     compensait la marge du PNG, corrigée depuis à la source (conf-share.js).
+  /* AUCUN COEFFICIENT D'ÉCHELLE : les cartes rendent la géométrie EXACTE de la
+     capture, comme la « Vue d'ensemble ».
 
-     LES LOGOS sont agrandis de moitié. À la taille d'une carte, un logo de
-     poitrine tombe sous vingt pixels : le visuel n'y est plus discernable, et
-     la vérification perd son objet.
+     Deux coefficients ont existé ici — l'un grossissait le texte pour
+     compenser une marge d'image, corrigée depuis à la source
+     (conf-share.js) ; l'autre agrandissait les logos pour les rendre lisibles
+     dans une carte étroite. Ce second faisait diverger deux écrans qui
+     montrent le même design, et que le client compare avant de payer.
 
-     Écart assumé à la fidélité — le logo imprimé sera plus petit que celui
-     montré ici. Ramener cette valeur à 1 rétablit l'exactitude. */
-  var ECHELLE_LOGO = 1.5;
+     La lisibilité vient de la taille des cartes (conf-styles.css). */
 
   var pageCourante = 0;
   var lignesCourantes = [];
@@ -98,6 +98,48 @@
   function respirer() {
     return new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
   }
+
+  /* ═══ BOÎTE DU CANVAS RÉEL ═══════════════════════════════════════════════
+
+     La capture a besoin d'un canvas MESURABLE, mais il est masqué aux étapes
+     « Configurer » et « Vérifier ». On lui fabrique donc une boîte — et ses
+     dimensions étaient jusqu'ici ESTIMÉES : 85 % de la hauteur d'écran, une
+     largeur déduite de constantes codées en dur.
+
+     Or l'image du vêtement vise 60 % de la hauteur. Dans une boîte de 85 %,
+     elle était mesurée plus petite que dans le canvas réel, et les logos —
+     rapportés à elle — sortaient 1,8 fois trop gros.
+
+     Trois estimations successives ont déplacé l'écart sans le fermer : le
+     défaut n'était pas dans les valeurs choisies, mais dans le fait de les
+     choisir. On MESURE donc le canvas tant qu'il est visible, et on rejoue
+     cette boîte à l'identique. */
+  var boiteCanvas = null;
+  var captureEnCours = false;
+
+  /** Relève les dimensions du canvas si elles sont exploitables. */
+  function memoriserBoiteCanvas() {
+    /* Jamais pendant une capture : celle-ci force ses propres dimensions sur
+       `.cv-wrap`, et les relever reviendrait à mémoriser la boîte qu'on vient
+       d'inventer — la mesure se figerait sur elle-même. */
+    if (captureEnCours) return;
+    var wrap = document.querySelector('.cv-wrap');
+    if (!wrap) return;
+    var r = wrap.getBoundingClientRect();
+    /* Seuil de 200 px : sous cette taille le canvas est en cours de masquage
+       ou de mise en page, sa boîte ne représente rien. */
+    if (r.width > 200 && r.height > 200) {
+      boiteCanvas = { w: Math.round(r.width), h: Math.round(r.height) };
+    }
+  }
+
+  /* La mesure suit le canvas tant qu'il vit : redimensionnement de la fenêtre,
+     ouverture d'un panneau, changement de produit. Un intervalle plutôt qu'un
+     observateur — la boîte dépend de la MISE EN PAGE, qu'aucun événement DOM
+     ne signale de façon fiable. Deux fois par seconde suffit et ne coûte rien
+     (une lecture de dimensions). */
+  setInterval(memoriserBoiteCanvas, 500);
+  document.addEventListener('DOMContentLoaded', memoriserBoiteCanvas);
 
   /**
    * Attend le décodage des logos posés sur le vêtement.
@@ -217,16 +259,113 @@
       }
     }
 
+    /* ═══ CANVAS MESURABLE — À CHAQUE CAPTURE, PAS SEULEMENT LA PREMIÈRE ═══
+
+       captureAllViews MESURE le canvas. Or on arrive ici depuis « Configurer »
+       ou « Vérifier », où le produit a cédé la place au tableau ou aux cartes :
+       `.cv-wrap` est masqué, les mesures valent zéro, et la capture retombe sur
+       les pourcentages bruts du calque — logos deux à trois fois trop petits.
+
+       L'appelant révélait bien le canvas, mais le remasquait après la PREMIÈRE
+       capture. Comme `respirer()` cède la main entre chaque nom, les suivantes
+       retrouvaient un canvas caché : la première carte sortait juste, les
+       autres fausses. C'est exactement ce qu'on observait.
+
+       La révélation vit donc ICI, au plus près de la mesure : elle couvre
+       chaque capture, quel que soit l'appelant.
+
+       LA CAPTURE NE TOUCHE PAS À L'ÉTAPE. Elle retirait l'attribut
+       `data-etape-groupe` puis le rétablissait — mais elle le mémorisait au
+       DÉMARRAGE, quand il valait encore « configurer ». En le reposant à la
+       fin, elle écrasait le passage à « valider » : l'étape Vérifier affichait
+       le tableau au lieu des cartes.
+
+       On force donc la visibilité du canvas par un STYLE DIRECT, plus fort
+       que la règle CSS de l'étape, sans jamais changer l'étape elle-même. */
+    var wrap = document.querySelector('.cv-wrap');
+    var styleAvantWrap = wrap ? wrap.getAttribute('style') : null;
+    /* Suspend la mesure périodique : le canvas va porter des dimensions
+       forcées, les relever fausserait la référence. */
+    captureEnCours = true;
+
+    if (wrap) {
+      /* UNE BOÎTE EXPLICITE, HORS DU FLUX.
+
+         La hauteur du canvas vient de `flex: 1` (conf-styles.css:846) : elle
+         dépend de ses FRÈRES dans la colonne. À cette étape, les cartes
+         occupent tout l'espace — le canvas simplement révélé n'obtiendrait
+         presque aucune hauteur, et les calques sortiraient démesurés.
+
+         `position: fixed` le soustrait donc à la mise en page des cartes, et
+         `visibility` le garde invisible tout en le laissant mesurable. */
+      /* DIMENSIONS DÉRIVÉES DE LA FENÊTRE, jamais du canvas.
+
+         Mesurer `.canvas` rendait la boîte dépendante de l'ÉTAPE COURANTE :
+         « Configurer » garde le rail d'icônes (65 px) et le récapitulatif
+         (252 px), « Vérifier » les masque et referme leur colonne
+         (conf-styles.css:2946-2950). Le canvas y gagne plus de 300 px.
+
+         Or la capture démarre AVANT le basculement d'étape et cède la main
+         entre chaque nom : la première mesurait un canvas étroit, les suivantes
+         un canvas large. L'image du vêtement étant bornée par la largeur
+         disponible (conf-canvas-single.css:267), sa taille changeait — et
+         celle des logos avec elle. D'où trois cartes à trois échelles.
+
+         On reconstruit donc la géométrie de l'étape « DESIGNER », celle où le
+         client compose : c'est ce qu'il a vu que les cartes doivent
+         reproduire. Aucune mesure du DOM, donc aucune dépendance à l'état de
+         la page — un futur changement de mise en page ne rouvrira pas ce
+         défaut. */
+      /* Dernière mesure du canvas VISIBLE — celle de l'étape « Designer », où
+         le client a composé son design. Le vêtement y retrouve exactement la
+         taille qu'il avait sous ses yeux, donc les logos leur proportion. */
+      var boite = boiteCanvas;
+
+      var RAIL = 65;      /* conf-sidebar-modern.css : largeur du rail d'icônes */
+      var RECAP = 252;    /* conf-styles.css : --recap-w */
+      var PADDING = 40;   /* marges horizontales du canvas */
+
+      /* Repli sur une estimation : le canvas n'a jamais été mesurable — arrivée
+         directe sur « Vérifier » après un rechargement. Approximatif, mais
+         préférable à une boîte nulle. */
+      var largeur = boite
+        ? boite.w
+        : Math.max(320, window.innerWidth - RAIL - RECAP - PADDING);
+
+      var hauteur = boite ? boite.h : Math.round(window.innerHeight * 0.85);
+
+      wrap.style.cssText =
+        'display:flex;align-items:center;justify-content:center;' +
+        'position:fixed;left:0;top:0;' +
+        'width:' + largeur + 'px;height:' + hauteur + 'px;' +
+        'visibility:hidden;opacity:0;pointer-events:none;z-index:-1;';
+    }
+
+    /** Rend au canvas son état d'origine. L'étape n'est jamais touchée. */
+    function remasquer() {
+      /* Levé AVANT la sortie anticipée : sans cela, un canvas absent laisserait
+         la mesure suspendue pour toute la session. */
+      captureEnCours = false;
+      if (!wrap) return;
+      /* L'attribut ENTIER est restauré : le canvas n'avait le plus souvent
+         aucun style propre, sa mise en page venant du CSS. Remettre des
+         propriétés une à une y laisserait des valeurs vides mais présentes. */
+      if (styleAvantWrap === null) wrap.removeAttribute('style');
+      else wrap.setAttribute('style', styleAvantWrap);
+    }
+
     return attendreLogos().then(function () {
       return Promise.resolve(
         typeof window.captureAllViews === 'function' ? window.captureAllViews() : null
       );
     }).then(function (views) {
       restaurer();
+      remasquer();
       var face = (views || []).filter(function (v) { return v.label === 'FACE'; })[0];
       return face || null;
     }).catch(function () {
       restaurer();
+      remasquer();
       return null;
     });
   }
@@ -241,24 +380,17 @@
     var calques = (face && face.logos ? face.logos : []).map(function (g) {
       var w = g.w, x = g.x;
 
-      /* LE TEXTE N'EST PLUS DÉFORMÉ. Il était grossi de 25 % pour compenser la
-         marge du PNG, désormais corrigée à la source (conf-share.js) : le
-         maintenir le décalerait dans l'autre sens.
+      /* AUCUNE DÉFORMATION — le rendu est celui de la « Vue d'ensemble ».
 
-         LES LOGOS, EUX, SONT AGRANDIS. À la taille d'une carte, un logo de
-         poitrine tombe sous vingt pixels — on n'y distingue plus le visuel, et
-         la vérification perd son objet.
+         Les logos étaient agrandis de 50 % pour rester lisibles dans une
+         carte étroite. Deux écrans montraient alors le même design à deux
+         échelles différentes, sur un parcours où le client compare l'un et
+         l'autre avant de payer.
 
-         C'est un écart ASSUMÉ à la fidélité : le logo imprimé sera plus petit
-         que celui montré ici. Il ne s'applique qu'aux images uploadées, jamais
-         au texte, et la position reste exacte — seule la taille est forcée. */
-      if (!g.isText) {
-        w = g.w * ECHELLE_LOGO;
-        /* Autour du CENTRE : l'origine recule de la moitié du gain, sinon le
-           logo s'étendrait vers la droite au lieu de grandir sur place. */
-        x = g.x - (w - g.w) / 2;
-      }
-
+         Les positions et largeurs viennent de la capture ; elles font foi. La
+         lisibilité passe désormais par la TAILLE DES CARTES (quatre par ligne,
+         sans largeur maximale — conf-styles.css), pas par une déformation du
+         design. */
       return '<img class="ov-layer" src="' + safeSrc(g.src) + '" alt="" ' +
              'style="left:' + (x * 100) + '%;top:' + (g.y * 100) + '%;' +
              'width:' + (w * 100) + '%">';

@@ -2846,11 +2846,43 @@
   from { transform: translateX(-100%); }
   to   { transform: translateX(100%); }
 }
+
+/* ── CERCLE TOURNANT — la flèche se transforme ─────────────────────────────
+
+   La bande qui traverse le bouton dit qu'il se passe quelque chose, mais elle
+   reste discrète : sur un ajout de plusieurs secondes, le client doute encore.
+   Un cercle qui tourne est le signal d'attente que tout le monde reconnaît.
+
+   Il PREND LA PLACE de la flèche plutôt que de s'y ajouter : la flèche annonce
+   « on avance », ce qui n'est plus vrai pendant le calcul. Rien à ajouter au
+   markup, et la largeur du bouton ne bouge pas — il ne sautille donc pas au
+   moment du clic. */
+.grp-actions-btn:disabled svg {
+  /* Le tracé de la flèche disparaît ; il ne reste que la boîte, à laquelle on
+     donne un anneau. */
+  stroke: transparent;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  /* Un seul segment coloré : c'est lui qui rend la rotation lisible. */
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: grp-btn-rotation .7s linear infinite;
+  /* Au-dessus de la bande claire, qui couvre tout le bouton. */
+  position: relative;
+  z-index: 1;
+}
+@keyframes grp-btn-rotation {
+  to { transform: rotate(360deg); }
+}
 /* Le mouvement gêne certaines personnes, parfois physiquement : on le retire
    sans perdre le signal, porté ici par la seule atténuation. */
 @media (prefers-reduced-motion: reduce) {
   .grp-actions-btn:active { transform: none; }
   .grp-actions-btn:disabled::after { animation: none; }
+  /* L'anneau reste VISIBLE mais cesse de tourner : le signal d'attente
+     demeure, sans le mouvement continu que ce réglage vise précisément. */
+  .grp-actions-btn:disabled svg { animation: none; }
   .grp-actions-btn:disabled { opacity: .75; }
 }
 
@@ -2983,15 +3015,25 @@
    rien déformer. */
 .grp-verif-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 26px;
-  /* Une commande à deux personnes ne doit pas étirer ses cartes sur toute la
-     largeur d'un écran de bureau : le vêtement y paraîtrait démesuré. */
-  max-width: 1000px;
+  /* `auto-fill` remplacé par une largeur MINIMALE : la grille place autant de
+     cartes que la largeur le permet, sans jamais descendre sous 300 px. Avec
+     un nombre de colonnes figé, une commande d'UNE personne voyait sa carte
+     réduite au quart de l'écran — un vêtement minuscule, logos illisibles.
+
+     Le vêtement grandit donc quand il y a peu de monde, et la grille se
+     remplit quand la liste s'allonge. */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  /* Aucune largeur maximale : les cartes prennent tout l'espace disponible.
+     Sur un grand écran, elles gagnent en taille — donc en lisibilité, sur
+     l'écran même où le client vérifie avant de payer. */
 }
-@media (max-width: 760px) {
-  .grp-verif-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-}
+/* Les paliers fixes ne sont plus nécessaires : `auto-fit` adapte le nombre de
+   colonnes à la largeur disponible, jusqu'à une seule sur téléphone.
+
+   Une carte SEULE s'étirerait toutefois sur tout l'écran — un vêtement de
+   1400 px de large. On borne donc sa largeur, sans contraindre la grille. */
+.grp-verif-grid > .gv-card { max-width: 460px; }
 
 .gv-card {
   position: relative;

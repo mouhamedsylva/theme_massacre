@@ -2572,6 +2572,41 @@
         // comme UNE même liste dans le panier et sur la commande Shopify.
         const groupLabel = 'Groupe ' + rows.length + ' pers. #' + String(Date.now()).slice(-5);
 
+        /* CANVAS RENDU MESURABLE LE TEMPS DE LA COMPOSITION.
+
+           L'ajout part de l'étape « Vérifier », où le produit a cédé la place
+           aux cartes : `.cv-wrap` y est en `display: none`. Or la composition
+           des vignettes MESURE le canvas — sur un élément masqué, elle
+           retombait sur les pourcentages bruts du calque et les logos
+           sortaient deux à trois fois trop petits dans le panier.
+
+           Même correctif que l'entrée dans l'étape « Vérifier » : on retire
+           l'attribut d'étape, et on rend le canvas invisible SANS le
+           démesurer — `visibility` ne le retire pas du flux, contrairement à
+           `display`. Rien ne clignote, les dimensions redeviennent lisibles. */
+        const rootAdd = document.querySelector('.conf-app-root');
+        const etapeAdd = rootAdd ? rootAdd.getAttribute('data-etape-groupe') : null;
+        const wrapAdd = document.querySelector('.cv-wrap');
+        const visAdd = wrapAdd ? wrapAdd.style.visibility : '';
+        const opaAdd = wrapAdd ? wrapAdd.style.opacity : '';
+
+        if (rootAdd) rootAdd.removeAttribute('data-etape-groupe');
+        if (wrapAdd) {
+          wrapAdd.style.visibility = 'hidden';
+          wrapAdd.style.opacity = '0';
+        }
+
+        /* Rétabli DANS TOUS LES CAS, y compris si une composition échoue :
+           laisser le canvas révélé afficherait le vêtement par-dessus les
+           cartes. */
+        const rendreEtape = function () {
+          if (wrapAdd) {
+            wrapAdd.style.visibility = visAdd;
+            wrapAdd.style.opacity = opaAdd;
+          }
+          if (rootAdd && etapeAdd) rootAdd.setAttribute('data-etape-groupe', etapeAdd);
+        };
+
         /* VIGNETTE PAR COULEUR.
            Chaque ligne recevait `design.thumb`, composée une seule fois sur
            `fallbackSrc` — donc sur la couleur AFFICHÉE À L'ÉCRAN. Le panier
@@ -2593,34 +2628,41 @@
            La zone substituée est celle CHOISIE par le client quand plusieurs
            textes coexistent (sélecteur de la modale, conf-group-textzone.js) ;
            les autres textes restent identiques pour tout le monde. */
-        const zoneTexte = (typeof window.grpTextZone === 'function')
-          ? window.grpTextZone() : 'f';
-        const txtEl = document.getElementById('text-' + zoneTexte);
-        const txtContent = txtEl ? txtEl.querySelector('.dt-content') : null;
-        /* Texte courbé : son contenu est un SVG, une substitution simple le
-           casserait. On laisse alors le design commun. */
-        const peutSubstituer = !!(txtContent && !txtEl.classList.contains('is-shaped'));
-        const txtAncien = peutSubstituer ? txtContent.textContent : null;
-        const txtDisplayAncien = peutSubstituer ? txtEl.style.display : null;
+        /* La zone de texte n'est plus lue ici : la vignette étant mutualisée
+           par couleur, aucun surnom n'y est incrusté. Les variables de
+           substitution et de restauration ont disparu avec elle. */
 
-        /* Clé = couleur + surnom : deux personnes du même prénom et de la même
-           teinte partagent la même planche, les autres non. */
+        /* ═══ CLÉ = LA COULEUR SEULE ═══════════════════════════════════════
+
+           Elle valait auparavant « couleur + surnom », pour incruster le nom de
+           chaque personne dans sa vignette. Mais un surnom est UNIQUE par
+           ligne : deux personnes ne partageaient donc jamais la même clé, et la
+           mutualisation annoncée ne jouait JAMAIS.
+
+           Chaque composition coûte DEUX requêtes serveur enchaînées — l'aperçu
+           puis la planche multi-vues. Trente personnes déclenchaient soixante
+           allers-retours en série : plusieurs dizaines de secondes, onglet figé.
+           Avec la couleur seule, trois teintes ne coûtent que trois
+           compositions, quel que soit l'effectif.
+
+           CE QUE LA VIGNETTE PERD : le surnom incrusté dans l'image. Il reste
+           affiché en toutes lettres sur chaque ligne du panier et du
+           récapitulatif, et part en commande comme propriété « Personne »
+           (recapitulatif.liquid:988) — INDÉPENDAMMENT de l'image. C'est cela
+           que l'atelier lit pour floquer ; le visuel ne fait que l'illustrer.
+
+           Clé construite ICI et NULLE PART AILLEURS : l'expression était
+           autrefois dupliquée entre le remplissage et la lecture, et les deux
+           ont divergé sur un caractère invisible — chaque ligne retombait alors
+           sur la couleur affichée à l'écran. Une fonction unique rend cette
+           divergence impossible. */
         const vignettes = new Map();
-        /* Clé de la Map, construite ICI et NULLE PART AILLEURS.
+        const cleVignette = (r) => r.color || '';
 
-           L'expression était dupliquée entre le remplissage et la lecture, et
-           les deux ont divergé : le séparateur du remplissage portait un octet
-           NUL (« Apricot\0Samba ») là où la lecture utilisait une espace
-           (« Apricot Samba »). `vignettes.get()` renvoyait donc toujours
-           undefined, et chaque ligne retombait sur `design` — la vignette
-           composée une seule fois sur la couleur AFFICHÉE À L'ÉCRAN. D'où un
-           panier entier à la même teinte, malgré des libellés corrects.
-
-           Le caractère étant invisible, les deux lignes paraissaient identiques
-           à la relecture ; seul un log de la clé échappée l'a révélé. Une
-           fonction unique rend cette divergence impossible. */
-        const cleVignette = (r) => r.color + ' ' + (r.name || '');
-
+        /* `try/finally` : le canvas doit retrouver son état MÊME si une
+           composition échoue. Sans lui, une exception laisserait le vêtement
+           révélé par-dessus les cartes de vérification. */
+        try {
         for (const r of rows) {
           const cle = cleVignette(r);
           if (vignettes.has(cle)) continue;
@@ -2632,15 +2674,10 @@
           const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, 'face');
           const base = cand[0] || fallbackSrc;
 
-          if (peutSubstituer && r.name) {
-            txtContent.textContent = r.name;
-            if (txtDisplayAncien === 'none') txtEl.style.display = '';
-            /* Un surnom plus long que le texte commun doit être re-calé dans
-               sa zone imprimable AVANT la capture. */
-            if (typeof window.clampTextToZone === 'function') {
-              window.clampTextToZone(zoneTexte);
-            }
-          }
+          /* Plus de substitution du surnom avant la capture : la vignette est
+             désormais mutualisée par couleur, elle ne porte donc plus de nom.
+             Cela retire aussi un reflow forcé par personne — le texte était
+             réécrit puis re-mesuré à chaque tour. */
 
           /* `btnEl` seulement au premier appel : il sert à afficher
              « Préparation du design… » sur le bouton. Le passer à chaque tour
@@ -2649,15 +2686,24 @@
           vignettes.set(cle, dz);
         }
 
-        /* Restauration systématique : le canvas doit retrouver son texte, même
-           si la composition a échoué en cours de route. */
-        if (peutSubstituer) {
-          txtContent.textContent = txtAncien;
-          txtEl.style.display = txtDisplayAncien;
-          if (typeof window.clampTextToZone === 'function') {
-            window.clampTextToZone(zoneTexte);
-          }
+        } finally {
+          /* Les mesures sont faites : l'étape reprend sa place, succès ou
+             échec. */
+          rendreEtape();
         }
+
+        /* Plus de restauration à faire : la boucle ne touche plus au texte du
+           canvas, puisqu'elle n'y substitue plus de surnom. */
+
+        /* ÉTAT DU DESIGN CAPTURÉ UNE SEULE FOIS.
+
+           Il ne varie pas d'une ligne à l'autre — les personnes d'un groupe
+           partagent le même design. L'appeler par personne était présenté comme
+           « peu coûteux », mais la fonction enchaîne sept lectures de session et
+           parcourt dix zones du DOM ; et pushToCart la rappelle une seconde
+           fois par ligne, en mode complet cette fois. */
+        const designCommun = (typeof capturerEtatDesign === 'function')
+          ? capturerEtatDesign() : null;
 
         rows.forEach(function (r, idx) {
           /* Repli sur `design` si la composition a échoué : mieux vaut la
@@ -2678,18 +2724,23 @@
             img: dz.thumb,        // vignette à LA couleur de cette ligne
             sheet: dz.sheet,
             assets: logoAssets.concat(textAssets),
-            /* Même état complet que pour un ajout unitaire (voir plus bas) :
-               les lignes de groupe partagent un design commun, chacune doit
-               pouvoir le rouvrir. Capturé UNE fois hors de la boucle serait
-               équivalent — la valeur ne varie pas d'une ligne à l'autre — mais
-               l'appel est peu coûteux (lecture de session) et rester au même
-               endroit que le champ évite qu'on les désynchronise. */
-            design: (typeof capturerEtatDesign === 'function') ? capturerEtatDesign() : null,
+            /* Même état complet que pour un ajout unitaire, capturé une seule
+               fois au-dessus : les lignes de groupe partagent un design commun,
+               chacune doit pouvoir le rouvrir. */
+            design: designCommun,
             sleeveCount: sleeves,
             qty: r.qty,
             _sizeGroupSummary: r._sizeGroupSummary  // 🆕 Transmet le résumé groupe
-          }, idx === rows.length - 1 ? btnEl : null);
+            /* `true` : écriture en session et rendu du tiroir DIFFÉRÉS. Ils
+               sont faits une fois après la boucle, au lieu d'une fois par
+               personne. */
+          }, idx === rows.length - 1 ? btnEl : null, false, true);
         });
+
+        /* L'écriture et le rendu, une seule fois pour toute la liste. */
+        window.persistCartSafe(cartItems);
+        renderCartDrawer();
+        openCartDrawer();
         // Consommée : un second clic ne redupliquerait pas la liste.
         groupOrderRows = null;
         saveGroupRows();        // efface aussi la copie en session
@@ -2979,7 +3030,22 @@
       return s.replace(/^[^:·]*:\s*/, '').trim().toLowerCase();
     }
 
-    function pushToCart(item, btnEl, replaceQty) {
+    /**
+     * Ajoute une ligne au panier.
+     *
+     * @param {Object} item
+     * @param {HTMLElement} [btnEl] - bouton à animer (« Ajouté ! »)
+     * @param {boolean} [replaceQty]
+     * @param {boolean} [differer] - n'ÉCRIT PAS la session et NE REDESSINE PAS
+     *   le tiroir. Réservé aux ajouts en série (commande de groupe) :
+     *   l'appelant s'en charge une fois la boucle terminée.
+     *
+     *   Sans lui, une liste de trente personnes déclenchait trente écritures —
+     *   dont la dernière sérialise trente lignes, un coût quadratique — et
+     *   trente reconstructions du tiroir pour un résultat identique. C'est
+     *   aussi ce qui faisait clignoter l'écran pendant tout l'ajout.
+     */
+    function pushToCart(item, btnEl, replaceQty, differer) {
       // Vérifie si le même article existe déjà (même nom+détails).
       // personName entre dans la clé : deux personnes d'une liste de groupe
       // ayant même taille+couleur doivent rester DEUX lignes distinctes.
@@ -3094,7 +3160,7 @@
 
       // Sauvegarder le panier pour la page Récapitulatif (utilisé par le drawer).
       // persistCartSafe signale la saturation du quota — voir sa définition.
-      window.persistCartSafe(cartItems);
+      if (!differer) window.persistCartSafe(cartItems);
 
       // Feedback bouton
       if (btnEl) {
@@ -3104,9 +3170,11 @@
         setTimeout(() => { btnEl.innerHTML = original; btnEl.style.background = ''; }, 1800);
       }
 
-      // Ouvrir le drawer
-      renderCartDrawer();
-      openCartDrawer();
+      // Ouvrir le drawer — sauté en ajout différé, l'appelant s'en charge.
+      if (!differer) {
+        renderCartDrawer();
+        openCartDrawer();
+      }
     }
 
     /* ── Ajout au panier depuis les récaps Drapeaux / Coins / Patchs ──
@@ -3749,6 +3817,29 @@
         /* URLs hébergées : sans cette ligne, la restauration les reposerait au
            rechargement et le design reviendrait après un reset. */
         sessionStorage.removeItem('conf_cloud_urls');
+
+        /* PAQUETS RANGÉS PAR MODE — `conf_design_mode_libre`,
+           `conf_design_mode_groupe`, etc.
+
+           Chacun porte une COPIE COMPLÈTE du design de son mode : logos,
+           textes, couleurs et liste de surnoms. Les lignes ci-dessus vident
+           le design COURANT, jamais ces réserves — la liste de surnoms
+           réapparaissait donc au prochain choix de mode, alors que le client
+           venait de tout réinitialiser.
+
+           On balaie par PRÉFIXE plutôt que d'énumérer les modes : un mode
+           ajouté plus tard serait sinon oublié ici. Les clés sont collectées
+           avant suppression, car retirer pendant le parcours décale les
+           index. */
+        var aSupprimer = [];
+        for (var i = 0; i < sessionStorage.length; i++) {
+          var k = sessionStorage.key(i);
+          if (k && k.indexOf('conf_design_mode_') === 0) aSupprimer.push(k);
+        }
+        for (var j = 0; j < aSupprimer.length; j++) {
+          sessionStorage.removeItem(aSupprimer[j]);
+        }
+
         localStorage.removeItem('last_design_id');
       } catch (e) {}
     }
@@ -7828,6 +7919,9 @@
          pas. */
       try { sessionStorage.removeItem(ETAPE_KEY); } catch (e) {}
       etapeGroupeCourante = 'designer';
+      /* Le verrou de capture repart avec le mode : une seconde commande doit
+         recapturer son design, pas réutiliser celui de la précédente. */
+      window.__captureVerifFaite = false;
       /* Le stepper général reprend sa place dans l'en-tête : sans cet appel,
          celui du groupe y resterait alors qu'aucun mode n'est choisi. */
       placerStepperGroupe(null);
@@ -7935,16 +8029,53 @@
       var root = document.querySelector('.conf-app-root');
       if (!root || root.getAttribute('data-mode') !== 'groupe') return;
 
-      /* CAPTURE AVANT MASQUAGE — l'ordre est critique.
+      /* CAPTURE TERMINÉE AVANT MASQUAGE — l'ordre est critique.
 
-         L'attribut ci-dessous masque le canvas en CSS. Or la capture des
+         L'attribut posé plus bas masque le canvas en CSS, et la capture des
          designs MESURE le DOM live : sur un élément caché, ses mesures valent
-         zéro et les aperçus sortiraient vides ou décalés. On amorce donc la
-         capture pendant que le canvas est encore visible. Même précaution que
-         conf-overview.js:65-70. */
-      if (etape === 'valider' && typeof window.grpPreparerVerification === 'function') {
-        window.grpPreparerVerification();
+         zéro.
+
+         Le code se contentait auparavant d'AMORCER la capture ici, en pensant
+         la faire pendant que le canvas était encore visible. Mais
+         grpPreparerVerification() lance une chaîne asynchrone et rend la main
+         aussitôt : la mesure survenait donc APRÈS le masquage. La capture
+         basculait alors sur son repli et renvoyait les pourcentages bruts du
+         calque au lieu de fractions de l'image — d'où un décalage de 30 à
+         45 % sur les cartes.
+
+         On ATTEND désormais sa fin, puis on rejoue l'entrée dans l'étape. Le
+         drapeau évite la récursion infinie : au second passage, la capture est
+         faite et l'on poursuit normalement.
+
+         Même précaution que conf-overview.js:70, qui capture avant d'ouvrir sa
+         modale — et dont le rendu, lui, a toujours été juste. */
+      if (etape === 'valider' && !window.__captureVerifFaite &&
+          typeof window.grpPreparerVerification === 'function') {
+        window.__captureVerifFaite = true;
+
+        /* LE CANVAS EST RÉVÉLÉ LE TEMPS DE LA MESURE.
+
+           On arrive ici depuis « Configurer », où le tableau a REMPLACÉ le
+           produit : `.cv-wrap` y est déjà en `display: none`
+           (conf-styles.css:2911). Attendre la fin de la capture ne suffisait
+           donc pas — elle mesurait un canvas invisible et retombait sur les
+           pourcentages bruts du calque, d'où des logos deux à trois fois trop
+           petits sur les cartes.
+
+           On retire l'attribut d'étape le temps de mesurer, puis on le remet.
+
+           La révélation du canvas vit désormais DANS la capture elle-même
+           (conf-group-verify.js, capturerPourNom) : elle y couvre CHAQUE nom,
+           là où la faire ici ne couvrait que le premier — les captures
+           suivantes, séparées par un rendu, retrouvaient un canvas masqué. */
+        Promise.resolve(window.grpPreparerVerification())
+          .catch(function () {})
+          .then(function () { allerEtapeGroupe('valider'); });
+        return;
       }
+      /* Réarmé dès qu'on quitte l'étape : y revenir doit recapturer, le design
+         ayant pu changer entre-temps. */
+      if (etape !== 'valider') window.__captureVerifFaite = false;
 
       /* SAUVEGARDE EN QUITTANT « CONFIGURER ».
 
