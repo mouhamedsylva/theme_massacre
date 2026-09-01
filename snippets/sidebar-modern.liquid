@@ -187,7 +187,25 @@
       concurrents au même endroit. Ici elle coiffe le panneau de travail et
       dit ce que le client fait à cette étape, avant qu'il ne commence.
     {%- endcomment -%}
-    <p class="eq-info">Composez le design commun à toute l'équipe.</p>
+    {%- comment -%}
+      LE PREMIER SURNOM EST UN GABARIT, pas une simple donnée.
+
+      Chaque nom remplace le contenu de la MÊME zone de texte
+      (conf-group-verify.js) : il hérite de sa position, sa taille, sa police et
+      sa couleur. Le premier saisi règle donc l'apparence de TOUS les autres.
+
+      Un client qui l'ignore compose son design sans texte, puis découvre à
+      l'étape suivante que les noms se posent où il n'a rien choisi. D'où ce
+      message, qui dit trois choses qu'il ne peut pas deviner : que le surnom
+      est un nom FLOQUÉ, que le premier sert d'EXEMPLE, et que son réglage
+      ENGAGE toute la commande.
+    {%- endcomment -%}
+    <p class="eq-info">
+      Composez le design commun à toute l'équipe.<br>
+      Saisissez un premier surnom : il apparaîtra sur le vêtement.
+      <strong>Sa position et sa taille vaudront pour tous les membres</strong> —
+      les autres noms viendront s'y placer à l'identique.
+    </p>
 
     <div class="eq-liste-hdr">
       <span class="eq-liste-titre">Surnoms</span>

@@ -1735,10 +1735,31 @@
   /* Le libellé « Nom floqué » disparaît une fois replié : le champ porte déjà
      le nom saisi, et le résumé dit le reste. */
   .grp-table tbody tr:not(.is-open) td:nth-child(1)::before { display: none; }
+  /* Ligne REPLIÉE : le nom se lit comme un titre de carte, sans cadre — la
+     bordure ferait doublon avec celle de la carte elle-même. */
   .grp-table tbody tr:not(.is-open) .grp-inp {
     border-color: transparent;
     padding-left: 0;
     font-weight: 600;
+  }
+
+  /* SAUF S'IL EST VIDE. Sans nom, rien ne distinguait plus le champ de son
+     entourage : le client voyait un texte grisé posé sur la carte, sans
+     comprendre qu'il pouvait y écrire. La bordure revient, et le champ
+     redevient un champ.
+
+     `:placeholder-shown` cible exactement le cas voulu — le champ vide, donc
+     celui qui affiche son texte d'exemple — sans aucun code. */
+  .grp-table tbody tr:not(.is-open) .grp-inp:placeholder-shown {
+    border-color: var(--border);
+    padding-left: 9px;
+    font-weight: 400;
+  }
+  /* Champ vide ET ligne bloquante : la teinte ambrée le désigne parmi les
+     autres, en écho au message de la barre d'action. */
+  .grp-table tbody tr:not(.is-open) .grp-inp:placeholder-shown:not(:focus) {
+    border-color: #fbbf24;
+    background: #fffbeb;
   }
 
   /* RÉSUMÉ de la ligne repliée : taille · couleur · quantité. */
@@ -1788,6 +1809,12 @@
     color: #c8c8c8;
     font-weight: 400;
     opacity: 1;            /* Firefox l'atténue déjà : sans cela, il cumule */
+  }
+  /* Sur une ligne REPLIÉE, ce champ vide bloque la commande : son exemple doit
+     se lire. Le gris pâle convient à un champ facultatif au milieu d'un
+     formulaire ouvert, pas à celui qui retient le client. */
+  .grp-table tbody tr:not(.is-open) .grp-inp::placeholder {
+    color: #9a7b2e;
   }
 
   /* 2 et 3 — Taille et couleur, côte à côte : deux champs courts. */
@@ -2230,6 +2257,22 @@
      réapparaissait : le tableau porte déjà son propre compteur (« 2 lignes ·
      2 pièces »), et cette ligne en donnait un second, désaccordé. */
   [data-mode="groupe"] .grp-actions-info { display: none; }
+
+  /* SAUF quand elle porte la RAISON d'un blocage : un bouton grisé sans
+     explication laisserait le client sans issue. C'est le seul cas où cette
+     ligne mérite la place qu'elle prend sur un écran étroit. */
+  [data-mode="groupe"] .grp-actions-info.is-bloque {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+  }
+  /* La barre enveloppe : le message prend sa ligne au-dessus du bouton, sans
+     recourir à `:has()` — inégalement pris en charge sur les navigateurs
+     mobiles encore en circulation. */
+  [data-mode="groupe"] .grp-actions { flex-wrap: wrap; }
   .grp-actions-btn {
     width: 100%;
     justify-content: center;

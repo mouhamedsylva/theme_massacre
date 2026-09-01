@@ -8148,6 +8148,10 @@
       var court = window.innerWidth <= 768 && etape !== 'valider';
       if (btn) btn.childNodes[0].nodeValue = (court ? 'Continuer' : (lib.btn || 'Continuer')) + ' ';
 
+      /* Le blocage est évalué APRÈS le libellé : il peut écraser le texte
+         d'information par sa raison. */
+      majBlocageEtapeGroupe();
+
       /* Le RETOUR nomme sa destination : « Retour vers DESIGNER » plutôt qu'un
          « Retour » nu, qui laisse le client deviner où il atterrit. Le libellé
          suit donc l'étape précédente, quelle qu'elle soit. */
@@ -8214,6 +8218,117 @@
       allerEtapeGroupe(ETAPES_GROUPE[idx - 1]);
     }
     window.etapeGroupePrecedente = etapeGroupePrecedente;
+
+    /**
+     * Vérifie que le parcours peut passer à l'étape suivante, et reflète le
+     * verdict sur le bouton et le stepper.
+     *
+     * DEUX CONDITIONS, à deux étapes différentes :
+     *
+     * « Designer » — au moins UN surnom. Le premier saisi n'est pas une donnée
+     *   parmi d'autres : chaque nom remplace le contenu de la MÊME zone de
+     *   texte, en héritant de sa position et de sa taille. Il règle donc
+     *   l'apparence de toute l'équipe, et c'est le travail de cette étape.
+     *
+     * « Configurer » — AUCUN champ de nom vide. Une ligne sans nom donnerait un
+     *   vêtement non floqué au milieu d'une commande qui l'est : l'erreur ne se
+     *   verrait qu'à la livraison.
+     *
+     * On DÉSACTIVE plutôt que d'alerter au clic : un bouton grisé accompagné de
+     * sa raison informe avant l'action, là où une alerte reproche un geste déjà
+     * fait.
+     */
+    function majBlocageEtapeGroupe() {
+      var root = document.querySelector('.conf-app-root');
+      if (!root || root.getAttribute('data-mode') !== 'groupe') return;
+
+      var etape = root.getAttribute('data-etape-groupe') || 'designer';
+      var btn = document.getElementById('grp-actions-btn');
+      var info = document.getElementById('grp-actions-info');
+      var bloque = false;
+      var raison = '';
+
+      if (etape === 'designer') {
+        var noms = (typeof window.getGroupOrderRows === 'function')
+          ? (window.getGroupOrderRows() || []) : [];
+        var auMoinsUn = noms.some(function (r) {
+          return String((r && (r.flock || r.name)) || '').trim() !== '';
+        });
+        if (!auMoinsUn) {
+          bloque = true;
+          raison = 'Saisissez un premier surnom — il définira la position du ' +
+                   'texte pour toute l\'équipe.';
+        }
+      } else if (etape === 'configurer') {
+        /* On lit le TABLEAU À L'ÉCRAN, pas la liste validée : le client est en
+           train de le remplir, la liste ne reflète pas encore ses saisies. */
+        var lignes = document.querySelectorAll('#grp-rows tr');
+        var vides = 0;
+        for (var i = 0; i < lignes.length; i++) {
+          var champ = lignes[i].querySelector('.grp-f-flock');
+          if (champ && !String(champ.value || '').trim()) vides++;
+        }
+        if (!lignes.length) {
+          bloque = true;
+          raison = 'Ajoutez au moins une personne à votre liste.';
+        } else if (vides) {
+          bloque = true;
+          raison = vides > 1
+            ? 'Renseignez le nom floqué des ' + vides + ' lignes incomplètes.'
+            : 'Renseignez le nom floqué de la ligne incomplète.';
+        }
+      }
+
+      if (btn) btn.disabled = bloque;
+      if (info) {
+        if (bloque) {
+          info.textContent = raison;
+          info.classList.add('is-bloque');
+        } else {
+          /* Le blocage levé, l'information reprend sa place : le nombre de
+             personnes à « Configurer », rien ailleurs. Sans cela, la raison
+             restait affichée alors qu'elle n'avait plus d'objet. */
+          info.classList.remove('is-bloque');
+          if (etape === 'configurer') {
+            var n = document.querySelectorAll('#grp-rows tr').length;
+            info.textContent = n + (n > 1 ? ' personnes ajoutées' : ' personne ajoutée');
+          } else {
+            info.textContent = (LIBELLES_ETAPE[etape] || {}).info || '';
+          }
+        }
+      }
+
+      /* LE STEPPER N'A RIEN À FAIRE ICI : allerEtapeGroupe désactive déjà toute
+         étape non encore atteinte (`b.disabled = bIdx > idx`). La désactiver à
+         nouveau ferait doublon — et ne la réactiverait jamais une fois la
+         condition remplie, le blocage devenant définitif. */
+    }
+    window.majBlocageEtapeGroupe = majBlocageEtapeGroupe;
+
+    /* SAISIE DANS LE TABLEAU — écouteur GLOBAL, posé une seule fois.
+
+       Les lignes sont créées et détruites au fil de la saisie : leur attacher
+       un écouteur individuel obligerait à le refaire à chaque ajout, et une
+       ligne importée depuis un fichier CSV serait oubliée. On écoute donc le
+       document, en filtrant sur le champ concerné.
+
+       `input` et non `change` : le bouton doit se débloquer à la frappe, pas
+       seulement quand le client quitte le champ. */
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.classList &&
+          e.target.classList.contains('grp-f-flock')) {
+        majBlocageEtapeGroupe();
+      }
+    });
+
+    /* Lignes ajoutées ou retirées : le compte de champs vides change sans
+       qu'aucune frappe n'ait lieu. */
+    document.addEventListener('DOMContentLoaded', function () {
+      var corps = document.getElementById('grp-rows');
+      if (!corps) return;
+      new MutationObserver(function () { majBlocageEtapeGroupe(); })
+        .observe(corps, { childList: true });
+    });
 
     /** Avance d'une étape. Appelée par le bouton de la barre d'action. */
     function etapeGroupeSuivante() {
@@ -8426,6 +8541,11 @@
                 '</div>';
       }
       hote.innerHTML = html;
+
+      /* Point de passage OBLIGÉ de tout ajout ou retrait : le bouton de l'étape
+         « Designer » y reflète donc l'état réel de la liste, sans qu'on ait à
+         l'appeler depuis chaque fonction qui la modifie. */
+      if (typeof majBlocageEtapeGroupe === 'function') majBlocageEtapeGroupe();
     }
     window.eqRendreNoms = eqRendreNoms;
 

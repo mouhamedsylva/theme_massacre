@@ -2807,6 +2807,10 @@
 }
 
 .grp-actions-info { font-size: 13px; color: var(--muted); }
+/* RAISON D'UN BLOCAGE — teinte ambrée, pas rouge : le client n'a rien fait de
+   mal, il lui manque une information. Le rouge est réservé aux erreurs qui
+   compromettent la commande (texte courbé, quota dépassé). */
+.grp-actions-info.is-bloque { color: #92400e; font-weight: 600; }
 
 .grp-actions-btn {
   display: inline-flex;
