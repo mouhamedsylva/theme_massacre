@@ -5233,8 +5233,13 @@
              affiché dans la carte : sans lui, une commande de groupe ne
              compterait pas dans le montant du pied. */
           let sousTotal = 0;
+          /* Nombre de PIÈCES de ce groupe : une ligne peut en porter plusieurs
+             (« ×3 »), le nombre de personnes ne suffit donc pas. */
+          let piecesG = 0;
           lignes.forEach(function (l) {
-            sousTotal += (Number(cartUnitPrice(l, totalsByType)) || 0) * (Number(l.qty) || 0);
+            const q = Number(l.qty) || 0;
+            piecesG += q;
+            sousTotal += (Number(cartUnitPrice(l, totalsByType)) || 0) * q;
           });
           total += sousTotal;
 
@@ -5279,6 +5284,11 @@
               (Number(tete.id) || 0) + ')" title="Revenir au design de cette commande">' +
               '<img src="' + safeImgSrc(tete.img) + '" alt="' + grpEsc(tete.name) + '">' +
             '</button>' +
+            /* Le compte sous la VIGNETTE, pas dans la colonne de droite : il
+               qualifie l'image — combien de pièces cette commande représente —
+               là où la colonne de droite décrit le produit et ses options. */
+            '<div class="cd-grp-compte">' + piecesG +
+              ' article' + (piecesG > 1 ? 's' : '') + '</div>' +
             '</div>' +
             '<div class="cd-info">' +
               '<div class="cd-name">' + grpEsc(tete.name) + '</div>' +
@@ -5288,9 +5298,6 @@
                 ' € <span class="cd-tier">/u</span></div>' +
               '<div class="cd-grp-tailles">' + tailles + '</div>' +
               blocNoms +
-              /* La ligne « N articles — total » a été retirée : le pied du
-                 panier porte déjà le nombre d'articles et le total estimé.
-                 La répéter dans chaque carte doublait la même information. */
             '</div>' +
             '<button type="button" class="cd-delete" ' +
               'onclick=\'removeGroupItems(' + cleJs + ')\' title="Supprimer cette commande">' +
@@ -5570,11 +5577,9 @@
       majResumeTailles(cle);
 
       cartCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
-      if (cartCount < 1) {
-        cartCount = 0;
-        const btnVide = document.getElementById('hdr-cart-btn');
-        if (btnVide) btnVide.style.display = 'none';
-      }
+      /* Le bouton panier reste VISIBLE même vide (voir configurateur.liquid) :
+         seul le compteur retombe à zéro. */
+      if (cartCount < 1) cartCount = 0;
       const cel = document.getElementById('hdr-cart-count');
       if (cel) cel.textContent = cartCount;
       persistCart();
@@ -5598,11 +5603,8 @@
       cartItems.length = 0;
       Array.prototype.push.apply(cartItems, restants);
 
-      if (cartCount < 1) {
-        cartCount = 0;
-        const cartBtn = document.getElementById('hdr-cart-btn');
-        if (cartBtn) cartBtn.style.display = 'none';
-      }
+      /* Bouton panier toujours visible : seul le compteur retombe à zéro. */
+      if (cartCount < 1) cartCount = 0;
       const cel = document.getElementById('hdr-cart-count');
       if (cel) cel.textContent = cartCount;
       persistCart();
@@ -5619,11 +5621,8 @@
       /* La réserve mémoire suit la ligne : sans cela, une session longue
          accumulerait les images des articles supprimés. */
       try { if (window.__designsPanier) delete window.__designsPanier[id]; } catch (e) {}
-      if (cartCount < 1) {
-        cartCount = 0;
-        const cartBtn = document.getElementById('hdr-cart-btn');
-        if (cartBtn) cartBtn.style.display = 'none';
-      }
+      /* Bouton panier toujours visible : seul le compteur retombe à zéro. */
+      if (cartCount < 1) cartCount = 0;
       const cartCountEl = document.getElementById('hdr-cart-count');
       if (cartCountEl) cartCountEl.textContent = cartCount;
       persistCart();
@@ -5841,6 +5840,28 @@
     /* Exposée : conf-sleeve-side.js zoome en passant en vue de côté — une
        manche occupe une petite part du visuel, il faut s'en approcher. */
     window.autoZoomTo = autoZoomTo;
+
+    /* PASTILLE DE COMPTE MASQUÉE À ZÉRO.
+
+       Le bouton panier reste visible même vide (configurateur.liquid) : sans
+       cela il porterait un « 0 » permanent, qui se lit comme une anomalie
+       plutôt que comme un panier vide.
+
+       Un OBSERVATEUR plutôt qu'une retouche des six points d'écriture du
+       compteur : ils sont dispersés dans le fichier et un ajout futur en
+       oublierait la règle. Ici, la pastille suit son contenu quoi qu'il
+       arrive. */
+    document.addEventListener('DOMContentLoaded', function () {
+      var pastille = document.getElementById('hdr-cart-count');
+      if (!pastille) return;
+      var majPastille = function () {
+        var n = parseInt(pastille.textContent, 10) || 0;
+        pastille.style.visibility = n > 0 ? '' : 'hidden';
+      };
+      majPastille();
+      new MutationObserver(majPastille)
+        .observe(pastille, { childList: true, characterData: true, subtree: true });
+    });
 
     /* ── File upload ── */
     // Registre des URLs Cloudinary (une par zone) une fois l'upload backend terminé

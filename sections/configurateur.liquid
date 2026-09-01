@@ -16,6 +16,36 @@
   {%- endcomment -%}
   <div class="conf-app-root" data-etape="choix">
 
+  {%- comment -%}
+    ÉCRAN DE CHOIX MASQUÉ AVANT LE PREMIER AFFICHAGE.
+
+    Le serveur écrit toujours `data-etape="choix"` : il ne peut pas savoir
+    quel mode la session du navigateur mémorise. Le configurateur ne se
+    révélait donc qu'au chargement complet des scripts (choisirMode, en fin de
+    page) — et l'écran de choix clignotait entre les deux, notamment après le
+    rechargement qu'impose un changement de mode.
+
+    Ce script est SYNCHRONE et placé juste après le conteneur : il s'exécute
+    avant que le navigateur ne peigne quoi que ce soit. Aucun clignotement.
+
+    Il ne fait que retirer l'attribut ; tout le reste — révélation des
+    panneaux, recalage des zones — demeure la responsabilité de choisirMode,
+    qui s'exécutera comme avant.
+  {%- endcomment -%}
+  <script>
+    (function () {
+      try {
+        var m = sessionStorage.getItem('conf_mode_perso');
+        if (!m) return;
+        var r = document.currentScript && document.currentScript.parentElement;
+        if (r && r.classList.contains('conf-app-root')) {
+          r.removeAttribute('data-etape');
+          r.setAttribute('data-mode', m);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
   <!-- ══ HEADER ══ -->
   <header class="hdr">
     <div class="hdr-brand">
@@ -80,8 +110,13 @@
         Partager
       </button> {% endcomment %}
 
-      <!-- Icône panier (cachée par défaut) -->
-      <button type="button" class="obtn obtn-cart" id="hdr-cart-btn" style="display:none" onclick="openCartDrawer()">
+      {%- comment -%}
+        PANIER TOUJOURS VISIBLE. Il n'apparaissait qu'une fois un article
+        ajouté : le client ne savait pas où retrouver sa commande avant d'en
+        avoir passé une, et l'en-tête changeait de composition en cours de
+        parcours. Un panier vide reste un point de repère.
+      {%- endcomment -%}
+      <button type="button" class="obtn obtn-cart" id="hdr-cart-btn" onclick="openCartDrawer()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/>
         </svg>

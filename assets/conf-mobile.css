@@ -1168,11 +1168,10 @@
      Le prix et le bouton d'ajout descendent au-dessus de l'aperçu (voir
      plus bas). Le header ne garde que les deux icônes.
 
-     #hdr-cart-btn porte DÉJÀ sa propre logique d'affichage : il est en
-     `display:none` dans le HTML et n'apparaît qu'une fois un article
-     ajouté (conf-main-inline.js). On n'y touche pas — il suffisait de ne
-     plus y déplacer #main-add-to-cart, qui, lui, est toujours visible et
-     se faisait passer pour un panier plein. */
+     #hdr-cart-btn est TOUJOURS visible, panier vide compris — seule sa
+     pastille de compte se masque à zéro (conf-main-inline.js). On n'y touche
+     pas ici : il suffisait de ne plus y déplacer #main-add-to-cart, qui se
+     faisait passer pour un panier plein. */
   .hdr-btns {
     display: flex;
     align-items: center;
