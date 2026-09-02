@@ -2579,9 +2579,18 @@
       }
 
       const btnEl = document.getElementById('main-add-to-cart');
-      // Compose 2 aperçus : une VIGNETTE (face seule + logo, carrée, pour le
-      // panier) et une PLANCHE multi-vues (face+dos+côté, pour la commande).
-      const design = await resolveDesignImage(fallbackSrc, btnEl);
+
+      /* La composition des aperçus a QUITTÉ CET ENDROIT.
+
+         Elle était faite ici, avant de savoir si la commande est individuelle
+         ou groupée — donc pour les deux. Or la branche groupe recompose de
+         toute façon le design sur l'image de CHAQUE couleur : son résultat n'y
+         servait que de repli si l'une de ces compositions échouait. Deux
+         requêtes serveur étaient ainsi payées à chaque ajout de groupe pour un
+         repli qui ne joue presque jamais.
+
+         Elle est descendue dans la branche individuelle, seule à s'en servir
+         réellement (`img` et `sheet` de la ligne). */
 
       // Logos uploadés + textes personnalisés rasterisés (courbe/couleur/taille
       // fidèles) uploadés sur Cloudinary : les deux apparaissent parmi les
@@ -2693,15 +2702,43 @@
         /* `try/finally` : le canvas doit retrouver son état MÊME si une
            composition échoue. Sans lui, une exception laisserait le vêtement
            révélé par-dessus les cartes de vérification. */
-        try {
+        /* ═══ COMPOSITIONS LANCÉES ENSEMBLE ════════════════════════════════
+
+           La boucle attendait ici chaque composition avant d'entamer la
+           suivante — `await` DANS un `for`. Or une composition est presque
+           entièrement du temps réseau : deux requêtes enchaînées vers le
+           serveur d'images. Trois couleurs coûtaient donc six allers-retours
+           en file indienne, chacun attendant la fin du précédent sans raison.
+
+           Elles partent maintenant de front. Le temps total tend vers celui de
+           la composition la PLUS LENTE, au lieu de leur somme.
+
+           SÛRETÉ — pourquoi la concurrence ne casse rien ici : les fonctions de
+           capture sont purement LECTRICES. Elles mesurent (`getBoundingClient-
+           Rect`), lisent les positions sur les styles inline et rasterisent sur
+           des canvas DÉTACHÉS du document. `captureAllViews` ne bascule pas la
+           vue affichée : elle mesure une seule boîte de référence, la même pour
+           les trois vues (voir son commentaire). Aucune n'écrit dans le DOM, il
+           n'y a donc rien que deux exécutions puissent se disputer.
+
+           À ne PAS imiter : `capturerPourNom` (conf-group-verify.js), elle,
+           écrit le surnom dans le DOM pour le photographier. Celle-là doit
+           rester séquentielle. */
+
+        /* Couleurs dédupliquées AVANT le lancement. La boucle s'appuyait sur
+           `vignettes.has(cle)` pour sauter les doublons, ce qui suppose que le
+           tour précédent est terminé — faux dès qu'ils partent ensemble. */
+        const clesUniques = [];
         for (const r of rows) {
           const cle = cleVignette(r);
-          if (vignettes.has(cle)) continue;
+          if (clesUniques.indexOf(cle) === -1) clesUniques.push(cle);
+        }
 
+        const composer = async function (cle, i) {
           /* Même résolution que le canvas : slug EN, puis FR, puis générique.
              On passe par les candidats plutôt que de deviner un nom de fichier,
              pour hériter des replis quand une teinte n'a pas d'image dédiée. */
-          const slug = COLOR_SLUGS[r.color] || '';
+          const slug = COLOR_SLUGS[cle] || '';
           const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, 'face');
           const base = cand[0] || fallbackSrc;
 
@@ -2710,12 +2747,32 @@
              Cela retire aussi un reflow forcé par personne — le texte était
              réécrit puis re-mesuré à chaque tour. */
 
-          /* `btnEl` seulement au premier appel : il sert à afficher
-             « Préparation du design… » sur le bouton. Le passer à chaque tour
-             ferait clignoter le libellé. */
-          const dz = await resolveDesignImage(base, vignettes.size === 0 ? btnEl : null);
+          /* `btnEl` au PREMIER de la liste dédupliquée, et à lui seul : il sert
+             à afficher « Préparation du design… ». Le test d'origine
+             (`vignettes.size === 0`) ne convient plus — la Map est vide pour
+             tout le monde à l'instant du lancement, le bouton irait donc à
+             chacun et resterait figé sur ce libellé. */
+          const dz = await resolveDesignImage(base, i === 0 ? btnEl : null);
           vignettes.set(cle, dz);
-        }
+        };
+
+        try {
+          /* CONCURRENCE PLAFONNÉE À 4. Une liste très bariolée lancerait sinon
+             vingt paires de requêtes d'un coup : le navigateur les mettrait de
+             toute façon en file d'attente, et le serveur d'images encaisserait
+             une rafale inutile. Quatre suffisent à masquer la latence. */
+          const EN_VOL = 4;
+          let curseur = 0;
+          const ouvriers = [];
+          for (let k = 0; k < Math.min(EN_VOL, clesUniques.length); k++) {
+            ouvriers.push((async function () {
+              while (curseur < clesUniques.length) {
+                const i = curseur++;
+                await composer(clesUniques[i], i);
+              }
+            })());
+          }
+          await Promise.all(ouvriers);
 
         } finally {
           /* Les mesures sont faites : l'étape reprend sa place, succès ou
@@ -2736,12 +2793,25 @@
         const designCommun = (typeof capturerEtatDesign === 'function')
           ? capturerEtatDesign() : null;
 
+        /* La RÉSERVE MÉMOIRE exige l'état COMPLET (non filtré) : elle conserve
+           les data-URL que la version persistée écarte pour tenir dans le
+           quota. C'est donc une capture distincte de `designCommun` — mais
+           elle aussi commune à toutes les lignes, donc faite une seule fois.
+           `pushToCart` la rappelait par personne. */
+        const reserveCommune = (typeof capturerEtatDesign === 'function')
+          ? capturerEtatDesign(true) : null;
+
         rows.forEach(function (r, idx) {
-          /* Repli sur `design` si la composition a échoué : mieux vaut la
-             vignette de l'écran qu'une case vide. `cleVignette` garantit que
-             lecture et écriture ne peuvent plus diverger — c'est exactement ce
-             qui s'était produit (voir le commentaire du remplissage). */
-          const dz = vignettes.get(cleVignette(r)) || design;
+          /* Plus de repli sur une composition d'avance : elle coûtait deux
+             requêtes à chaque ajout pour ne servir qu'en cas d'échec serveur.
+             Si une couleur n'a pas pu être composée, la ligne montre le
+             vêtement nu — libellé, taille, surnom, prix et planche de
+             production restent justes.
+
+             `cleVignette` garantit que lecture et écriture ne peuvent pas
+             diverger — c'est exactement ce qui s'était produit autrefois (voir
+             le commentaire du remplissage). */
+          const dz = vignettes.get(cleVignette(r)) || { thumb: fallbackSrc, sheet: null };
           pushToCart({
             id: Date.now() + idx,
             productType: currentProductType,
@@ -2765,7 +2835,7 @@
             /* `true` : écriture en session et rendu du tiroir DIFFÉRÉS. Ils
                sont faits une fois après la boucle, au lieu d'une fois par
                personne. */
-          }, idx === rows.length - 1 ? btnEl : null, false, true);
+          }, idx === rows.length - 1 ? btnEl : null, false, true, reserveCommune);
         });
 
         /* L'écriture et le rendu, une seule fois pour toute la liste. */
@@ -2787,14 +2857,29 @@
            vidée. Enchaîner une seconde commande avec le même visuel est le cas
            courant — un club qui commande pour deux équipes.
 
-           Différé : le tiroir du panier s'ouvre juste après l'ajout, et le
-           client doit voir ce qu'il vient de commander avant que l'écran ne
-           change. */
-        setTimeout(function () {
-          if (typeof retourChoixMode === 'function') retourChoixMode();
-        }, 1200);
+           IMMÉDIAT, et non plus après 1,2 s.
+
+           Ce délai montrait une étape « Vérifier » VIDE : la liste de personnes
+           venait d'être effacée juste au-dessus, les cartes n'avaient donc plus
+           rien à afficher, et le canevas était masqué le temps des mesures. Le
+           client voyait une page blanche entre son clic et l'écran de choix.
+
+           Il avait été introduit pour laisser voir le tiroir du panier avant le
+           changement d'écran. Mais le tiroir s'ouvre PAR-DESSUS et y reste : la
+           commande ajoutée est visible pendant et après la redirection. Rien
+           n'est perdu à l'exécuter tout de suite. */
+        if (typeof retourChoixMode === 'function') retourChoixMode();
         return;
       }
+
+      /* COMMANDE INDIVIDUELLE — composition des aperçus.
+
+         Elle se faisait plus haut, avant même de savoir de quel type de
+         commande il s'agit. La branche groupe, qui recompose par couleur, la
+         payait donc pour rien. Descendue ici, elle n'est faite que par le seul
+         chemin qui s'en sert : une VIGNETTE (face + logo, carrée, pour le
+         panier) et une PLANCHE multi-vues (face+dos+côté, pour la commande). */
+      const design = await resolveDesignImage(fallbackSrc, btnEl);
 
       const item = {
         id: Date.now(),
@@ -3076,7 +3161,11 @@
      *   trente reconstructions du tiroir pour un résultat identique. C'est
      *   aussi ce qui faisait clignoter l'écran pendant tout l'ajout.
      */
-    function pushToCart(item, btnEl, replaceQty, differer) {
+    /* `reserveFournie` : état COMPLET (non filtré) déjà capturé par l'appelant.
+       Les lignes d'un groupe partagent un design commun ; le recalculer par
+       ligne enchaînait sept lectures de session, autant de `JSON.parse` et un
+       parcours du DOM, à l'identique, pour chaque personne. */
+    function pushToCart(item, btnEl, replaceQty, differer, reserveFournie) {
       // Vérifie si le même article existe déjà (même nom+détails).
       // personName entre dans la clé : deux personnes d'une liste de groupe
       // ayant même taille+couleur doivent rester DEUX lignes distinctes.
@@ -3168,8 +3257,15 @@
       try {
         window.__designsPanier = window.__designsPanier || {};
         var cible = existing || item;
-        if (cible && cible.id != null && typeof capturerEtatDesign === 'function') {
-          window.__designsPanier[cible.id] = capturerEtatDesign(true);
+        if (cible && cible.id != null) {
+          /* Une entrée PAR LIGNE reste indispensable — c'est la clé que lit la
+             réouverture depuis le panier. Seul le CALCUL est mutualisé quand
+             l'appelant l'a déjà fait. */
+          if (reserveFournie) {
+            window.__designsPanier[cible.id] = reserveFournie;
+          } else if (typeof capturerEtatDesign === 'function') {
+            window.__designsPanier[cible.id] = capturerEtatDesign(true);
+          }
         }
       } catch (e) {
         /* Sans réserve, on retombe sur le champ persisté : dégradé, pas cassé. */
@@ -3183,9 +3279,21 @@
       const cartCountEl = document.getElementById('hdr-cart-count');
       if (cartBtn) {
         cartBtn.style.display = 'inline-flex';
-        cartBtn.style.animation = 'none';
-        void cartBtn.offsetWidth;
-        cartBtn.style.animation = 'cartBounce 0.4s ease';
+
+        /* REBOND JOUÉ UNE FOIS, PAS PAR LIGNE.
+
+           `void offsetWidth` force volontairement un recalcul de mise en page :
+           c'est ce qui permet de relancer l'animation. Sur une liste de trente
+           personnes, il était payé trente fois — et l'animation, redémarrée à
+           chaque tour, n'arrivait jamais à son terme.
+
+           `differer` marque les lignes intermédiaires d'un ajout groupé ; la
+           dernière ne l'a pas. Le rebond accompagne donc l'ajout complet. */
+        if (!differer) {
+          cartBtn.style.animation = 'none';
+          void cartBtn.offsetWidth;
+          cartBtn.style.animation = 'cartBounce 0.4s ease';
+        }
       }
       if (cartCountEl) majPastillePanier(cartCountEl, cartCount);
 

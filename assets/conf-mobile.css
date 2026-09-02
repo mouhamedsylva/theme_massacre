@@ -261,20 +261,25 @@
   .cv-opt { flex: 0 1 auto; min-width: 0; overflow: hidden; }
   /* Hauteur fixe, la même que « Vue d'ensemble » : les trois boutons du haut
      forment une rangée alignée. */
+  /* AGRANDIS : à 30px de haut et 11px de texte, ces deux commandes passaient
+     sous la cible tactile confortable — et le nom de la couleur se lisait mal
+     alors que c'est l'information qu'elles portent. */
   .cv-opt-btn {
-    height: 30px;
+    height: 38px;
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
-    padding: 0 9px;
-    font-size: 11px;
-    border-radius: 9px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: 10px;
     background: rgba(255,255,255,.95);
     box-shadow: 0 1px 6px rgba(0,0,0,.12);
     max-width: 100%;
   }
   .cv-opt-lbl { display: none; }    /* « Couleur »/« Taille » : la valeur suffit */
-  .cv-opt-val { font-size: 11px; }
+  .cv-opt-val { font-size: 13px; }
+  /* La pastille de couleur suit : elle est le repère visuel du bouton. */
+  .cv-opt-btn .cv-sw { width: 16px; height: 16px; }
 
   /* Les menus déroulants restent dans l'écran. */
   .cv-opt-pop {
@@ -393,7 +398,8 @@
     position: absolute;
     inset: 0;
     /* 40px = la rangée .cv-opts (top: 8px + height: 30px) au ras. */
-    padding: 40px 0 0;
+    /* 48px = la rangée .cv-opts (top 8px + 38px de haut, agrandie) au ras. */
+    padding: 48px 0 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -401,7 +407,7 @@
 
   /* DEUX rangées quand la barre de mode est présente : elle coiffe les
      options, le vêtement descend d'autant pour ne pas passer dessous. */
-  [data-mode] .cv-single-view { padding-top: 78px; }
+  [data-mode] .cv-single-view { padding-top: 94px; }
 
   /* L'image occupe tout l'espace disponible : le layer étant calé sur elle
      (et non sur le conteneur), sa taille n'influe plus sur la position des
@@ -961,22 +967,22 @@
        trois boutons forment une rangée. Une hauteur fixe plutôt qu'un
        padding — les polices diffèrent (10px ici, 11px là), donc à padding
        égal les hauteurs ne l'étaient pas, et le bouton retombait plus bas. */
-    height: 30px;
-    min-height: 30px;
+    height: 38px;
+    min-height: 38px;
     box-sizing: border-box;
     display: inline-flex;
     flex: none;
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 0 10px;
-    font-size: 10px;
-    border-radius: 9px;
+    gap: 6px;
+    padding: 0 13px;
+    font-size: 12.5px;
+    border-radius: 10px;
     white-space: nowrap;
   }
 
-  .vt-overview svg { width: 14px; height: 14px; flex: none; }
+  .vt-overview svg { width: 16px; height: 16px; flex: none; }
 
   /* Coins / drapeaux / patchs : ces canvas n'ont pas de rangée .cv-opts
      (pas de pastilles Couleur/Taille). moveOverviewBtn() rattache alors le
