@@ -2847,15 +2847,38 @@
         saveGroupRows();        // efface aussi la copie en session
         refreshGroupBadge();
 
+        /* DESIGN COMMUN EFFACÉ — la commande est partie.
+
+           Il était conservé pour enchaîner une seconde liste avec le même
+           visuel. Mais le client repart alors sur un vêtement déjà décoré sans
+           l'avoir demandé, et doit défaire ce qu'il n'a pas fait : le parcours
+           suivant démarre propre.
+
+           RIEN N'EST PERDU POUR LA COMMANDE. Chaque ligne du panier porte son
+           design complet (`item.design`), doublé d'une réserve en mémoire vive
+           (`window.__designsPanier`). Cliquer la vignette rouvre donc le design
+           tel qu'il a été commandé — la restauration lit la LIGNE, jamais
+           l'écran (conf-cart-open-design.js:291).
+
+           Les deux emplacements sont vidés : la session courante ET le paquet
+           rangé par mode. Sans le second, `retourChoixMode` rangerait un état
+           vide par-dessus, mais le paquet du parcours précédent resurgirait au
+           mode suivant. */
+        try {
+          for (var iC = 0; iC < CLES_DESIGN.length; iC++) {
+            sessionStorage.removeItem(CLES_DESIGN[iC]);
+          }
+          sessionStorage.removeItem(cleDesignMode('groupe'));
+        } catch (e) {}
+        /* Affichage seul : les entrées de session viennent d'être retirées, et
+           les lignes du panier gardent leur propre copie. */
+        if (typeof viderLogosAffiches === 'function') viderLogosAffiches(true);
+
         /* RETOUR À L'ÉCRAN DE CHOIX — le parcours de groupe est terminé.
 
            Rester sur « Vérifier » laissait le client devant des cartes dont la
            commande venait de partir : rien à y faire, et le bouton d'ajout
            invitait à recommencer.
-
-           Le DESIGN COMMUN est conservé : seule la liste de personnes est
-           vidée. Enchaîner une seconde commande avec le même visuel est le cas
-           courant — un club qui commande pour deux équipes.
 
            IMMÉDIAT, et non plus après 1,2 s.
 
