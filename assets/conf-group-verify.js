@@ -478,8 +478,24 @@
     var cnt = document.getElementById('grp-verif-count');
     if (cnt) cnt.textContent = 'Total (' + pieces + (pieces > 1 ? ' articles)' : ' article)');
 
-    var unit = (typeof window.prixUnitaire === 'function')
-      ? window.prixUnitaire(window.currentProductType) : 0;
+    /* PRIX DÉGRESSIF, comme à l'étape « Configurer ».
+
+       Cette fonction utilisait `prixUnitaire` — le tarif PLEIN, sans remise —
+       alors que le résumé de l'étape précédente applique le palier atteint.
+       Le client voyait donc son total AUGMENTER en avançant d'une étape à
+       l'autre, sans que rien ne l'explique.
+
+       `tierUnitPrice` renvoie `null` quand aucune grille n'existe pour ce
+       produit : on retombe alors sur le prix de base, comme avant. */
+    var unit = null;
+    if (typeof window.tierUnitPrice === 'function') {
+      unit = window.tierUnitPrice(window.currentProductType, pieces);
+    }
+    if (unit == null && typeof window.prixUnitaire === 'function') {
+      unit = window.prixUnitaire(window.currentProductType);
+    }
+    unit = Number(unit) || 0;
+
     var prix = document.getElementById('grp-verif-price');
     if (prix) {
       prix.innerHTML = unit

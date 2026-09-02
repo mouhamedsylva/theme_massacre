@@ -134,6 +134,24 @@
    */
   function appliquerUploadsDirect() {
     var u = window.__uploadsAAppliquer;
+
+    /* TRACE TEMPORAIRE — à retirer une fois la position confirmée.
+       Dit si la géométrie parvient jusqu'ici, et sous quelle forme. */
+    try {
+      var diag = '(aucun upload en mémoire)';
+      if (u && u.byProduct) {
+        diag = Object.keys(u.byProduct).map(function (p) {
+          var zs = u.byProduct[p] || {};
+          return p + '{' + Object.keys(zs).map(function (z) {
+            var e = zs[z];
+            var g = (e && typeof e === 'object') ? e.geo : null;
+            return z + ':' + (g ? ('geo ' + g.left + '/' + g.top + '/' + g.width) : 'SANS-GEO');
+          }).join(', ') + '}';
+        }).join(' | ');
+      }
+      console.log('[ouverture] ' + diag);
+    } catch (e) {}
+
     if (!u || !u.byProduct) return;
     if (typeof window.applyUpload !== 'function') return;
 
@@ -416,6 +434,22 @@
          pas d'un changement d'avis : purger les autres produits effacerait les
          designs des autres lignes du panier, que le client peut rouvrir. */
       window.__ouvertureDepuisPanier = true;
+
+      /* SORTIE DE L'ÉCRAN DE CHOIX.
+
+         Après un ajout de commande de groupe, le configurateur y revient de
+         lui-même (conf-main-inline.js). Le canvas y est masqué : le design se
+         reposait donc correctement, mais sur un écran invisible — le client
+         voyait « Choisissez votre mode » et croyait que rien ne s'était passé.
+
+         Le mode se déduit de l'article : groupe s'il porte un libellé de
+         groupe, individuel sinon. Le drapeau ci-dessus empêche le rechargement
+         de page qu'un changement de mode déclencherait autrement. */
+      var racine = document.querySelector('.conf-app-root');
+      if (racine && racine.getAttribute('data-etape') === 'choix' &&
+          typeof window.choisirMode === 'function') {
+        window.choisirMode(item.groupLabel ? 'groupe' : 'individuelle', true);
+      }
       card.click();
       /* Le drapeau N'EST PAS baissé ici : il doit couvrir toute l'ouverture,
          pas seulement le clic. selProd déclenche des travaux DIFFÉRÉS (rendu
@@ -503,6 +537,40 @@
         appliquerUploadsDirect();
 
         if (typeof window.restoreTexts === 'function') window.restoreTexts();
+
+        /* SURNOM DE LA LIGNE — reposé APRÈS les textes, qu'il remplace.
+
+           Il n'est nulle part dans le design enregistré : eqEssayerNom l'écrit
+           directement sur le vêtement, sans passer par la session, et la boucle
+           d'ajout au panier ne le substitue plus (la vignette est mutualisée
+           par couleur). Le magasin des textes ne porte donc que le texte
+           COMMUN.
+
+           Mais la donnée existe, fiable, sur la ligne : `personName` est ce qui
+           part en commande sous « Personne ». On la repose ici, comme le fait
+           déjà l'aperçu de ligne (conf-group-preview.js:126).
+
+           Le client retrouve ainsi ce qu'il a commandé pour CETTE personne, et
+           non le texte générique. */
+        if (item.personName) {
+          var zoneNom = (typeof window.grpTextZone === 'function')
+            ? window.grpTextZone() : 'f';
+          var elNom = document.getElementById('text-' + zoneNom);
+          var contenuNom = elNom ? elNom.querySelector('.dt-content') : null;
+
+          /* TEXTE COURBÉ : rendu en image, son contenu est vide — la
+             substitution y est impossible. Même garde que les trois autres
+             chemins du projet. */
+          if (contenuNom && !elNom.classList.contains('is-shaped')) {
+            contenuNom.textContent = item.personName;
+            if (elNom.style.display === 'none') elNom.style.display = '';
+            /* Le surnom peut être plus long que le texte commun : la police
+               doit être re-calée dans sa zone imprimable. */
+            if (typeof window.clampTextToZone === 'function') {
+              window.clampTextToZone(zoneNom);
+            }
+          }
+        }
 
         /* CADRES DE ROGNAGE — appel DIRECT, sans attente extérieure.
 

@@ -919,6 +919,27 @@
     } catch (e) { cartItems = []; }
     let cartCount = cartItems.reduce((s, i) => s + (i.qty || 1), 0);
 
+    /**
+     * Écrit le compte du panier et masque la pastille quand il est nul.
+     *
+     * Le bouton panier est désormais TOUJOURS visible : le client sait où
+     * trouver son panier avant d'y avoir rien mis. La pastille, elle, n'a de
+     * sens qu'à partir d'un article — un « 0 » permanent attirerait le regard
+     * sur une information vide.
+     *
+     * Fonction unique parce que QUATRE endroits écrivent ce compte : les
+     * laisser diverger finirait par produire une pastille « 0 » sur l'un des
+     * chemins.
+     *
+     * @param {HTMLElement} el - la pastille
+     * @param {number} n - nombre d'articles
+     */
+    function majPastillePanier(el, n) {
+      if (!el) return;
+      el.textContent = n;
+      el.style.display = (Number(n) > 0) ? 'inline-flex' : 'none';
+    }
+
     // Afficher le bouton panier du header si des articles existent déjà
     document.addEventListener('DOMContentLoaded', () => {
       // Détecte un retour APRÈS PAIEMENT : si un checkout était en cours et que le
@@ -930,7 +951,7 @@
           const cartBtn = document.getElementById('hdr-cart-btn');
           const cartCountEl = document.getElementById('hdr-cart-count');
           if (cartBtn) cartBtn.style.display = 'inline-flex';
-          if (cartCountEl) cartCountEl.textContent = cartCount;
+          if (cartCountEl) majPastillePanier(cartCountEl, cartCount);
           if (typeof renderCartDrawer === 'function') renderCartDrawer();
 
           /* Retour depuis le récapitulatif (« Modifier ») : on rouvre le
@@ -2301,6 +2322,16 @@
          remplaçait par deux vêtements nus, identiques : la différence entre
          les deux modes disparaissait, et l'illustration soignée aussi. */
 
+      /* La barre de mode suit le produit : sa contrainte ne vaut que pour les
+         coins, drapeaux et patchs. Reprendre un textile la lève.
+
+         DIFFÉRÉ : les canvas des coins, drapeaux et patchs sont reconstruits
+         après ce point (conf-dynamic-layout.js). Appelée trop tôt, la barre
+         serait recréée puis emportée par cette reconstruction. */
+      if (typeof window.majBarreMode === 'function') {
+        setTimeout(window.majBarreMode, 350);
+      }
+
       const rcProd = document.getElementById('rc-prod');
       if (rcProd) {
         const ptLabel = el.querySelector('.product-card-name') ||
@@ -3156,7 +3187,7 @@
         void cartBtn.offsetWidth;
         cartBtn.style.animation = 'cartBounce 0.4s ease';
       }
-      if (cartCountEl) cartCountEl.textContent = cartCount;
+      if (cartCountEl) majPastillePanier(cartCountEl, cartCount);
 
       // Sauvegarder le panier pour la page Récapitulatif (utilisé par le drawer).
       // persistCartSafe signale la saturation du quota — voir sa définition.
@@ -5515,7 +5546,7 @@
       item.qty = Math.max(minQtyPour(item.productType), (Number(item.qty) || 0) + delta);
       cartCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
       const cartCountEl = document.getElementById('hdr-cart-count');
-      if (cartCountEl) cartCountEl.textContent = cartCount;
+      if (cartCountEl) majPastillePanier(cartCountEl, cartCount);
       persistCart();
       renderCartDrawer();
     }
@@ -5624,7 +5655,7 @@
       /* Bouton panier toujours visible : seul le compteur retombe à zéro. */
       if (cartCount < 1) cartCount = 0;
       const cartCountEl = document.getElementById('hdr-cart-count');
-      if (cartCountEl) cartCountEl.textContent = cartCount;
+      if (cartCountEl) majPastillePanier(cartCountEl, cartCount);
       persistCart();
       renderCartDrawer();
     }
@@ -7591,17 +7622,47 @@
      * Le rangement du design sortant doit donc être terminé avant l'appel,
      * sinon on rangerait un paquet déjà amputé.
      */
-    function viderLogosAffiches() {
+    /**
+     * Retire les logos de l'écran.
+     *
+     * @param {boolean} [affichageSeul] - true pour ne vider QUE l'affichage,
+     *   en laissant la session intacte.
+     *
+     * `rmUp` supprime AUSSI l'entrée en session. C'est voulu au changement de
+     * mode — le design de l'ancien mode ne doit pas réapparaître. Mais au
+     * retour à l'écran de choix, cet effacement rendait les commandes du
+     * panier irrécupérables : leur vignette ne retrouvait plus aucune image.
+     *
+     * D'où ce second mode, qui se contente de masquer les calques.
+     */
+    function viderLogosAffiches(affichageSeul) {
       /* Invalide toute restauration différée encore en vol (:1041) : sans ce
          jeton, un setTimeout parti avant le nettoyage reposerait le design de
          l'ancien mode 200 ms plus tard. */
       window.__genDesignMode = (window.__genDesignMode || 0) + 1;
 
-      if (typeof window.rmUp !== 'function') return;
       var ZONES = [
         'f', 'fr', 'b', 'sl', 'sr', 'c',
         'coin-recto', 'coin-verso', 'flag-recto', 'flag-verso'
       ];
+
+      if (affichageSeul) {
+        /* On masque les calques du DOM, sans toucher au stockage. Les zones
+           d'un autre produit sont simplement absentes. */
+        var IDS = {
+          f: 'logo-f', fr: 'logo-fr', b: 'logo-b', sl: 'logo-sl', sr: 'logo-sr',
+          c: 'patch-logo',
+          'coin-recto': 'coin-logo-recto', 'coin-verso': 'coin-logo-verso',
+          'flag-recto': 'flag-logo-recto', 'flag-verso': 'flag-logo-verso'
+        };
+        for (var i = 0; i < ZONES.length; i++) {
+          var el = document.getElementById(IDS[ZONES[i]]);
+          if (el) el.style.display = 'none';
+        }
+        return;
+      }
+
+      if (typeof window.rmUp !== 'function') return;
       for (var z = 0; z < ZONES.length; z++) {
         /* Une zone absente du produit courant (un coin n'a pas de manches)
            doit rester sans effet, pas interrompre le nettoyage des autres. */
@@ -7696,6 +7757,77 @@
      * @param {boolean} [reprise] - true quand l'appel vient de la reprise de
      *   session au chargement : le design ne doit alors PAS être permuté.
      */
+    /**
+     * Ajuste la barre « Mode actuel » selon que le mode a été CHOISI ou IMPOSÉ.
+     *
+     * Choisir un coin, un drapeau ou un patch depuis l'écran de choix bascule
+     * d'office en mode libre (conf-sidebar-modern.js) : ces produits ne portent
+     * pas de surnom, la commande de groupe n'a aucun sens pour eux.
+     *
+     * Mais le mode s'enregistrait alors comme une DÉCISION du client. Reprenant
+     * un sweatshirt, il restait en mode libre sans jamais avoir choisi — ni su
+     * qu'une alternative existait.
+     *
+     * La barre explique donc la contrainte, là où le client regarde déjà. Elle
+     * redevient neutre dès qu'il reprend un textile : la règle ne s'applique
+     * plus, et un message qui persiste devient un reproche.
+     */
+    function majBarreMode() {
+      var barre = document.getElementById('mode-actuel');
+
+      /* BARRE RECONSTRUITE SI ELLE A DISPARU.
+
+         Les canvas des coins, drapeaux et patchs remplacent tout le contenu du
+         canvas (`canvasParent.innerHTML`, conf-dynamic-layout.js:300, 586,
+         891) : la barre, qui y vivait, partait avec — et le message
+         n'apparaissait jamais sur les produits qu'il concerne, précisément.
+
+         On la recrée au besoin, en tête du canvas. Elle est réinjectée à
+         chaque changement de produit, donc toujours présente là où elle doit
+         l'être. */
+      if (!barre) {
+        var canvas = document.querySelector('.canvas');
+        if (!canvas) return;
+        barre = document.createElement('div');
+        barre.className = 'mode-actuel';
+        barre.id = 'mode-actuel';
+        barre.innerHTML =
+          '<span class="mode-actuel-lbl"></span>' +
+          '<button type="button" class="mode-actuel-btn" ' +
+                  'onclick="retourChoixMode()">Changer de mode</button>';
+        canvas.insertBefore(barre, canvas.firstChild);
+      }
+
+      var lbl = barre.querySelector('.mode-actuel-lbl');
+      if (!lbl) return;
+
+      var impose = null;
+      try { impose = sessionStorage.getItem('conf_mode_impose'); } catch (e) {}
+
+      var NOMS = {
+        coins: 'Les coins',
+        drapeaux: 'Les drapeaux',
+        patches: 'Les patchs'
+      };
+      /* La contrainte ne vaut que tant que le produit COURANT la subit :
+         revenu sur un textile, le client peut de nouveau commander en groupe. */
+      var subitEncore = impose && impose === currentProductType;
+
+      barre.classList.toggle('is-impose', !!subitEncore);
+
+      if (subitEncore) {
+        lbl.innerHTML = (NOMS[impose] || 'Ce produit') +
+          ' ne portent pas de surnom — <strong>mode libre appliqué</strong>';
+      } else {
+        var mode = document.querySelector('.conf-app-root');
+        mode = mode ? mode.getAttribute('data-mode') : null;
+        lbl.innerHTML = 'Mode actuel : <strong id="mode-actuel-nom">' +
+          (mode === 'groupe' ? 'Personnalisation groupe' : 'Personnalisation libre') +
+          '</strong>';
+      }
+    }
+    window.majBarreMode = majBarreMode;
+
     function choisirMode(mode, reprise) {
       var root = document.querySelector('.conf-app-root');
       if (!root) return;
@@ -7736,6 +7868,7 @@
           ? 'Personnalisation groupe'
           : 'Personnalisation libre';
       }
+      majBarreMode();
       if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
         /* REPRISE DE SESSION (rechargement) : on retrouve l'étape en cours.
            CHOIX DÉLIBÉRÉ du mode : on repart du début — le client vient de
@@ -7923,13 +8056,19 @@
       if (courant && !window.__ouvertureDepuisPanier) {
         rangerDesignMode(courant);
 
-        /* NETTOYAGE VISUEL de l'écran de choix. Sans lui, la vignette du
-           dernier logo y restait affichée alors qu'aucun mode n'est choisi.
+        /* NETTOYAGE VISUEL SEULEMENT — la session reste intacte.
 
-           Le paquet vient d'être rangé : rien n'est perdu. Et l'isolation
-           réelle ne repose plus sur ce nettoyage — c'est le rechargement du
-           clic suivant qui l'assure. */
-        viderLogosAffiches();
+           Sans nettoyage, la vignette du dernier logo resterait affichée sur
+           l'écran de choix alors qu'aucun mode n'est retenu.
+
+           Mais l'effacement complet, lui, supprimait les images DE LA SESSION :
+           une commande de groupe déjà au panier devenait irrécupérable, sa
+           vignette ne retrouvant plus rien à restaurer.
+
+           Le paquet du mode vient d'être rangé, et l'isolation entre modes
+           repose sur le rechargement du clic suivant — pas sur cet
+           effacement. */
+        viderLogosAffiches(true);
       }
 
       try { sessionStorage.removeItem(MODE_KEY); } catch (e) {}
@@ -7939,6 +8078,9 @@
          de groupe reprendrait à mi-chemin, sur une étape qui ne lui appartient
          pas. */
       try { sessionStorage.removeItem(ETAPE_KEY); } catch (e) {}
+      /* Le client reprend la main sur son mode : la contrainte du produit n'a
+         plus à être expliquée, quel que soit son choix suivant. */
+      try { sessionStorage.removeItem('conf_mode_impose'); } catch (e) {}
       etapeGroupeCourante = 'designer';
       /* Le verrou de capture repart avec le mode : une seconde commande doit
          recapturer son design, pas réutiliser celui de la précédente. */
@@ -8011,16 +8153,21 @@
     var LIBELLES_ETAPE = {
       designer:   { btn: 'Continuer vers la configuration', info: 'Composez le design commun à toute l\'équipe.' },
       configurer: { btn: 'Continuer vers l\'aperçu',         info: '' },
-      valider:    { btn: 'Ajouter la commande au panier',    info: 'Vérifiez votre commande avant de l\'ajouter au panier.' }
+      valider:    { btn: 'Ajouter au panier',                info: 'Vérifiez votre commande avant de l\'ajouter au panier.' }
     };
 
-    /* Nom de chaque étape, tel qu'il s'affiche dans le stepper. Sert à nommer
-       la DESTINATION du bouton « Retour » : « Retour vers DESIGNER » dit où
-       l'on va, quand « Retour » seul laisse le client le deviner. */
-    var NOMS_ETAPE = {
-      designer:   'DESIGNER',
-      configurer: 'CONFIGURER',
-      valider:    'VÉRIFIER'
+    /* Libellé du bouton RETOUR — il nomme l'ACTION, pas l'étape.
+
+       « Retour vers DESIGNER » reprenait le nom du stepper : un mot en
+       capitales, technique, qui ne dit pas ce qu'on va y faire. Le stepper
+       juste au-dessus indique déjà où l'on est.
+
+       « Modifier le design », « Modifier la liste » : le client lit ce qu'il
+       s'apprête à faire, pas la case où il atterrit. */
+    var RETOUR_ETAPE = {
+      designer:   'Modifier le design',
+      configurer: 'Modifier la liste',
+      valider:    'Revoir les aperçus'
     };
 
     var etapeGroupeCourante = 'designer';
@@ -8151,6 +8298,9 @@
       /* Le blocage est évalué APRÈS le libellé : il peut écraser le texte
          d'information par sa raison. */
       majBlocageEtapeGroupe();
+      /* Le résumé chiffré doit être juste dès l'affichage de l'étape, pas
+         seulement après la première saisie. */
+      if (typeof majSommeGroupe === 'function') majSommeGroupe();
 
       /* Le RETOUR nomme sa destination : « Retour vers DESIGNER » plutôt qu'un
          « Retour » nu, qui laisse le client deviner où il atterrit. Le libellé
@@ -8161,7 +8311,7 @@
         var lbl = retour.querySelector('.grp-retour-lbl');
         if (lbl) {
           lbl.textContent = precedente
-            ? 'Retour vers ' + (NOMS_ETAPE[precedente] || '')
+            ? (RETOUR_ETAPE[precedente] || 'Retour')
             : 'Retour';
         }
       }
@@ -8279,29 +8429,29 @@
         }
       }
 
-      if (btn) btn.disabled = bloque;
+      /* LE BOUTON RESTE CLIQUABLE.
+
+         Il était désactivé tant que la condition n'était pas remplie. Deux
+         défauts : l'animation d'attente du bouton s'appliquait à cet état
+         aussi — le client croyait à un traitement en cours — et un bouton
+         grisé n'explique rien à qui ne lit pas la ligne d'à côté.
+
+         Le message n'apparaît donc qu'AU CLIC, au moment où le client cherche
+         à avancer. La ligne d'information reprend son rôle habituel. */
+      if (btn) btn.disabled = false;
       if (info) {
-        if (bloque) {
-          info.textContent = raison;
-          info.classList.add('is-bloque');
+        info.classList.remove('is-bloque');
+        if (etape === 'configurer') {
+          var n = document.querySelectorAll('#grp-rows tr').length;
+          info.textContent = n + (n > 1 ? ' personnes ajoutées' : ' personne ajoutée');
         } else {
-          /* Le blocage levé, l'information reprend sa place : le nombre de
-             personnes à « Configurer », rien ailleurs. Sans cela, la raison
-             restait affichée alors qu'elle n'avait plus d'objet. */
-          info.classList.remove('is-bloque');
-          if (etape === 'configurer') {
-            var n = document.querySelectorAll('#grp-rows tr').length;
-            info.textContent = n + (n > 1 ? ' personnes ajoutées' : ' personne ajoutée');
-          } else {
-            info.textContent = (LIBELLES_ETAPE[etape] || {}).info || '';
-          }
+          info.textContent = (LIBELLES_ETAPE[etape] || {}).info || '';
         }
       }
 
-      /* LE STEPPER N'A RIEN À FAIRE ICI : allerEtapeGroupe désactive déjà toute
-         étape non encore atteinte (`b.disabled = bIdx > idx`). La désactiver à
-         nouveau ferait doublon — et ne la réactiverait jamais une fois la
-         condition remplie, le blocage devenant définitif. */
+      /* Le verdict est RENVOYÉ : etapeGroupeSuivante l'interroge au clic pour
+         décider s'il avance ou s'il explique. */
+      return bloque ? raison : null;
     }
     window.majBlocageEtapeGroupe = majBlocageEtapeGroupe;
 
@@ -8315,9 +8465,16 @@
        `input` et non `change` : le bouton doit se débloquer à la frappe, pas
        seulement quand le client quitte le champ. */
     document.addEventListener('input', function (e) {
-      if (e.target && e.target.classList &&
-          e.target.classList.contains('grp-f-flock')) {
+      if (!e.target || !e.target.classList) return;
+      if (e.target.classList.contains('grp-f-flock')) {
         majBlocageEtapeGroupe();
+      }
+      /* La QUANTITÉ change le résumé chiffré : total d'articles, palier
+         dégressif, montant. `input` et non `change` — le total doit suivre à
+         la frappe. */
+      if (e.target.classList.contains('grp-f-qty') &&
+          typeof window.majSommeGroupe === 'function') {
+        window.majSommeGroupe();
       }
     });
 
@@ -8326,14 +8483,48 @@
     document.addEventListener('DOMContentLoaded', function () {
       var corps = document.getElementById('grp-rows');
       if (!corps) return;
-      new MutationObserver(function () { majBlocageEtapeGroupe(); })
-        .observe(corps, { childList: true });
+      new MutationObserver(function () {
+        majBlocageEtapeGroupe();
+        majSommeGroupe();
+      }).observe(corps, { childList: true });
     });
 
     /** Avance d'une étape. Appelée par le bouton de la barre d'action. */
     function etapeGroupeSuivante() {
       var idx = ETAPES_GROUPE.indexOf(etapeGroupeCourante);
       if (idx === -1) return;
+
+      /* CONTRÔLE AU CLIC, pas avant.
+
+         Le bouton reste cliquable : c'est en cherchant à avancer que le client
+         apprend ce qui manque. Un bouton grisé n'explique rien à qui ne lit
+         pas la ligne d'à côté — et l'animation d'attente s'y appliquait, lui
+         faisant croire à un traitement en cours.
+
+         Le message s'affiche là où il agissait, et disparaît dès que la
+         condition est remplie. */
+      var manque = majBlocageEtapeGroupe();
+      if (manque) {
+        var info = document.getElementById('grp-actions-info');
+        if (info) {
+          info.textContent = manque;
+          info.classList.add('is-bloque');
+        }
+        /* Le champ à remplir reçoit le focus : le client n'a pas à le
+           chercher. */
+        var cible = (etapeGroupeCourante === 'designer')
+          ? document.getElementById('eq-ajout-champ')
+          : (function () {
+              var lignes = document.querySelectorAll('#grp-rows tr');
+              for (var i = 0; i < lignes.length; i++) {
+                var c = lignes[i].querySelector('.grp-f-flock');
+                if (c && !String(c.value || '').trim()) return c;
+              }
+              return null;
+            })();
+        if (cible) cible.focus();
+        return;
+      }
 
       /* DERNIÈRE ÉTAPE : le bouton porte « Ajouter la commande au panier » et
          doit le faire.
@@ -8548,6 +8739,216 @@
       if (typeof majBlocageEtapeGroupe === 'function') majBlocageEtapeGroupe();
     }
     window.eqRendreNoms = eqRendreNoms;
+
+    /* ══════════════════════════════════════════════════════════════════════
+       RÉCAPITULATIF DU DESIGN — mode groupe, étape « Designer »
+
+       Le récapitulatif habituel est masqué en mode groupe (conf-styles.css) :
+       prix et quantité n'y ont pas de sens, chaque personne ayant les siens.
+       Le client compose donc son design sans aucun retour écrit.
+
+       Ce panneau montre le TEXTE sélectionné, sa typographie et sa couleur —
+       les trois réglages qu'on ne peut pas lire sur le vêtement lui-même : la
+       police se devine mal à petite taille, et le nom d'une couleur ne se
+       déduit pas de son aspect.
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * Nom lisible d'une couleur de texte.
+     *
+     * Accepte le format hexadécimal (session) comme `rgb()` (style calculé,
+     * quand la session ne connaît pas encore la zone) : les deux sont
+     * normalisés avant comparaison.
+     */
+    function nomCouleurTexte(couleur) {
+      var c = String(couleur || '').trim().toLowerCase();
+
+      /* rgb(r, g, b) → #rrggbb */
+      var m = c.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (m) {
+        c = '#' + [m[1], m[2], m[3]].map(function (n) {
+          var v = parseInt(n, 10).toString(16);
+          return v.length === 1 ? '0' + v : v;
+        }).join('');
+      }
+      /* #abc → #aabbcc */
+      if (/^#[0-9a-f]{3}$/.test(c)) {
+        c = '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
+      }
+
+      var noms = {
+        '#ffffff': 'Blanc',
+        '#000000': 'Noir Premium',
+        '#1a1a1a': 'Noir Premium',
+        '#c2410c': 'Orange', '#e02424': 'Rouge',
+        '#eab308': 'Jaune', '#16a34a': 'Vert',
+        '#2563eb': 'Bleu', '#7c3aed': 'Violet',
+        '#f5f5f5': 'Blanc cassé', '#9ca3af': 'Gris'
+      };
+      return noms[c] || c.toUpperCase();
+    }
+
+    /**
+     * Remplit le récapitulatif à partir de la zone de texte SÉLECTIONNÉE.
+     *
+     * On lit la SESSION plutôt que l'état interne de l'éditeur : celui-ci
+     * n'est pas exposé, et la session est de toute façon la source que le
+     * rechargement relira.
+     */
+    function majRecapDesign() {
+      var panneau = document.getElementById('grp-recap');
+      if (!panneau) return;
+
+      var corps = document.getElementById('grp-recap-body');
+      var sousTitre = document.getElementById('grp-recap-sub');
+
+      /* Zone SÉLECTIONNÉE en priorité ; à défaut, la première qui porte du
+         texte — le client vient peut-être d'en poser un sans le sélectionner. */
+      var zones = ['f', 'fr', 'b'];
+      var choisie = null;
+      var i, el;
+
+      for (i = 0; i < zones.length; i++) {
+        el = document.getElementById('text-' + zones[i]);
+        if (el && el.classList.contains('is-selected')) { choisie = zones[i]; break; }
+      }
+      if (!choisie) {
+        for (i = 0; i < zones.length; i++) {
+          el = document.getElementById('text-' + zones[i]);
+          var c = el && el.querySelector('.dt-content');
+          if (el && el.style.display !== 'none' && c && c.textContent.trim()) {
+            choisie = zones[i];
+            break;
+          }
+        }
+      }
+
+      var etat = null;
+      if (choisie) {
+        try {
+          var tous = JSON.parse(sessionStorage.getItem('conf_texts') || '{}');
+          var parProduit = tous[currentProductType] || {};
+          etat = parProduit[choisie] || null;
+        } catch (e) { etat = null; }
+
+        /* LE TEXTE VIENT DU DOM, pas de la session.
+
+           Un surnom essayé depuis « Mon Équipe » est écrit directement sur le
+           vêtement (eqEssayerNom) sans passer par la session : le panneau
+           restait vide alors qu'un nom s'affichait à l'écran.
+
+           La session garde en revanche la police et la couleur, qu'on ne peut
+           pas lire sur le calque. On combine donc les deux sources. */
+        var elChoisi = document.getElementById('text-' + choisie);
+        var contenuDom = elChoisi ? elChoisi.querySelector('.dt-content') : null;
+        var texteDom = contenuDom ? String(contenuDom.textContent || '').trim() : '';
+
+        if (texteDom) {
+          etat = etat ? Object.assign({}, etat) : {};
+          etat.text = texteDom;
+          /* Repli sur le style calculé quand la session ne sait rien de cette
+             zone — le texte existe, il a forcément une couleur. */
+          if (!etat.color && elChoisi) {
+            etat.color = window.getComputedStyle(elChoisi).color || '#000';
+          }
+        }
+      }
+
+      if (!etat || !String(etat.text || '').trim()) {
+        if (corps) corps.hidden = true;
+        if (sousTitre) sousTitre.textContent = 'Aucun élément sélectionné';
+        return;
+      }
+
+      if (sousTitre) sousTitre.textContent = 'Élément sélectionné : Texte';
+      if (corps) corps.hidden = false;
+
+      var champTexte = document.getElementById('grp-recap-texte');
+      var champPolice = document.getElementById('grp-recap-police');
+      var champNom = document.getElementById('grp-recap-couleur-nom');
+      var pastille = document.getElementById('grp-recap-dot');
+
+      if (champTexte) {
+        champTexte.textContent = etat.text;
+        /* Le texte s'affiche DANS SA POLICE : la voir vaut mieux que la lire. */
+        champTexte.style.fontFamily = etat.font || 'inherit';
+      }
+      if (champPolice) champPolice.textContent = etat.fontName || 'Police';
+      if (champNom) champNom.textContent = nomCouleurTexte(etat.color);
+      if (pastille) pastille.style.background = etat.color || '#000';
+    }
+    window.majRecapDesign = majRecapDesign;
+
+    /* ══════════════════════════════════════════════════════════════════════
+       RÉSUMÉ DE LA CONFIGURATION — mode groupe, étape « Configurer »
+
+       La colonne de droite suit l'ÉTAPE : à « Designer » elle montre le design
+       composé, ici ce que la commande représente. Le client saisit une liste ;
+       le chiffre lui parle plus que la typographie.
+       ══════════════════════════════════════════════════════════════════════ */
+    function majSommeGroupe() {
+      var panneau = document.getElementById('grp-somme');
+      if (!panneau) return;
+
+      /* On lit le TABLEAU À L'ÉCRAN : le client est en train de le remplir, la
+         liste validée ne reflète pas encore ses saisies. */
+      var lignes = document.querySelectorAll('#grp-rows tr');
+      var pieces = 0;
+      for (var i = 0; i < lignes.length; i++) {
+        var champ = lignes[i].querySelector('.grp-f-qty');
+        pieces += Math.max(0, parseInt(champ && champ.value, 10) || 0);
+      }
+
+      var elArticles = document.getElementById('grp-somme-articles');
+      var elLignes = document.getElementById('grp-somme-lignes');
+      var elUnitaire = document.getElementById('grp-somme-unitaire');
+      var elTotal = document.getElementById('grp-somme-total');
+
+      if (elArticles) elArticles.textContent = pieces;
+      if (elLignes) elLignes.textContent = lignes.length;
+
+      /* PRIX DÉGRESSIF — c'est ce qui justifie d'afficher un montant ici
+         plutôt que d'attendre le paiement : sur une commande d'équipe, la
+         remise par palier est significative, et la cacher ferait renoncer un
+         client avant qu'il ne la découvre.
+
+         `tierUnitPrice` renvoie `null` quand aucune grille n'existe pour ce
+         produit : on retombe alors sur le prix de base. */
+      var unit = null;
+      if (typeof window.tierUnitPrice === 'function') {
+        unit = window.tierUnitPrice(currentProductType, pieces);
+      }
+      if (unit == null && typeof window.prixUnitaire === 'function') {
+        unit = window.prixUnitaire(currentProductType);
+      }
+      unit = Number(unit) || 0;
+
+      var fmt = (typeof window.formatPrix === 'function')
+        ? window.formatPrix
+        : function (v) { return Number(v).toFixed(2).replace('.', ',') + ' €'; };
+
+      if (elUnitaire) elUnitaire.textContent = unit ? fmt(unit) : '—';
+      if (elTotal) elTotal.textContent = (unit && pieces) ? fmt(unit * pieces) : '—';
+    }
+    window.majSommeGroupe = majSommeGroupe;
+
+    /* Le récapitulatif suit CHAQUE changement : sélection, saisie, police,
+       couleur. On observe le calque plutôt que d'appeler depuis chaque
+       fonction qui le modifie — elles sont nombreuses, et en oublier une
+       laisserait un récapitulatif périmé. */
+    document.addEventListener('DOMContentLoaded', function () {
+      var layer = document.getElementById('logo-layer');
+      if (!layer) return;
+      majRecapDesign();
+      var enAttente = null;
+      new MutationObserver(function () {
+        clearTimeout(enAttente);
+        enAttente = setTimeout(majRecapDesign, 80);
+      }).observe(layer, {
+        attributes: true, childList: true, characterData: true, subtree: true,
+        attributeFilter: ['class', 'style']
+      });
+    });
 
     /** Ajoute un surnom depuis le champ du panneau. */
     function eqAjouterNom() {

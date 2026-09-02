@@ -219,6 +219,21 @@
 
          La reprise est ici légitime : aucun mode n'est encore choisi, il n'y a
          donc ni design à ranger ni état mémoire à isoler. */
+
+      /* MODE IMPOSÉ, PAS CHOISI — on le note.
+
+         Sans cette marque, le mode libre s'enregistre comme une décision du
+         client. Il reste alors dedans même en reprenant un sweatshirt, sans
+         jamais avoir choisi ni su qu'une alternative existait.
+
+         La barre « Mode actuel » lit ce drapeau pour expliquer POURQUOI
+         (conf-main-inline.js). Il est levé dès que le client change de mode
+         lui-même : le mode redevient un choix, le message n'a plus lieu
+         d'être. */
+      try {
+        sessionStorage.setItem("conf_mode_impose", productType);
+      } catch (e) {}
+
       window.choisirMode("individuelle", true);
     }
   }

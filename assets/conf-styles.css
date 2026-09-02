@@ -1508,13 +1508,55 @@
       100% { transform: scale(1); }
     }
 
+    /* PANIER — icône nue, sans cadre.
+
+       Le bouton portait la bordure et le fond de ses voisins : trois cadres
+       côte à côte dans l'en-tête, dont un pour une simple icône. Le panier se
+       reconnaît à sa forme, il n'a pas besoin d'être encadré. */
     .obtn-cart {
       position: relative;
-      border-color: #1a1a1a;
-      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      background: none;
+      border: none;
+      border-radius: 10px;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background .15s ease;
     }
-    .obtn-cart:hover {
-      background: #f0f0f0;
+    .obtn-cart:hover { background: #f0f0f0; }
+
+    /* PASTILLE EN SUPERPOSITION, orange comme l'action principale du
+       configurateur (« Continuer », « Ajouter au panier »).
+
+       Elle était posée À CÔTÉ de l'icône : le bouton s'élargissait à chaque
+       dizaine franchie. En superposition, la largeur ne bouge plus.
+
+       `min-width` plutôt que `width` : à trois chiffres, la pastille s'allonge
+       au lieu de rogner le nombre. */
+    #hdr-cart-count {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      box-sizing: border-box;
+      background: #c2410c;
+      color: #fff;
+      border: 2px solid #fff;   /* détache la pastille de l'icône dessous */
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
     }
 
 
@@ -2447,6 +2489,26 @@
   color: var(--muted);
   white-space: nowrap;
 }
+/* MODE IMPOSÉ PAR LE PRODUIT — la barre explique au lieu de constater.
+
+   Teinte ambrée, comme les autres messages de contrainte du projet : le client
+   n'a rien fait de mal, il lui manque une information. Le rouge reste réservé
+   aux erreurs qui compromettent la commande.
+
+   `white-space` levé : la phrase est plus longue qu'un simple nom de mode et
+   doit pouvoir passer à la ligne sur un écran étroit. */
+.mode-actuel.is-impose {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+  white-space: normal;
+}
+.mode-actuel.is-impose .mode-actuel-lbl strong { color: #78350f; }
+.mode-actuel.is-impose .mode-actuel-btn {
+  background: #92400e;
+  border-color: #92400e;
+}
+
 .mode-actuel-lbl strong {
   font-weight: 700;
   color: var(--black);
@@ -2810,7 +2872,33 @@
 /* RAISON D'UN BLOCAGE — teinte ambrée, pas rouge : le client n'a rien fait de
    mal, il lui manque une information. Le rouge est réservé aux erreurs qui
    compromettent la commande (texte courbé, quota dépassé). */
-.grp-actions-info.is-bloque { color: #92400e; font-weight: 600; }
+/* RÉVÉLÉE QUAND ELLE PORTE UN BLOCAGE.
+
+   La ligne d'information est masquée en mode groupe (:2674, :2715) : le
+   message écrit au clic s'y déposait sans jamais s'afficher, et le client
+   voyait seulement son curseur sauter dans un champ, sans explication.
+
+   `!important` : les règles de masquage ci-dessus ont la même spécificité et
+   viennent avant — sans lui, elles l'emportent. */
+.grp-actions-info.is-bloque {
+  display: block !important;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Le message porte son PROPRE fond : posé sur le vêtement, un texte nu se
+   perdrait sur un tissu clair. Une pastille, comme la barre de mode juste
+   au-dessus. */
+[data-mode="groupe"] .grp-actions-info.is-bloque {
+  padding: 8px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  text-align: center;
+  /* Le bouton garde sa place à droite ; le message occupe le reste. */
+  margin-right: auto;
+}
 
 .grp-actions-btn {
   display: inline-flex;
@@ -2844,6 +2932,14 @@
 
    Il garde donc sa couleur, et une bande claire le traverse — le travail est
    en cours, l'attente a une fin. */
+/* L'ATTENTE, ET RIEN D'AUTRE.
+
+   Ces règles visaient tout bouton désactivé. Or la validation le désactivait
+   aussi : le client voyait un cercle tourner et croyait à un traitement en
+   cours, alors qu'il lui manquait simplement un surnom.
+
+   Le bouton ne se désactive plus que pendant l'ajout au panier — un vrai
+   traitement, qui mérite ce signal. */
 .grp-actions-btn:disabled {
   background: #c2410c;
   cursor: progress;
@@ -2938,6 +3034,173 @@
    un écran de RELECTURE. Les outils de personnalisation n'y ont plus leur
    place, et la largeur récupérée sert aux cartes.
    ══════════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RÉCAPITULATIF DU DESIGN — mode groupe, étape « Designer »
+
+   Il occupe la colonne libérée par le récapitulatif habituel, masqué en mode
+   groupe : prix et quantité n'y ont pas de sens, chaque personne ayant les
+   siens. Le client composait donc son design sans aucun retour écrit.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grp-recap { display: none; }
+
+/* IL OCCUPE LA COLONNE DU RÉCAPITULATIF, il n'en crée pas une nouvelle.
+
+   La grille racine réserve toujours cette colonne, même en mode groupe où le
+   récapitulatif est masqué (:2576) — et c'est volontaire : la refermer
+   élargirait le canvas de 252 px et ferait déborder les zones du vêtement
+   (voir le commentaire :2566).
+
+   Placé dans `.app`, le panneau S'AJOUTAIT à cette colonne au lieu de
+   l'occuper : 320 px de panneau plus 252 px de vide, deux blancs contigus que
+   rien ne séparait. En lui donnant `grid-area: recap`, il s'y loge — plus
+   aucun espace perdu, et la géométrie du canvas ne bouge pas d'un pixel.
+
+   Les deux panneaux ne coexistent jamais : celui-ci n'apparaît qu'en mode
+   groupe à l'étape « Designer », l'autre est masqué dans ce mode. */
+/* DESIGNER SEULEMENT — la colonne suit l'étape.
+
+   Elle montre ce que le client fait à ce moment : ici il COMPOSE, donc texte,
+   police et couleur. À « Configurer » il saisit une liste — c'est le résumé
+   chiffré qui prend la place (`.grp-somme`), la typographie n'y apprend plus
+   rien. À « Vérifier », les cartes occupent toute la largeur. */
+[data-mode="groupe"][data-etape-groupe="designer"] .grp-recap {
+  display: block;
+  grid-area: recap;
+  padding: 18px 16px;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+/* Échelle RESSERRÉE : c'est une colonne d'information, lue d'un coup d'œil à
+   côté du vêtement — pas un contenu principal. Les tailles y sont proches de
+   celles du récapitulatif habituel, qui occupe la même place. */
+.grp-recap-title {
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--black);
+}
+.grp-recap-sub {
+  margin: 0 0 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.grp-recap-bloc { margin-bottom: 14px; }
+.grp-recap-lbl {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.grp-recap-val {
+  font-size: 12.5px;
+  color: var(--black);
+  word-break: break-word;
+}
+/* Le texte du client reste le plus gros du panneau : c'est ce qu'il vérifie.
+   Il s'affiche DANS SA POLICE — la voir vaut mieux que lire son nom. */
+#grp-recap-texte {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.grp-recap-couleur {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.grp-recap-dot {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  flex: none;
+  /* Bordure indispensable : un blanc sur fond blanc serait invisible. */
+  border: 1px solid rgba(0, 0, 0, .18);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RÉSUMÉ DE LA CONFIGURATION — mode groupe, étape « Configurer »
+
+   Même colonne que le récapitulatif du design, jamais en même temps : chaque
+   étape montre ce que le client y fait. Ici il saisit une liste — les chiffres
+   de sa commande, donc, et non la typographie de son texte.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.grp-somme { display: none; }
+
+[data-mode="groupe"][data-etape-groupe="configurer"] .grp-somme {
+  display: block;
+  grid-area: recap;
+  padding: 18px 16px;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.grp-somme-title {
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--black);
+}
+
+.grp-somme-ligne {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.grp-somme-ligne strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--black);
+  /* Chiffres de même largeur : les valeurs restent alignées quand elles
+     changent à la frappe, au lieu de sautiller. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le TOTAL ressort dans un encadré : c'est le chiffre que le client retient. */
+.grp-somme-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 13px;
+  background: var(--stage);
+  border-radius: 9px;
+}
+.grp-somme-total-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--black);
+}
+.grp-somme-total-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+}
+
+.grp-somme-note {
+  margin: 12px 0 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 
 .grp-verif { display: none; }
 

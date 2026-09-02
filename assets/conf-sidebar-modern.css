@@ -32,7 +32,9 @@
    ═══════════════════════════════════════════════════════════ */
 
 .icon-nav {
-  width: 65px;
+  /* Élargi avec les icônes et les libellés : à 65px, « Type de Produit » se
+     coupait à l'étroit sur trois lignes. */
+  width: 76px;
   /* Gris clair : le rail n'est plus une masse noire à côté du panneau blanc.
      Les couleurs des items ci-dessous sont inversées en conséquence (texte
      sombre sur clair) — les modifier isolément casserait la lisibilité. */
@@ -57,7 +59,9 @@
 
 .icon-nav-item {
   width: 100%;
-  min-height: 70px;
+  /* Suit l'agrandissement : l'icône et son libellé ont besoin de plus de
+     hauteur pour ne pas se toucher. */
+  min-height: 78px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -130,15 +134,19 @@
 }
 
 .icon-nav-item svg {
-  width: 24px;
-  height: 24px;
+  /* Agrandies : à 24px l'icône se lisait mal, et le rail est le premier point
+     de repère du configurateur — c'est par lui que le client navigue. */
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   stroke-width: 1.5;
 }
 
 .icon-nav-label {
-  font-size: 8px;
-  font-weight: 400;
+  /* 8px passait sous le seuil de lisibilité courant, et ces libellés sont ce
+     qui distingue « Upload Image » de « Ajout Texte » — deux icônes voisines. */
+  font-size: 9.5px;
+  font-weight: 500;
   text-align: center;
   line-height: 1.2;
   letter-spacing: 0.01em;

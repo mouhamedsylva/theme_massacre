@@ -116,17 +116,40 @@
         avoir passé une, et l'en-tête changeait de composition en cours de
         parcours. Un panier vide reste un point de repère.
       {%- endcomment -%}
-      <button type="button" class="obtn obtn-cart" id="hdr-cart-btn" onclick="openCartDrawer()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/>
+      {%- comment -%}
+        PANIER — icône seule, pastille EN SUPERPOSITION.
+
+        La pastille était posée À CÔTÉ de l'icône, dans un cadre : le bouton
+        s'élargissait à chaque dizaine franchie, et il fallait deux éléments
+        pour dire une seule chose.
+
+        Elle coiffe désormais l'icône, à la manière des applications : la
+        largeur ne bouge plus, et le regard va au chiffre.
+      {%- endcomment -%}
+      {%- comment -%}
+        TOUJOURS VISIBLE. Le bouton était masqué jusqu'au premier ajout : le
+        client ne savait pas où trouver son panier avant d'y avoir mis quelque
+        chose, et l'en-tête changeait de composition en cours de route.
+
+        La pastille, elle, ne s'affiche qu'à partir d'un article (CSS) — un
+        « 0 » permanent n'apprendrait rien.
+      {%- endcomment -%}
+      <button type="button" class="obtn-cart" id="hdr-cart-btn"
+              onclick="openCartDrawer()" aria-label="Voir le panier">
+        {%- comment -%}
+          Chariot au trait ÉPAIS et arrondi, comme le modèle fourni : la
+          silhouette se lit d'un coup d'œil à petite taille, là où un trait fin
+          se perd. Les deux roues sont pleines, le panier ouvert.
+        {%- endcomment -%}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 4h1.5l1 4m0 0 1.6 7a1.6 1.6 0 0 0 1.6 1.2h7.6"/>
+          <path d="M6.5 8H21l-1.7 6.2a1.6 1.6 0 0 1-1.6 1.2"/>
+          <circle cx="9.5" cy="19.5" r="1.7" fill="currentColor" stroke="none"/>
+          <circle cx="17" cy="19.5" r="1.7" fill="currentColor" stroke="none"/>
         </svg>
-        <span id="hdr-cart-count" style="
-          background:#1a1a1a; color:#fff;
-          border-radius:50%; font-size:10px; font-weight:700;
-          width:16px; height:16px;
-          display:inline-flex; align-items:center; justify-content:center;
-          margin-left:2px;
-        ">0</span>
+        <span id="hdr-cart-count">0</span>
       </button>
 
       {%- comment -%}
@@ -1027,6 +1050,18 @@
         Pagination à 12 : chaque carte exige une rasterisation du texte, et en
         rendre trente-six d'un coup fige l'onglet près d'une seconde.
       {%- endcomment -%}
+      {%- comment -%}
+        RÉCAPITULATIF DU DESIGN — mode groupe, étape « Designer ».
+
+        Le récapitulatif habituel (`.recap`) est masqué en mode groupe : le prix
+        et la quantité n'y ont pas de sens, chaque personne ayant les siens.
+        Le client compose donc son design sans aucun retour écrit sur ce qu'il
+        vient de régler.
+
+        Ce panneau comble ce vide, et lui seul : il montre le TEXTE sélectionné
+        avec sa typographie et sa couleur. Rempli par majRecapDesign()
+        (conf-main-inline.js) à chaque sélection ou modification de texte.
+      {%- endcomment -%}
       <div class="grp-verif" id="grp-verif">
         <div class="grp-verif-hdr">
           <div>
@@ -1086,6 +1121,85 @@
     </main>
 
   </div><!-- /app -->
+
+    {%- comment -%}
+      RÉCAPITULATIF DU DESIGN — mode groupe, étape « Designer ».
+
+      Il occupe la COLONNE DÉJÀ RÉSERVÉE au récapitulatif habituel, masqué en
+      mode groupe : prix et quantité n'y ont pas de sens, chaque personne ayant
+      les siens. Le client composait donc son design sans aucun retour écrit.
+
+      Frère de `.app` et non enfant : la colonne existe au niveau de la grille
+      racine. Placé dans `.app`, il s'ajoutait à cette colonne au lieu de
+      l'occuper — d'où une bande vide de 252 px à sa droite.
+
+      Les deux panneaux ne coexistent jamais : l'un n'apparaît qu'en mode
+      groupe à l'étape « Designer », l'autre est masqué dans ce mode.
+
+      Rempli par majRecapDesign() (conf-main-inline.js).
+    {%- endcomment -%}
+    <aside class="grp-recap" id="grp-recap" aria-live="polite">
+      <h2 class="grp-recap-title">Récapitulatif du Design</h2>
+      <p class="grp-recap-sub" id="grp-recap-sub">Aucun élément sélectionné</p>
+
+      <div class="grp-recap-body" id="grp-recap-body" hidden>
+        <div class="grp-recap-bloc">
+          <span class="grp-recap-lbl">Texte personnalisé</span>
+          <strong class="grp-recap-val" id="grp-recap-texte"></strong>
+        </div>
+        <div class="grp-recap-bloc">
+          <span class="grp-recap-lbl">Typographie</span>
+          <span class="grp-recap-val" id="grp-recap-police"></span>
+        </div>
+        <div class="grp-recap-bloc">
+          <span class="grp-recap-lbl">Couleur sélectionnée</span>
+          <span class="grp-recap-couleur">
+            <span class="grp-recap-dot" id="grp-recap-dot"></span>
+            <span class="grp-recap-val" id="grp-recap-couleur-nom"></span>
+          </span>
+        </div>
+      </div>
+    </aside>
+
+    {%- comment -%}
+      RÉSUMÉ DE LA CONFIGURATION — mode groupe, étape « Configurer ».
+
+      La colonne de droite suit l'ÉTAPE : à « Designer » elle montre le design
+      composé (`.grp-recap`), ici elle montre ce que la commande représente —
+      le client saisit une liste, le chiffre lui parle plus que la typographie.
+
+      Les frais de port n'y figurent PAS : le configurateur ne connaît aucun
+      seuil de livraison, et Shopify reste seul juge selon l'adresse. Promettre
+      la gratuité ici serait un engagement que le code ne peut pas tenir.
+
+      Rempli par majSommeGroupe() (conf-main-inline.js).
+    {%- endcomment -%}
+    <aside class="grp-somme" id="grp-somme" aria-live="polite">
+      <h2 class="grp-somme-title">Résumé de la configuration</h2>
+
+      <div class="grp-somme-ligne">
+        <span>Total articles configurés</span>
+        <strong id="grp-somme-articles">0</strong>
+      </div>
+      <div class="grp-somme-ligne">
+        <span>Lignes uniques</span>
+        <strong id="grp-somme-lignes">0</strong>
+      </div>
+      <div class="grp-somme-ligne">
+        <span>Prix unitaire</span>
+        <strong id="grp-somme-unitaire">—</strong>
+      </div>
+
+      <div class="grp-somme-total">
+        <span class="grp-somme-total-lbl">Total estimé</span>
+        <strong class="grp-somme-total-val" id="grp-somme-total">—</strong>
+      </div>
+
+      <p class="grp-somme-note">
+        Estimation TTC. Le montant définitif est arrêté au paiement, remises par
+        quantité incluses.
+      </p>
+    </aside>
 
     <!-- ══ RECAP ══ -->
     <aside class="recap">

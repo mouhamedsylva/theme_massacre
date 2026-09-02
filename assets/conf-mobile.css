@@ -223,9 +223,26 @@
   /* Rangée d'actions du haut : Couleur, Taille, puis « Vue d'ensemble »
      (que conf-mobile.js déplace ici). Toute la largeur, le bouton étant en
      bout de ligne via `margin-left: auto`. */
+  /* ── BARRE DE MODE AU-DESSUS DES OPTIONS ────────────────────────────────
+     Elle reste dans le flux (hérité du bureau) alors que `.cv-opts` est en
+     `absolute` par-dessus : les deux se superposaient, et « Personnalisation
+     libre » passait sous le sélecteur de couleur.
+
+     On la sort du flux à son tour, sur sa PROPRE rangée, et les options
+     descendent d'autant. Deux rangées qui se succèdent au lieu de se
+     recouvrir. */
+  [data-mode] .mode-actuel {
+    position: absolute;
+    top: 8px; left: 8px; right: 8px;
+    z-index: 25;
+    margin: 0;
+    justify-content: center;
+  }
+
   .cv-opts {
     position: absolute;
-    top: 8px; left: 8px;
+    /* 46px : la rangée du mode (top 8px + ~30px de haut + 8px d'écart). */
+    top: 46px; left: 8px;
     right: 8px;
     z-index: 24;
     display: flex;
@@ -381,6 +398,10 @@
     align-items: center;
     justify-content: center;
   }
+
+  /* DEUX rangées quand la barre de mode est présente : elle coiffe les
+     options, le vêtement descend d'autant pour ne pas passer dessous. */
+  [data-mode] .cv-single-view { padding-top: 78px; }
 
   /* L'image occupe tout l'espace disponible : le layer étant calé sur elle
      (et non sur le conteneur), sa taille n'influe plus sur la position des
@@ -2256,6 +2277,14 @@
   /* Masquée à TOUTES les étapes, y compris « configurer » où elle
      réapparaissait : le tableau porte déjà son propre compteur (« 2 lignes ·
      2 pièces »), et cette ligne en donnait un second, désaccordé. */
+  /* RÉCAPITULATIF DU DESIGN masqué : il occupe la colonne de droite, qui
+     n'existe pas sur téléphone. L'y afficher recouvrirait le vêtement, seul
+     élément que le client doit voir à cette étape. */
+  [data-mode="groupe"][data-etape-groupe="designer"] .grp-recap { display: none; }
+  /* Même raison pour le résumé chiffré : le tableau a besoin de toute la
+     largeur sur un écran étroit. */
+  [data-mode="groupe"][data-etape-groupe="configurer"] .grp-somme { display: none; }
+
   [data-mode="groupe"] .grp-actions-info { display: none; }
 
   /* SAUF quand elle porte la RAISON d'un blocage : un bouton grisé sans
