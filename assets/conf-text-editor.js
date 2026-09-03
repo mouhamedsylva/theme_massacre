@@ -613,6 +613,38 @@
         if (precedent[k] !== undefined) aEnregistrer[k] = precedent[k];
       });
       saveState(state.zone, aEnregistrer);
+
+      /* POSITION MÉMORISÉE DÈS LA CRÉATION, PAS SEULEMENT AU DÉPLACEMENT.
+
+         `saveTextGeo` était le seul écrivain de `left`/`top`/`width`, et il
+         n'est appelé qu'au glisser. Un texte jamais déplacé n'avait donc
+         AUCUNE position enregistrée : à la réouverture depuis le panier, les
+         trois `if` de renderTextOnCanvas étaient sautés et l'élément gardait
+         la position par défaut de sa zone — le centre. Le logo restauré sans
+         géométrie y atterrissant aussi, les deux se superposaient.
+
+         On relève donc la position réelle du DOM après le rendu, quand elle
+         n'est pas déjà connue. Différé d'un tour de boucle : les styles
+         viennent d'être posés, le navigateur doit les avoir appliqués pour que
+         la lecture ait un sens.
+
+         Ne touche RIEN si une position existe déjà : le déplacement du client
+         reste prioritaire. */
+      if (precedent.left === undefined || precedent.top === undefined) {
+        (function (zone) {
+          requestAnimationFrame(function () {
+            var el = document.getElementById("text-" + zone);
+            if (!el) return;
+            var st = getState(zone);
+            if (!st || st.left !== undefined) return;   // déjà connue entre-temps
+            var g = {};
+            if (el.style.left) g.left = el.style.left;
+            if (el.style.top) g.top = el.style.top;
+            if (el.style.width) g.width = el.style.width;
+            if (g.left || g.top) window.saveTextGeo(zone, g);
+          });
+        })(state.zone);
+      }
       // Chip récap dans le sidebar.
       var chip = document.getElementById("txt-chip-" + state.zone);
       var val = document.getElementById("txt-chip-val-" + state.zone);

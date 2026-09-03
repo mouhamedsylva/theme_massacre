@@ -507,6 +507,33 @@ class DynamicLayoutManager {
     ) {
       sidebarContent.innerHTML = this.textileSidebarHTML;
       confLog("✅ Sidebar textile restaurée");
+
+      /* PASTILLES REDESSINÉES APRÈS RÉINJECTION.
+
+         `textileSidebarHTML` est un INSTANTANÉ, pris une seule fois au premier
+         chargement. Il fige donc les pastilles telles qu'elles étaient à cet
+         instant — celles du produit d'alors. Le réinjecter tel quel après un
+         passage par un coin ou un drapeau ramenait la palette de ce
+         produit-là, quel que soit le textile de retour.
+
+         Le rendu s'appuie sur PRODUCT_COLORS, pas sur l'instantané : la palette
+         redevient celle du produit courant. À faire AVANT
+         resetCanvasOptionClones(), pour que le menu du canvas clone une source
+         à jour. */
+      if (typeof window.renduPastilles === "function") {
+        var prodCourant = window.currentProductType;
+        try {
+          prodCourant = prodCourant || sessionStorage.getItem("conf_current_product");
+        } catch (e) {}
+        var nomActif = null;
+        try {
+          var cc = JSON.parse(sessionStorage.getItem("conf_current_color") || "{}");
+          if (cc && cc[prodCourant] && cc[prodCourant].name) {
+            nomActif = cc[prodCourant].name;
+          }
+        } catch (e) {}
+        window.renduPastilles(prodCourant || "sweatshirt", nomActif);
+      }
     }
 
     /* Les menus Couleur/Taille sont clonés depuis la sidebar au premier
@@ -547,6 +574,24 @@ class DynamicLayoutManager {
     }
 
     setTimeout(function () {
+      /* NEUTRALISÉ PENDANT UNE RÉOUVERTURE DEPUIS LE PANIER.
+
+         Ce bloc tombe 60 ms après selProd — soit en plein milieu de la
+         séquence d'ouverture, avant sa première passe (260 ms). Il faisait
+         deux dégâts :
+
+           • `restoreColor()` sans `sauterTextile` rejoue selColor et relance
+             un chargement d'images avec la couleur de la SESSION, pas celle
+             de la ligne cliquée ;
+           • `restoreUploads` place les logos par `placeLogoInZone` quand la
+             géométrie manque ; ses rappels `load` tardifs arrivent une fois
+             `__restoringUploads` retombé et PERSISTENT une position
+             recalculée. C'est le « saut » du logo.
+
+         conf-cart-open-design.js fait déjà ce travail, en deux passes et à la
+         bonne source. */
+      if (window.__ouvertureDepuisPanier) return;
+
       if (typeof window.restoreColor === "function") window.restoreColor();
       if (typeof window.restoreUploads === "function") window.restoreUploads();
       /* Les TEXTES suivent les logos. Ce bloc les omettait : les logos étaient

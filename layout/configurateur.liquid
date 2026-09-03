@@ -533,6 +533,64 @@
             {%- endfor -%}
           {%- endfor -%}
         {%- endfor -%}
+
+        {%- comment -%}
+          COULEURS PROPRES AU SWEATSHIRT.
+
+          La boucle ci-dessus engendre les quarante couleurs historiques. Aucun
+          produit ne les propose plus, mais elles restent nécessaires : les
+          articles ajoutés au panier AVANT ce changement portent ces noms, et
+          leur vignette doit continuer de trouver son image.
+
+          Les palettes propres à chaque produit s'AJOUTENT donc à cette liste,
+          elles ne la remplacent pas.
+
+          `asset_url` renvoie une URL même pour un fichier absent : cette liste
+          ne prouve donc rien sur l'existence des images. Les fichiers restant à
+          produire sont recensés dans COULEURS-SWEATSHIRT.md.
+        {%- endcomment -%}
+        {%- assign sw_colors = "blanc-transparent,blanc-rose,blanc-casse,camel,taupe,taupe-rose,jaune-vif,caramel,orange-vif,rouge-cerise,corail,mauve-fonce,prune,bordeaux,rose-fuchsia,rose-pale,bleu-ciel,bleu-azur,bleu-marine,bleu-gris,gris-ardoise,gris-bleute,gris-clair,gris-perle,gris-anthracite,vert-amande,vert-sapin,vert-kaki,kaki-fonce,noir" | split: "," -%}
+        {%- for c in sw_colors -%}
+          {%- for v in tx_views -%}
+            {%- assign fname = "sweatshirt-" | append: c | append: "-" | append: v | append: ".png" -%}
+            "sweatshirt-{{ c }}-{{ v }}": "{{ fname | asset_url }}",
+          {%- endfor -%}
+        {%- endfor -%}
+
+        {%- comment -%}
+          COULEURS PROPRES AU T-SHIRT COTON — même principe que le sweatshirt.
+
+          Onze de ces slugs sont aussi ceux du sweatshirt (`noir`, `bordeaux`,
+          `vert-sapin`…), mais le préfixe produit sépare les fichiers :
+          `tshirt-noir-face.png` n'est pas `sweatshirt-noir-face.png`. Chaque
+          textile garde donc sa propre photographie, pour une même teinte
+          nommée pareil.
+
+          Le t-shirt POLYESTER n'est pas concerné : il garde la liste
+          historique engendrée par la boucle du haut.
+        {%- endcomment -%}
+        {%- assign ts_colors = "blanc,camel,rose-taupe,vert-olive,marron-chocolat,jaune-vif,orange-vif,rouge-ecarlate,bordeaux,rose-fuchsia,rose-pale,violet-aubergine,mauve-orchidee,bleu-roi,bleu-ciel-pale,bleu-turquoise,bleu-cyan,bleu-ardoise,bleu-marine-fonce,jaune-citron,vert-anis-clair,vert-pomme,vert-prairie,vert-emeraude,vert-sapin,kaki-dore,kaki-fonce,gris-clair,gris-perle,gris-ardoise-fonce,vert-militaire,noir" | split: "," -%}
+        {%- for c in ts_colors -%}
+          {%- for v in tx_views -%}
+            {%- assign fname = "tshirt-" | append: c | append: "-" | append: v | append: ".png" -%}
+            "tshirt-{{ c }}-{{ v }}": "{{ fname | asset_url }}",
+          {%- endfor -%}
+        {%- endfor -%}
+
+        {%- comment -%}
+          COULEURS PROPRES AU T-SHIRT POLYESTER — dernier des trois textiles.
+
+          Son préfixe de fichier est `tshirt-polyester` (avec un tiret), alors
+          que sa clé produit est `tshirt_polyester` (avec un souligné). Les deux
+          ne doivent pas être confondus : c'est PRODUCT_SLUGS qui fait le pont.
+        {%- endcomment -%}
+        {%- assign po_colors = "blanc,beige-taupe,jaune-vif,jaune-citron,orange-vif,corail,rouge-ecarlate,rose-fuchsia,violet-indigo,bleu-roi,bleu-turquoise,bleu-marine-fonce,vert-emeraude,vert-anis,kaki-dore,vert-militaire,noir" | split: "," -%}
+        {%- for c in po_colors -%}
+          {%- for v in tx_views -%}
+            {%- assign fname = "tshirt-polyester-" | append: c | append: "-" | append: v | append: ".png" -%}
+            "tshirt-polyester-{{ c }}-{{ v }}": "{{ fname | asset_url }}",
+          {%- endfor -%}
+        {%- endfor -%}
       };
 
       window.COIN_IMAGE_URLS = {
@@ -634,6 +692,19 @@
       par `typeof window.confAlert === 'function'` OU remettre ce script en
       synchrone.
     {%- endcomment -%}
+    {%- comment -%}
+      PALETTES EN PREMIER — tout le reste en dépend.
+
+      `conf-palettes.js` définit PRODUCT_COLORS (une palette par produit) et
+      `conf-palette-render.js` dessine les pastilles à partir d'elle. Ces deux
+      scripts doivent être évalués AVANT conf-main-inline.js, qui lit la palette
+      pour la couleur par défaut du produit et pour la table nom → slug.
+
+      Tous ces scripts sont `defer` : ils s'exécutent dans l'ordre de
+      déclaration, celui-ci suffit donc à garantir la dépendance.
+    {%- endcomment -%}
+    <script src="{{ 'conf-palettes.js' | asset_url }}" defer></script>
+    <script src="{{ 'conf-palette-render.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-alert.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-bgremoval2.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-product-images.js' | asset_url }}" defer></script>

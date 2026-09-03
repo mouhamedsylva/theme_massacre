@@ -107,18 +107,61 @@
    * toujours `{_v:2, byProduct:{<produit>:{}}}`, même quand tous ses filtres
    * ont tout écarté. Distinguer « vide » de « absent » est indispensable —
    * l'écrire en session effacerait le design réel.
+   *
+   * @param {string} [produit] - N'examiner QUE ce produit.
+   *
+   * Sans lui, la garde répondait « oui » dès qu'un produit QUELCONQUE portait
+   * une image. Or une ligne de panier embarque le magasin ENTIER, tous
+   * produits confondus (capturerEtatDesign recopie `conf_uploads` tel quel).
+   * Un t-shirt dont les images avaient été filtrées passait donc la garde
+   * grâce au sweatshirt resté dedans : on écrivait un magasin où le produit
+   * de la ligne était ABSENT. restoreUploads, purement additive, ne reposait
+   * alors rien — et l'écriture avait au passage écrasé le design en cours.
    */
-  function aDesImages(store) {
+  function aDesImages(store, produit) {
     if (!store || !store.byProduct) return false;
-    return Object.keys(store.byProduct).some(function (p) {
-      var zones = store.byProduct[p];
+    var aDesSrc = function (zones) {
       if (!zones || typeof zones !== 'object') return false;
       return Object.keys(zones).some(function (z) {
         var e = zones[z];
         var src = (typeof e === 'string') ? e : (e && e.src);
         return !!src;
       });
+    };
+    if (produit) return aDesSrc(store.byProduct[produit]);
+    return Object.keys(store.byProduct).some(function (p) {
+      return aDesSrc(store.byProduct[p]);
     });
+  }
+
+  /**
+   * Restreint un magasin au seul produit voulu, puis le FUSIONNE dans celui
+   * déjà en session.
+   *
+   * Deux raisons de ne pas écrire le magasin de la ligne tel quel :
+   *   • il porte les designs des AUTRES produits, figés au moment de l'ajout —
+   *     les reposer ferait resurgir un travail que le client a peut-être
+   *     modifié ou abandonné depuis ;
+   *   • l'écriture écrasait le magasin de travail, donc le design en cours sur
+   *     les produits que cette ligne ne concerne pas.
+   *
+   * @returns {object|null} le magasin fusionné, ou null si rien à reposer.
+   */
+  function fusionnerPourProduit(store, produit, lireExistant) {
+    if (!store || !store.byProduct || !produit) return null;
+    var zones = store.byProduct[produit];
+    if (!zones || !Object.keys(zones).length) return null;
+
+    var existant = null;
+    try { existant = lireExistant(); } catch (e) { existant = null; }
+    if (!existant || typeof existant !== 'object') existant = {};
+
+    var fusion = { _v: 2, byProduct: {} };
+    var source = (existant.byProduct && typeof existant.byProduct === 'object')
+      ? existant.byProduct : {};
+    Object.keys(source).forEach(function (p) { fusion.byProduct[p] = source[p]; });
+    fusion.byProduct[produit] = zones;   // la ligne fait foi POUR SON produit
+    return fusion;
   }
 
   /**
@@ -159,12 +202,28 @@
     try { produit = sessionStorage.getItem('conf_current_product'); } catch (e) {}
     var zones = (produit && u.byProduct[produit]) || null;
 
-    /* Produit inconnu : on prend l'unique entrée s'il n'y en a qu'une — le
-       design d'une ligne de panier ne concerne qu'un seul produit. */
-    if (!zones) {
-      var cles = Object.keys(u.byProduct);
-      if (cles.length === 1) zones = u.byProduct[cles[0]];
+    /* Produit de la LIGNE d'abord — mémorisé par reposerEtatDesign.
+
+       Le repli ne jouait que si le magasin comptait UNE seule entrée, sur la
+       foi d'un commentaire qui affirmait qu'« une ligne de panier ne concerne
+       qu'un seul produit ». C'est faux : capturerEtatDesign recopie le magasin
+       entier, tous produits confondus. Dès que le client avait travaillé sur
+       deux produits, le repli abandonnait et rien n'était posé. */
+    if (!zones && window.__produitOuverture) {
+      zones = u.byProduct[window.__produitOuverture] || null;
     }
+
+    /* PLUS DE REPLI SUR « L'UNIQUE ENTRÉE ».
+
+       Il prenait les zones du seul produit présent quand aucune ne
+       correspondait — au motif qu'une ligne de panier ne concerne qu'un
+       produit. Mais le magasin est fusionné et le produit courant pouvait être
+       faux : ce repli posait alors l'image d'une AUTRE ligne, sans rien
+       signaler.
+
+       Le produit de la ligne vient maintenant de `item.productType`, fiable.
+       Ne rien poser est le bon comportement quand il n'y a rien pour ce
+       produit — deviner ne peut plus qu'afficher le mauvais design. */
     if (!zones) return;
 
     Object.keys(zones).forEach(function (zone) {
@@ -271,6 +330,9 @@
     /* PURGE de la ligne précédente : sans elle, un article dont le design ne
        peut être lu rouvrirait celui de l'article ouvert juste avant. */
     window.__uploadsAAppliquer = null;
+    /* Le produit de la ligne suit le même cycle que le magasin qu'il désigne :
+       laissé en place, il ferait lire l'entrée d'un article précédent. */
+    window.__produitOuverture = null;
     /* Registre de géométrie purgé avec elle : une ligne précédente ne doit pas
        imposer sa position au design qu'on ouvre. */
     window.__geoOuverture = null;
@@ -289,12 +351,66 @@
        n'est pas touché. Elle ne survit pas à un rechargement — le champ
        persisté prend alors le relais. */
     var reserve = window.__designsPanier && item && window.__designsPanier[item.id];
-    var d = (reserve && aDesImages(reserve.uploads)) ? reserve : (item && item.design);
+
+    /* ═══ LE PRODUIT DE L'ARTICLE FAIT FOI, PAS CELUI DU DESIGN ═══════════
+
+       `d.product` semblait la source naturelle. Elle ne l'est pas :
+       capturerEtatDesign le lit dans `conf_current_product`
+       (conf-main-inline.js), c'est-à-dire le produit AFFICHÉ À L'ÉCRAN au
+       moment de l'ajout — pas celui de l'article ajouté.
+
+       Or `conf_current_product` n'est pas effacé entre deux commandes,
+       contrairement aux clés de design. Une commande ajoutée sans changer de
+       produit héritait donc du produit de la PRÉCÉDENTE.
+
+       Ce produit décide sous quelle clé chercher les images et écrire les
+       textes. Faux, il faisait lire et écrire au mauvais endroit : une ligne
+       rouvrait l'image d'une autre, ou n'en trouvait aucune.
+
+       `item.productType` vient de l'article commandé (conf-main-inline.js,
+       `productType: currentProductType` au moment de construire la ligne). Il
+       est fiable, et présent sur les lignes DÉJÀ au panier — corriger ici les
+       répare toutes, sans avoir à vider le panier.
+
+       `d.product` reste en dernier repli, pour une ligne trop ancienne pour
+       porter `productType`. */
+    var prodLigne = (item && item.productType) ||
+                    (reserve && reserve.product) || null;
+
+    var d = (reserve && aDesImages(reserve.uploads, prodLigne))
+      ? reserve : (item && item.design);
     if (!d) return false;   // article ajouté avant cette mémorisation
 
+    if (!prodLigne) prodLigne = d.product || null;
+
     try {
-      if (d.product) sessionStorage.setItem('conf_current_product', d.product);
-      if (d.color) sessionStorage.setItem('conf_current_color', JSON.stringify(d.color));
+      /* `prodLigne`, pas `d.product` : cette clé pilote TOUS les restaurateurs
+         (restoreUploads, restoreTexts, appliquerUploadsDirect lisent le produit
+         courant). Y écrire le produit de l'écran d'un ajout précédent les
+         envoyait chercher le design au mauvais endroit. */
+      if (prodLigne) sessionStorage.setItem('conf_current_product', prodLigne);
+
+      /* LA COULEUR DE LA LIGNE PRIME SUR CELLE DU DESIGN.
+
+         `d.color` n'est pas « la couleur de cet article » : c'est le
+         dictionnaire des couleurs de l'ÉCRAN au moment de l'ajout, tel que
+         capturerEtatDesign l'a lu. Pour une commande de groupe, il ne porte
+         qu'une seule teinte — commune aux trois personnes — alors que chaque
+         ligne a la sienne.
+
+         Le poser ici contaminait la session : `restoreColor()`, rejouée plus
+         bas, la relit et reposait donc la couleur du GROUPE sur un article
+         individuel. C'est ce qui faisait rouvrir en rose un t-shirt violet.
+
+         Quand la ligne porte sa propre couleur, elle fait foi : elle est ce que
+         montre la vignette et ce qui a été commandé. `applyColor` s'en charge
+         quelques instants plus tard.
+
+         Le repli sur `d.color` reste utile aux articles dont le libellé n'est
+         pas un nom de pastille — patchs, coins, drapeaux. */
+      if (!(item && item.color) && d.color) {
+        sessionStorage.setItem('conf_current_color', JSON.stringify(d.color));
+      }
       if (d.patchColor) sessionStorage.setItem('conf_patch_color', JSON.stringify(d.patchColor));
       if (d.coinFinish) sessionStorage.setItem('conf_coin_finish', d.coinFinish);
 
@@ -319,7 +435,7 @@
          Le clic DÉTRUISAIT donc le design au lieu de le restaurer —
          restoreUploads relisait un magasin vidé et, purement additive, ne
          reposait rien. */
-      if (aDesImages(d.uploads)) {
+      if (aDesImages(d.uploads, prodLigne)) {
         /* `d.product` fait foi : le design appartient au produit de la LIGNE,
            pas à celui affiché à l'écran. Les deux normaliseurs sont ceux du
            chemin de partage — migrateUploadStore range un ancien format plat
@@ -332,9 +448,29 @@
           u = window.sanitizeUploadSrcs(u);
         }
 
+        /* RESTREINT AU PRODUIT DE LA LIGNE, PUIS FUSIONNÉ.
+
+           Le magasin de la ligne porte aussi les designs des autres produits,
+           figés au moment de l'ajout. Les reposer ferait resurgir un travail
+           que le client a pu modifier ou abandonner depuis — et l'écriture
+           écrasait son magasin courant.
+
+           Repli sur `u` si la fusion échoue : mieux vaut l'ancien comportement
+           qu'une réouverture sans images. */
+        var uFusion = fusionnerPourProduit(u, prodLigne, function () {
+          if (typeof window.readUploadStore === 'function') {
+            return window.readUploadStore();
+          }
+          return JSON.parse(sessionStorage.getItem('conf_uploads') || 'null');
+        });
+        if (uFusion) u = uFusion;
+
         /* Retenu pour l'APPLICATION DIRECTE au canvas (voir plus bas) : elle
            ne dépend pas de la session, et c'est elle qui fait foi. */
         window.__uploadsAAppliquer = u;
+        /* Le produit de la ligne accompagne le magasin : l'application directe
+           doit savoir quelle entrée lire, même à plusieurs produits. */
+        window.__produitOuverture = prodLigne;
 
         /* ÉCRITURE VIA writeUploadStore, et son échec n'est plus fatal.
 
@@ -360,7 +496,55 @@
                        'directement au canvas, mais ne survivra pas à un rechargement.');
         }
       }
-      if (d.texts) sessionStorage.setItem('conf_texts', JSON.stringify(d.texts));
+      /* TEXTES — même traitement que les images, et pour les mêmes raisons.
+
+         Cette ligne écrivait `d.texts` TEL QUEL : le magasin entier, tous
+         produits confondus, sans la moindre garde. Deux dégâts :
+
+           • le design textuel des autres produits, figé à l'ajout, écrasait
+             celui en cours ;
+           • si l'entrée du produit de la ligne était absente, restoreTexts —
+             qui lit `conf_texts[currentProductType]` — ne trouvait rien. La
+             garde `__ouvertureDepuisPanier` retenait l'effacement PENDANT
+             l'ouverture, mais dès qu'elle retombait, les trois zones étaient
+             vidées. D'où des textes qui s'affichent puis disparaissent.
+
+         Le magasin des textes est PLAT (indexé par produit directement), sans
+         le `byProduct` des uploads : sa fusion s'écrit donc ici plutôt que par
+         `fusionnerPourProduit`.
+
+         Rien n'est écrit si l'entrée du produit est vide : « absent » ne doit
+         jamais devenir « effacé ». */
+      if (d.texts && prodLigne && d.texts[prodLigne] &&
+          Object.keys(d.texts[prodLigne]).length) {
+        var tCourant = {};
+        try { tCourant = JSON.parse(sessionStorage.getItem('conf_texts') || '{}'); }
+        catch (e) { tCourant = {}; }
+        if (!tCourant || typeof tCourant !== 'object') tCourant = {};
+        tCourant[prodLigne] = d.texts[prodLigne];   // la ligne fait foi
+        try { sessionStorage.setItem('conf_texts', JSON.stringify(tCourant)); }
+        catch (e) {
+          console.warn('Textes de la ligne non mémorisés (session saturée).', e);
+        }
+      } else if (prodLigne) {
+        /* LA LIGNE N'A PAS DE TEXTE : IL FAUT L'EFFACER, PAS L'IGNORER.
+
+           Ce cas n'avait aucune branche. `conf_texts` restait donc intact —
+           avec l'entrée laissée par la ligne ouverte JUSTE AVANT. restoreTexts
+           la relisait et l'affichait : une commande sans texte rouvrait celui
+           d'une autre.
+
+           « Absent » doit devenir « effacé », mais POUR CE PRODUIT SEULEMENT :
+           les autres produits gardent leur texte de travail, que cette ligne
+           ne concerne pas. */
+        try {
+          var tPurge = JSON.parse(sessionStorage.getItem('conf_texts') || '{}');
+          if (tPurge && typeof tPurge === 'object' && tPurge[prodLigne]) {
+            delete tPurge[prodLigne];
+            sessionStorage.setItem('conf_texts', JSON.stringify(tPurge));
+          }
+        } catch (e) {}
+      }
       return true;
     } catch (e) {
       /* Session illisible ou saturée : on n'interrompt pas l'ouverture. Le
@@ -376,6 +560,18 @@
     if (!item) return;
 
     if (typeof window.closeCartDrawer === 'function') window.closeCartDrawer();
+
+    /* GARDE-FOU LEVÉ EN PREMIER, ET HORS DE TOUTE BRANCHE.
+
+       Il empêche `rangerDesignMode` de ranger l'état sous la clé du mode
+       courant pendant une réouverture — l'article rouvert n'appartient pas
+       forcément au mode affiché, et le paquet de l'autre mode serait écrasé.
+
+       Il était levé plus bas, et seulement si la carte produit avait été
+       trouvée : la ligne suivante écrivait donc en session sans protection, et
+       un article dont la carte manquait n'en avait jamais. Le baisser reste du
+       ressort de la fin de restauration, déjà indépendante de cette carte. */
+    window.__ouvertureDepuisPanier = true;
 
     /* AVANT toute bascule : la session doit porter le design de cette ligne
        quand selProd et les restaurateurs iront le chercher. */
@@ -430,10 +626,11 @@
 
     var switched = false;
     if (card) {
-      /* Signale à l'élagage par produit (conf-main-inline.js) qu'il ne s'agit
-         pas d'un changement d'avis : purger les autres produits effacerait les
-         designs des autres lignes du panier, que le client peut rouvrir. */
-      window.__ouvertureDepuisPanier = true;
+      /* Le drapeau `__ouvertureDepuisPanier` est désormais levé au tout début
+         de cette fonction, avant la première écriture en session. Il signale à
+         l'élagage par produit (conf-main-inline.js) qu'il ne s'agit pas d'un
+         changement d'avis : purger les autres produits effacerait les designs
+         des autres lignes du panier, que le client peut rouvrir. */
 
       /* SORTIE DE L'ÉCRAN DE CHOIX.
 
@@ -480,7 +677,11 @@
          `restoreColor()` reste le repli — elle couvre les cas qu'`applyColor`
          ne sait pas traiter (patchs, coins), dont le libellé n'est pas un nom
          de pastille textile. */
-      if (!applyColor(item.color) && typeof window.restoreColor === 'function') {
+      /* Résultat MÉMORISÉ : `reposerDesign` rejoue `restoreColor` un peu plus
+         bas, et doit savoir si la couleur textile a déjà été posée par la
+         ligne. Sans cela, elle la remplacerait par celle de la session. */
+      var couleurLignePosee = applyColor(item.color);
+      if (!couleurLignePosee && typeof window.restoreColor === 'function') {
         window.restoreColor();
       }
       applySize(item.size);
@@ -516,7 +717,19 @@
            Une passe suffit : la couleur et la finition ne sont pas effacées
            entre-temps, contrairement aux logos que les images du vêtement
            peuvent recouvrir. */
-        if (premiere && typeof window.restoreColor === 'function') window.restoreColor();
+        /* PARTIE TEXTILE NEUTRALISÉE quand la ligne a déjà posé sa couleur.
+
+           `restoreColor` relit `conf_current_color` — la couleur de la SESSION,
+           pas celle de l'article. Rejouée ici sans condition, elle défaisait le
+           travail d'`applyColor` : un t-shirt individuel violet repartait avec
+           la couleur d'une ligne du groupe.
+
+           `sauterTextile` ne coupe que les pastilles de vêtement. Tout ce pour
+           quoi cet appel existe — la couleur des patchs et coins, la finition —
+           continue d'être reposé. */
+        if (premiere && typeof window.restoreColor === 'function') {
+          window.restoreColor(couleurLignePosee ? { sauterTextile: true } : undefined);
+        }
 
         if (typeof window.restoreUploads === 'function') window.restoreUploads();
 
@@ -561,8 +774,41 @@
           /* TEXTE COURBÉ : rendu en image, son contenu est vide — la
              substitution y est impossible. Même garde que les trois autres
              chemins du projet. */
-          if (contenuNom && !elNom.classList.contains('is-shaped')) {
-            contenuNom.textContent = item.personName;
+          /* TEXTE JAMAIS RENDU = RIEN À SUBSTITUER.
+
+             La révélation était inconditionnelle : sur une ligne dont le texte
+             n'avait pas été restauré, elle affichait un élément que
+             renderTextOnCanvas n'avait jamais stylé — ni couleur, ni police,
+             ni taille. Le surnom apparaissait en blanc par défaut, ce qui
+             passait pour « la couleur n'est pas restaurée ».
+
+             `dt-seg` ou un contenu non vide signalent un rendu réel. */
+          var dejaRendu = contenuNom &&
+            (contenuNom.querySelector('.dt-seg') ||
+             (contenuNom.textContent || '').trim() !== '');
+
+          if (contenuNom && dejaRendu && !elNom.classList.contains('is-shaped')) {
+            /* LE STYLE DU TEXTE EST PRÉSERVÉ.
+
+               `textContent =` remplaçait tous les nœuds enfants par un nœud
+               texte nu : les `<span class="dt-seg">` porteurs de la couleur,
+               de la graisse et du soulignement disparaissaient avec lui. Le
+               surnom perdait donc la mise en forme du texte qu'il remplace.
+
+               On réécrit le seul contenu textuel du PREMIER segment et on
+               retire les suivants : un surnom est un texte d'un seul tenant,
+               il hérite ainsi du style du texte qu'il remplace. Sans segment,
+               le style vit sur le conteneur et `textContent` ne détruit
+               rien. */
+            var segs = contenuNom.querySelectorAll('.dt-seg');
+            if (segs.length) {
+              segs[0].textContent = item.personName;
+              for (var iS = segs.length - 1; iS >= 1; iS--) {
+                if (segs[iS].parentNode) segs[iS].parentNode.removeChild(segs[iS]);
+              }
+            } else {
+              contenuNom.textContent = item.personName;
+            }
             if (elNom.style.display === 'none') elNom.style.display = '';
             /* Le surnom peut être plus long que le texte commun : la police
                doit être re-calée dans sa zone imprimable. */

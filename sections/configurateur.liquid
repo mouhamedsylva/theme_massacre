@@ -277,48 +277,19 @@
         <div class="sec">
           <div class="sec-title">2. Couleur</div>
           <div class="sec-sub">Choisissez la couleur de votre article</div>
-          <div class="cg">
-            <div class="cs" style="background:#f5a623" title="Apricot" onclick="selColor(this,'#f5a623','Apricot')"></div>
-            <div class="cs" style="background:#eff1f0;border:1.5px solid #ddd" title="Ash" onclick="selColor(this,'#eff1f0','Ash')"></div>
-            <div class="cs" style="background:#3bb9e0" title="Atoll" onclick="selColor(this,'#3bb9e0','Atoll')"></div>
-            <div class="cs on" style="background:#0a0a0a" title="Black" onclick="selColor(this,'#0a0a0a','Black')"></div>
-            <div class="cs" style="background:#143f2e" title="Bottle Green" onclick="selColor(this,'#143f2e','Bottle Green')"></div>
-            <div class="cs" style="background:#3a3130" title="Brown" onclick="selColor(this,'#3a3130','Brown')"></div>
-            <div class="cs" style="background:#3d1f35" title="Burgundy" onclick="selColor(this,'#3d1f35','Burgundy')"></div>
-            <div class="cs" style="background:#4a3830" title="Chocolate" onclick="selColor(this,'#4a3830','Chocolate')"></div>
-            <div class="cs" style="background:#1e32e6" title="Cobalt Blue" onclick="selColor(this,'#1e32e6','Cobalt Blue')"></div>
-            <div class="cs" style="background:#2e3944" title="Dark Grey" onclick="selColor(this,'#2e3944','Dark Grey')"></div>
-            <div class="cs" style="background:#1e6b78" title="Diva Blue" onclick="selColor(this,'#1e6b78','Diva Blue')"></div>
-            <div class="cs" style="background:#e01e1e" title="Fire Red" onclick="selColor(this,'#e01e1e','Fire Red')"></div>
-            <div class="cs" style="background:#f5c518" title="Gold" onclick="selColor(this,'#f5c518','Gold')"></div>
-            <div class="cs" style="background:#2fa84f" title="Kelly Green" onclick="selColor(this,'#2fa84f','Kelly Green')"></div>
-            <div class="cs" style="background:#6e7bd8" title="Millennial Lilac" onclick="selColor(this,'#6e7bd8','Millennial Lilac')"></div>
-            <div class="cs" style="background:#9ee5c4" title="Millennial Mint" onclick="selColor(this,'#9ee5c4','Millennial Mint')"></div>
-            <div class="cs" style="background:#e8e2d0;border:1.5px solid #ddd" title="Natural" onclick="selColor(this,'#e8e2d0','Natural')"></div>
-            <div class="cs" style="background:#1a2438" title="Navy" onclick="selColor(this,'#1a2438','Navy')"></div>
-            <div class="cs" style="background:#1b2a5b" title="Navy Blue" onclick="selColor(this,'#1b2a5b','Navy Blue')"></div>
-            <div class="cs" style="background:#f0500a" title="Orange" onclick="selColor(this,'#f0500a','Orange')"></div>
-            <div class="cs" style="background:#7de01e" title="Orchid Green" onclick="selColor(this,'#7de01e','Orchid Green')"></div>
-            <div class="cs" style="background:#f5c8dc;border:1.5px solid #e0afc4" title="Orchid Pink" onclick="selColor(this,'#f5c8dc','Orchid Pink')"></div>
-            <div class="cs" style="background:#8a8d91" title="Pacific Grey" onclick="selColor(this,'#8a8d91','Pacific Grey')"></div>
-            <div class="cs" style="background:#a8e020" title="Pixel Lime" onclick="selColor(this,'#a8e020','Pixel Lime')"></div>
-            <div class="cs" style="background:#3a1e9e" title="Radiant Purple" onclick="selColor(this,'#3a1e9e','Radiant Purple')"></div>
-            <div class="cs" style="background:#a81e32" title="Red" onclick="selColor(this,'#a81e32','Red')"></div>
-            <div class="cs" style="background:#1e4be0" title="Royal Blue" onclick="selColor(this,'#1e4be0','Royal Blue')"></div>
-            <div class="cs" style="background:#c4b49a" title="Sand" onclick="selColor(this,'#c4b49a','Sand')"></div>
-            <div class="cs" style="background:#9ed8f0" title="Sky" onclick="selColor(this,'#9ed8f0','Sky')"></div>
-            <div class="cs" style="background:#f5e518;border:1.5px solid #d4c518" title="Solar Yellow" onclick="selColor(this,'#f5e518','Solar Yellow')"></div>
-            <div class="cs" style="background:#b01e78" title="Sorbet" onclick="selColor(this,'#b01e78','Sorbet')"></div>
-            <div class="cs" style="background:#8a9499" title="Sport Grey" onclick="selColor(this,'#8a9499','Sport Grey')"></div>
-            <div class="cs" style="background:#3e6b85" title="Stone Blue" onclick="selColor(this,'#3e6b85','Stone Blue')"></div>
-            <div class="cs" style="background:#f5455e" title="Sunset Orange" onclick="selColor(this,'#f5455e','Sunset Orange')"></div>
-            <div class="cs" style="background:#5ed0c4" title="Swimming Pool" onclick="selColor(this,'#5ed0c4','Swimming Pool')"></div>
-            <div class="cs" style="background:#3a4130" title="Urban Khaki" onclick="selColor(this,'#3a4130','Urban Khaki')"></div>
-            <div class="cs" style="background:#c43418" title="Urban Orange" onclick="selColor(this,'#c43418','Urban Orange')"></div>
-            <div class="cs" style="background:#1e1e6e" title="Urban Purple" onclick="selColor(this,'#1e1e6e','Urban Purple')"></div>
-            <div class="cs" style="background:#2e3438" title="Used Black" onclick="selColor(this,'#2e3438','Used Black')"></div>
-            <div class="cs" style="background:#ffffff;border:1.5px solid #ddd" title="White" onclick="selColor(this,'#ffffff','White')"></div>
-          </div>
+          <!-- PASTILLES RENDUES DEPUIS LA PALETTE DU PRODUIT.
+
+               Quarante <div class="cs"> etaient ecrits ici en dur, partages
+               par les trois textiles. Le sweatshirt ayant desormais ses
+               propres teintes, la liste ne peut plus etre figee : elle est
+               construite par renduPastilles() (conf-palette-render.js) a
+               partir de PRODUCT_COLORS, et REDESSINEE a chaque changement de
+               produit.
+
+               Ce bloc reste la SOURCE unique : le menu au-dessus du canvas en
+               est un clone (conf-canvas-options.js), et plusieurs fonctions
+               lisent les .cs pour retrouver une couleur par son title. -->
+          <div class="cg" id="cg-couleurs"></div>
         </div>
 
         <!-- 3. Taille -->

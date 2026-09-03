@@ -1239,6 +1239,22 @@
       'White': 'white'
     };
 
+    /* LES SLUGS DES PALETTES COMPLÈTENT CETTE TABLE.
+
+       Elle ne connaissait que les quarante couleurs historiques. Les teintes
+       propres à un produit — celles du sweatshirt — n'y figurent pas, et sans
+       slug aucune image ne peut être résolue : le vêtement s'afficherait nu.
+
+       conf-palettes.js dérive la correspondance de chaque palette ; on la
+       recopie ici plutôt que de la maintenir à la main. La table historique
+       reste prioritaire : elle porte des cas que le nom seul ne donne pas
+       (« Navy » → `navy`, mais l'image de repli française est `bleu-marine`). */
+    if (window.COLOR_SLUGS_PALETTES) {
+      Object.keys(window.COLOR_SLUGS_PALETTES).forEach(function (nom) {
+        if (!COLOR_SLUGS[nom]) COLOR_SLUGS[nom] = window.COLOR_SLUGS_PALETTES[nom];
+      });
+    }
+
     /* ── Produits : data-product -> préfixe de fichier ── */
     const PRODUCT_SLUGS = {
       'sweatshirt': 'sweatshirt',
@@ -1565,7 +1581,29 @@
          plus bas que le col d'un t-shirt, si bien qu'à 31 % le bandeau mordait
          sur les cordons au lieu de tomber sur la poitrine. Même principe que
          SLEEVE, qui sépare déjà les deux silhouettes. */
-      var CHEST = { left: 38, top: isSweat ? 34 : 31, width: 24, height: 9 };
+      /* LARGEUR PROPRE AU POLYESTER — ses manches sont RAGLAN.
+
+         Mesuré sur les pixels opaques, à la hauteur de la zone (31 % → 40 %) :
+         le torse du coton reste large (68 à 80 % de l'image) et celui du sweat
+         aussi (57 à 61 %), parce que leurs manches restent collées au corps.
+         Le polyester, lui, a des manches détachées : dès 37 % de hauteur la
+         silhouette se sépare en trois blocs — manche, torse, manche — et le
+         torse tombe à 40 %.
+
+         Les 24 % de la zone représentent ~42 % de la largeur de l'image (le
+         calque couvre tout le conteneur, l'image n'en occupe que ~57 %). Sur
+         le polyester, la moitié basse de la zone mordait donc sur les manches.
+
+         21 % = 92 % du torse disponible : la marge restante évite de coller
+         aux coutures. Les deux autres textiles gardent 24 %, leur torse étant
+         assez large — rien ne justifierait de les rétrécir. */
+      var chestW = (productType === 'tshirt_polyester') ? 21 : 24;
+      var CHEST = {
+        left: 50 - chestW / 2,   // centré, quel que soit le produit
+        top: isSweat ? 34 : 31,
+        width: chestW,
+        height: 9
+      };
       // Largeur initiale d'un logo dans le bandeau, et marge intérieure.
       var chLogoW = 7.5, chPad = CHEST.width * 0.06;
       /* Zone dos.
@@ -2409,12 +2447,50 @@
        lit ce qui a été enregistré pour CE produit). */
     function applyColorForProduct(productType) {
       var saved = savedColorFor(productType);
-      var name = (saved && saved.name) ? saved.name : 'Black';
-      var hex = (saved && saved.hex) ? saved.hex : '#0a0a0a';
+      var name = (saved && saved.name) ? saved.name : null;
+      var hex = (saved && saved.hex) ? saved.hex : null;
+
+      /* LA COULEUR DOIT APPARTENIR À LA PALETTE DU PRODUIT.
+
+         Le défaut était « Black » pour les trois textiles, et la couleur
+         mémorisée était reprise sans vérification. Depuis que chaque produit a
+         sa palette, les deux sont faux : le sweatshirt n'a pas de couleur
+         nommée « Black », et une teinte retenue sur un produit peut ne pas
+         exister sur un autre.
+
+         Le symptôme n'était pas une erreur mais un MENSONGE : aucune pastille
+         ne portait ce nom, aucune n'était donc activée, et le libellé restait
+         celui du produit précédent. L'écran affichait une couleur, l'état
+         interne en portait une autre.
+
+         On réconcilie explicitement : couleur inconnue de la palette → la
+         première de cette palette. */
+      var retenue = (typeof window.couleurDansPalette === 'function')
+        ? window.couleurDansPalette(productType, name) : null;
+      if (!retenue && typeof window.couleurParDefaut === 'function') {
+        retenue = window.couleurParDefaut(productType);
+      }
+      if (retenue) {
+        name = retenue.nom;
+        /* La teinte vient de la PALETTE, pas de la session : un hex mémorisé
+           pour un homonyme d'une autre palette donnerait la mauvaise nuance. */
+        hex = retenue.hex;
+      }
+      if (!name) { name = 'Black'; hex = hex || '#0a0a0a'; }
 
       currentColor = hex;
       currentColorName = name;
-      currentColorSlug = COLOR_SLUGS[name] || 'noir';
+      currentColorSlug = (retenue && retenue.slug) || COLOR_SLUGS[name] || 'noir';
+
+      /* PASTILLES REDESSINÉES AVANT D'ÊTRE CHERCHÉES.
+
+         Elles appartiennent au produit : celles de l'ancien produit sont encore
+         dans le document à cet instant. Les parcourir sans les avoir refaites
+         reviendrait à chercher la couleur du nouveau produit parmi celles de
+         l'ancien. Le rendu pose aussi l'état actif, d'où le second argument. */
+      if (typeof window.renduPastilles === 'function') {
+        window.renduPastilles(productType, name);
+      }
 
       // État visuel de la pastille correspondante.
       document.querySelectorAll('.cs').forEach(function (s) { s.classList.remove('on'); });
@@ -2813,7 +2889,7 @@
              le commentaire du remplissage). */
           const dz = vignettes.get(cleVignette(r)) || { thumb: fallbackSrc, sheet: null };
           pushToCart({
-            id: Date.now() + idx,
+            id: nouvelIdLigne(),
             productType: currentProductType,
             name: productName,
             color: 'Couleur : ' + r.color,
@@ -2842,56 +2918,40 @@
         window.persistCartSafe(cartItems);
         renderCartDrawer();
         openCartDrawer();
-        // Consommée : un second clic ne redupliquerait pas la liste.
-        groupOrderRows = null;
-        saveGroupRows();        // efface aussi la copie en session
+        /* LA LISTE EST CONSERVÉE — et le design avec elle.
+
+           Elle était vidée ici, avec le design commun, pour qu'un parcours
+           suivant démarre propre. À l'usage c'est l'inverse qui sert : on
+           commande souvent plusieurs variantes d'un même visuel, et tout
+           refaire à chaque fois est le vrai coût.
+
+           CONSÉQUENCE ASSUMÉE : la liste étant la condition d'entrée de cette
+           branche (voir plus haut), un second clic recommande la même liste.
+           C'est voulu — commander deux fois le même groupe devient possible.
+           `withCartLock` bloque toujours les doubles clics involontaires
+           pendant l'ajout ; passé ce délai, recliquer est délibéré.
+
+           Le badge, lui, doit refléter la liste : elle ne change plus, il
+           reste donc juste — mais on le rafraîchit, l'ajout ayant pu modifier
+           les quantités. */
         refreshGroupBadge();
 
-        /* DESIGN COMMUN EFFACÉ — la commande est partie.
+        /* RIEN N'EST EFFACÉ, ET ON RESTE SUR « VÉRIFIER ».
 
-           Il était conservé pour enchaîner une seconde liste avec le même
-           visuel. Mais le client repart alors sur un vêtement déjà décoré sans
-           l'avoir demandé, et doit défaire ce qu'il n'a pas fait : le parcours
-           suivant démarre propre.
+           Le design commun et la liste étaient vidés ici, puis le
+           configurateur revenait à l'écran de choix. Le client perdait donc
+           son travail au moment même où il venait de le commander.
 
-           RIEN N'EST PERDU POUR LA COMMANDE. Chaque ligne du panier porte son
-           design complet (`item.design`), doublé d'une réserve en mémoire vive
-           (`window.__designsPanier`). Cliquer la vignette rouvre donc le design
-           tel qu'il a été commandé — la restauration lit la LIGNE, jamais
-           l'écran (conf-cart-open-design.js:291).
+           Il le garde désormais sous les yeux : le tiroir du panier s'ouvre
+           PAR-DESSUS pour confirmer l'ajout, sans rien déplacer derrière.
 
-           Les deux emplacements sont vidés : la session courante ET le paquet
-           rangé par mode. Sans le second, `retourChoixMode` rangerait un état
-           vide par-dessus, mais le paquet du parcours précédent resurgirait au
-           mode suivant. */
-        try {
-          for (var iC = 0; iC < CLES_DESIGN.length; iC++) {
-            sessionStorage.removeItem(CLES_DESIGN[iC]);
-          }
-          sessionStorage.removeItem(cleDesignMode('groupe'));
-        } catch (e) {}
-        /* Affichage seul : les entrées de session viennent d'être retirées, et
-           les lignes du panier gardent leur propre copie. */
-        if (typeof viderLogosAffiches === 'function') viderLogosAffiches(true);
+           CELA NE RETIRE RIEN AUX LIGNES DÉJÀ AU PANIER : chacune porte son
+           design complet (item.design), doublé d'une réserve en mémoire
+           vive. Leur réouverture lit la LIGNE, jamais l’écran
+           (conf-cart-open-design.js). Conserver l'écran leur est indifférent.
 
-        /* RETOUR À L'ÉCRAN DE CHOIX — le parcours de groupe est terminé.
-
-           Rester sur « Vérifier » laissait le client devant des cartes dont la
-           commande venait de partir : rien à y faire, et le bouton d'ajout
-           invitait à recommencer.
-
-           IMMÉDIAT, et non plus après 1,2 s.
-
-           Ce délai montrait une étape « Vérifier » VIDE : la liste de personnes
-           venait d'être effacée juste au-dessus, les cartes n'avaient donc plus
-           rien à afficher, et le canevas était masqué le temps des mesures. Le
-           client voyait une page blanche entre son clic et l'écran de choix.
-
-           Il avait été introduit pour laisser voir le tiroir du panier avant le
-           changement d'écran. Mais le tiroir s'ouvre PAR-DESSUS et y reste : la
-           commande ajoutée est visible pendant et après la redirection. Rien
-           n'est perdu à l'exécuter tout de suite. */
-        if (typeof retourChoixMode === 'function') retourChoixMode();
+           L'ISOLATION ENTRE MODES reste entière : elle repose sur
+           rangerDesignMode() au changement de mode, pas sur cet effacement. */
         return;
       }
 
@@ -2905,7 +2965,7 @@
       const design = await resolveDesignImage(fallbackSrc, btnEl);
 
       const item = {
-        id: Date.now(),
+        id: nouvelIdLigne(),
         productType: currentProductType,
         name:  productName,
         color: rcColor ? rcColor.textContent.trim() : '',
@@ -3184,6 +3244,29 @@
      *   trente reconstructions du tiroir pour un résultat identique. C'est
      *   aussi ce qui faisait clignoter l'écran pendant tout l'ajout.
      */
+    /* ═══ IDENTIFIANT DE LIGNE DE PANIER ══════════════════════════════════
+
+       `Date.now() + idx` n'est pas un identifiant : c'est une addition sur une
+       horloge. Une liste de N personnes réservait la plage `T … T+N-1`, soit N
+       millisecondes DE FUTUR. Tout ajout suivant pris par `Date.now()` et
+       tombant dans cette plage recevait un identifiant DÉJÀ ATTRIBUÉ.
+
+       Les conséquences étaient silencieuses et sévères :
+         • `findItem` renvoie la première ligne trouvée — cliquer la vignette
+           individuelle rouvrait le design du groupe ;
+         • `__designsPanier[id]` écrasait la réserve de l'autre ligne ;
+         • supprimer une ligne détruisait le design de l'autre.
+
+       Le compteur garantit l'unicité sans dépendre de l'horloge, même pour
+       plusieurs ajouts dans la même milliseconde. L'horodatage reste la base :
+       les identifiants gardent leur ordre chronologique, et restent numériques
+       — le rendu leur applique `Number(...)` et `findItem` compare avec `==`. */
+    var _seqLigne = 0;
+    function nouvelIdLigne() {
+      _seqLigne += 1;
+      return Date.now() * 1000 + (_seqLigne % 1000);
+    }
+
     /* `reserveFournie` : état COMPLET (non filtré) déjà capturé par l'appelant.
        Les lignes d'un groupe partagent un design commun ; le recalculer par
        ligne enchaînait sept lectures de session, autant de `JSON.parse` et un
@@ -3486,7 +3569,7 @@
       }
 
       const item = {
-        id: Date.now(),
+        id: nouvelIdLigne(),
         productType: currentProductType,
         name: name,
         color: details,   // on met les détails dans le champ "color" (affiché en propriétés)
@@ -7864,11 +7947,27 @@
     function basculerModeAvecRechargement(sortant, entrant) {
       if (window.__ouvertureDepuisPanier) return false;
 
-      /* `sortant` vaut null après un passage par l'écran de choix, qui a
-         retiré le mode (:7307). On recharge QUAND MÊME : le design y a été
-         rangé, mais l'état mémoire du mode précédent, lui, est toujours vivant.
-         Ne sortir que si l'on reprend exactement le même mode sans détour. */
-      if (sortant && sortant === entrant) return false;
+      /* AUCUN MODE À QUITTER = AUCUN RECHARGEMENT.
+
+         La condition portait `sortant && sortant === entrant`, ce qui la
+         rendait inopérante quand `sortant` valait null — précisément l'état
+         laissé par `retourChoixMode()`, qui retire le mode de la session après
+         avoir rangé le design et vidé l'affichage.
+
+         C'est l'état d'après un ajout de commande de groupe. Reprendre un
+         parcours de groupe rechargeait donc la page pour isoler un mode qui
+         n'existait plus, le démarrage reposait `data-mode` depuis la session
+         que la bascule venait d'écrire, et le cycle se refermait : la page se
+         rechargeait sans fin.
+
+         Le commentaire précédent justifiait ce rechargement par « l'état
+         mémoire du mode précédent, toujours vivant ». Il ne l'est plus dans ce
+         cas : l'ajout au panier l'a effacé.
+
+         Un rechargement ne sert qu'à séparer DEUX modes. Sans mode sortant, il
+         n'isole rien — et `choisirMode` sait entrer dans le mode par lui-même
+         quand on ne recharge pas. */
+      if (!sortant || sortant === entrant) return false;
 
       if (sortant) rangerDesignMode(sortant);
 
@@ -8107,6 +8206,24 @@
               typeof window.modernSidebar.openPanel === 'function') {
             window.modernSidebar.openPanel('panel-equipe');
           }
+
+          /* PANNEAU REDESSINÉ, PAS SEULEMENT OUVERT.
+
+             `eqRendreNoms` n'était appelée qu'à l'ajout d'un surnom, à son
+             retrait, et au chargement de la page. Le panneau gardait donc le
+             HTML de la liste PRÉCÉDENTE : après un ajout au panier, les
+             surnoms de la commande partie restaient affichés — compteur
+             compris — alors que la liste était bien vide.
+
+             Le rechargement de page masquait ce défaut en rejouant
+             DOMContentLoaded. Il a été supprimé pour corriger une boucle
+             infinie ; le nettoyage doit donc être explicite.
+
+             Ici plutôt qu'à l'ajout au panier : ce point couvre TOUTE entrée
+             en mode groupe, quel qu'en soit le chemin — retour du panier,
+             changement de mode, reprise de session. La fonction lit l'état
+             réel, elle ne peut donc rien détruire. */
+          if (typeof eqRendreNoms === 'function') eqRendreNoms();
         });
       }
     }
@@ -8847,6 +8964,17 @@
            sans dire quoi faire. Ce texte remplace aussi le sous-titre de
            l'en-tête, retiré — il est ici plus près du champ de saisie. */
         hote.innerHTML = '<p class="eq-vide">Ajoutez les surnoms de votre groupe</p>';
+
+        /* L'APERÇU SUIT LA LISTE.
+
+           `eqEssayerNom` y écrit « Aperçu : <nom> », mais rien ne le remettait
+           jamais à son état neutre : le nom d'un surnom disparu restait
+           affiché sous un cadre vide. Liste vide = plus rien à prévisualiser.
+           Texte identique à celui du gabarit (snippets/sidebar-modern.liquid). */
+        var lblVide = document.getElementById('eq-apercu-nom');
+        if (lblVide) lblVide.textContent = 'Touchez un surnom pour l\'essayer';
+
+        if (typeof majBlocageEtapeGroupe === 'function') majBlocageEtapeGroupe();
         return;
       }
 

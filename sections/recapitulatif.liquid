@@ -469,10 +469,19 @@
      garde-fous inatteignables (`skipped` restait toujours vide) et laissait les
      coins partir au paiement à un prix jamais validé par le commerçant.
      NE PAS le rétablir sans retirer d'abord la bascule devis. */
+  /* VARIANTS DE REPLI — mis à jour avec les nouvelles palettes.
+
+     Ils pointaient vers « Apricot », première couleur de l'ancien nuancier.
+     Ces variants ont été SUPPRIMÉS en même temps que les 120 autres : les
+     conserver ici aurait renvoyé un 422 « variante introuvable » dès qu'une
+     ligne retombe sur le repli.
+
+     C'est désormais le « Noir » de chaque produit — la couleur d'ouverture du
+     configurateur, et la seule dont l'image existe sur les trois textiles. */
   var CONF_VARIANTS = {
-    sweatshirt:       60327512342862,
-    tshirt:           60327514669390,
-    tshirt_polyester: 60327519224142,
+    sweatshirt:       60636258140494,
+    tshirt:           60636259582286,
+    tshirt_polyester: 60636262465870,
     /* Variant de REPLI du drapeau : « Blanc », première couleur du nuancier.
        Le produit a 4 variants couleur depuis le 11/08/2026 — l'ancien
        `Default Title` (60327528563022) a été SUPPRIMÉ par leur création
@@ -503,284 +512,247 @@
 
      Valeur maintenue par customizer-backend/scripts/injecter-variants.mjs,
      qui réécrit désormais les DEUX fichiers — ne pas éditer à la main. */
-  window.CONF_SLEEVE_VARIANT = 60327504183630;
+  /* REPLI DU SUPPLÉMENT MANCHES — mis à jour le 03/09/2026.
 
-  /* Variants du supplément manches PAR TEXTILE ET COULEUR.
+     Deux valeurs se sont succédé ici, chacune devenue caduque :
+       • 60327504183630 — variant supprimé de longue date, l'API répondait 404 ;
+       • 60386849685838 — « Sweatshirt / Apricot », emporté par la refonte du
+         produit manches (voir CONF_SLEEVE_COLOR_VARIANTS ci-dessous).
 
-     Le produit « Personnalisation manche » n'avait qu'un variant unique : la
-     vignette du checkout montrait donc toujours le même visuel, quelle que soit
-     la couleur commandée — incohérent avec la ligne du textile juste au-dessus.
-     Il porte désormais un variant par combinaison (3 textiles × 40 couleurs),
-     chacun avec l'image de CÔTÉ correspondante : c'est la manche qu'on floque.
+     Un repli invalide ne se voit pas au configurateur : il échoue au PAIEMENT,
+     avec « variante introuvable ».
 
-     Structure : { productType: { nomCouleurEN: variantId } } — même forme que
-     CONF_COLOR_VARIANTS ci-dessous, donc même logique de résolution.
+     C'est maintenant le variant « Noir », présent dans les trois palettes.
+     Le supplément coûte 4,00 € quelle que soit la couleur : un repli ne fausse
+     donc que le libellé, jamais le montant. */
+  window.CONF_SLEEVE_VARIANT = 60636388458830;
 
-     VIDE tant que les variants n'existent pas : sleeveVariantForItem() retombe
-     alors sur CONF_SLEEVE_VARIANT, et la facturation continue exactement comme
-     avant. C'est ce qui permet de déployer ce code AVANT de toucher au
-     catalogue, sans fenêtre d'indisponibilité.
+  /* Variants du supplément manches, PAR TEXTILE ET COULEUR.
 
-     Rempli par customizer-backend/scripts/exporter-variants.mjs — ne pas
-     éditer à la main. */
+     Le produit « Personnalisation manche » porte une image de CÔTÉ par
+     couleur — c'est la manche qu'on floque, et c'est elle que montre la
+     vignette du checkout.
+
+     ── UNE SEULE OPTION « COULEUR » ────────────────────────────────────────
+     Le produit croisait Textile × Couleur (2 × 40 = 80 variants). Passer à
+     trois textiles et 54 couleurs distinctes en aurait demandé 162, car
+     Shopify crée TOUJOURS le produit cartésien complet — au-delà de la limite
+     de 100 du plan Basic, pour 79 combinaisons réellement utiles.
+
+     L'option Textile a donc été retirée : elle était redondante, la ligne du
+     vêtement figurant juste au-dessus dans la commande, et le supplément
+     coûtant 4,00 € dans tous les cas. Restent 54 variants, un par couleur.
+
+     ── POURQUOI LA TABLE RESTE INDEXÉE PAR PRODUIT ─────────────────────────
+     Elle épouse la forme attendue par sleeveVariantForItem() et
+     CONF_COLOR_VARIANTS : { productType: { nomCouleur: variantId } }. Vingt et
+     un noms sont partagés par plusieurs palettes (« Noir », « Bordeaux »…) :
+     ces entrées pointent alors vers le MÊME variant depuis deux ou trois
+     produits. C'est voulu — un seul variant existe pour ce nom.
+
+     Une couleur absente de la table retombe sur CONF_SLEEVE_VARIANT : la
+     facturation ne peut jamais être interrompue, seule la vignette est moins
+     précise.
+
+     Généré par customizer-backend/scripts/remplacer-variants-manches.mjs —
+     ne pas éditer à la main. */
   window.CONF_SLEEVE_COLOR_VARIANTS = {
     'sweatshirt': {
-      'Apricot': 60386849685838,
-      'Ash': 60386849718606,
-      'Atoll': 60386849751374,
-      'Black': 60386849784142,
-      'Bottle Green': 60386849816910,
-      'Brown': 60386849849678,
-      'Burgundy': 60386849882446,
-      'Chocolate': 60386849915214,
-      'Cobalt Blue': 60386849947982,
-      'Dark Grey': 60386849980750,
-      'Diva Blue': 60386850013518,
-      'Fire Red': 60386850046286,
-      'Gold': 60386850079054,
-      'Kelly Green': 60386850111822,
-      'Millennial Lilac': 60386850144590,
-      'Millennial Mint': 60386850177358,
-      'Natural': 60386850210126,
-      'Navy': 60386850242894,
-      'Navy Blue': 60386850275662,
-      'Orange': 60386850308430,
-      'Orchid Green': 60386850341198,
-      'Orchid Pink': 60386850373966,
-      'Pacific Grey': 60386850406734,
-      'Pixel Lime': 60386850439502,
-      'Radiant Purple': 60386850472270,
-      'Red': 60386850505038,
-      'Royal Blue': 60386850537806,
-      'Sand': 60386850570574,
-      'Sky': 60386850603342,
-      'Solar Yellow': 60386850636110,
-      'Sorbet': 60386850668878,
-      'Sport Grey': 60386850701646,
-      'Stone Blue': 60386850734414,
-      'Sunset Orange': 60386850767182,
-      'Swimming Pool': 60386850799950,
-      'Urban Khaki': 60386850832718,
-      'Urban Orange': 60386850865486,
-      'Urban Purple': 60386850898254,
-      'Used Black': 60386850931022,
-      'White': 60386850963790,
+      'Blanc / Transparent': 60636387508558,
+      'Blanc rosé':          60636387541326,
+      'Blanc cassé':         60636387574094,
+      'Camel':               60636387606862,
+      'Taupe':               60636387639630,
+      'Taupe rosé':          60636387672398,
+      'Jaune vif':           60636387705166,
+      'Caramel':             60636387737934,
+      'Orange vif':          60636387770702,
+      'Rouge cerise':        60636387803470,
+      'Corail':              60636387836238,
+      'Mauve foncé':         60636387869006,
+      'Prune':               60636387901774,
+      'Bordeaux':            60636387934542,
+      'Rose fuchsia':        60636387967310,
+      'Rose pâle':           60636388000078,
+      'Bleu ciel':           60636388032846,
+      'Bleu azur':           60636388065614,
+      'Bleu marine':         60636388098382,
+      'Bleu gris':           60636388131150,
+      'Gris ardoise':        60636388163918,
+      'Gris bleuté':         60636388196686,
+      'Gris clair':          60636388229454,
+      'Gris perle':          60636388262222,
+      'Gris anthracite':     60636388294990,
+      'Vert amande':         60636388327758,
+      'Vert sapin':          60636388360526,
+      'Vert kaki':           60636388393294,
+      'Kaki foncé':          60636388426062,
+      'Noir':                60636388458830
     },
     'tshirt': {
-      'Apricot': 60386850996558,
-      'Ash': 60386851029326,
-      'Atoll': 60386851062094,
-      'Black': 60386851094862,
-      'Bottle Green': 60386851127630,
-      'Brown': 60386851160398,
-      'Burgundy': 60386851193166,
-      'Chocolate': 60386851225934,
-      'Cobalt Blue': 60386851258702,
-      'Dark Grey': 60386851291470,
-      'Diva Blue': 60386851324238,
-      'Fire Red': 60386851357006,
-      'Gold': 60386851389774,
-      'Kelly Green': 60386851422542,
-      'Millennial Lilac': 60386851455310,
-      'Millennial Mint': 60386851488078,
-      'Natural': 60386851520846,
-      'Navy': 60386851553614,
-      'Navy Blue': 60386851586382,
-      'Orange': 60386851619150,
-      'Orchid Green': 60386851651918,
-      'Orchid Pink': 60386851684686,
-      'Pacific Grey': 60386851717454,
-      'Pixel Lime': 60386851750222,
-      'Radiant Purple': 60386851782990,
-      'Red': 60386851815758,
-      'Royal Blue': 60386851848526,
-      'Sand': 60386851881294,
-      'Sky': 60386851914062,
-      'Solar Yellow': 60386851946830,
-      'Sorbet': 60386851979598,
-      'Sport Grey': 60386852012366,
-      'Stone Blue': 60386852045134,
-      'Sunset Orange': 60386852077902,
-      'Swimming Pool': 60386852110670,
-      'Urban Khaki': 60386852143438,
-      'Urban Orange': 60386852176206,
-      'Urban Purple': 60386852208974,
-      'Used Black': 60386852241742,
-      'White': 60386852274510,
+      'Blanc':              60636388491598,
+      'Camel':              60636387606862,
+      'Rose taupe':         60636388524366,
+      'Vert olive':         60636388557134,
+      'Marron chocolat':    60636388589902,
+      'Jaune vif':          60636387705166,
+      'Orange vif':         60636387770702,
+      'Rouge écarlate':     60636388622670,
+      'Bordeaux':           60636387934542,
+      'Rose fuchsia':       60636387967310,
+      'Rose pâle':          60636388000078,
+      'Violet aubergine':   60636388655438,
+      'Mauve orchidée':     60636388688206,
+      'Bleu roi':           60636388720974,
+      'Bleu ciel pâle':     60636388753742,
+      'Bleu turquoise':     60636388786510,
+      'Bleu cyan':          60636388819278,
+      'Bleu ardoise':       60636388852046,
+      'Bleu marine foncé':  60636388884814,
+      'Jaune citron':       60636388917582,
+      'Vert anis clair':    60636388950350,
+      'Vert pomme':         60636388983118,
+      'Vert prairie':       60636389015886,
+      'Vert émeraude':      60636389048654,
+      'Vert sapin':         60636388360526,
+      'Kaki doré':          60636389081422,
+      'Kaki foncé':         60636388426062,
+      'Gris clair':         60636388229454,
+      'Gris perle':         60636388262222,
+      'Gris ardoise foncé': 60636389114190,
+      'Vert militaire':     60636389146958,
+      'Noir':               60636388458830
     },
     'tshirt_polyester': {
-      'Apricot': 60386886680910,
-      'Ash': 60386886713678,
-      'Atoll': 60386886746446,
-      'Black': 60386886779214,
-      'Bottle Green': 60386886811982,
-      'Brown': 60386886844750,
-      'Burgundy': 60386886877518,
-      'Chocolate': 60386886910286,
-      'Cobalt Blue': 60386886943054,
-      'Dark Grey': 60386886975822,
-      'Diva Blue': 60386887008590,
-      'Fire Red': 60386887041358,
-      'Gold': 60386887074126,
-      'Kelly Green': 60386887106894,
-      'Millennial Lilac': 60386887139662,
-      'Millennial Mint': 60386887172430,
-      'Natural': 60386887205198,
-      'Navy': 60386887237966,
-      'Navy Blue': 60386887270734,
-      'Orange': 60386887303502,
-      'Orchid Green': 60386887336270,
-      'Orchid Pink': 60386887369038,
-      'Pacific Grey': 60386887401806,
-      'Pixel Lime': 60386887434574,
-      'Radiant Purple': 60386887467342,
-      'Red': 60386887500110,
-      'Royal Blue': 60386887532878,
-      'Sand': 60386887565646,
-      'Sky': 60386887598414,
-      'Solar Yellow': 60386887631182,
-      'Sorbet': 60386887663950,
-      'Sport Grey': 60386887696718,
-      'Stone Blue': 60386887729486,
-      'Sunset Orange': 60386887762254,
-      'Swimming Pool': 60386887795022,
-      'Urban Khaki': 60386887827790,
-      'Urban Orange': 60386887860558,
-      'Urban Purple': 60386887893326,
-      'Used Black': 60386887926094,
-      'White': 60386887958862,
-    },
+      'Blanc':             60636388491598,
+      'Beige taupe':       60636389179726,
+      'Jaune vif':         60636387705166,
+      'Jaune citron':      60636388917582,
+      'Orange vif':        60636387770702,
+      'Corail':            60636387836238,
+      'Rouge écarlate':    60636388622670,
+      'Rose fuchsia':      60636387967310,
+      'Violet indigo':     60636389212494,
+      'Bleu roi':          60636388720974,
+      'Bleu turquoise':    60636388786510,
+      'Bleu marine foncé': 60636388884814,
+      'Vert émeraude':     60636389048654,
+      'Vert anis':         60636389245262,
+      'Kaki doré':         60636389081422,
+      'Vert militaire':    60636389146958,
+      'Noir':              60636388458830
+    }
   };
 
   // Variants par COULEUR (produits textiles avec option Couleur dans Shopify).
   // Permet à la vignette du checkout Shopify de prendre la bonne couleur.
   // Les produits/couleurs absents ici retombent sur CONF_VARIANTS (variant de base).
+  /* ═══ SWEATSHIRT — NOUVELLE PALETTE, VARIANTS À CRÉER ════════════════════
+
+     Le sweatshirt a désormais ses trente teintes (assets/conf-palettes.js).
+     Les variants ci-dessous portent encore les ANCIENS noms anglais : aucune
+     des nouvelles couleurs n'y correspond.
+
+     CE QUE CELA IMPLIQUE AUJOURD'HUI : `variantForItem` ne trouve pas le nom,
+     ni sa traduction, et retombe sur le PREMIER variant de la table. Le prix
+     reste juste, mais la confirmation de commande et la facture affichent une
+     autre couleur ; la vraie ne survit que dans les propriétés de ligne. Un
+     avertissement « Couleur remplacée » s'affiche avant paiement, et la console
+     détaille chaque repli.
+
+     POUR CORRIGER : créer les trente valeurs de l'option « Couleur » dans
+     l'admin Shopify (noms exacts, accents compris — voir
+     COULEURS-SWEATSHIRT.md), puis remplacer le bloc `sweatshirt` ci-dessous
+     par ces noms et leurs identifiants. L'identifiant se lit dans l'URL du
+     variant : …/variants/60327512342862
+
+     La table `CONF_SLEEVE_COLOR_VARIANTS` (supplément manches) suit la même
+     forme et doit être mise à jour en même temps. */
   var CONF_COLOR_VARIANTS = {
     sweatshirt: {
-      'Apricot':          60327512342862,
-      'Ash':              60327512375630,
-      'Atoll':            60327512408398,
-      'Black':            60327512441166,
-      'Bottle Green':     60327512473934,
-      'Brown':            60327512506702,
-      'Burgundy':         60327512539470,
-      'Chocolate':        60327512572238,
-      'Cobalt Blue':      60327512605006,
-      'Dark Grey':        60327512637774,
-      'Diva Blue':        60327512670542,
-      'Fire Red':         60327512703310,
-      'Gold':             60327512736078,
-      'Kelly Green':      60327512768846,
-      'Millennial Lilac': 60327512801614,
-      'Millennial Mint':  60327512834382,
-      'Natural':          60327512867150,
-      'Navy':             60327512899918,
-      'Navy Blue':        60327512932686,
-      'Orange':           60327512965454,
-      'Orchid Green':     60327512998222,
-      'Orchid Pink':      60327513030990,
-      'Pacific Grey':     60327513063758,
-      'Pixel Lime':       60327513096526,
-      'Radiant Purple':   60327513129294,
-      'Red':              60327513162062,
-      'Royal Blue':       60327513194830,
-      'Sand':             60327513227598,
-      'Sky':              60327513260366,
-      'Solar Yellow':     60327513293134,
-      'Sorbet':           60327513325902,
-      'Sport Grey':       60327513358670,
-      'Stone Blue':       60327513391438,
-      'Sunset Orange':    60327513424206,
-      'Swimming Pool':    60327513456974,
-      'Urban Khaki':      60327513489742,
-      'Urban Orange':     60327513522510,
-      'Urban Purple':     60327513555278,
-      'Used Black':       60327513588046,
-      'White':            60327513620814
+      'Blanc / Transparent': 60636257190222,
+      'Blanc rosé':          60636257222990,
+      'Blanc cassé':         60636257255758,
+      'Camel':               60636257288526,
+      'Taupe':               60636257321294,
+      'Taupe rosé':          60636257354062,
+      'Jaune vif':           60636257386830,
+      'Caramel':             60636257419598,
+      'Orange vif':          60636257452366,
+      'Rouge cerise':        60636257485134,
+      'Corail':              60636257517902,
+      'Mauve foncé':         60636257550670,
+      'Prune':               60636257583438,
+      'Bordeaux':            60636257616206,
+      'Rose fuchsia':        60636257648974,
+      'Rose pâle':           60636257681742,
+      'Bleu ciel':           60636257714510,
+      'Bleu azur':           60636257747278,
+      'Bleu marine':         60636257780046,
+      'Bleu gris':           60636257812814,
+      'Gris ardoise':        60636257845582,
+      'Gris bleuté':         60636257878350,
+      'Gris clair':          60636257911118,
+      'Gris perle':          60636257943886,
+      'Gris anthracite':     60636257976654,
+      'Vert amande':         60636258009422,
+      'Vert sapin':          60636258042190,
+      'Vert kaki':           60636258074958,
+      'Kaki foncé':          60636258107726,
+      'Noir':                60636258140494
     },
     tshirt: {
-      'Apricot':          60327514669390,
-      'Ash':              60327514702158,
-      'Atoll':            60327514734926,
-      'Black':            60327514767694,
-      'Bottle Green':     60327514800462,
-      'Brown':            60327514833230,
-      'Burgundy':         60327514865998,
-      'Chocolate':        60327514898766,
-      'Cobalt Blue':      60327514931534,
-      'Dark Grey':        60327514964302,
-      'Diva Blue':        60327514997070,
-      'Fire Red':         60327515029838,
-      'Gold':             60327515062606,
-      'Kelly Green':      60327515095374,
-      'Millennial Lilac': 60327515128142,
-      'Millennial Mint':  60327515160910,
-      'Natural':          60327515193678,
-      'Navy':             60327515226446,
-      'Navy Blue':        60327515259214,
-      'Orange':           60327515291982,
-      'Orchid Green':     60327515324750,
-      'Orchid Pink':      60327515357518,
-      'Pacific Grey':     60327515390286,
-      'Pixel Lime':       60327515423054,
-      'Radiant Purple':   60327515455822,
-      'Red':              60327515488590,
-      'Royal Blue':       60327515521358,
-      'Sand':             60327515554126,
-      'Sky':              60327515586894,
-      'Solar Yellow':     60327515619662,
-      'Sorbet':           60327515652430,
-      'Sport Grey':       60327515685198,
-      'Stone Blue':       60327515717966,
-      'Sunset Orange':    60327515750734,
-      'Swimming Pool':    60327515783502,
-      'Urban Khaki':      60327515816270,
-      'Urban Orange':     60327515849038,
-      'Urban Purple':     60327515881806,
-      'Used Black':       60327515914574,
-      'White':            60327515947342
+      'Blanc':              60636258566478,
+      'Camel':              60636258599246,
+      'Rose taupe':         60636258632014,
+      'Vert olive':         60636258664782,
+      'Marron chocolat':    60636258697550,
+      'Jaune vif':          60636258730318,
+      'Orange vif':         60636258763086,
+      'Rouge écarlate':     60636258795854,
+      'Bordeaux':           60636258828622,
+      'Rose fuchsia':       60636258861390,
+      'Rose pâle':          60636258894158,
+      'Violet aubergine':   60636258926926,
+      'Mauve orchidée':     60636258959694,
+      'Bleu roi':           60636258992462,
+      'Bleu ciel pâle':     60636259025230,
+      'Bleu turquoise':     60636259057998,
+      'Bleu cyan':          60636259090766,
+      'Bleu ardoise':       60636259123534,
+      'Bleu marine foncé':  60636259156302,
+      'Jaune citron':       60636259189070,
+      'Vert anis clair':    60636259221838,
+      'Vert pomme':         60636259254606,
+      'Vert prairie':       60636259287374,
+      'Vert émeraude':      60636259320142,
+      'Vert sapin':         60636259352910,
+      'Kaki doré':          60636259385678,
+      'Kaki foncé':         60636259418446,
+      'Gris clair':         60636259451214,
+      'Gris perle':         60636259483982,
+      'Gris ardoise foncé': 60636259516750,
+      'Vert militaire':     60636259549518,
+      'Noir':               60636259582286
     },
     tshirt_polyester: {
-      'Apricot':          60327519224142,
-      'Ash':              60327519256910,
-      'Atoll':            60327519289678,
-      'Black':            60327519322446,
-      'Bottle Green':     60327519355214,
-      'Brown':            60327519387982,
-      'Burgundy':         60327519420750,
-      'Chocolate':        60327519453518,
-      'Cobalt Blue':      60327519486286,
-      'Dark Grey':        60327519519054,
-      'Diva Blue':        60327519551822,
-      'Fire Red':         60327519584590,
-      'Gold':             60327519617358,
-      'Kelly Green':      60327519650126,
-      'Millennial Lilac': 60327519682894,
-      'Millennial Mint':  60327519715662,
-      'Natural':          60327519748430,
-      'Navy':             60327519781198,
-      'Navy Blue':        60327519813966,
-      'Orange':           60327519846734,
-      'Orchid Green':     60327519879502,
-      'Orchid Pink':      60327519912270,
-      'Pacific Grey':     60327519945038,
-      'Pixel Lime':       60327519977806,
-      'Radiant Purple':   60327520010574,
-      'Red':              60327520043342,
-      'Royal Blue':       60327520076110,
-      'Sand':             60327520108878,
-      'Sky':              60327520141646,
-      'Solar Yellow':     60327520174414,
-      'Sorbet':           60327520207182,
-      'Sport Grey':       60327520239950,
-      'Stone Blue':       60327520272718,
-      'Sunset Orange':    60327520305486,
-      'Swimming Pool':    60327520338254,
-      'Urban Khaki':      60327520371022,
-      'Urban Orange':     60327520403790,
-      'Urban Purple':     60327520436558,
-      'Used Black':       60327520469326,
-      'White':            60327520502094
+      'Blanc':             60636261941582,
+      'Beige taupe':       60636261974350,
+      'Jaune vif':         60636262007118,
+      'Jaune citron':      60636262039886,
+      'Orange vif':        60636262072654,
+      'Corail':            60636262105422,
+      'Rouge écarlate':    60636262138190,
+      'Rose fuchsia':      60636262170958,
+      'Violet indigo':     60636262203726,
+      'Bleu roi':          60636262236494,
+      'Bleu turquoise':    60636262269262,
+      'Bleu marine foncé': 60636262302030,
+      'Vert émeraude':     60636262334798,
+      'Vert anis':         60636262367566,
+      'Kaki doré':         60636262400334,
+      'Vert militaire':    60636262433102,
+      'Noir':              60636262465870
     },
     /* DRAPEAUX — 4 couleurs, créées le 11/08/2026.
        Libellés identiques au nuancier du configurateur
