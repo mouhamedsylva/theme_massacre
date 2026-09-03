@@ -3218,6 +3218,27 @@
 [data-etape-groupe="valider"] .cv-hdr,
 [data-etape-groupe="valider"] .grp-inline { display: none; }
 
+/* ══ CANEVAS MESURABLE PENDANT LA COMPOSITION DES VIGNETTES ══════════════════
+
+   L'ajout au panier compose une vignette par couleur en MESURANT le vêtement
+   affiché. Or les étapes « configurer » et « valider » le mettent en
+   `display: none` : un élément masqué n'a pas de dimensions, et les logos
+   sortaient deux à trois fois trop petits dans le panier.
+
+   Le code retirait donc `data-etape-groupe` le temps des mesures. Mais sans
+   cet attribut, plus aucune règle ne décrit l'étape : l'interface retombait
+   sur son état par défaut — celui de « Designer » — et le client voyait
+   l'étape 1 vide pendant toute la composition, avant le retour à l'étape 3.
+
+   `data-compose` lève le seul `display: none`, sans rien changer d'autre à
+   l'étape. Le JS garde le canevas invisible par `visibility: hidden`, qui ne
+   le retire pas du flux : il reste mesurable, et rien ne clignote.
+
+   Posé et retiré par addToCartInner (conf-main-inline.js), toujours dans un
+   `finally` — un échec de composition ne peut pas laisser le vêtement
+   apparaître par-dessus les cartes. */
+[data-compose] .cv-wrap { display: flex !important; }
+
 /* BARRES LATÉRALES MASQUÉES.
    Le rail d'icônes et ses panneaux sont en flex : `display:none` suffit. Le
    récapitulatif, lui, occupe une COLONNE de la grille racine — le masquer

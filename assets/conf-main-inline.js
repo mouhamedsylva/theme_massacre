@@ -2696,17 +2696,30 @@
            retombait sur les pourcentages bruts du calque et les logos
            sortaient deux à trois fois trop petits dans le panier.
 
-           Même correctif que l'entrée dans l'étape « Vérifier » : on retire
-           l'attribut d'étape, et on rend le canvas invisible SANS le
-           démesurer — `visibility` ne le retire pas du flux, contrairement à
-           `display`. Rien ne clignote, les dimensions redeviennent lisibles. */
+           L'ATTRIBUT D'ÉTAPE N'EST PLUS RETIRÉ.
+
+           C'était la méthode d'origine pour échapper au `display: none`. Mais
+           sans `data-etape-groupe`, PLUS AUCUNE règle ne décrit l'étape en
+           cours : l'interface retombait sur son état par défaut — celui de
+           « Designer », stepper compris — pendant toute la composition. Le
+           canevas restant invisible par `visibility`, le client voyait l'étape
+           1 vide, puis l'étape 3 revenir.
+
+           Ce clignotement existait déjà, masqué par le retour à l'écran de
+           choix qui suivait l'ajout. Sa suppression — pour conserver le design
+           — l'a rendu visible.
+
+           On pose donc un MARQUEUR le temps de la composition : le CSS lui
+           associe la seule levée du `display: none` (conf-styles.css), sans
+           toucher au reste de l'étape. Le canevas redevient mesurable, les
+           cartes restent affichées, et `visibility` le garde invisible sans le
+           retirer du flux. */
         const rootAdd = document.querySelector('.conf-app-root');
-        const etapeAdd = rootAdd ? rootAdd.getAttribute('data-etape-groupe') : null;
         const wrapAdd = document.querySelector('.cv-wrap');
         const visAdd = wrapAdd ? wrapAdd.style.visibility : '';
         const opaAdd = wrapAdd ? wrapAdd.style.opacity : '';
 
-        if (rootAdd) rootAdd.removeAttribute('data-etape-groupe');
+        if (rootAdd) rootAdd.setAttribute('data-compose', '1');
         if (wrapAdd) {
           wrapAdd.style.visibility = 'hidden';
           wrapAdd.style.opacity = '0';
@@ -2720,7 +2733,7 @@
             wrapAdd.style.visibility = visAdd;
             wrapAdd.style.opacity = opaAdd;
           }
-          if (rootAdd && etapeAdd) rootAdd.setAttribute('data-etape-groupe', etapeAdd);
+          if (rootAdd) rootAdd.removeAttribute('data-compose');
         };
 
         /* VIGNETTE PAR COULEUR.
