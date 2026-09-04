@@ -2543,6 +2543,11 @@
   font-weight: 700;
   color: var(--black);
 }
+
+/* Fragment réservé au MOBILE, où le libellé est raccourci (conf-mobile.css) :
+   « Mode groupe » y remplace « Personnalisation groupe ». Sur ordinateur le
+   texte complet se suffit, ce mot ferait doublon. */
+.ma-court { display: none; }
 /* Le bouton reprend le noir du thème : c'est une action, pas une information,
    et le contraste le distingue du libellé qui le précède. */
 .mode-actuel-btn {

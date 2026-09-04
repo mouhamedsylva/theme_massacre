@@ -237,7 +237,31 @@
     z-index: 25;
     margin: 0;
     justify-content: center;
+    /* FILET : la barre était bien bornée par `left`/`right`, mais
+       `white-space: nowrap` (conf-styles.css:2520) empêchait son contenu de
+       s'y plier — il débordait, et le bouton sortait de l'écran. Ces deux
+       lignes garantissent qu'aucun libellé, même futur, ne pourra ressortir. */
+    max-width: 100%;
+    overflow: hidden;
   }
+
+  /* TEXTE RACCOURCI SUR MOBILE.
+
+     « Mode actuel : Personnalisation groupe » + « CHANGER DE MODE » fait une
+     soixantaine de caractères : impossible à tenir sur 375 px sans repli.
+
+     On masque les fragments porteurs de `ma-long` : il reste « Groupe » ou
+     « Libre » et « CHANGER » — assez pour situer le client et agir, sur une
+     seule ligne, sans voler de hauteur au vêtement.
+
+     Le bandeau ambré (`is-impose`) n'est PAS concerné : il lève déjà
+     `white-space` (conf-styles.css:2533) et passe donc à la ligne. */
+  .ma-long { display: none; }
+
+  /* « Mode groupe » plutôt que « groupe » : le mot seul ne dit pas de quoi il
+     s'agit. `ma-court` est l'inverse de `ma-long` — masqué sur ordinateur, où
+     « Personnalisation groupe » se suffit, révélé ici. */
+  .ma-court { display: inline; }
 
   .cv-opts {
     position: absolute;
@@ -1272,6 +1296,67 @@
   }
   .mobile-price .rp-pvat { font-size: 8px; font-weight: 600; color: #888; }
 
+  /* ── TAILLE ET QUANTITÉ — bouton d'état + feuille ────────────────────
+     `.recap` étant masqué (:1198), ces deux contrôles étaient inaccessibles
+     en mobile. Ils sont sortis dans une feuille, et ce bouton en montre
+     l'état courant tout en l'ouvrant.
+
+     Posé au-dessus du prix, mêmes codes visuels : le client lit sa taille et
+     sa quantité sans rien ouvrir. */
+  .mob-tq-btn {
+    position: absolute;
+    left: 10px;
+    bottom: 66px;              /* au-dessus du bloc prix (48px + 10 + 8) */
+    z-index: 24;
+
+    height: 34px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 10px rgba(0,0,0,.13);
+    cursor: pointer;
+    font: inherit;
+  }
+  .mob-tq-btn .mtq-lbl {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #888;
+  }
+  .mob-tq-btn .mtq-val {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--black);
+    line-height: 1;
+  }
+  .mob-tq-btn .mtq-x { font-weight: 700; color: var(--muted); }
+
+  /* La feuille hérite de `.side-panel` (position, animation, état `open`) :
+     seul son contenu demande un réglage. */
+  .mob-tq-sheet {
+    padding: 0 16px 20px;
+  }
+  /* La grille taille/quantité reprend toute la largeur : dans le panneau
+     latéral elle tenait dans 252px, ici elle a l'écran entier. */
+  .mob-tq-sheet .rp-tq {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .mob-tq-sheet .rp-tq-select,
+  .mob-tq-sheet .rp-qty-input { min-height: 44px; font-size: 15px; }
+  .mob-tq-sheet .rp-qty-btn { min-width: 44px; min-height: 44px; }
+  .mob-tq-sheet .rp-multi-btn { width: 100%; min-height: 48px; }
+
   /* ── Ajouter au panier : bouton plein, à DROITE du prix ───────────
      Le bouton rond n'affichait qu'une icône : l'action principale du
      configurateur méritait d'être nommée. Il occupe donc toute la largeur
@@ -1862,8 +1947,21 @@
     min-height: 44px;
   }
 
-  /* 4 — Quantité. */
-  .grp-table td:nth-child(4) { margin-bottom: 12px; }
+  /* 4 — Quantité, SUR LA MÊME RANGÉE que les actions.
+
+     Le champ ne fait que 88 px : seul sur sa ligne, il laissait un grand vide
+     à sa droite pendant que la corbeille occupait une rangée entière en
+     dessous. Les deux tiennent largement côte à côte.
+
+     `inline-flex` en COLONNE : le libellé « Quantité » est un ::before, il doit
+     rester au-DESSUS du champ, pas à côté. */
+  .grp-table td:nth-child(4) {
+    display: inline-flex;
+    flex-direction: column;
+    width: auto;
+    margin-bottom: 12px;
+    vertical-align: bottom;
+  }
   .grp-table td:nth-child(4)::before { content: "Quantité"; }
   .grp-table .grp-qty input {
     width: 88px;
@@ -1877,13 +1975,33 @@
      Le bouton d'aperçu porte enfin son nom : rien ne distinguait une icône
      d'œil de 26px au bout d'une ligne qu'il fallait aller chercher. */
   .grp-table td:nth-child(5) {
-    display: flex;
+    /* ACCOLÉE à la quantité, sur la même rangée.
+
+       `inline-flex` la place à la suite de la cellule 4. Pas de
+       `margin-left: auto` : les deux doivent rester GROUPÉES à gauche, non
+       écartées aux extrémités de la carte.
+
+       `margin-left` explicite plutôt que le seul `gap` : les deux cellules
+       sont des `inline-*` voisines, pas les enfants d'un même conteneur flex —
+       `gap` ne les sépare donc pas. Il faut néanmoins un espace : la corbeille
+       supprime sans confirmation, la coller au champ inviterait l'appui
+       involontaire.
+
+       `border-top` retiré : un trait de séparation n'a plus de sens sur une
+       rangée partagée avec la quantité. */
+    display: inline-flex;
     gap: 8px;
-    padding-top: 10px;
-    border-top: 1px solid #f0f0f0;
+    width: auto;
+    margin-left: 10px;
+    margin-bottom: 12px;
+    vertical-align: bottom;
   }
   .grp-table .grp-row-btn {
-    flex: 1 1 auto;
+    /* `0 0 auto` et non `1 1 auto` : la cellule ne s'étend plus sur toute la
+       largeur de la carte, elle est accolée à la quantité. Un bouton
+       extensible y repousserait la corbeille jusqu'au bord — précisément ce
+       que le regroupement cherche à éviter. */
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;

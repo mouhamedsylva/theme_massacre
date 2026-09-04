@@ -507,10 +507,193 @@
       canvas.appendChild(btn);
     }
 
+    poserTailleQte(canvas, recapNow);
+
     measureNav();
     measurePrice();
     watchPrice();
   }
+
+  /* ── TAILLE ET QUANTITÉ — sortis du récap masqué ────────────────────────
+
+     En mobile, `.recap` est masqué en entier (conf-mobile.css:1198) : le client
+     ne pouvait NI choisir sa taille NI régler sa quantité. Le masquage est
+     délibéré — le panneau mangeait un tiers de la hauteur — donc on ne le
+     rétablit pas : on en SORT ces deux contrôles, comme le prix et le bouton
+     d'ajout l'ont été juste au-dessus.
+
+     LES NŒUDS SONT DÉPLACÉS, PAS DUPLIQUÉS. Même principe que pour le prix :
+     dupliquer imposerait de tenir deux états synchronisés, et les gestionnaires
+     inline (changeTextileQty, choisirTailleDepuisRecap) continuent de
+     fonctionner sans y toucher.
+
+     ⚠️ IDEMPOTENCE OBLIGATOIRE. `fillActionBar` est rappelée en boucle par
+     l'observer du canvas — 22 fois pour une seule bascule de produit, mesuré
+     (voir le commentaire du prix, :411). Une fonction qui déplace un nœud sans
+     le retrouver ensuite le DÉTRUIT au deuxième appel. On cherche donc, comme
+     le prix, dans `.recap` PUIS dans la feuille déjà posée. */
+  function poserTailleQte(canvas, recapNow) {
+    if (!canvas) return;
+
+    var feuille = document.getElementById("mob-tq-sheet");
+
+    /* Cherché dans le récap d'abord — au changement de produit le layout y
+       écrit un gabarit neuf — puis dans la feuille, mémoire de ce qu'on a
+       déjà déplacé. */
+    var trouver = function (sel) {
+      return (recapNow && recapNow.querySelector(sel)) ||
+             (feuille && feuille.querySelector(sel)) ||
+             null;
+    };
+
+    var grille = trouver(".rp-tq");
+    var repartir = trouver(".rp-multi-btn");
+
+    /* PRODUIT SANS TAILLE — coins, drapeaux, patchs.
+
+       Ils n'ont ni sélecteur de taille ni ce compteur : la grille est absente
+       de leur gabarit. Le bouton et la feuille doivent disparaître, sinon ils
+       garderaient ceux du produit précédent — exactement le défaut que le bloc
+       prix documente plus haut (« 19,90 € du drapeau restait affiché sur
+       l'écran coins »). */
+    if (!grille) {
+      var bAncien = document.getElementById("mob-tq-btn");
+      if (bAncien) bAncien.remove();
+      if (feuille) feuille.remove();
+      return;
+    }
+
+    /* MODE GROUPE : la taille se règle PAR PERSONNE à l'étape « Configurer ».
+       Un réglage global n'y a pas de sens. */
+    var racine = document.querySelector(".conf-app-root");
+    var estGroupe = racine && racine.getAttribute("data-mode") === "groupe";
+    if (estGroupe) {
+      var bGrp = document.getElementById("mob-tq-btn");
+      if (bGrp) bGrp.remove();
+      if (feuille) feuille.remove();
+      return;
+    }
+
+    // ── La feuille ────────────────────────────────────────────────────────
+    if (!feuille) {
+      feuille = document.createElement("div");
+      feuille.id = "mob-tq-sheet";
+      feuille.className = "mob-tq-sheet side-panel";
+      /* DANS `.conf-app-root`, JAMAIS DANS `body`.
+
+         Attachée au body, la feuille s'ouvrait réellement — `transform` et
+         `visibility` s'appliquaient — mais restait INVISIBLE : elle devenait
+         sœur de `.conf-app-root`, qui porte `z-index: 9999` et un fond opaque
+         couvrant tout l'écran. Son `z-index: 55` était alors comparé à 9999,
+         pas à ses voisins du configurateur.
+
+         Les vrais panneaux sont rendus DANS cette racine (sidebar-modern.liquid) :
+         leur z-index s'y compare entre frères. La feuille doit les rejoindre.
+
+         Défaut déjà rencontré ici pour les modales, qui ont dû monter à 10001
+         (conf-mobile.css:1553) : « la modale existait, occupait bien 390×844,
+         mais restait invisible — le configurateur la recouvrait entièrement ».
+         Rejoindre la racine est plus sûr que surenchérir sur les z-index. */
+      var racineApp = document.querySelector(".conf-app-root");
+      (racineApp || document.body).appendChild(feuille);
+    }
+    feuille.appendChild(grille);
+    if (repartir) feuille.appendChild(repartir);
+
+    /* Le texte d'aide suit le bouton : il explique la répartition par tailles
+       et n'a de sens qu'à côté d'elle. Laissé dans le récap, il resterait sous
+       un titre « QUANTITÉ » vidé de ses contrôles. */
+    var aide = (recapNow && recapNow.querySelector(".rp-tq-aide")) ||
+               feuille.querySelector(".rp-tq-aide");
+    if (aide) feuille.appendChild(aide);
+
+    /* La poignée de glissement vient du système de feuilles existant : voile,
+       fermeture au toucher et glisser-pour-fermer sont déjà écrits (:88). */
+    if (typeof addHandle === "function") addHandle(feuille);
+
+    // ── Le bouton d'état, près du prix ────────────────────────────────────
+    var btn = document.getElementById("mob-tq-btn");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "mob-tq-btn";
+      btn.className = "mob-tq-btn";
+      btn.addEventListener("click", function () {
+        var f = document.getElementById("mob-tq-sheet");
+        if (!f) return;
+        if (f.classList.contains("open")) {
+          closeSheet();
+        } else {
+          closeAllPanels();
+          f.classList.add("open");
+          showScrim(true);
+        }
+      });
+      canvas.appendChild(btn);
+    } else if (btn.parentNode !== canvas) {
+      canvas.appendChild(btn);
+    }
+
+    majBoutonTailleQte();
+  }
+
+  /* Le bouton affiche l'état COURANT : « M · Qté 1 ». Relu depuis les nœuds
+     eux-mêmes, jamais mémorisé — ils restent la seule source de vérité. */
+  function majBoutonTailleQte() {
+    var btn = document.getElementById("mob-tq-btn");
+    if (!btn) return;
+
+    var sel = document.getElementById("rp-taille-select");
+    var qte = document.getElementById("textile-qty-input");
+
+    var taille = (sel && sel.value) || "";
+    var n = (qte && parseInt(qte.value, 10)) || 1;
+
+    btn.innerHTML =
+      '<span class="mtq-lbl">Taille</span>' +
+      '<span class="mtq-val">' + (taille || "—") +
+      (n > 1 ? ' <span class="mtq-x">×' + n + "</span>" : "") +
+      "</span>";
+  }
+  window.majBoutonTailleQte = majBoutonTailleQte;
+
+  /* Le bouton suit les changements SANS toucher aux fonctions du configurateur.
+
+     On écoute les nœuds plutôt que d'instrumenter `changeTextileQty`,
+     `handleTextileQtyInput` et `choisirTailleDepuisRecap` : un seul endroit à
+     tenir, et les chemins de mise à jour qu'on n'aurait pas repérés sont
+     couverts aussi. `input` attrape le clavier, `change` les boutons − / + qui
+     écrivent la valeur par programme.
+
+     Délégation sur `document` : les nœuds sont DÉPLACÉS dans la feuille, un
+     écouteur posé sur eux directement survivrait mais serait à reposer à chaque
+     recréation. */
+  document.addEventListener("input", function (e) {
+    if (!e.target) return;
+    if (e.target.id === "textile-qty-input" || e.target.id === "rp-taille-select") {
+      majBoutonTailleQte();
+    }
+  });
+  document.addEventListener("change", function (e) {
+    if (!e.target) return;
+    if (e.target.id === "textile-qty-input" || e.target.id === "rp-taille-select") {
+      majBoutonTailleQte();
+    }
+  });
+
+  /* « Répartir par tailles » ouvre une MODALE PLEIN ÉCRAN
+     (conf-mobile.css:1206). La feuille doit se retirer avant, sinon deux
+     couches se superposent et le voile de l'une reste sous l'autre.
+
+     En phase de CAPTURE : le clic doit être traité avant le gestionnaire
+     inline du bouton, qui ouvre la modale. */
+  document.addEventListener("click", function (e) {
+    if (!e.target || !e.target.closest) return;
+    if (e.target.closest(".rp-multi-btn")) {
+      var f = document.getElementById("mob-tq-sheet");
+      if (f && f.classList.contains("open")) closeSheet();
+    }
+  }, true);
 
   /* Largeur du bloc prix, posé PAR-DESSUS le bouton d'ajout (les deux sont
      ancrés à gauche). Le bouton s'en sert comme marge pour que son libellé
@@ -607,6 +790,38 @@
     // L'étiquette « Total » n'a plus d'objet une fois le prix reparti.
     var box = document.getElementById("mobile-price");
     if (box) box.remove();
+
+    /* TAILLE ET QUANTITÉ RENDUES AU RÉCAP.
+
+       Elles ont été déplacées dans une feuille attachée au `body`
+       (poserTailleQte) : sans ce retour, elles resteraient ORPHELINES au
+       redimensionnement vers le bureau — le panneau latéral s'afficherait sans
+       sélecteur de taille ni compteur de quantité, et le client ne pourrait
+       plus commander.
+
+       Même principe que le prix et le bouton juste au-dessus : on rend les
+       nœuds à leur hôte d'origine, puis on retire les conteneurs mobiles. */
+    var feuilleTQ = document.getElementById("mob-tq-sheet");
+    if (feuilleTQ) {
+      var grilleTQ = feuilleTQ.querySelector(".rp-tq");
+      var repartirTQ = feuilleTQ.querySelector(".rp-multi-btn");
+      /* L'hôte est `.rp-qty-section` (dans `#rp-qty-textile`), PAS le récap
+         lui-même : rendus à la racine du panneau, ils atterriraient après le
+         prix et le bouton d'ajout, sous le titre « QUANTITÉ » resté seul.
+
+         L'ordre compte aussi — la grille précède « Répartir par tailles ». */
+      var hoteTQ = recap.querySelector("#rp-qty-textile .rp-qty-section") ||
+                   recap.querySelector(".rp-qty-section");
+      var aideTQ = feuilleTQ.querySelector(".rp-tq-aide");
+      if (hoteTQ) {
+        if (grilleTQ) hoteTQ.appendChild(grilleTQ);
+        if (repartirTQ) hoteTQ.appendChild(repartirTQ);
+        if (aideTQ) hoteTQ.appendChild(aideTQ);
+      }
+      feuilleTQ.remove();
+    }
+    var btnTQ = document.getElementById("mob-tq-btn");
+    if (btnTQ) btnTQ.remove();
 
     document.documentElement.style.removeProperty("--nav-h");
     document.documentElement.style.removeProperty("--mp-w");

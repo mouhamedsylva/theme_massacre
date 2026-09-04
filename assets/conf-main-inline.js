@@ -8988,6 +8988,7 @@
         lbl.innerHTML = '<span class="ma-long">Mode actuel : </span>' +
           '<strong id="mode-actuel-nom">' +
           '<span class="ma-long">Personnalisation </span>' +
+          '<span class="ma-court">Mode </span>' +
           (mode === 'groupe' ? 'groupe' : 'libre') +
           '</strong>';
       }
@@ -9030,9 +9031,16 @@
          « libre » désignent le même parcours selon l'endroit du code. */
       var nomMode = document.getElementById('mode-actuel-nom');
       if (nomMode) {
-        nomMode.textContent = (mode === 'groupe')
-          ? 'Personnalisation groupe'
-          : 'Personnalisation libre';
+        /* `innerHTML`, PAS `textContent` : celui-ci remplaçait tout le contenu
+           par un nœud texte nu, détruisant le <span class="ma-long"> que le
+           mobile masque pour raccourcir le libellé. La barre redevenait alors
+           trop large et son bouton ressortait de l'écran.
+
+           Aucune donnée client ici — deux littéraux figés, pas d'injection
+           possible. */
+        nomMode.innerHTML = '<span class="ma-long">Personnalisation </span>' +
+          '<span class="ma-court">Mode </span>' +
+          (mode === 'groupe' ? 'groupe' : 'libre');
       }
       majBarreMode();
       if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
