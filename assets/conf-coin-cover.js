@@ -102,7 +102,13 @@
          cadre trop haut de ~1,5 point, la marge verticale du CSS (11,8) ne se
          déduisant pas de la formule qui l'accompagne. Si la zone bouge, ces
          quatre nombres doivent bouger avec elle. */
-      var Z_LEFT = 11.5, Z_RIGHT = 11.5, Z_TOP = 13.3, Z_BOTTOM = 10.3;
+      /* SYMÉTRIQUES depuis le recadrage des PNG : le disque occupe 80 % de
+         l'image et son centre tombe à 50 % sur les deux axes. La marge vaut
+         donc (100 − 80)/2 + 80 × 1/100 = 10,8 % dans les quatre directions.
+
+         Les valeurs asymétriques précédentes (11,5 / 13,3 / 10,3)
+         compensaient une image dont le disque était décalé vers le haut. */
+      var Z_LEFT = 10.8, Z_RIGHT = 10.8, Z_TOP = 10.8, Z_BOTTOM = 10.8;
       var W = disc.offsetWidth, H = disc.offsetHeight;
 
       crop.style.left = (W * Z_LEFT / 100) + 'px';

@@ -62,7 +62,12 @@
        cet écart se voit : le design paraît flotter dans un anneau vide.
        On agrandit donc l'ensemble (image + logo) du même facteur, pour que
        le DISQUE remplisse la vignette comme il remplit le canevas. */
-    var DISC_FILL = 100 / 79.4;   // emprise du disque dans l'image (mesurée)
+    /* 80 : emprise du disque dans l'image, désormais EXACTE et non plus
+       mesurée sur un visuel approximatif. Les PNG ont été recadrés pour que
+       le disque occupe 80,0 % et soit centré à 50,00 % sur les deux axes
+       (vérifié au pixel). La valeur précédente, 79,4, venait d'une mesure sur
+       l'ancienne image et faisait dessiner la zone plus grande que la pièce. */
+    var DISC_FILL = 100 / 80;     // emprise du disque dans l'image
     var html = '<div style="position:relative;width:100%;aspect-ratio:1;margin:auto;' +
       'overflow:hidden;"><div style="position:absolute;inset:0;' +
       'transform:scale(' + DISC_FILL.toFixed(3) + ');">' +

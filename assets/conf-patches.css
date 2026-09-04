@@ -422,26 +422,37 @@
    Pour réafficher le repère en développement : passer opacity à 1. */
 .coin-safe-zone {
   position: absolute;
-  /* = COIN_INSET, décalé de COIN_OFFSET_Y vers le bas : le rendu 3D donne à
-     la pièce une épaisseur visible en partie basse, et un motif centré sur
-     l'image paraît trop haut sur la frappe. */
-  /* Valeurs en % de l IMAGE. Le disque n en occupe pas la totalite, et pas
-     dans les memes proportions horizontalement et verticalement — mesure
-     sur patch-recto.png / patch-verso.png : 78,6 % de large, 81 % de haut.
-     Le calcul precedent appliquait 79,4 % dans les DEUX sens, d ou une
-     marge trop grande en hauteur et un anneau blanc visible entre le
-     pointille et le bord de la piece.
+  /* Valeurs en % de l'IMAGE, pas du disque — celui-ci n'occupe que 80 % du
+     PNG, le reste étant la marge transparente.
 
-       marge_x = (100 - 78,6)/2 + 78,6 x COIN_INSET/100
-       marge_y = (100 - 81,0)/2 + 81,0 x COIN_INSET/100
+     HISTORIQUE. Ces marges ont longtemps été asymétriques (11,5 / 13,3 / 10,3)
+     parce que l'image ne l'était pas : le disque y mesurait 77,2 % de large
+     pour 78,2 % de haut, et son centre tombait à 48,33 % de la hauteur. Deux
+     compensations s'étaient accumulées — COIN_OFFSET_Y côté JS, des marges
+     inégales ici — chacune corrigeant un défaut du visuel.
 
-     COIN_INSET ramene de 3 % a 1 % : la zone doit epouser le contour de la
-     frappe, en ne reservant que le listel (le bord releve, ou le motif ne
-     s imprime pas). */
-  left: 11.5%;
-  right: 11.5%;
-  top: 13.3%;                    /* 11.8 + 1.5 (COIN_OFFSET_Y) */
-  bottom: 10.3%;                 /* 11.8 - 1.5 */
+     Les PNG ayant été recadrés proprement, ces compensations ont toutes été
+     ramenées à zéro. Toute nouvelle image de coin DOIT respecter le même
+     contrat : disque à 80 % de l'image, centré, parfaitement rond.
+
+     COIN_INSET reste à 1 % : la zone épouse le contour de la frappe en ne
+     réservant que le listel — le bord relevé, où le motif ne s'imprime pas. */
+  /* ── VALEURS SYMÉTRIQUES, le disque étant désormais centré ──────────
+     Les PNG ont été recadrés : disque à 80,0 % de l'image, centre à 50,00 %
+     sur les deux axes, rondeur 1,000 (vérifié au pixel).
+
+     Le calcul redevient donc identique dans les quatre directions :
+       marge = (100 − 80)/2 + 80 × COIN_INSET/100
+             =      10      +      0,8            = 10,8 %
+
+     Les valeurs précédentes (11,5 / 13,3 / 10,3) compensaient une image dont
+     le disque était plus étroit que haut ET décalé vers le haut. Ces
+     compensations n'ont plus lieu d'être : les garder ferait pencher la zone
+     dans l'autre sens. */
+  left: 10.8%;
+  right: 10.8%;
+  top: 10.8%;
+  bottom: 10.8%;
   border: 1px dashed rgba(220, 38, 38, .6);
   border-radius: 50%;
   pointer-events: none;

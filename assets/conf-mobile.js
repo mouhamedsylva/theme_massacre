@@ -597,19 +597,52 @@
       var racineApp = document.querySelector(".conf-app-root");
       (racineApp || document.body).appendChild(feuille);
     }
-    feuille.appendChild(grille);
-    if (repartir) feuille.appendChild(repartir);
+    /* ⚠️ DÉPLACER SEULEMENT SI LE NŒUD N'EST PAS DÉJÀ LÀ.
+
+       `appendChild` sur un nœud DÉJÀ à cette place n'est PAS neutre : la
+       spécification retire puis réinsère. Le `<select>` des tailles, descendant
+       de `grille`, était donc démonté et remonté à chaque passage — et tout
+       navigateur ferme le menu natif d'un select détaché du DOM.
+
+       Symptôme : le menu s'ouvrait puis se refermait aussitôt. Comme
+       `fillActionBar` tourne en boucle (voir la garde de l'observateur du
+       canvas), le client subissait quinze à cinquante démontages pendant qu'il
+       cherchait sa taille.
+
+       Les trois autres fonctions de placement de ce fichier testent déjà le
+       parent avant de déplacer (:454, :651, :1199) ; celle-ci ne le faisait
+       pas. */
+    if (grille.parentNode !== feuille) feuille.appendChild(grille);
+    if (repartir && repartir.parentNode !== feuille) feuille.appendChild(repartir);
 
     /* Le texte d'aide suit le bouton : il explique la répartition par tailles
        et n'a de sens qu'à côté d'elle. Laissé dans le récap, il resterait sous
        un titre « QUANTITÉ » vidé de ses contrôles. */
     var aide = (recapNow && recapNow.querySelector(".rp-tq-aide")) ||
                feuille.querySelector(".rp-tq-aide");
-    if (aide) feuille.appendChild(aide);
+    if (aide && aide.parentNode !== feuille) feuille.appendChild(aide);
 
     /* La poignée de glissement vient du système de feuilles existant : voile,
        fermeture au toucher et glisser-pour-fermer sont déjà écrits (:88). */
     if (typeof addHandle === "function") addHandle(feuille);
+
+    /* LE SÉLECTEUR DOIT ÊTRE PEUPLÉ, sinon il ne déroule rien.
+
+       `#rp-taille-select` est écrit VIDE dans le gabarit : ses options viennent
+       de `syncSelectTaille` (conf-main-inline.js:9859), qui les lit sur les
+       boutons `.sg .sb`. Or cette fonction sort sans rien faire quand ces
+       boutons ne sont pas encore là (`if (!btns.length) return`), et rien ne la
+       rappelle ensuite.
+
+       Un <select> sans aucune <option> est INERTE au toucher sur mobile : le
+       menu système ne s'ouvre pas. Le champ paraissait donc mort.
+
+       On la rappelle ici, après le déplacement : elle est idempotente — elle
+       réécrit `innerHTML` depuis la seule source de vérité, les boutons de
+       taille. */
+    if (typeof window.syncSelectTaille === "function") {
+      window.syncSelectTaille();
+    }
 
     // ── Le bouton d'état, près du prix ────────────────────────────────────
     var btn = document.getElementById("mob-tq-btn");
@@ -1453,6 +1486,27 @@
            bien avant ces 60 ms. Un geste enchaîné rapidement serait sinon
            écrasé par ce lot. */
         if (window.__logoManipulating) return;
+
+        /* NE PAS SE RÉVEILLER SUR SES PROPRES ÉCRITURES.
+
+           `fillActionBar` écrit DANS `.canvas` — le prix, le bouton flottant,
+           le bouton « Taille · Qté ». Cet observateur surveille ce même
+           sous-arbre et la rappelle : elle se redéclenchait donc elle-même
+           toutes les 60 ms, en permanence, pendant toute la session mobile.
+
+           Conséquence visible : le menu natif des tailles se refermait aussitôt
+           ouvert, le sous-arbre étant reconstruit sous lui une quinzaine de fois
+           par seconde.
+
+           L'observateur du RÉCAP porte déjà exactement cette garde (:787), avec
+           un commentaire qui chiffre le défaut qu'elle corrige — « 3004
+           mutations en 3 s ». Elle manquait ici.
+
+           250 ms : une réécriture légitime (changement de produit, de quantité)
+           vient d'une action du client, jamais dans les 250 ms qui suivent notre
+           propre écriture. Elle n'est donc pas masquée. */
+        if (Date.now() - _fabDerniereEcriture < 250) return;
+
         tagCanvasRow();
         buildFaceSwitch();
         /* conf-dynamic-layout.js réécrit .canvas en entier au changement de

@@ -154,6 +154,42 @@ class DynamicLayoutManager {
   switchLayout(category, productType) {
     confLog("🎨 Switch layout vers:", category);
 
+    /* ── SORTIR DE L'ÉCRAN DE CHOIX AVANT DE RECONSTRUIRE ────────────────
+
+       Les trois chargeurs de canvas non textiles écrasent
+       `cvWrap.parentElement` — c'est-à-dire `<main class="canvas">` en entier
+       (:961). Or ce conteneur abrite AUSSI `#mode-choice`, l'écran de choix du
+       mode (configurateur.liquid:669). L'écrasement le détruit.
+
+       Si `data-etape="choix"` est encore posé à cet instant, le canvas neuf est
+       masqué par la règle CSS `[data-etape="choix"] .cv-wrap { display: none }`
+       (conf-styles.css:2301). Résultat : l'écran de choix détruit, le canvas
+       invisible — un écran BLANC, alors que le DOM du produit existe bel et
+       bien (le titre et la barre latérale restent d'ailleurs corrects).
+
+       Le cas se produit dès qu'on arrive sur un produit non textile SANS mode
+       en session : après « Réinitialiser » (qui efface `conf_mode_perso` mais
+       garde le produit), au retour d'un paiement, ou après « Changer de mode »
+       suivi d'un F5.
+
+       La règle appliquée ici n'est pas nouvelle : c'est celle déjà écrite en
+       conf-sidebar-modern.js:208 — « coins, drapeaux et patchs ne portent pas
+       de surnom, la personnalisation de groupe n'a aucun sens pour eux ». Elle
+       n'y couvrait que le CLIC du client ; la restauration au démarrage passe
+       par restoreProductThenUploads → selProd, sans emprunter ce chemin. On la
+       pose donc au point de passage unique qu'est switchLayout.
+
+       `reprise = true` : évite le rechargement de page qu'un changement de mode
+       volontaire déclencherait (conf-main-inline.js:9012). */
+    if (category !== "textile") {
+      const racineChoix = document.querySelector(".conf-app-root");
+      if (racineChoix &&
+          racineChoix.getAttribute("data-etape") === "choix" &&
+          typeof window.choisirMode === "function") {
+        window.choisirMode("individuelle", true);
+      }
+    }
+
     const layout = PRODUCT_LAYOUTS[category];
 
     // La Type Bar reste toujours visible maintenant

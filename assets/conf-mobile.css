@@ -1091,6 +1091,22 @@
   .side-panel.open {
     transform: translateY(0);
     visibility: visible;
+    /* LARGEUR REPRISE ICI, sur `.side-panel.open` et pas seulement sur
+       `.side-panel`.
+
+       `conf-sidebar-modern.css:1222` pose `.side-panel.open { width: 280px }`
+       sous un `@media (max-width: 768px)` qui CHEVAUCHE cette plage. Deux
+       classes contre une : sa spécificité bat le `width: 100%` de `.side-panel`
+       (:1068), et l'ordre des feuilles n'y change rien.
+
+       La feuille s'ouvrait donc en panneau étroit collé à gauche — `left: 0`,
+       `right: 0` ET `width: 280px` sur-contraignent la boîte, et c'est `right`
+       qui est ignoré.
+
+       Le fichier tablette avertit d'ailleurs de ce piège (conf-tablet.css:42) :
+       « plusieurs feuilles portent des max-width: 768px ». */
+    width: 100%;
+    max-width: none;
   }
 
   /* Poignée de fermeture, injectée par conf-mobile.js. */
@@ -1309,7 +1325,10 @@
     bottom: 66px;              /* au-dessus du bloc prix (48px + 10 + 8) */
     z-index: 24;
 
-    height: 34px;
+    /* 48px : même hauteur que `.mobile-price` et le bouton d'ajout. Les trois
+       forment une ligne d'action cohérente, et la cible atteint le minimum
+       recommandé au doigt (44px) — à 34px elle était juste en dessous. */
+    height: 48px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -1332,7 +1351,9 @@
     color: #888;
   }
   .mob-tq-btn .mtq-val {
-    font-size: 14px;
+    /* Suit l'agrandissement du bouton : à 14px le texte flottait dans 48px de
+       haut. Même corps que le prix (:1291), qui lui fait face. */
+    font-size: 15px;
     font-weight: 800;
     color: var(--black);
     line-height: 1;
@@ -1352,9 +1373,26 @@
     gap: 12px;
     margin-bottom: 14px;
   }
+  /* `max-width: 74px` (conf-styles.css:3603) tenait le champ dans une colonne
+     de 252px ; dans la feuille il a toute la largeur. */
   .mob-tq-sheet .rp-tq-select,
-  .mob-tq-sheet .rp-qty-input { min-height: 44px; font-size: 15px; }
-  .mob-tq-sheet .rp-qty-btn { min-width: 44px; min-height: 44px; }
+  .mob-tq-sheet .rp-qty-input {
+    min-height: 44px;
+    font-size: 15px;
+    max-width: none;
+    width: 100%;
+  }
+  /* Le compteur DÉBORDAIT : les boutons portés à 44px dépassaient la colonne,
+     et le « − » passait sous le sélecteur. `min-width: 0` autorise le champ à
+     se comprimer — sans lui, sa largeur intrinsèque de champ numérique tient
+     la ligne écartée et force le retour. */
+  .mob-tq-sheet .rp-qty-controls {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  .mob-tq-sheet .rp-qty-btn { min-width: 44px; min-height: 44px; flex: none; }
+  .mob-tq-sheet .rp-qty-input { min-width: 0; flex: 1; }
   .mob-tq-sheet .rp-multi-btn { width: 100%; min-height: 48px; }
 
   /* ── Ajouter au panier : bouton plein, à DROITE du prix ───────────

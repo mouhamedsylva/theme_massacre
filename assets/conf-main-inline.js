@@ -4430,6 +4430,13 @@
            début du parcours, donc à l'écran de choix. Le conserver aurait
            laissé le client dans un mode qu'il vient pourtant d'effacer. */
         sessionStorage.removeItem('conf_mode_perso');
+        /* La CONTRAINTE de mode part avec le mode qu'elle explique.
+
+           `conf_mode_impose` note qu'un produit sans surnom (coin, drapeau,
+           patch) a imposé la personnalisation libre — le bandeau ambré le dit
+           au client. Laissée en place après un reset, elle expliquait une
+           contrainte qui n'existait plus. */
+        sessionStorage.removeItem('conf_mode_impose');
         sessionStorage.removeItem('conf_group_rows');      // liste de noms validée
         /* Option manches (payante, +4 €/manche) : elle échappait au reset et
            restait donc active sur un design pourtant vidé — le surcoût
@@ -9863,7 +9870,18 @@
       /* `.sg:not(.cv-opt-clone)` : la grille de tailles est CLONÉE dans le
          sélecteur du canvas. Sans ce filtre, chaque taille apparaîtrait deux
          fois dans la liste. */
-      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb');
+      /* `:not(.sb-group)` : « Pour Groupe » partage la classe `.sb` avec les
+         tailles, mais c'est un BOUTON D'ACTION — il ouvre la modale de
+         répartition (configurateur.liquid:309), il ne désigne aucune taille.
+
+         Listé comme une option, il apparaissait sous « 5XL » dans le sélecteur
+         mobile ; choisi, il aurait fait chercher une taille nommée « Pour
+         Groupe », introuvable — ou pire, cliqué le bouton et ouvert la modale
+         par un chemin détourné.
+
+         Les deux fonctions partagent ce sélecteur et doivent rester d'accord :
+         l'une remplit la liste, l'autre y retrouve le bouton à cliquer. */
+      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb:not(.sb-group)');
       if (!btns.length) return;
 
       var actuelle = '';
@@ -9876,8 +9894,21 @@
         html += '<option value="' + grpEsc(t) + '"' + (on ? ' selected' : '') + '>' +
                 grpEsc(t) + '</option>';
       }
-      sel.innerHTML = html;
-      if (actuelle) sel.value = actuelle;
+      /* ÉCRITURE SEULEMENT SI QUELQUE CHOSE CHANGE.
+
+         `innerHTML =` détruit et recrée toutes les <option>, ce qui FERME le
+         menu natif d'un select ouvert. Cette fonction est rappelée en boucle
+         sur mobile (fillActionBar, conf-mobile.js) : le client voyait donc son
+         menu se refermer pendant qu'il choisissait sa taille.
+
+         Le contrat documenté est intact — elle réécrit toujours depuis la seule
+         source de vérité, les boutons de taille — mais le cas « rien n'a
+         changé » devient un vrai non-événement.
+
+         `sel.value` est gardé pour la même raison : réaffecter la valeur d'un
+         select ouvert le referme aussi sur certains Android. */
+      if (sel.innerHTML !== html) sel.innerHTML = html;
+      if (actuelle && sel.value !== actuelle) sel.value = actuelle;
     }
     window.syncSelectTaille = syncSelectTaille;
 
@@ -9889,7 +9920,10 @@
      * Dupliquer cette chaîne l'aurait fait diverger au premier ajustement.
      */
     function choisirTailleDepuisRecap(taille) {
-      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb');
+      /* MÊME SÉLECTEUR QUE syncSelectTaille — voir son commentaire. Les deux
+         doivent rester d'accord : l'une remplit la liste, l'autre y retrouve le
+         bouton à cliquer. « Pour Groupe » est exclu des deux. */
+      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb:not(.sb-group)');
       for (var i = 0; i < btns.length; i++) {
         if (btns[i].textContent.trim() === taille) { btns[i].click(); return; }
       }

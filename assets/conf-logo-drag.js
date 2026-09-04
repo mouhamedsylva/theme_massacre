@@ -85,11 +85,17 @@
   const COIN_INSET = 1;
   window.COIN_INSET = COIN_INSET;
   /* Décalage vertical de la zone, en % du disque. Positif = vers le bas.
-     La pièce est centrée dans son image, mais le rendu 3D lui donne une
-     épaisseur visible en partie basse : sans ce décalage, le motif paraît
-     trop haut sur la frappe.
+
+     RAMENÉ À 0. Il valait 1,5 pour compenser une pièce qui n'était PAS centrée
+     dans son image : mesure faite, son centre tombait à 48,33 % de la hauteur
+     au lieu de 50 %, et les marges étaient de 116 px en haut contre 157 en bas.
+
+     Les PNG ont depuis été recadrés — disque à 80,0 %, centre à 50,00 % sur les
+     deux axes. Compenser un décalage qui n'existe plus ferait pencher la zone
+     dans l'autre sens.
+
      Garder égal au `top`/`bottom` de `.coin-safe-zone` (conf-patches.css). */
-  const COIN_OFFSET_Y = 1.5;
+  const COIN_OFFSET_Y = 0;
   window.COIN_OFFSET_Y = COIN_OFFSET_Y;
   /* Hauteur réservée au numéro en bas du verso, en % du disque. Le logo ne
      descend pas plus bas quand la numérotation est active, sinon il le
