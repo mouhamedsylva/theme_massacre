@@ -326,6 +326,335 @@
     });
   }
 
+  /* Table partagée des identifiants de calque. Les zones ne suivent pas
+     toutes `logo-<zone>` : le patch est `patch-logo`, les coins et drapeaux
+     `coin-logo-recto`… Même table qu'applyUploadGeo (conf-share.js:736), pour
+     que les deux ne divergent pas. Déclarée AVANT ses lecteurs. */
+  var ID_LOGO_ZONES = {
+    'f': 'logo-f', 'fr': 'logo-fr', 'b': 'logo-b',
+    'sl': 'logo-sl', 'sr': 'logo-sr',
+    'c': 'patch-logo',
+    'coin-recto': 'coin-logo-recto', 'coin-verso': 'coin-logo-verso',
+    'flag-recto': 'flag-logo-recto', 'flag-verso': 'flag-logo-verso'
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LECTURE DE L'INSTANTANÉ DE LIGNE — la source unique.
+
+     Remplace `reposerEtatDesign` et ses trois heuristiques (`aDesImages`,
+     `fusionnerPourProduit`, `trouverProduitPorteur`), conservées plus bas
+     uniquement pour les lignes ajoutées AVANT l'existence de l'instantané.
+
+     Toutes les questions difficiles — quel produit, quel design, quelles
+     zones — ont été tranchées À L'AJOUT, une fois, avec l'information
+     complète (capturerSnapshot, conf-main-inline.js). Ici on ne choisit
+     plus rien : on lit et on applique.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Renvoie l'instantané d'une ligne, ou null si elle n'en a pas.
+   *
+   * UN OU LOGIQUE, PAS UN ARBITRAGE. La mémoire vive et le miroir persisté
+   * ont la MÊME FORME au filtre `srcHeberge` près (alegerSnapshot) : le
+   * premier trouvé est donc le meilleur disponible par construction. On ne
+   * compare jamais leurs contenus — c'est cette comparaison qui produisait
+   * les incohérences.
+   */
+  function lireSnapshot(item) {
+    if (!item) return null;
+    var snap = (window.__snapshotsPanier || {})[item.id] || item.snapshot || null;
+    if (!snap || snap.v !== 3) return null;   // ligne antérieure à l'instantané
+    return snap;
+  }
+
+  /**
+   * Applique un instantané au canvas, sans passer par la session.
+   *
+   * Même rôle qu'appliquerUploadsDirect, mais sur une source PLATE et
+   * MONO-PRODUIT : plus de `byProduct`, plus de produit à deviner, plus de
+   * repli sur « l'unique entrée ».
+   *
+   * Idempotente : appelée à chaque passe, elle repose le même état.
+   */
+  function appliquerSnapshotDirect() {
+    var snap = window.__snapshotOuverture;
+    if (!snap || !snap.zones) return;
+    if (typeof window.applyUpload !== 'function') return;
+
+    /* Le produit affiché doit être celui de l'instantané : sinon les zones
+       viseraient des calques qui n'existent pas encore (bascule en cours). */
+    var produitEcran = null;
+    try { produitEcran = sessionStorage.getItem('conf_current_product'); } catch (e) {}
+    if (produitEcran && snap.produit && produitEcran !== snap.produit) return;
+
+    /* ── PURGE APRÈS BASCULE, UNE SEULE FOIS ────────────────────────────────
+
+       Elle complète celle de `poserSnapshot`, qui s'abstient quand le produit
+       affiché n'est pas celui de la ligne. Ici la bascule a eu lieu :
+       `currentProductType` vaut celui de l'instantané, et `rmUp` opère donc
+       sur les bonnes zones.
+
+       C'est aussi la SEULE purge qui agit pour les coins, drapeaux et patchs :
+       leurs calques sont injectés par switchLayout, donc inexistants avant la
+       bascule — `rmUp` n'y trouvait rien à retirer.
+
+       UNE SEULE FOIS PAR OUVERTURE : cette fonction est appelée à chaque
+       passe (deux au minimum). Purger à chaque tour effacerait les zones que
+       la passe précédente vient de poser.
+
+       Le drapeau vit sur `window`, PAS sur l'instantané : celui-ci est
+       l'objet conservé dans `__snapshotsPanier`, réutilisé à chaque
+       réouverture de la ligne. L'y poser aurait empêché toute purge dès la
+       deuxième ouverture du même article. Il est remis à false par
+       `poserSnapshot`, au début de chaque ouverture. */
+    if (!window.__purgeFaite) {
+      window.__purgeFaite = true;
+      if (typeof window.purgerZonesHorsInstantane === 'function') {
+        window.purgerZonesHorsInstantane(snap.zones);
+      }
+      /* Les lignes de TEXTE du récapitulatif suivent la même clôture : `rmUp`
+         ne les connaît pas, elles n'étaient purgées par personne. */
+      if (typeof window.purgerLignesTexteRecap === 'function') {
+        window.purgerLignesTexteRecap(
+          (snap.textes && snap.produit && snap.textes[snap.produit]) || {}
+        );
+      }
+    }
+
+    Object.keys(snap.zones).forEach(function (zone) {
+      var e = snap.zones[zone];
+      var src = e && e.src;
+      if (!src) return;
+      var geo = e.geo || null;
+
+      /* Même drapeau que restoreUploads : il signale aux fonctions
+         d'affichage qu'il s'agit d'une RESTAURATION, donc qu'elles doivent
+         respecter la géométrie enregistrée au lieu de recentrer le motif. */
+      window.__restoringUploads = true;
+      try {
+        window.applyUpload(zone, src);
+        if (geo && typeof window.applyUploadGeo === 'function') {
+          window.applyUploadGeo(zone, geo);
+        }
+      } catch (err) {
+        console.warn('Zone non appliquée (' + zone + ') :', err);
+      } finally {
+        window.__restoringUploads = false;
+      }
+
+      /* ── REPRISE AU CHARGEMENT — mécanisme REPRIS TEL QUEL ──────────────
+         Voir appliquerUploadsDirect pour le détail : placeLogoInZone
+         s'auto-replanifie sur `load` et repose une géométrie recalculée.
+         On repose la nôtre sur le MÊME événement, enregistrée après la
+         sienne, donc exécutée après. Durement acquis, ne pas simplifier. */
+      if (!geo || typeof window.applyUploadGeo !== 'function') return;
+
+      var el = document.getElementById(ID_LOGO_ZONES[zone] || ('logo-' + zone));
+      var img = el && el.querySelector('img');
+      if (!img) return;
+
+      /* Géométrie cible publiée — lue par le gardien de conf-mobile.js. */
+      window.__geoOuverture = window.__geoOuverture || {};
+      window.__geoOuverture[zone] = {
+        id: el.id, left: geo.left, top: geo.top, width: geo.width
+      };
+
+      var reposerGeo = function () {
+        var g = window.__geoOuverture && window.__geoOuverture[zone];
+        if (!g) return;
+        window.__restoringUploads = true;
+        try { window.applyUploadGeo(zone, g); }
+        finally { window.__restoringUploads = false; }
+      };
+
+      if (img.complete && img.naturalWidth > 0) {
+        requestAnimationFrame(reposerGeo);
+        return;
+      }
+      if (img.dataset.geoPanier !== '1') {
+        img.dataset.geoPanier = '1';
+        img.addEventListener('load', reposerGeo);
+      }
+    });
+  }
+
+  /**
+   * Prépare l'ouverture d'une ligne depuis son instantané.
+   *
+   * @returns {boolean} true si l'instantané a été posé, false s'il n'y en a
+   *   pas (la ligne est alors traitée par `reposerEtatDesign`, en repli).
+   */
+  function poserSnapshot(item) {
+    var snap = lireSnapshot(item);
+    if (!snap) return false;
+
+    /* PURGE de la ligne précédente — mêmes raisons qu'en tête de
+       reposerEtatDesign : laissées en place, ces variables feraient lire
+       l'entrée d'un article ouvert juste avant. */
+    window.__snapshotOuverture = null;
+    window.__geoOuverture = null;
+    /* La purge d'après-bascule doit rejouer à CHAQUE ouverture, y compris à
+       la deuxième ouverture du même article. */
+    window.__purgeFaite = false;
+
+    try {
+      /* ═══ CLÔTURE — LES ZONES DE L'INSTANTANÉ, ET RIEN D'AUTRE ══════════
+
+         Sans cela, la restauration est purement ADDITIVE : elle pose les
+         zones de la ligne par-dessus ce qui traîne, sans jamais rien retirer.
+         Deux t-shirts, l'un avec un dos, l'autre sans → rouvrir celui sans
+         dos affichait le dos de l'autre.
+
+         La source du résidu est `conf_cloud_urls` (conf-main-inline.js:7689),
+         que `restoreUploads` ajoute à ses zones et qui n'est PAS indexé par
+         ligne. `rmUp` l'efface pour les zones purgées — c'est voulu.
+
+         ⚠️ VARIANTE PRUDENTE — on ne purge QUE si le produit affiché est
+         celui de la ligne.
+
+         `rmUp` opère sur `currentProductType`, la variable JS, pas sur la
+         session. À cet instant elle désigne encore le produit AFFICHÉ. Purger
+         un autre produit détruirait un design de travail que le client n'a
+         pas commandé et n'a aucun moyen de récupérer.
+
+         Quand les produits diffèrent, la purge d'après-bascule (dans
+         `appliquerSnapshotDirect`) fait le travail : à ce moment
+         `currentProductType` vaut bien celui de la ligne. */
+      if (typeof window.purgerZonesHorsInstantane === 'function' &&
+          snap.produit && window.currentProductType === snap.produit) {
+        window.purgerZonesHorsInstantane(snap.zones);
+      }
+
+      /* Le produit de l'instantané pilote TOUS les restaurateurs. Il vient de
+         `item.productType`, posé à l'ajout : il ne peut plus diverger. */
+      if (snap.produit) sessionStorage.setItem('conf_current_product', snap.produit);
+
+      /* ═══ LA COULEUR DE LA LIGNE PRIME SUR CELLE DE L'INSTANTANÉ ═══════
+
+         Seule valeur où la ligne bat l'instantané, et c'est délibéré.
+
+         `snap.couleur` recopie `conf_current_color` — la couleur de l'ÉCRAN
+         au moment de l'ajout. Pour une commande de GROUPE, elle ne porte que
+         la teinte commune, alors que chaque ligne a la sienne. La poser
+         ferait rouvrir en rose un t-shirt violet.
+
+         Le repli sur l'instantané sert aux articles dont le libellé n'est pas
+         un nom de pastille — patchs, coins, drapeaux. */
+      if (!(item && item.color) && snap.couleur) {
+        sessionStorage.setItem('conf_current_color', JSON.stringify(snap.couleur));
+      }
+      if (snap.patchColor) sessionStorage.setItem('conf_patch_color', JSON.stringify(snap.patchColor));
+      if (snap.coinFinish) sessionStorage.setItem('conf_coin_finish', snap.coinFinish);
+      if (snap.flagColor) sessionStorage.setItem('conf_flag_color', snap.flagColor);
+      if (snap.flagColorName) sessionStorage.setItem('conf_flag_color_name', snap.flagColorName);
+
+      /* ⚠️ L'ORIENTATION DU DRAPEAU DOIT ÊTRE POSÉE ICI, avant `card.click()`.
+
+         Le gabarit du drapeau ET le calcul du cadre de rognage
+         (conf-flag-cover.js:100) la lisent sur `window` au moment où
+         switchLayout construit le canvas. Déplacée dans une passe différée,
+         un drapeau portrait serait bâti puis recadré comme un paysage. */
+      if (snap.flagOrientation) window.__flagOrientation = snap.flagOrientation;
+
+      /* Retenu pour l'application directe au canvas : elle ne dépend pas de
+         la session, et c'est elle qui fait foi si le quota a refusé l'écriture. */
+      window.__snapshotOuverture = snap;
+
+      /* ── SESSION : l'instantané y est recopié pour survivre à un F5 ─────
+         Les zones de l'instantané SEULES — ni union avec conf_cloud_urls, ni
+         fusion multi-produits. Son échec n'est pas fatal : l'affichage passe
+         par l'application directe. */
+      if (snap.produit && Object.keys(snap.zones || {}).length) {
+        var u = { _v: 2, byProduct: {} };
+        u.byProduct[snap.produit] = snap.zones;
+        var ecrit = false;
+        if (typeof window.writeUploadStore === 'function') {
+          ecrit = window.writeUploadStore(u);
+        } else {
+          try { sessionStorage.setItem('conf_uploads', JSON.stringify(u)); ecrit = true; }
+          catch (e) { ecrit = false; }
+        }
+        if (!ecrit) {
+          console.warn('Design trop lourd pour la session : appliqué directement ' +
+                       'au canvas, mais il ne survivra pas à un rechargement.');
+        }
+      }
+
+      /* ── TEXTES ── « absent » doit devenir « effacé », mais POUR CE PRODUIT
+         SEULEMENT : les autres gardent leur texte de travail. Sans cette
+         branche, une commande sans texte rouvrait celui d'une autre. */
+      var tCourant = {};
+      try { tCourant = JSON.parse(sessionStorage.getItem('conf_texts') || '{}'); }
+      catch (e) { tCourant = {}; }
+      if (!tCourant || typeof tCourant !== 'object') tCourant = {};
+
+      var tLigne = snap.textes && snap.produit ? snap.textes[snap.produit] : null;
+      if (tLigne && Object.keys(tLigne).length) {
+        tCourant[snap.produit] = tLigne;
+      } else if (snap.produit && tCourant[snap.produit]) {
+        delete tCourant[snap.produit];
+      }
+      try { sessionStorage.setItem('conf_texts', JSON.stringify(tCourant)); }
+      catch (e) {
+        console.warn('Textes de la ligne non mémorisés (session saturée).', e);
+      }
+
+      /* ── LA LISTE DES PERSONNES (commandes de groupe) ────────────────────
+
+         Elle n'était jamais reposée, et le panneau « Mon Équipe » restait vide
+         alors que la session portait bien les noms.
+
+         DEUX DÉFAUTS SE CUMULAIENT :
+
+           1. `relireGroupRows()` (conf-main-inline.js:666) n'est appelée qu'AU
+              CHARGEMENT du module. La variable `groupOrderRows` pouvait donc
+              diverger de `conf_group_rows` — et c'est la VARIABLE que lisent
+              refreshGroupBadge, eqRendreNoms et deplacerTableauGroupe.
+
+           2. `allerEtapeGroupe('designer')` ne redessine rien :
+              `deplacerTableauGroupe(false)` est un no-op (:9734).
+
+         On passe par `setGroupOrderRows` et JAMAIS par un setItem direct :
+         seule cette fonction met la variable à jour, puis enchaîne
+         `saveGroupRows()` et `refreshGroupBadge()`.
+
+         ICI, AVANT `choisirMode` : celle-ci planifie `eqRendreNoms` en
+         requestAnimationFrame (:9099). La liste posée avant, le panneau se
+         peuple de lui-même.
+
+         L'instantané fait foi ; la session n'est qu'un repli pour les lignes
+         antérieures à cette capture. Elle ne porte qu'UNE liste à la fois :
+         avec deux groupes distincts elle donnerait celle du dernier ajouté. */
+      if (typeof window.setGroupOrderRows === 'function') {
+        var rowsLigne = snap.groupRows || null;
+        if (!rowsLigne) {
+          try {
+            var brutRows = sessionStorage.getItem('conf_group_rows');
+            rowsLigne = brutRows ? (JSON.parse(brutRows) || null) : null;
+          } catch (e) { rowsLigne = null; }
+        }
+        /* Une ligne SANS liste ne doit pas effacer celle en place : la ligne
+           libre qu'on vient d'ouvrir n'a rien à dire du groupe. */
+        if (rowsLigne && rowsLigne.length) {
+          try { window.setGroupOrderRows(rowsLigne); } catch (e) {}
+        }
+      }
+
+      return true;
+    } catch (e) {
+      /* Session illisible ou saturée : on n'interrompt pas l'ouverture. */
+      console.warn('Instantané de la ligne non posé :', e);
+      return false;
+    }
+  }
+
+  /* ═══ REPLI POUR LES LIGNES ANTÉRIEURES À L'INSTANTANÉ ═══════════════════
+
+     Conservée INTACTE, appelée uniquement quand `lireSnapshot` rend null —
+     c'est-à-dire pour les paniers déjà constitués au moment du déploiement.
+     Aucun client ne perd son design ce jour-là.
+
+     Code mort assumé et daté : à supprimer quand les paniers auront tourné. */
   function reposerEtatDesign(item) {
     /* PURGE de la ligne précédente : sans elle, un article dont le design ne
        peut être lu rouvrirait celui de l'article ouvert juste avant. */
@@ -377,11 +706,57 @@
     var prodLigne = (item && item.productType) ||
                     (reserve && reserve.product) || null;
 
-    var d = (reserve && aDesImages(reserve.uploads, prodLigne))
-      ? reserve : (item && item.design);
+    /* ═══ LA CLÉ D'ÉCRITURE ET CELLE DE LECTURE PEUVENT DIVERGER ═════════
+
+       Le magasin est ÉCRIT sous `conf_current_product` — le produit affiché à
+       l'écran au moment de l'ajout (capturerEtatDesign, conf-main-inline.js).
+       Il est RELU sous `item.productType`, le produit de l'article.
+
+       Les deux coïncident sur une commande libre, ajoutée depuis l'écran qui
+       affiche le produit. Mais le parcours de GROUPE traverse trois étapes
+       avant l'ajout : `conf_current_product` a le temps de diverger. La
+       recherche échouait alors sous la clé demandée, la réserve était rejetée,
+       et l'on retombait sur un `item.design` filtré — souvent vide. Le
+       vêtement revenait à sa seule couleur, posée par un autre chemin.
+
+       Une ligne de panier ne porte QU'UN design : s'il n'est pas sous la clé
+       attendue, il est sous une autre. On la retrouve plutôt que d'abandonner.
+
+       `aDesImages` sans produit balaie déjà tout le magasin — on réutilise ce
+       comportement au lieu d'en écrire un autre. */
+    var trouverProduitPorteur = function (store) {
+      if (!store || !store.byProduct) return null;
+      var cles = Object.keys(store.byProduct);
+      for (var i = 0; i < cles.length; i++) {
+        if (aDesImages(store, cles[i])) return cles[i];
+      }
+      return null;
+    };
+
+    var d = null;
+    if (reserve && aDesImages(reserve.uploads, prodLigne)) {
+      d = reserve;                       // cas nominal : la clé attendue porte le design
+    } else if (reserve && aDesImages(reserve.uploads)) {
+      /* Le design existe, sous une AUTRE clé produit. On la retient : c'est
+         elle qui pilotera les restaurateurs. */
+      var porteur = trouverProduitPorteur(reserve.uploads);
+      if (porteur) {
+        console.warn('Design de la ligne rangé sous « ' + porteur + '  » et non « ' +
+                     prodLigne + ' » : lecture corrigée.');
+        prodLigne = porteur;
+        d = reserve;
+      }
+    }
+    if (!d) d = (item && item.design);
     if (!d) return false;   // article ajouté avant cette mémorisation
 
     if (!prodLigne) prodLigne = d.product || null;
+
+    /* Dernier recours : le design persisté peut lui aussi être rangé ailleurs. */
+    if (d && d.uploads && !aDesImages(d.uploads, prodLigne) && aDesImages(d.uploads)) {
+      var porteur2 = trouverProduitPorteur(d.uploads);
+      if (porteur2) prodLigne = porteur2;
+    }
 
     try {
       /* `prodLigne`, pas `d.product` : cette clé pilote TOUS les restaurateurs
@@ -435,6 +810,14 @@
          Le clic DÉTRUISAIT donc le design au lieu de le restaurer —
          restoreUploads relisait un magasin vidé et, purement additive, ne
          reposait rien. */
+      /* ÉCHEC SIGNALÉ. Une ligne qui portait un design et n'en retrouve aucun
+         est une anomalie : sans ce message, le vêtement revenait simplement à
+         sa couleur, sans que rien n'indique ce qui manquait. */
+      if (d.uploads && !aDesImages(d.uploads)) {
+        console.warn('Aucune image trouvée dans le design de cette ligne : ' +
+                     'le vêtement reviendra sans son visuel.');
+      }
+
       if (aDesImages(d.uploads, prodLigne)) {
         /* `d.product` fait foi : le design appartient au produit de la LIGNE,
            pas à celui affiché à l'écran. Les deux normaliseurs sont ceux du
@@ -574,8 +957,12 @@
     window.__ouvertureDepuisPanier = true;
 
     /* AVANT toute bascule : la session doit porter le design de cette ligne
-       quand selProd et les restaurateurs iront le chercher. */
-    reposerEtatDesign(item);
+       quand selProd et les restaurateurs iront le chercher.
+
+       L'INSTANTANÉ D'ABORD. `poserSnapshot` rend false pour une ligne
+       antérieure à sa mise en place — on retombe alors sur l'ancien chemin,
+       conservé pour que les paniers déjà constitués ne perdent rien. */
+    if (!poserSnapshot(item)) reposerEtatDesign(item);
 
     /* Bascule sur le produit de la ligne en CLIQUANT sa carte : le sidebar
        moderne (.product-card) passe par modernSidebar.selectProduct, qui
@@ -642,10 +1029,72 @@
          Le mode se déduit de l'article : groupe s'il porte un libellé de
          groupe, individuel sinon. Le drapeau ci-dessus empêche le rechargement
          de page qu'un changement de mode déclencherait autrement. */
-      var racine = document.querySelector('.conf-app-root');
-      if (racine && racine.getAttribute('data-etape') === 'choix' &&
-          typeof window.choisirMode === 'function') {
-        window.choisirMode(item.groupLabel ? 'groupe' : 'individuelle', true);
+      /* ── LE MODE SUIT LA LIGNE, OÙ QUE L'ON SE TROUVE ────────────────────
+
+         La bascule était conditionnée à `data-etape === 'choix'`. Or cet
+         attribut n'a que DEUX états : « choix », ou ABSENT — il est retiré dès
+         qu'un mode est retenu (conf-main-inline.js:8956). Cliquer une vignette
+         depuis le configurateur rendait donc la condition fausse, et une ligne
+         de GROUPE rouvrait son design en « Personnalisation libre ».
+
+         Ce bloc n'avait jamais été écrit pour corriger le mode : il servait à
+         sortir de l'écran de choix après un ajout de commande de groupe, où le
+         canvas est masqué. Le mode n'était corrigé que par effet de bord.
+
+         ── POURQUOI C'EST SANS DANGER ──────────────────────────────────────
+
+         Changer de mode déclenche normalement un RECHARGEMENT DE PAGE
+         (conf-main-inline.js:8852) et une PERMUTATION DES PAQUETS de design —
+         poserDesignModeEnSession écrase et supprime les onze clés de session,
+         dont `conf_uploads`, `conf_texts` et `conf_current_product` que
+         `poserSnapshot` vient d'écrire. La restauration serait anéantie.
+
+         Mais la PREMIÈRE ligne de basculerModeAvecRechargement (:8822) est
+         `if (window.__ouvertureDepuisPanier) return false;`. Ce retour
+         anticipé coupe le rechargement ET la permutation. Le drapeau est levé
+         dès l'entrée dans cette fonction (:916) et ne retombe qu'après la
+         dernière passe : toute la réouverture est couverte.
+
+         `choisirMode` se borne alors à poser le mode, `data-mode`, le bandeau
+         et l'étape. `reprise = true` est conservé : même si le drapeau
+         retombait tôt, aucun rechargement ne serait possible.
+
+         PLACE INCHANGÉE, avant `card.click()` : en mode groupe,
+         `data-etape-groupe` change la grille CSS, et mesurer les zones avant
+         ce changement les calerait sur une mise en page périmée. */
+      var estGroupe = !!(item.groupIndex || item.groupLabel);
+
+      if (typeof window.choisirMode === 'function') {
+        window.choisirMode(estGroupe ? 'groupe' : 'individuelle', true);
+      }
+
+      /* ÉTAPE FORCÉE À « DESIGNER ».
+
+         `choisirMode` en reprise vise `rappelerEtapeGroupe() || 'designer'`.
+         Si l'étape mémorisée vaut « valider », son entrée est différée de
+         900 ms (conf-main-inline.js:8991) et déposerait le client sur l'écran
+         de vérification — canvas masqué, design restauré invisible.
+
+         Rouvrir une vignette, c'est vouloir VOIR le design. */
+      if (estGroupe && typeof window.allerEtapeGroupe === 'function') {
+        try { window.allerEtapeGroupe('designer'); } catch (e) {}
+
+        /* LE PANNEAU DES SURNOMS EST REDESSINÉ EXPLICITEMENT.
+
+           `allerEtapeGroupe('designer')` ne le fait PAS : son seul chemin de
+           rendu passe par `deplacerTableauGroupe(true)`, réservé à l'étape
+           « configurer » — avec `false`, la fonction ne fait rien (:9734).
+
+           `choisirMode` a bien planifié un `eqRendreNoms` en rAF (:9099), mais
+           cet appel-ci est la ceinture : la liste vient d'être posée juste
+           au-dessus, et rien ne garantit l'ordre des deux.
+
+           Idempotente et sans risque — son propre commentaire le dit : « La
+           fonction lit l'état réel, elle ne peut donc rien détruire. » Elle
+           rafraîchit aussi le blocage du bouton « Continuer » (:9883). */
+        if (typeof window.eqRendreNoms === 'function') {
+          try { window.eqRendreNoms(); } catch (e) {}
+        }
       }
       card.click();
       /* Le drapeau N'EST PAS baissé ici : il doit couvrir toute l'ouverture,
@@ -747,7 +1196,10 @@
 
            Le drapeau échappait au défaut par chance : ses images étaient déjà
            hébergées, donc réduites à des URL de quelques centaines d'octets. */
-        appliquerUploadsDirect();
+        /* L'instantané fait foi quand il existe ; l'ancien chemin ne sert
+           qu'aux lignes qui n'en ont pas. */
+        if (window.__snapshotOuverture) appliquerSnapshotDirect();
+        else appliquerUploadsDirect();
 
         if (typeof window.restoreTexts === 'function') window.restoreTexts();
 
@@ -765,7 +1217,25 @@
 
            Le client retrouve ainsi ce qu'il a commandé pour CETTE personne, et
            non le texte générique. */
-        if (item.personName) {
+        /* L'INSTANTANÉ PORTE DÉJÀ LE NOM : plus rien à reconstituer.
+
+           La substitution ci-dessous répare l'absence du nom dans le design
+           enregistré. Depuis que `capturerSnapshot` l'inscrit dans les textes
+           de la ligne (conf-main-inline.js, `pushToCart`), `restoreTexts` le
+           repose lui-même — à SA position, celle de cette ligne.
+
+           La rejouer ici serait au mieux redondant, au pire nuisible : elle
+           écrit dans l'élément du DOM tel qu'il est à cet instant, ce qui
+           était précisément la source du défaut — le texte d'une ligne
+           héritait de la position d'une autre.
+
+           Elle reste en place pour les lignes ANTÉRIEURES à l'instantané,
+           même logique de repli que `reposerEtatDesign`. */
+        var snapNom = window.__snapshotOuverture;
+        var nomDejaPose = !!(snapNom && snapNom.personName &&
+                             snapNom.personName === item.personName);
+
+        if (item.personName && !nomDejaPose) {
           var zoneNom = (typeof window.grpTextZone === 'function')
             ? window.grpTextZone() : 'f';
           var elNom = document.getElementById('text-' + zoneNom);
@@ -930,7 +1400,46 @@
 
          On passe donc APRÈS switchLayout, en gardant deux passes : la première
          pose le design, la seconde rattrape les images arrivées entre-temps. */
-      setTimeout(function () { reposerDesign(true); }, estTextile ? 260 : 560);
+      /* ── NON TEXTILES : ON ATTEND UN SIGNAL, PLUS UNE DURÉE ──────────────
+
+         Les 560 ms étaient calibrées pour tomber après la restauration que
+         switchLayout lance à +250 ms (conf-dynamic-layout.js:214). Mais ces
+         250 ms comptent à partir de l'INJECTION du DOM, pas du clic : sur un
+         appareil lent, loadDrapeauxCanvas et consorts repoussent l'injection,
+         et le callback de switchLayout arrivait APRÈS notre passe pour lui
+         reprendre la main — le motif en couverture redevenait une petite
+         image centrée.
+
+         `conf:layout-restored` (émis en fin de ce callback) dit exactement ce
+         que le délai supposait. Le setTimeout reste en FILET : si le signal
+         n'arrive pas — catégorie textile, canvas déjà en place, événement
+         manqué — le comportement d'origine s'applique.
+
+         `lancee` garantit une exécution unique : signal et filet peuvent
+         arriver tous les deux. */
+      var lancee = false;
+      var premierePasse = function () {
+        if (lancee) return;
+        lancee = true;
+        reposerDesign(true);
+      };
+
+      if (!estTextile) {
+        var surLayout = function () {
+          document.removeEventListener('conf:layout-restored', surLayout);
+          premierePasse();
+        };
+        document.addEventListener('conf:layout-restored', surLayout);
+        /* Filet : l'écouteur est retiré s'il n'a pas servi, pour qu'une
+           reconstruction ultérieure ne déclenche pas une passe orpheline. */
+        setTimeout(function () {
+          document.removeEventListener('conf:layout-restored', surLayout);
+          premierePasse();
+        }, 560);
+      } else {
+        setTimeout(premierePasse, 260);
+      }
+
       setTimeout(function () {
         /* `finally` : le drapeau DOIT retomber, même si une passe échoue.
            Resté levé, il neutraliserait durablement restoreLogosForProduct et
@@ -951,8 +1460,46 @@
 
            La marge est volontairement large : ce drapeau n'empêche que des
            replacements automatiques, jamais une action du client. */
+        /* ORDRE GARANTI : la seconde passe ne peut pas devancer la première.
+
+           Le signal `conf:layout-restored` peut tarder au-delà de 1000 ms sur
+           un appareil très lent. Sans cette ligne, la passe de rattrapage
+           s'exécuterait avant celle qui pose le design — elle n'aurait rien à
+           rattraper, et la première écrirait ensuite sans que personne ne
+           reprenne les images arrivées entre-temps. */
+        premierePasse();
+
         try { reposerDesign(false); }
         finally {
+          /* ── LE RÉCAPITULATIF EST REPEINT DEPUIS L'ÉTAT FINAL ────────────
+
+             Il est peint par selProd au tout début de l'ouverture, AVANT les
+             deux passes de restauration — et plus rien ne le rafraîchissait
+             ensuite. Il montrait donc durablement un instant révolu : une
+             vignette de l'article précédent, une ligne « Texte » restée
+             allumée. C'est le désordre que le client voit croître avec le
+             nombre d'articles au panier.
+
+             Le récap n'écrit dans aucun magasin : le repeindre est sans
+             risque pour le design. Il ne fait que rattraper la vérité.
+
+             `updateTextRecap` est anti-rebondie à 200 ms
+             (conf-text-editor.js:1495) : sa rastérisation lira donc l'état
+             du canvas à ~200 ms d'ici, soit bien après la dernière passe. */
+          try {
+            /* Sans argument, elle traite les trois zones (conf-text-editor.js:1526)
+               avec son anti-rebond PAR ZONE — les lignes ne s'annulent plus
+               entre elles. */
+            if (typeof window.updateTextRecap === 'function') {
+              window.updateTextRecap();
+            }
+            if (typeof window.updateRecapThumbLogo === 'function') {
+              window.updateRecapThumbLogo();
+            }
+          } catch (e) {
+            console.warn('Récapitulatif non rafraîchi :', e);
+          }
+
           setTimeout(function () { window.__ouvertureDepuisPanier = false; }, 400);
         }
       }, estTextile ? 700 : 1000);

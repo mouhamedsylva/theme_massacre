@@ -1161,6 +1161,28 @@
   }
 
   // ─────────────── Restauration (reload / switch produit) ───────────────
+  /* L'instantané autorise-t-il à EFFACER cette zone de texte ?
+
+     Vrai seulement si toutes les conditions sont réunies :
+       • une ouverture depuis le panier est en cours ;
+       • l'instantané concerne le produit RÉELLEMENT affiché — sinon on
+         effacerait le texte d'un produit que la ligne ne concerne pas, ce que
+         la garde d'origine cherchait justement à empêcher ;
+       • la zone est bien ABSENTE de ses textes.
+
+     Au moindre doute — pas d'instantané, produit non aligné — on renvoie faux
+     et l'ancien comportement prudent s'applique : ne rien effacer. */
+  function effacerSelonInstantane(zone) {
+    var snap = window.__snapshotOuverture;
+    if (!snap || !snap.produit) return false;
+    if (snap.produit !== window.currentProductType) return false;
+    var t = snap.textes && snap.textes[snap.produit];
+    /* Pas de bloc de textes du tout = la ligne n'en portait aucun : toutes les
+       zones sont à effacer. */
+    if (!t) return true;
+    return !(t[zone] && t[zone].text);
+  }
+
   window.restoreTexts = function () {
     ["f", "fr", "b"].forEach(function (zone) {
       var st = getState(zone);
@@ -1175,19 +1197,28 @@
         }
         if (typeof window.setTextZoneMode === "function")
           window.setTextZoneMode(zone, true);
-      } else if (!window.__ouvertureDepuisPanier) {
+      } else if (!window.__ouvertureDepuisPanier || effacerSelonInstantane(zone)) {
         /* La branche « aucun texte » est DESTRUCTIVE : renderTextOnCanvas(null)
            pose display:none et vide le contenu (voir :971-973).
 
-           On la saute pendant l'ouverture d'un article du panier. La clé de
-           lecture est `window.currentProductType`, qui n'est posé qu'au milieu
-           de selProd : tout appel antérieur lit l'ANCIEN produit, ne trouve
-           rien, et efface les trois zones — y compris celles que la session
-           porte bien pour le produit qu'on est en train d'ouvrir.
+           ── POURQUOI ELLE ÉTAIT SAUTÉE, ET POURQUOI ELLE NE L'EST PLUS ─────
 
-           Ne rien faire est sans risque : la passe suivante, une fois le
-           produit aligné, rendra le texte s'il existe. Même principe que le
-           garde de conf-logo-store.js. */
+           Elle l'était pendant toute ouverture depuis le panier, parce que la
+           clé de lecture est `window.currentProductType`, posé au milieu de
+           selProd : un appel antérieur lisait l'ANCIEN produit, ne trouvait
+           rien, et effaçait les trois zones — y compris celles que la session
+           portait pour le produit qu'on ouvrait.
+
+           Mais « ne rien faire » n'était pas sans risque : rouvrir un article
+           SANS texte après un article AVEC texte laissait l'ancien texte sur
+           le vêtement. Aucune passe ne le retirait jamais — « absent » ne
+           devenait jamais « effacé ».
+
+           L'instantané lève l'incertitude qui justifiait la garde : il porte
+           le produit de la ligne ET la liste exacte de ses zones de texte. On
+           n'efface donc que ce qu'il déclare absent, en connaissance de cause.
+           C'est la clôture déjà appliquée aux images, enfin étendue aux
+           textes. */
         renderTextOnCanvas(zone, null);
         if (chip) chip.style.display = "none";
         if (typeof window.setTextZoneMode === "function")

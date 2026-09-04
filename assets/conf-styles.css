@@ -1071,6 +1071,18 @@
       background: #f0fdf4; color: #166534;
       border: 1px solid #bbf7d0; border-radius: 6px;
     }
+
+    /* JAMAIS HORS DU MODE GROUPE.
+
+       Le badge annonce une liste de personnes : il n'a aucun sens dans un
+       parcours qui n'en comporte pas. Son affichage ne dépendait pourtant que
+       de `groupOrderRows`, une variable de mémoire — quand celle-ci gardait la
+       liste d'un mode quitté, le badge la suivait en personnalisation libre.
+
+       Le JS resynchronise désormais cette variable, mais une seule ligne de
+       défense sur un élément aussi visible est trop peu : la règle rend le cas
+       impossible, quel que soit l'état de la mémoire. */
+    .conf-app-root:not([data-mode="groupe"]) .grp-badge { display: none !important; }
     /* Le libellé occupe toute la place restante : la zone cliquable pour
        rouvrir la liste reste large, la croix garde sa cible propre. */
     .grp-badge-txt {
@@ -1599,6 +1611,20 @@
   }
   .cd-close:hover { background: var(--bg-light); color: var(--black); }
 
+  /* Bouton « vider le panier », voisin de la croix de fermeture.
+
+     Mêmes dimensions que .cd-close pour que les deux cibles s'alignent, mais
+     un survol ROUGE : l'action est destructrice et irréversible, elle ne doit
+     pas se confondre visuellement avec la simple fermeture du tiroir. */
+  .cd-hdr-actions { display: flex; align-items: center; gap: 2px; }
+  .cd-clear {
+    width: 32px; height: 32px; border: none; background: none;
+    cursor: pointer; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); transition: background .13s, color .13s;
+  }
+  .cd-clear:hover { background: #fdeaea; color: #c0392b; }
+
   .cd-items { flex: 1; overflow-y: auto; padding: 8px 0; }
   .cd-items::-webkit-scrollbar { width: 3px; }
   .cd-items::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
@@ -1688,8 +1714,12 @@
      d'articles et le total estimé. */
   /* Bouton depuis qu'un clic ramène au design de la ligne : on neutralise
      les styles natifs (padding, fonte) pour garder l'aspect vignette. */
+  /* 110px : la MÊME taille que la vignette d'une commande de groupe
+     (`.cd-thumb-pile .cd-thumb`, plus haut). Les deux cohabitent dans le même
+     tiroir ; à 72px, une ligne simple paraissait secondaire à côté d'un
+     groupe, alors que rien ne le justifie. */
   .cd-thumb {
-    width: 72px; height: 72px; border-radius: 8px;
+    width: 110px; height: 110px; border-radius: 8px;
     background: var(--bg-light); border: 1px solid var(--border);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; overflow: hidden;
@@ -3237,7 +3267,39 @@
    Posé et retiré par addToCartInner (conf-main-inline.js), toujours dans un
    `finally` — un échec de composition ne peut pas laisser le vêtement
    apparaître par-dessus les cartes. */
+/* TROIS NIVEAUX SONT MASQUÉS, PAS UN SEUL.
+
+   Cette règle ne levait que `.cv-wrap`. Or l'image de référence est enfouie
+   deux crans plus bas, et chaque niveau porte son propre `display: none` :
+
+     .cv-wrap             masqué à l'étape « Vérifier »
+       .cv-view           masqué par défaut, révélé par la classe `.on`
+         .product-img-single   idem
+
+   Il suffisait qu'un seul reste fermé pour que l'image ait une BOÎTE NULLE. La
+   mesure basculait alors sur les pourcentages bruts du calque — bien plus large
+   que l'image (`object-fit: contain` + 20px de marge) — et le logo partait deux
+   à trois fois trop petit, souvent hors du vêtement. La vignette PARAISSAIT
+   nue, alors que le serveur avait bien composé ce qu'on lui demandait.
+
+   `visibility: hidden`, posé par le JS sur `.cv-wrap`, garde tout cela
+   invisible : contrairement à `display: none`, il CONSERVE les dimensions. */
 [data-compose] .cv-wrap { display: flex !important; }
+/* La vue ACTIVE seulement : les trois vues (face, dos, côté) cohabitent, et les
+   révéler ensemble empilerait leurs images dans le même conteneur. */
+[data-compose] .cv-view.on { display: flex !important; }
+
+/* L'IMAGE ACTIVE SEULEMENT — et en `block`, son affichage normal.
+
+   `.on` est indispensable : trois images cohabitent (face, dos, côté). Les
+   révéler toutes les empilerait dans le même conteneur flex, et la boîte
+   mesurée ne serait plus celle d'une vue unique — l'inverse du but recherché.
+   C'est d'ailleurs `.product-img-single.on` que le code interroge pour trouver
+   son image de référence.
+
+   `block` et non `flex` : imposer flex à une image changerait sa mise en page,
+   donc les mesures que cette règle cherche à rendre justes. */
+[data-compose] .cv-view.on .product-img-single.on { display: block !important; }
 
 /* BARRES LATÉRALES MASQUÉES.
    Le rail d'icônes et ses panneaux sont en flex : `display:none` suffit. Le

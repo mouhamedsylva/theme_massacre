@@ -107,6 +107,29 @@
        positionnement en % reproduit donc fidèlement le canvas. */
     body.innerHTML = views.map(function (v) {
       var layers = (v.logos || []).map(function (g) {
+        /* COUCHE RONDE — filet pour le repli des coins.
+
+           Quand la mise à plat échoue (coinCoverDataUrl rend une chaîne vide),
+           l'appelant envoie l'image BRUTE avec sa géométrie. En `height: auto`
+           et sans rognage, elle s'affichait à son ratio natif et débordait
+           largement du disque.
+
+           `round` demande le rendu qu'emploie déjà le récapitulatif latéral
+           (conf-coin-thumb.js:81) : un conteneur circulaire qui rogne, et une
+           image en `object-fit: cover` dont la hauteur suit la largeur.
+
+           Le rendu reste générique : c'est la CAPTURE qui décide, pas cette
+           fonction — elle seule sait si la zone est un disque. */
+        if (g.round) {
+          /* `aspect-ratio: 1` plutôt qu'une hauteur en pourcentage : les deux
+             axes du conteneur se mesurent sur des côtés DIFFÉRENTS de l'image
+             de fond, qui n'est pas carrée. Poser `height` égale à `width` en %
+             donnerait donc une ellipse, pas un cercle. */
+          return '<span class="ov-layer ov-layer-round" ' +
+                 'style="left:' + (g.x * 100) + '%;top:' + (g.y * 100) + '%;' +
+                 'width:' + (g.w * 100) + '%">' +
+                 '<img src="' + g.src + '" alt=""></span>';
+        }
         return '<img class="ov-layer" src="' + g.src + '" alt="" ' +
                'style="left:' + (g.x * 100) + '%;top:' + (g.y * 100) + '%;' +
                'width:' + (g.w * 100) + '%">';

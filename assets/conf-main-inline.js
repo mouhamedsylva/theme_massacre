@@ -643,10 +643,27 @@
        validation du panier et par le bouton « Réinitialiser ». */
     var GRP_KEY = 'conf_group_rows';
     var groupOrderRows = null;
-    try {
-      var _gr = sessionStorage.getItem(GRP_KEY);
-      if (_gr) groupOrderRows = JSON.parse(_gr) || null;
-    } catch (e) { groupOrderRows = null; }
+
+    /**
+     * Relit la liste depuis la session — réciproque exacte de saveGroupRows().
+     *
+     * Cette lecture n'existait qu'ICI, au chargement de la page. Elle suffisait
+     * tant que tout changement de mode rechargeait le configurateur : la
+     * variable repartait forcément de la session.
+     *
+     * Depuis que les modes permutent SANS rechargement, la session est bien
+     * échangée (`conf_group_rows` fait partie de CLES_DESIGN) mais cette
+     * variable, elle, gardait la liste du mode précédent — le badge « Liste :
+     * n lignes » s'affichait alors en personnalisation libre.
+     */
+    function relireGroupRows() {
+      try {
+        var brut = sessionStorage.getItem(GRP_KEY);
+        groupOrderRows = brut ? (JSON.parse(brut) || null) : null;
+      } catch (e) { groupOrderRows = null; }
+      return groupOrderRows;
+    }
+    relireGroupRows();
 
     /** Écrit (ou efface) la liste en session. */
     function saveGroupRows() {
@@ -831,9 +848,22 @@
       setZoomLabel(zl);
       applyZoom();
     }
-    let currentColor = '#0a0a0a';
-    let currentColorName = 'Black';
-    let currentColorSlug = 'black';
+    /* COULEUR D'OUVERTURE — LUE DANS LA PALETTE, PAS ÉCRITE EN DUR.
+
+       Ces trois valeurs pointaient sur « Black » / `black`, un reste de
+       l'ancienne palette anglaise. Or ces images ont été supprimées avec le
+       nettoyage du dossier, et aucun produit ne propose plus cette couleur :
+       `updateProductImages()` au chargement demandait donc
+       `sweatshirt-black-face.png`, `-dos`, `-cote` — trois 404 systématiques,
+       et un canvas dont les images ne se chargent pas.
+
+       On lit la couleur d'ouverture du produit par défaut (conf-palettes.js).
+       Le repli ne sert que si ce fichier n'a pas encore été évalué. */
+    var _couleurInit = (typeof window.couleurParDefaut === 'function')
+      ? window.couleurParDefaut('sweatshirt') : null;
+    let currentColor = (_couleurInit && _couleurInit.hex) || '#020204';
+    let currentColorName = (_couleurInit && _couleurInit.nom) || 'Noir';
+    let currentColorSlug = (_couleurInit && _couleurInit.slug) || 'noir';
     let currentProductKey = 'sweatshirt';
     // Type de produit courant (tous types : textile, drapeaux, coins, patches).
     let currentProductType = 'sweatshirt';
@@ -2007,10 +2037,38 @@
          logo débordait. On donne donc au conteneur le ratio du drapeau, et
          l'image le remplit — les % redeviennent cohérents. */
       var isPortrait = (window.__flagOrientation === 'portrait');
-      var html = '<div style="position:relative;width:100%;aspect-ratio:' +
-        (isPortrait ? '2/3' : '3/2') + ';margin:auto;">' +
-        '<img src="' + bgSrc + '" alt="Drapeau" style="position:absolute;inset:0;' +
-        'width:100%;height:100%;object-fit:fill;display:block;border-radius:4px;">';
+      /* CONSTRUCTION PAR NŒUDS, JAMAIS PAR BALISAGE — voir le commentaire
+         détaillé de updatePatchRecapThumb (:2163), qui a corrigé le même
+         défaut sur les patchs sans que le correctif soit reporté ici.
+
+         Le résumé : `bgSrc` et les sources de logo sont des data-URL de
+         plusieurs mégaoctets. Interpolées dans une chaîne confiée à
+         `innerHTML`, elles forçaient le tokenizer récursif du navigateur à
+         analyser un attribut de plusieurs millions de caractères — d'où
+         « Maximum call stack size exceeded ».
+
+         Cette exception remontait la chaîne de promesses et tombait dans le
+         `.catch` de l'envoi Cloudinary (:7008), qui l'attribuait au RÉSEAU :
+         « Upload Cloudinary échoué (fr) ». L'URL hébergée n'était donc jamais
+         mémorisée — et le design du drapeau repartait sans ses images, y
+         compris dans l'instantané des lignes de panier.
+
+         Affecter `src` en PROPRIÉTÉ contourne entièrement le parseur : aucune
+         limite de longueur, aucun coût d'analyse. `safeImgSrc` n'a plus lieu
+         d'être sur ce chemin — sans interpolation dans du balisage, il n'y a
+         plus de surface d'injection à couvrir. Les valeurs numériques
+         (l2/t2/w2, l3/t3/w3/h3) restent interpolées sans risque : ce sont des
+         `parseFloat`. */
+      var cadre = document.createElement('div');
+      cadre.style.cssText = 'position:relative;width:100%;aspect-ratio:' +
+        (isPortrait ? '2/3' : '3/2') + ';margin:auto;';
+
+      var fond = document.createElement('img');
+      fond.alt = 'Drapeau';
+      fond.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;' +
+                           'object-fit:fill;display:block;border-radius:4px;';
+      fond.src = bgSrc;
+      cadre.appendChild(fond);
       /* DESIGN EN COUVERTURE : on affiche l'image DÉJÀ ROGNÉE.
 
          Les styles inline lus plus haut (left/top/width) décrivent la boîte du
@@ -2059,9 +2117,13 @@
           t2 = (cRecap.top - bRecap.top) / bRecap.height * 100;
           w2 = cRecap.width / bRecap.width * 100;
         }
-        html += '<img src="' + safeImgSrc(aplatiRecap) + '" alt="" style="position:absolute;left:' +
-                l2 + '%;top:' + t2 + '%;width:' + w2 +
-                '%;height:auto;pointer-events:none;z-index:2;">';
+        var imA = document.createElement('img');
+        imA.alt = '';
+        imA.style.cssText = 'position:absolute;left:' + l2 + '%;top:' + t2 +
+                            '%;width:' + w2 + '%;height:auto;' +
+                            'pointer-events:none;z-index:2;';
+        imA.src = aplatiRecap;
+        cadre.appendChild(imA);
       } else if (logoSrc) {
         /* REPLI (image pas encore décodée, ou aplatissement impossible).
 
@@ -2085,18 +2147,29 @@
             w3 = cR.width / bR.width * 100;
             h3 = cR.height / bR.height * 100;
           }
-          html += '<div style="position:absolute;left:' + l3 + '%;top:' + t3 + '%;width:' + w3 +
-                  '%;' + (h3 ? 'height:' + h3 + '%;' : '') +
-                  'overflow:hidden;pointer-events:none;z-index:2;">' +
-                  '<img src="' + logoSrc + '" alt="" style="width:100%;height:100%;' +
-                  'object-fit:cover;display:block;"></div>';
+          var boite = document.createElement('div');
+          boite.style.cssText = 'position:absolute;left:' + l3 + '%;top:' + t3 +
+                                '%;width:' + w3 + '%;' +
+                                (h3 ? 'height:' + h3 + '%;' : '') +
+                                'overflow:hidden;pointer-events:none;z-index:2;';
+          var imC = document.createElement('img');
+          imC.alt = '';
+          imC.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+          imC.src = logoSrc;
+          boite.appendChild(imC);
+          cadre.appendChild(boite);
         } else {
-          html += '<img src="' + logoSrc + '" alt="" style="position:absolute;left:' + left + '%;top:' + top +
-                  '%;width:' + width + '%;height:auto;object-fit:contain;pointer-events:none;z-index:2;">';
+          var imK = document.createElement('img');
+          imK.alt = '';
+          imK.style.cssText = 'position:absolute;left:' + left + '%;top:' + top +
+                              '%;width:' + width + '%;height:auto;' +
+                              'object-fit:contain;pointer-events:none;z-index:2;';
+          imK.src = logoSrc;
+          cadre.appendChild(imK);
         }
       }
-      html += '</div>';
-      thumb.innerHTML = html;
+      thumb.innerHTML = '';
+      thumb.appendChild(cadre);
       thumb.style.overflow = 'hidden';
       thumb.style.display = 'flex';
       thumb.style.alignItems = 'center';
@@ -2714,15 +2787,97 @@
            toucher au reste de l'étape. Le canevas redevient mesurable, les
            cartes restent affichées, et `visibility` le garde invisible sans le
            retirer du flux. */
+        /* ═══ ATTENDRE LA CAPTURE DES CARTES *AVANT* DE TOUCHER AU CANVAS ══
+
+           L'ORDRE EST LE CŒUR DU DÉFAUT.
+
+           L'étape « Vérifier » photographie une carte par personne
+           (`capturerPourNom`, conf-group-verify.js). Pour mesurer, elle écrase
+           l'attribut `style` ENTIER du canvas via `cssText`, puis restaure
+           l'instantané qu'elle avait relevé AVANT de commencer.
+
+           Cette attente existait déjà, mais placée APRÈS la pose du marqueur et
+           des styles ci-dessous. La capture restaurait alors son instantané
+           par-dessus : l'état de composition était effacé en cours de route, et
+           la mesure se faisait dans un référentiel faux — un logo minuscule et
+           décalé, d'où une vignette qui PARAÎT nue.
+
+           En attendant d'abord, on écrit sur un canvas dont plus personne ne
+           dispute le style.
+
+           Plafonné à 3 s : mieux vaut une vignette imparfaite qu'un ajout au
+           panier qui ne se termine jamais. */
+        if (typeof window.grpCaptureEnCours === 'function') {
+          var limiteCapture = Date.now() + 3000;
+          while (window.grpCaptureEnCours() && Date.now() < limiteCapture) {
+            await new Promise(function (r) { setTimeout(r, 50); });
+          }
+        }
+
+        /* ═══ LES UPLOADS AVANT TOUT LE RESTE ══════════════════════════════
+
+           `capturerEtatDesign()` ne retient que les images DÉJÀ HÉBERGÉES sur
+           Cloudinary, et renvoie null s'il n'en trouve aucune. Or l'upload part
+           en arrière-plan au dépôt du logo.
+
+           Le parcours de groupe enchaîne ses étapes vite : l'upload n'avait
+           souvent pas abouti. La ligne partait alors SANS DESIGN — vignette nue,
+           et réouverture qui ne restituait rien. Un seul défaut, deux symptômes.
+
+           ICI, en tête de branche : la composition des vignettes (plus bas) a
+           besoin des mêmes URL. Attendre après elle n'aurait servi à rien. */
+        if (typeof attendreUploadsHeberges === 'function') {
+          await attendreUploadsHeberges(5000);
+        }
+
         const rootAdd = document.querySelector('.conf-app-root');
         const wrapAdd = document.querySelector('.cv-wrap');
-        const visAdd = wrapAdd ? wrapAdd.style.visibility : '';
-        const opaAdd = wrapAdd ? wrapAdd.style.opacity : '';
+        /* `visibility` et `opacity` ne sont plus relevées séparément : c'est
+           l'attribut `style` ENTIER qui est mémorisé plus bas, puis restauré —
+           la boîte imposée en écrit bien davantage. */
+
+        /* ═══ UNE BOÎTE EXPLICITE, HORS DU FLUX ════════════════════════════
+
+           LA CAUSE DE LA VIGNETTE NUE, ENFIN.
+
+           `data-compose` ne fait que lever le `display:none`. Or `.cv-wrap` est
+           en `flex: 1` avec `min-height: 0` (conf-styles.css), et c'est un
+           FRÈRE des cartes dans la même colonne. À cette étape, `.grp-verif`
+           occupe tout l'espace : le canvas remis dans le flux obtenait une
+           hauteur proche de ZÉRO.
+
+           La mesure du design se faisait donc sur une boîte plate. Les logos
+           partaient avec les pourcentages bruts du calque — bien plus large que
+           l'image — donc deux à trois fois trop petits et décalés ; ou la
+           mesure échouait et aucune requête n'était même envoyée. D'où une
+           vignette nue, à la bonne couleur.
+
+           `capturerPourNom` (conf-group-verify.js) résout ce problème depuis
+           toujours, et son commentaire le décrit mot pour mot. On emploie donc
+           SA méthode, avec SA géométrie : `position: fixed` soustrait le canvas
+           à la mise en page des cartes, et les dimensions viennent de la
+           dernière mesure faite à l'étape « Designer » — là où le client a
+           composé.
+
+           Les deux chemins mesurent désormais la même boîte : la vignette et
+           les cartes montrent le même design, par construction. */
+        const styleAvantAdd = wrapAdd ? wrapAdd.getAttribute('style') : null;
 
         if (rootAdd) rootAdd.setAttribute('data-compose', '1');
         if (wrapAdd) {
-          wrapAdd.style.visibility = 'hidden';
-          wrapAdd.style.opacity = '0';
+          var boiteAdd = (typeof window.grpBoiteCanvas === 'function')
+            ? window.grpBoiteCanvas() : null;
+          if (boiteAdd) {
+            wrapAdd.style.cssText =
+              'display:flex;align-items:center;justify-content:center;' +
+              'position:fixed;left:0;top:0;' +
+              'width:' + boiteAdd.w + 'px;height:' + boiteAdd.h + 'px;' +
+              'visibility:hidden;opacity:0;pointer-events:none;z-index:-1;';
+          } else {
+            /* Sans géométrie partagée : au moins l'invisibilité d'origine. */
+            wrapAdd.style.visibility = 'hidden';
+            wrapAdd.style.opacity = '0';
+          }
         }
 
         /* Rétabli DANS TOUS LES CAS, y compris si une composition échoue :
@@ -2730,8 +2885,18 @@
            cartes. */
         const rendreEtape = function () {
           if (wrapAdd) {
-            wrapAdd.style.visibility = visAdd;
-            wrapAdd.style.opacity = opaAdd;
+            /* L'ATTRIBUT ENTIER est rendu, pas deux propriétés.
+
+               La boîte imposée plus haut écrit `cssText`, donc `position`,
+               `width`, `height` et `z-index`. Ne remettre que `visibility` et
+               `opacity` laisserait un canvas en `position: fixed` de la taille
+               de l'étape Designer, plaqué sur les cartes.
+
+               Même contrat que `remasquer()` (conf-group-verify.js) : le canvas
+               n'a le plus souvent aucun style propre, et son affichage vient du
+               CSS. */
+            if (styleAvantAdd === null) wrapAdd.removeAttribute('style');
+            else wrapAdd.setAttribute('style', styleAvantAdd);
           }
           if (rootAdd) rootAdd.removeAttribute('data-compose');
         };
@@ -2823,6 +2988,7 @@
           if (clesUniques.indexOf(cle) === -1) clesUniques.push(cle);
         }
 
+
         const composer = async function (cle, i) {
           /* Même résolution que le canvas : slug EN, puis FR, puis générique.
              On passe par les candidats plutôt que de deviner un nom de fichier,
@@ -2841,7 +3007,31 @@
              (`vignettes.size === 0`) ne convient plus — la Map est vide pour
              tout le monde à l'instant du lancement, le bouton irait donc à
              chacun et resterait figé sur ce libellé. */
-          const dz = await resolveDesignImage(base, i === 0 ? btnEl : null);
+          /* ═══ MÊME FILET QUE LA COMMANDE LIBRE ═══════════════════════════
+
+             `base` est une URL THÉORIQUE : `colorImageCandidates` la construit
+             depuis un dictionnaire engendré en Liquid, sans jamais vérifier
+             qu'un fichier répond derrière. Une URL bien formée mais injoignable
+             par le serveur de composition donne une vignette NUE, sans erreur —
+             ce qui rend le défaut invisible.
+
+             La commande libre, elle, ne rencontre pas ce cas : son
+             `fallbackSrc` retombe sur l'image RÉELLEMENT AFFICHÉE dans le
+             canvas (`view-face`, :2679). Celle-là est forcément valide, le
+             client la voit.
+
+             On lui donne le même filet : si la composition n'a rien produit,
+             on recommence avec l'image du canvas. La vignette montre alors le
+             vêtement de l'écran AVEC son design, plutôt qu'un vêtement nu — le
+             design étant précisément ce que le client vient de composer. */
+          let dz = await resolveDesignImage(base, i === 0 ? btnEl : null);
+
+          var composee = dz && dz.thumb && dz.thumb !== base;
+          if (!composee && fallbackSrc && fallbackSrc !== base) {
+            var dz2 = await resolveDesignImage(fallbackSrc, null);
+            if (dz2 && dz2.thumb && dz2.thumb !== fallbackSrc) dz = dz2;
+          }
+
           vignettes.set(cle, dz);
         };
 
@@ -2863,6 +3053,12 @@
           }
           await Promise.all(ouvriers);
 
+        } catch (eComp) {
+          /* JAMAIS MUET. Une erreur ici interrompt la composition de TOUTES
+             les couleurs : chaque ligne repart alors sur le vêtement nu. Sans
+             ce message, rien ne distingue ce cas d'un design réellement vide —
+             et c'est ce silence qui a rendu le défaut si long à cerner. */
+          console.error('Composition des vignettes de groupe interrompue :', eComp);
         } finally {
           /* Les mesures sont faites : l'étape reprend sa place, succès ou
              échec. */
@@ -2882,6 +3078,22 @@
         const designCommun = (typeof capturerEtatDesign === 'function')
           ? capturerEtatDesign() : null;
 
+        /* ÉCHEC RENDU VISIBLE. Un design vide alors que le canvas porte un logo
+           est une anomalie : c'est ce silence qui a rendu le défaut si long à
+           trouver. */
+        if (!designCommun || !designCommun.uploads) {
+          var aUnLogo = ['f', 'fr', 'b', 'sl', 'sr'].some(function (z) {
+            var el = document.getElementById('logo-' + z);
+            var im = el ? el.querySelector('img') : null;
+            return !!(im && im.getAttribute('src'));
+          });
+          if (aUnLogo) {
+            console.warn('Design de groupe capturé SANS image alors que le ' +
+                         'canvas en porte une : la vignette sera nue et la ' +
+                         'ligne ne pourra pas être rouverte.');
+          }
+        }
+
         /* La RÉSERVE MÉMOIRE exige l'état COMPLET (non filtré) : elle conserve
            les data-URL que la version persistée écarte pour tenir dans le
            quota. C'est donc une capture distincte de `designCommun` — mais
@@ -2900,7 +3112,16 @@
              `cleVignette` garantit que lecture et écriture ne peuvent pas
              diverger — c'est exactement ce qui s'était produit autrefois (voir
              le commentaire du remplissage). */
-          const dz = vignettes.get(cleVignette(r)) || { thumb: fallbackSrc, sheet: null };
+          /* REPLI SIGNALÉ. Il était muet : une vignette composée sans logo
+             donnait un vêtement nu dans le panier, sans que rien ne l'indique
+             — ni au client, ni au développeur. C'est ce silence qui a laissé
+             le défaut passer inaperçu. */
+          var dzTrouvee = vignettes.get(cleVignette(r));
+          if (!dzTrouvee) {
+            console.warn('Vignette non composée pour « ' + r.color +
+                         ' » : la ligne partira avec le vêtement nu.');
+          }
+          const dz = dzTrouvee || { thumb: fallbackSrc, sheet: null };
           pushToCart({
             id: nouvelIdLigne(),
             productType: currentProductType,
@@ -2949,22 +3170,30 @@
            les quantités. */
         refreshGroupBadge();
 
-        /* RIEN N'EST EFFACÉ, ET ON RESTE SUR « VÉRIFIER ».
+        /* RETOUR À LA PREMIÈRE ÉTAPE — RIEN N'EST EFFACÉ POUR AUTANT.
 
-           Le design commun et la liste étaient vidés ici, puis le
-           configurateur revenait à l'écran de choix. Le client perdait donc
-           son travail au moment même où il venait de le commander.
+           La commande est partie : l'étape « Vérifier » n'a plus rien à faire
+           vérifier, et son bouton d'ajout invite à recommencer. Le client
+           repart donc du début de son parcours.
 
-           Il le garde désormais sous les yeux : le tiroir du panier s'ouvre
-           PAR-DESSUS pour confirmer l'ajout, sans rien déplacer derrière.
+           CE QUI RESTE : le design commun ET la liste de surnoms. Enchaîner
+           une variante du même visuel est le cas courant ; tout refaire à
+           chaque commande serait le vrai coût.
 
-           CELA NE RETIRE RIEN AUX LIGNES DÉJÀ AU PANIER : chacune porte son
-           design complet (item.design), doublé d'une réserve en mémoire
-           vive. Leur réouverture lit la LIGNE, jamais l’écran
-           (conf-cart-open-design.js). Conserver l'écran leur est indifférent.
+           Le tiroir du panier, ouvert juste au-dessus, reste PAR-DESSUS :
+           il confirme l'ajout, avec l'étape DESIGNER derrière. Le client le
+           ferme quand il veut reprendre.
 
-           L'ISOLATION ENTRE MODES reste entière : elle repose sur
-           rangerDesignMode() au changement de mode, pas sur cet effacement. */
+           SÛR À CET ENDROIT : `rendreEtape()` s'est exécuté dans le `finally`
+           de la composition, le canvas a donc retrouvé son état normal. On ne
+           change pas d'étape pendant qu'il porte une boîte imposée.
+
+           Les lignes déjà au panier sont indifférentes à ce retour : chacune
+           porte son design complet, et leur réouverture lit la LIGNE, jamais
+           l'écran (conf-cart-open-design.js). */
+        if (typeof allerEtapeGroupe === 'function') {
+          allerEtapeGroupe('designer');
+        }
         return;
       }
 
@@ -2975,6 +3204,16 @@
          payait donc pour rien. Descendue ici, elle n'est faite que par le seul
          chemin qui s'en sert : une VIGNETTE (face + logo, carrée, pour le
          panier) et une PLANCHE multi-vues (face+dos+côté, pour la commande). */
+      /* MÊME ATTENTE QUE POUR LE GROUPE.
+
+         Ce parcours échappait au défaut par chance : il est plus long, et
+         l'upload avait le temps d'aboutir. Un client rapide — logo déposé,
+         ajout immédiat — perdait son design de la même façon. On ne laisse pas
+         la correction dépendre du rythme de l'utilisateur. */
+      if (typeof attendreUploadsHeberges === 'function') {
+        await attendreUploadsHeberges(5000);
+      }
+
       const design = await resolveDesignImage(fallbackSrc, btnEl);
 
       const item = {
@@ -3141,6 +3380,28 @@
 
       let thumb = fallbackSrc;
       let faceDesign = null;
+
+      /* CAPTURE DE FACE — source UNIQUE de la vignette.
+
+         J'avais tenté de composer depuis la vue FACE de `captureAllViews`,
+         croyant cette fonction capable de lire un canvas masqué puisque les
+         cartes de vérification, qui l'utilisent, affichent bien le design.
+
+         C'ÉTAIT FAUX, et deux fois :
+
+           • `captureAllViews` porte exactement le filtre `display:none` que
+             j'avais retiré d'ici (:4593). Si les cartes réussissent, ce n'est
+             pas grâce à la fonction : c'est qu'elles RÉVÈLENT le canvas avant
+             de l'appeler (conf-group-verify.js).
+
+           • le fond envoyé au serveur (`fallbackSrc`, relevé en début de flux)
+             ne correspondait plus aux coordonnées, issues d'une capture faite
+             plus tard. Le serveur composait sur une référence incohérente et
+             renvoyait une URL qui ne charge pas — la vignette d'une commande
+             libre apparaissait CASSÉE.
+
+         On reste donc sur `captureFaceDesign`, qui juge une zone sur son
+         CONTENU et non sur sa visibilité. */
       try {
         faceDesign = await captureFaceDesign();
         // Coins / drapeaux / patchs n'ont pas de « vue de face » : pour eux, la
@@ -3160,14 +3421,23 @@
         faceDesign = null;
       }
 
+      /* DIAGNOSTIC — le vêtement nu a trois causes distinctes, et une seule
+         était signalée. Sans ces traces, chaque correctif se faisait à
+         l'aveugle. */
+      if (!faceDesign) {
+      } else if (!faceDesign.logos || !faceDesign.logos.length) {
+      }
+
       if (faceDesign && faceDesign.logos && faceDesign.logos.length) {
         busy();
         try {
           const bg = fallbackSrc || faceDesign.background;
           const res = await window.ConfAPI.createPreviewImage(bg, faceDesign.logos);
-          if (res && res.url) thumb = res.url;
+          if (res && res.url) {
+            thumb = res.url;
+          } else {
+          }
         } catch (e) {
-          console.error('Composition vignette échouée :', e);
         }
       }
 
@@ -3389,6 +3659,99 @@
       } catch (e) {
         /* Sans réserve, on retombe sur le champ persisté : dégradé, pas cassé. */
         console.warn('Réserve de design non enregistrée :', e);
+      }
+
+      /* INSTANTANÉ DE LIGNE — la source unique de la future réouverture.
+
+         Posé À CÔTÉ de la réserve ci-dessus, pas à sa place : à ce stade
+         personne ne le lit encore. C'est délibéré — la capture doit pouvoir
+         être vérifiée sur un panier réel (window.diagSnapshot()) AVANT qu'un
+         chemin d'affichage n'en dépende. Si elle est fausse, on le voit sans
+         avoir rien cassé.
+
+         Le produit vient de la LIGNE (`cible.productType`), jamais de l'écran :
+         c'est précisément la divergence qui faisait revenir une ligne de groupe
+         nue. Le parcours de groupe traverse trois écrans avant l'ajout, le
+         temps que `conf_current_product` s'écarte du produit réel de l'article.
+
+         Deux niveaux, imposés par le quota de session (~5 Mo) :
+           • mémoire vive — data-URL comprises, jamais persistée ;
+           • `cible.snapshot` — URLs hébergées seulement, ~2 à 4 Ko par ligne.
+         Même forme de part et d'autre : la lecture sera identique. */
+      try {
+        var cibleSnap = existing || item;
+        if (cibleSnap && cibleSnap.id != null && typeof capturerSnapshot === 'function') {
+          var snapComplet = capturerSnapshot(cibleSnap.productType, true);
+
+          /* LE NOM FLOQUÉ VIENT DE LA LIGNE, jamais de l'écran.
+
+             capturerSnapshot ne peut pas le deviner : au moment de l'ajout
+             d'une liste de groupe, le canvas n'affiche qu'un seul nom alors
+             que chaque ligne porte le sien. Seul pushToCart connaît la ligne
+             réellement retenue — celle fusionnée le cas échéant.
+
+             Le champ était déclaré dans l'instantané mais jamais rempli : à la
+             réouverture, le nom floqué serait revenu vide. */
+          snapComplet.personName = cibleSnap.personName || null;
+
+          /* LA LISTE DES PERSONNES accompagne chaque ligne de groupe.
+
+             Elle vit en session (`conf_group_rows`) — mais la session n'en
+             porte QU'UNE À LA FOIS. Deux commandes de groupe aux personnes
+             différentes, et rouvrir la première afficherait la liste de la
+             seconde.
+
+             Chaque ligne emporte donc la sienne, comme elle emporte déjà son
+             nom floqué et ses zones. Les cinq lignes d'un groupe en portent
+             chacune une copie : c'est voulu, chacune doit pouvoir rouvrir
+             seule.
+
+             Le coût est négligeable — du texte pur, ~60 à 90 octets par
+             personne, soit ~400 octets pour cinq. Deux à trois ordres de
+             grandeur sous les zones d'images. */
+          if (cibleSnap.groupIndex || cibleSnap.groupLabel) {
+            try {
+              var rowsGrp = (typeof window.getGroupOrderRows === 'function')
+                ? window.getGroupOrderRows() : null;
+              snapComplet.groupRows = (rowsGrp && rowsGrp.length)
+                ? JSON.parse(JSON.stringify(rowsGrp))   // détachée, comme `textes`
+                : null;
+            } catch (e) { snapComplet.groupRows = null; }
+          }
+
+          /* LE NOM FLOQUÉ ENTRE DANS LE TEXTE DE L'INSTANTANÉ.
+
+             Le canvas n'affiche qu'un texte COMMUN au moment de l'ajout d'une
+             liste : eqEssayerNom écrit le nom directement sur le vêtement,
+             sans passer par la session. L'instantané capturait donc le texte
+             générique, et la réouverture devait reconstituer le nom par
+             substitution dans le DOM — en héritant au passage de la position
+             qu'un AUTRE article avait laissée dans `conf_texts`.
+
+             En le posant ici, chaque ligne de groupe porte son propre texte à
+             sa propre position. La réouverture n'a plus rien à deviner.
+
+             Le style (police, couleur, graisse) reste celui du texte commun :
+             c'est bien ce que le client a composé, le nom n'en change que le
+             contenu. */
+          if (cibleSnap.personName && snapComplet.textes && snapComplet.produit) {
+            try {
+              var zNom = (typeof window.grpTextZone === 'function')
+                ? window.grpTextZone() : 'f';
+              var tProduit = snapComplet.textes[snapComplet.produit];
+              if (tProduit && tProduit[zNom] && tProduit[zNom].text) {
+                tProduit[zNom].text = cibleSnap.personName;
+              }
+            } catch (e) {}
+          }
+          window.__snapshotsPanier = window.__snapshotsPanier || {};
+          window.__snapshotsPanier[cibleSnap.id] = snapComplet;
+          /* Le miroir voyage avec la ligne : il prend le relais après un F5,
+             quand la mémoire vive a disparu. */
+          cibleSnap.snapshot = alegerSnapshot(snapComplet);
+        }
+      } catch (e) {
+        console.warn('Instantané de ligne non enregistré :', e);
       }
 
       cartCount = cartItems.reduce((s, i) => s + (i.qty || 1), 0);
@@ -4242,7 +4605,14 @@
       if (refImg && refImg.getBoundingClientRect().width > 0) {
         imgBox = imageContentRect(refImg);
       }
-      if (!imgBox || imgBox.width === 0) {
+      /* LA HAUTEUR COMPTE AUTANT QUE LA LARGEUR.
+
+         Cette garde ne testait que `width`. Une boîte APLATIE — hauteur nulle,
+         largeur intacte — passait donc au travers : c'est exactement l'état
+         d'un canvas révélé dans une colonne déjà occupée. La mesure se
+         poursuivait sur une image sans hauteur, et les logos sortaient
+         démesurés ou introuvables, sans le moindre signal. */
+      if (!imgBox || imgBox.width === 0 || imgBox.height === 0) {
         imgBox = imgBoxWithinLayer(refImg, layerBox);
       }
 
@@ -4256,7 +4626,26 @@
       faceZones.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (el.style.display === 'none') return;   // zone non personnalisée
+        /* LA VISIBILITÉ N'EST PAS UN CRITÈRE — LE CONTENU L'EST.
+
+           Un `return` sur `display:none` ouvrait cette boucle, au motif d'une
+           « zone non personnalisée ». Il rendait la fonction inutilisable dès
+           que le canvas était masqué : à l'étape « Vérifier », le tableau
+           `logos` sortait VIDE, aucune composition n'était demandée, et la
+           vignette du panier partait avec le vêtement nu.
+
+           Le repli par pourcentages inline, quelques lignes plus bas, était
+           prévu exactement pour ce cas — mais restait inatteignable derrière
+           cette sortie.
+
+           `captureAllViews` (les cartes de prévisualisation) ne teste jamais
+           `display` : elle mesure, puis retombe sur les pourcentages. C'est
+           pourquoi les cartes montraient le design que la vignette perdait.
+           On s'aligne sur elle.
+
+           Une zone VIDE reste écartée par la ligne suivante : supprimer un
+           logo fait `img.src = ''` (conf-share.js), un critère qui porte sur
+           le contenu réel plutôt que sur ce qui est affiché. */
         const img = el.querySelector('img');
         if (!img || !img.getAttribute('src')) return;
 
@@ -4391,7 +4780,11 @@
       // Mesure directe de la boîte image si affichée (précis), sinon approximation.
       let imgBox = null;
       if (refImg && refImg.getBoundingClientRect().width > 0) imgBox = imageContentRect(refImg);
-      if (!imgBox || imgBox.width === 0) imgBox = imgBoxWithinLayer(refImg, layerBox);
+      /* Hauteur testée aussi — voir captureFaceDesign : une boîte aplatie
+         passait la garde et faussait toute la géométrie. */
+      if (!imgBox || imgBox.width === 0 || imgBox.height === 0) {
+        imgBox = imgBoxWithinLayer(refImg, layerBox);
+      }
       const canReproject = !!(layerBox && imgBox && imgBox.width > 0 && imgBox.height > 0);
 
       // Convertit un logo en fractions de l'image produit. Mesure DIRECTE si le
@@ -4478,8 +4871,20 @@
         if (def.textZone) {
           const zonesTexte = Array.isArray(def.textZone) ? def.textZone : [def.textZone];
           for (const zt of zonesTexte) {
-            const t = await textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
-            if (t) logos.push(t);
+            /* UN TEXTE ILLISIBLE NE DOIT PAS EMPORTER LA CAPTURE ENTIÈRE.
+
+               Cette rasterisation n'avait aucune garde, contrairement à celle
+               de `captureFaceDesign`. Une seule erreur — police non chargée,
+               canvas indisponible — faisait échouer toute la fonction, donc
+               la planche de production ET les cartes de vérification qui s'en
+               servent. Les logos déjà collectés sont conservés. */
+            try {
+              const t = await textZoneImage('text-' + zt, imgBox, layerBox, canReproject);
+              if (t) logos.push(t);
+            } catch (e) {
+              console.warn('Texte « ' + zt + ' » non rasterisé pour la vue ' +
+                           def.label + ' (les logos sont conservés) :', e);
+            }
           }
         }
 
@@ -4624,11 +5029,22 @@
 
                  `logoBox` est la boîte déjà mesurée plus haut : la recalculer
                  ici ferait diverger la garde et le calcul. */
+              /* `round` : la couche doit être ROGNÉE EN CERCLE à l'affichage.
+
+                 Sans ce marqueur, la vue d'ensemble rendait un <img> nu en
+                 `height: auto` — l'image brute s'affichait à son ratio natif et
+                 débordait largement du disque. C'est le défaut visible quand ce
+                 repli s'active.
+
+                 `logoBox` est ici la boîte du cadre de rognage : en mode
+                 couverture, le logo occupe tout `.coin-crop` (conf-coin-cover.js).
+                 Elle décrit donc bien le cercle imprimable, et non l'image. */
               logos.push({
                 src: limg.src,
                 x: (logoBox.left - discBox.left) / discBox.width,
                 y: (logoBox.top - discBox.top) / discBox.height,
-                w: logoBox.width / discBox.width
+                w: logoBox.width / discBox.width,
+                round: true
               });
             }
           }
@@ -5124,6 +5540,64 @@
      * @param {object|null} store - magasin { _v, byProduct }
      * @returns {object|null} copie filtrée, ou null si rien à garder
      */
+    /**
+     * Attend que les logos déposés soient hébergés sur Cloudinary.
+     *
+     * POURQUOI CETTE ATTENTE EXISTE
+     * -----------------------------
+     * `capturerEtatDesign()` (sans `complet`) passe par
+     * `filtrerUploadsHeberges`, qui n'garde QUE les images déjà hébergées et
+     * renvoie `null` s'il n'en trouve aucune. Or l'upload part en arrière-plan
+     * au dépôt du logo : tant qu'il n'a pas abouti, le design ne contient que
+     * des data-URL locales, toutes écartées.
+     *
+     * La ligne de panier partait alors SANS DESIGN — d'où une vignette nue ET
+     * une réouverture qui ne restituait rien. Un seul défaut, deux symptômes.
+     *
+     * La commande libre y échappait par chance : son parcours est plus long, et
+     * l'upload avait le temps d'aboutir. Le parcours de groupe enchaîne ses
+     * étapes bien plus vite. C'était une course, pas une différence de code.
+     *
+     * Plafonné : au-delà, on capture ce qu'on a. Un ajout au panier qui ne se
+     * termine jamais serait pire qu'une vignette imparfaite.
+     *
+     * @param {number} [msMax] délai maximal d'attente.
+     */
+    async function attendreUploadsHeberges(msMax) {
+      var ZONES = ['f', 'fr', 'b', 'sl', 'sr'];
+
+      /* Une zone COMPTE si son calque porte une image : c'est le même critère
+         que la capture du design, pour ne pas attendre une zone qu'elle
+         ignorera de toute façon. */
+      var enAttente = function () {
+        var reste = [];
+        for (var i = 0; i < ZONES.length; i++) {
+          var z = ZONES[i];
+          var el = document.getElementById('logo-' + z);
+          var img = el ? el.querySelector('img') : null;
+          var src = img && img.getAttribute('src');
+          if (!src) continue;                       // zone vide
+          if (/^https?:\/\//i.test(src)) continue;  // déjà une URL hébergée
+          /* data-URL : hébergée seulement si le registre porte son URL. */
+          var heberge = (window.CLOUDINARY_URLS && window.CLOUDINARY_URLS[z]) ||
+                        (typeof cloudUrlDe === 'function' && cloudUrlDe(z));
+          if (!heberge) reste.push(z);
+        }
+        return reste;
+      };
+
+      var limite = Date.now() + (msMax || 5000);
+      while (enAttente().length && Date.now() < limite) {
+        await new Promise(function (r) { setTimeout(r, 100); });
+      }
+
+      var tardives = enAttente();
+      if (tardives.length) {
+        console.warn('Upload non terminé pour : ' + tardives.join(', ') +
+                     ' — le design de cette ligne partira incomplet.');
+      }
+    }
+
     function filtrerUploadsHeberges(store) {
       if (!store || !store.byProduct) return store;
       var out = { _v: store._v || 2, byProduct: {} };
@@ -5269,6 +5743,265 @@
       return state;
     }
     window.capturerEtatDesign = capturerEtatDesign;
+
+    /* ------------------------------------------------------------------
+       INSTANTANÉ DE LIGNE — la source unique de la réouverture.
+
+       POURQUOI une seconde fonction plutôt qu'un paramètre de plus sur
+       capturerEtatDesign : les deux ne décrivent pas la même chose.
+
+         • capturerEtatDesign décrit L'ÉCRAN — tous produits confondus, tel que
+           le lien de partage doit le rejouer. Elle reste intacte.
+         • capturerSnapshot décrit UNE LIGNE DE PANIER — un seul produit, celui
+           de l'article, sans rien d'autre.
+
+       Sept sources concurrentes décrivaient jusqu'ici le même design, et la
+       réouverture devait DEVINER laquelle exploiter (aDesImages,
+       fusionnerPourProduit, trouverProduitPorteur). Ces devinettes sont la
+       cause des mélanges entre lignes. L'instantané les supprime par sa forme :
+
+         1. `produit` est un CHAMP, pas une clé de dictionnaire. On ne peut plus
+            ranger un design sous la mauvaise clé — il n'y a plus de clé. C'est
+            exactement le défaut qui faisait revenir une ligne de groupe nue :
+            capturerEtatDesign indexe sous `conf_current_product` (l'écran) et
+            la réouverture lisait sous `item.productType` (l'article).
+
+         2. `zones` est PLAT et CLOS. Rouvrir une ligne, c'est poser ces zones
+            et EFFACER TOUTES LES AUTRES. Impossible dès lors qu'une zone de
+            conf_cloud_urls (non indexé par ligne, :7314) fasse réapparaître le
+            dos d'une autre ligne.
+
+         3. MONO-PRODUIT. capturerEtatDesign recopie conf_uploads en entier
+            (:5507) ; l'instantané ne porte que son produit. Il est donc PLUS
+            LÉGER que le champ `design` actuel, pas plus lourd.
+
+       `complet` suit la même convention qu'ailleurs : vrai pour la réserve
+       mémoire (data-URL comprises, jamais persistée), faux pour le miroir
+       persisté (URLs hébergées seulement — un drapeau recto/verso en data-URL
+       pèse ~5,6 Mo pour un quota de 5, cf. :5515).
+       ------------------------------------------------------------------ */
+    var SNAPSHOT_V = 3;
+
+    function capturerSnapshot(produitLigne, complet) {
+      /* Le produit de la LIGNE fait foi. L'appelant le connaît (item.productType) ;
+         à défaut seulement, on retombe sur l'écran. */
+      var produit = produitLigne || null;
+      if (!produit) {
+        try { produit = sessionStorage.getItem('conf_current_product'); } catch (e) {}
+      }
+      if (!produit) produit = currentProductType;
+
+      var snap = {
+        v: SNAPSHOT_V,
+        produit: produit,
+        couleur: null,
+        patchColor: null, coinFinish: null,
+        flagColor: null, flagColorName: null, flagOrientation: null,
+        zones: {}, textes: null, personName: null
+      };
+
+      try { snap.couleur = JSON.parse(sessionStorage.getItem('conf_current_color') || 'null'); } catch (e) {}
+      try { snap.patchColor = JSON.parse(sessionStorage.getItem('conf_patch_color') || 'null'); } catch (e) {}
+      try { snap.coinFinish = sessionStorage.getItem('conf_coin_finish') || null; } catch (e) {}
+      try { snap.flagColor = sessionStorage.getItem('conf_flag_color') || null; } catch (e) {}
+      try { snap.flagColorName = sessionStorage.getItem('conf_flag_color_name') || null; } catch (e) {}
+
+      /* L'orientation du drapeau ne vit QU'EN MÉMOIRE (conf-drapeaux.js:80).
+         Elle pilote le calcul du cadre de rognage (conf-flag-cover.js:100) :
+         un portrait recadré en paysage affiche son design décalé, ce qui passe
+         pour une restauration ratée alors que l'image est bien là. */
+      snap.flagOrientation = window.__flagOrientation || null;
+
+      /* --- ZONES : session d'abord, DOM en complément ---------------------
+         Même ordre de priorité que capturerEtatDesign : la session porte la
+         géométrie exacte, le DOM ne l'exprime qu'en styles inline. Mais on ne
+         lit QUE le produit de la ligne. */
+      try {
+        var store = JSON.parse(sessionStorage.getItem('conf_uploads') || 'null');
+        var depuisSession = (store && store.byProduct && store.byProduct[produit]) || {};
+        Object.keys(depuisSession).forEach(function (z) {
+          var e = depuisSession[z];
+          var src = (typeof e === 'string') ? e : (e && e.src);
+          if (!src) return;
+          if (!complet && !srcHeberge(src)) return;
+          snap.zones[z] = {
+            src: src,
+            geo: (typeof e === 'string') ? null : (e && e.geo) || null
+          };
+        });
+      } catch (e) {}
+
+      /* COMPLÉMENT DEPUIS LE DOM — ce qui est à l'écran fait foi.
+         L'écriture d'une image en session est ASYNCHRONE (compression, puis
+         remplacement par l'URL Cloudinary). Un client qui pose un logo et
+         ajoute aussitôt capturerait sinon un état incomplet.
+
+         Même table de zones que capturerEtatDesign — textiles ET non
+         textiles : un coin, un drapeau ou un patch ajouté avant la fin de
+         l'upload partait sans son design. */
+      try {
+        var ZONES_DOM_SNAP = {
+          'f': 'logo-f', 'fr': 'logo-fr', 'b': 'logo-b',
+          'sl': 'logo-sl', 'sr': 'logo-sr',
+          'c': 'patch-logo',
+          'coin-recto': 'coin-logo-recto', 'coin-verso': 'coin-logo-verso',
+          'flag-recto': 'flag-logo-recto', 'flag-verso': 'flag-logo-verso'
+        };
+        Object.keys(ZONES_DOM_SNAP).forEach(function (zone) {
+          if (snap.zones[zone] && snap.zones[zone].src) return;   // déjà pris
+          var el = document.getElementById(ZONES_DOM_SNAP[zone]);
+          if (!el || el.style.display === 'none') return;
+          var img = el.querySelector('img');
+          var src = img && img.getAttribute('src');
+          if (!src) return;
+          if (!complet && !srcHeberge(src)) return;
+          snap.zones[zone] = {
+            src: src,
+            geo: {
+              left: el.style.left || null,
+              top: el.style.top || null,
+              width: el.style.width || null,
+              /* `height` est indispensable aux modes COUVERTURE (coins,
+                 drapeaux), où la boîte grandit sur les deux axes. */
+              height: el.style.height || null
+            }
+          };
+        });
+      } catch (e) {
+        /* DOM illisible : on garde ce que la session a fourni. */
+      }
+
+      /* --- TEXTES ---------------------------------------------------------
+         conf_texts n'est pas indexé par produit : il décrit le canvas courant,
+         donc bien la ligne qu'on ajoute. Recopié tel quel. */
+      try { snap.textes = JSON.parse(sessionStorage.getItem('conf_texts') || 'null'); } catch (e) {}
+
+      /* ── COMPLÉMENT DEPUIS LE DOM : LA POSITION RÉELLEMENT AFFICHÉE ──────
+
+         `conf_texts` est indexé PAR PRODUIT, pas par ligne
+         (conf-text-editor.js:136 — productKey() lit currentProductType).
+         Deux lignes du même produit partagent donc la clé
+         `conf_texts.sweatshirt.f` : la seconde ajoutée écrase la position de
+         la première.
+
+         Le symptôme : une ligne de groupe dont le texte avait été déplacé à
+         droite rouvrait son texte CENTRÉ — à la position de la commande libre
+         ajoutée après elle.
+
+         L'écran, lui, porte la vérité de CETTE ligne au moment de l'ajout. On
+         relit donc les styles réellement appliqués, qui priment sur la
+         session. Mêmes propriétés que celles posées par renderTextOnCanvas
+         (conf-text-editor.js:1029-1039), pour que les deux ne divergent pas. */
+      try {
+        var ZONES_TEXTE = ['f', 'fr', 'b', 'sl', 'sr'];
+        ZONES_TEXTE.forEach(function (z) {
+          var el = document.getElementById('text-' + z);
+          if (!el || el.style.display === 'none') return;
+          var contenu = el.querySelector('.dt-content');
+          if (!contenu) return;
+          /* Un texte COURBÉ est rendu en image : son contenu est vide et sa
+             position n'a pas le même sens. On laisse la session le décrire. */
+          if (el.classList.contains('is-shaped')) return;
+          var txt = (contenu.textContent || '').trim();
+          if (!txt) return;
+
+          if (!snap.textes) snap.textes = {};
+          if (!snap.textes[produit]) snap.textes[produit] = {};
+          var etat = snap.textes[produit][z] || {};
+
+          /* La session porte le style (police, couleur, graisse…) ; le DOM
+             porte la géométrie à jour. On complète sans écraser le reste. */
+          etat.text = txt;
+          if (el.style.left) etat.left = el.style.left;
+          if (el.style.top) etat.top = el.style.top;
+          if (el.style.width) etat.width = el.style.width;
+          if (el.style.fontSize) etat.fontSize = el.style.fontSize;
+          snap.textes[produit][z] = etat;
+        });
+      } catch (e) {
+        /* DOM illisible : la session fait foi, comme avant. */
+      }
+
+      return snap;
+    }
+    window.capturerSnapshot = capturerSnapshot;
+
+    /* Miroir PERSISTÉ : même forme, data-URL écartées.
+
+       C'est LA propriété qui supprime les heuristiques de lecture. Aujourd'hui
+       `item.design` est le résultat d'un filtre DESTRUCTIF appliqué à la
+       réserve : les deux n'ont ni la même forme ni forcément le même produit,
+       et la réouverture devait comparer leurs contenus pour choisir. Ici les
+       deux niveaux sont identiques au filtre près : on lit la mémoire vive si
+       elle existe, le miroir sinon, SANS JAMAIS LES COMPARER. */
+    function alegerSnapshot(snap) {
+      if (!snap) return null;
+      var out = {};
+      Object.keys(snap).forEach(function (k) { out[k] = snap[k]; });
+
+      /* ⚠️ `textes` DOIT ÊTRE DÉTACHÉ, comme `zones` l'est plus bas.
+
+         La boucle ci-dessus est une copie PLATE : `out.textes` restait la
+         MÊME RÉFÉRENCE que `snap.textes`. Le miroir persisté de la ligne et
+         sa réserve mémoire partageaient donc un seul objet — et
+         persistCartSafe (:6325) rappelle cette fonction sur une ligne lourde,
+         ré-aliasant une seconde fois.
+
+         `zones` échappait au défaut par accident : le filtre le reconstruit.
+         `textes` ne l'était nulle part.
+
+         C'est l'invariant sur lequel repose tout l'instantané : UNE LIGNE, UN
+         OBJET DÉTACHÉ. Sans lui, deux lignes du même produit se partagent
+         leurs textes, position comprise. */
+      out.textes = snap.textes ? JSON.parse(JSON.stringify(snap.textes)) : null;
+
+      /* `groupRows` suit la MÊME règle, et pour la même raison : la copie
+         plate en ferait un tableau partagé entre le miroir persisté et la
+         réserve mémoire — donc entre les cinq lignes d'un même groupe. */
+      out.groupRows = snap.groupRows ? JSON.parse(JSON.stringify(snap.groupRows)) : null;
+
+      out.zones = {};
+      Object.keys(snap.zones || {}).forEach(function (z) {
+        var e = snap.zones[z];
+        if (!e || !srcHeberge(e.src)) return;   // data-URL : trop lourde
+        out.zones[z] = e;
+      });
+      return out;
+    }
+    window.alegerSnapshot = alegerSnapshot;
+
+    /* Vérification manuelle avant que quoi que ce soit ne LISE l'instantané.
+       `window.diagSnapshot()` liste les lignes du panier avec, pour chacune, le
+       produit capturé et ses zones — de quoi confirmer sur un panier réel
+       qu'aucune ligne n'emprunte le design d'une autre. */
+    window.diagSnapshot = function (id) {
+      var res = [];
+      (cartItems || []).forEach(function (it) {
+        if (id != null && it.id != id) return;
+        var vive = (window.__snapshotsPanier || {})[it.id] || null;
+        var miroir = it.snapshot || null;
+        var src = vive || miroir;
+        res.push({
+          ligne: it.id,
+          nom: it.name,
+          produitLigne: it.productType,
+          produitSnapshot: src ? src.produit : null,
+          coherent: src ? (src.produit === it.productType) : null,
+          origine: vive ? 'mémoire vive' : (miroir ? 'miroir persisté' : 'AUCUN'),
+          zones: src ? Object.keys(src.zones || {}) : [],
+          textes: src && src.textes ? Object.keys(src.textes) : [],
+          /* Le nom floqué TEL QUE L'INSTANTANÉ le porte, pas tel que la ligne
+             le porte. Afficher `it.personName` masquait un vrai défaut : le
+             champ n'était jamais rempli côté instantané, et le tableau
+             montrait pourtant le bon nom — celui de la ligne. Un outil de
+             diagnostic doit montrer ce qu'il vérifie, pas ce qui le rassure. */
+          nomSnapshot: src ? (src.personName || null) : null,
+          nomLigne: it.personName || null
+        });
+      });
+      console.table(res);
+      return res;
+    };
 
     /* Capture l'état complet du design courant et le sauvegarde côté serveur.
        Renvoie l'URL d'invitation (?design=<id>) que l'invité ouvrira pour
@@ -5455,12 +6188,18 @@
       // Vider (sauf le bloc empty)
       Array.from(container.children).forEach(c => { if (c.id !== 'cd-empty') c.remove(); });
 
+      /* Le bouton « vider » suit le pied : rien à vider, rien à afficher — et
+         un bouton destructeur ne reste pas sous la main sans objet. */
+      const clearEl = document.getElementById('cd-clear');
+
       if (cartItems.length === 0) {
         emptyEl.style.display = 'flex';
         footerEl.style.display = 'none';
+        if (clearEl) clearEl.style.display = 'none';
         countEl.textContent = '';
         return;
       }
+      if (clearEl) clearEl.style.display = '';
 
       emptyEl.style.display = 'none';
       footerEl.style.display = 'block';
@@ -5703,13 +6442,26 @@
           var designLourd = !!(it.design && it.design.uploads &&
                             /"src"\s*:\s*"data:/i.test(JSON.stringify(it.design.uploads)));
 
-          if (/^data:/i.test(it.img || '') || /^data:/i.test(it.sheet || '') || designLourd) {
+          /* Le champ `snapshot` passe par LE MÊME REMPART.
+
+             pushToCart n'y pose déjà que le miroir allégé (alegerSnapshot),
+             mais ce filtre est le dernier rempart avant l'écriture : une ligne
+             venue d'un autre chemin, ou mémorisée avant ce correctif, ne doit
+             pas pouvoir faire entrer une data-URL. Un seul drapeau
+             recto/verso non filtré (~5,6 Mo) saturerait le quota à lui seul. */
+          var snapLourd = !!(it.snapshot && it.snapshot.zones &&
+                          /"src"\s*:\s*"data:/i.test(JSON.stringify(it.snapshot.zones)));
+
+          if (/^data:/i.test(it.img || '') || /^data:/i.test(it.sheet || '') || designLourd || snapLourd) {
             var copie = Object.assign({}, it);
             copie.img = estUrl(it.img);
             copie.sheet = estUrl(it.sheet);
             if (designLourd && typeof filtrerUploadsHeberges === 'function') {
               copie.design = Object.assign({}, it.design);
               copie.design.uploads = filtrerUploadsHeberges(it.design.uploads);
+            }
+            if (snapLourd && typeof alegerSnapshot === 'function') {
+              copie.snapshot = alegerSnapshot(it.snapshot);
             }
             return copie;
           }
@@ -5828,6 +6580,7 @@
           if (idx !== -1) cartItems.splice(idx, 1);
           try {
             if (window.__designsPanier) delete window.__designsPanier[derniere.id];
+            if (window.__snapshotsPanier) delete window.__snapshotsPanier[derniere.id];
           } catch (e) {}
         }
       }
@@ -5846,6 +6599,49 @@
     window.changeGroupSizeQty = changeGroupSizeQty;
 
     /**
+     * Vide INTÉGRALEMENT le panier, après confirmation.
+     *
+     * Le bouton voisine la croix de fermeture du tiroir : un clic manqué ne
+     * doit pas coûter tout un panier. D'où la confirmation, alors que la
+     * suppression d'UNE ligne n'en demande pas — celle-là se répare en
+     * quelques secondes, celle-ci non.
+     *
+     * Le ménage mémoire reprend celui de removeGroupItems : sans lui, une
+     * session longue garderait les images de toutes les lignes supprimées.
+     * Les deux magasins sont purgés — la réserve de design ET l'instantané de
+     * ligne — sinon un identifiant réutilisé ressusciterait un design effacé.
+     */
+    async function viderPanier() {
+      if (!cartItems.length) return;
+
+      var ok = true;
+      if (typeof window.confConfirm === 'function') {
+        ok = await window.confConfirm(
+          'Vider entièrement votre panier ? Cette action est irréversible.',
+          { icon: 'warning', title: 'Vider le panier',
+            confirmText: 'Vider', cancelText: 'Annuler' }
+        );
+      }
+      if (!ok) return;
+
+      cartItems.forEach(function (i) {
+        try { if (window.__designsPanier) delete window.__designsPanier[i.id]; } catch (e) {}
+        try { if (window.__snapshotsPanier) delete window.__snapshotsPanier[i.id]; } catch (e) {}
+      });
+
+      cartItems.length = 0;
+      cartCount = 0;
+
+      /* Bouton panier toujours visible : seul le compteur retombe à zéro. */
+      var cceVide = document.getElementById('hdr-cart-count');
+      if (cceVide) majPastillePanier(cceVide, cartCount);
+
+      persistCart();
+      renderCartDrawer();
+    }
+    window.viderPanier = viderPanier;
+
+    /**
      * Supprime TOUTES les lignes d'une commande de groupe.
      * @param {string} cle - clé du groupe (cleGroupeCd)
      */
@@ -5857,6 +6653,7 @@
         /* La réserve mémoire suit CHAQUE ligne : sans cette purge, une session
            longue accumulerait les images de toute la commande supprimée. */
         try { if (window.__designsPanier) delete window.__designsPanier[i.id]; } catch (e) {}
+        try { if (window.__snapshotsPanier) delete window.__snapshotsPanier[i.id]; } catch (e) {}
       });
       cartItems.length = 0;
       Array.prototype.push.apply(cartItems, restants);
@@ -5879,6 +6676,7 @@
       /* La réserve mémoire suit la ligne : sans cela, une session longue
          accumulerait les images des articles supprimés. */
       try { if (window.__designsPanier) delete window.__designsPanier[id]; } catch (e) {}
+      try { if (window.__snapshotsPanier) delete window.__snapshotsPanier[id]; } catch (e) {}
       /* Bouton panier toujours visible : seul le compteur retombe à zéro. */
       if (cartCount < 1) cartCount = 0;
       const cartCountEl = document.getElementById('hdr-cart-count');
@@ -6446,7 +7244,14 @@
                   saveUploadSafe(zone, res.url, uploadOwner);
                 }
               })
-              .catch(err => console.warn('Upload Cloudinary échoué (' + zone + ') :', err.message));
+              /* L'ERREUR ENTIÈRE, PAS SEULEMENT SON MESSAGE.
+
+                 `err.message` seul a coûté cher : un « Maximum call stack size
+                 exceeded » levé par le rendu d'une VIGNETTE (updateFlagRecapThumb)
+                 remontait jusqu'ici et se lisait comme une panne d'envoi. Le
+                 diagnostic partait vers le réseau alors que le défaut était dans
+                 l'affichage. La pile complète nomme le vrai coupable. */
+              .catch(err => console.warn('Upload Cloudinary échoué (' + zone + ') :', err));
           }
         });
         });   // fin de rognerBordsTransparents()
@@ -6737,8 +7542,33 @@
        spontanément sur l'autre. L'indexation par produit existe justement pour
        éviter ce mélange — la capture tardive la contournait.
 
-       Sans `owner`, comportement inchangé (appels synchrones depuis un geste). */
-    function saveUpload(zone, src, owner) {
+       Sans `owner`, comportement inchangé (appels synchrones depuis un geste).
+
+       ── POURQUOI CE NOM SE TERMINE PAR « Raw » ──────────────────────────────
+
+       Elle s'appelait `saveUpload`, et ce nom provoquait une RÉCURSION INFINIE.
+
+       Ce fichier n'a AUCUNE IIFE : ses 10 017 lignes vivent en portée globale,
+       héritage de l'époque où il était un <script> inline dans le Liquid. Or à
+       ce niveau, `function saveUpload(){}` et `window.saveUpload` désignent le
+       MÊME emplacement.
+
+       La ligne `window.saveUpload = saveUploadSafe` (plus bas) n'ajoutait donc
+       pas un alias : elle ÉCRASAIT cette fonction-ci. Les appels internes de
+       saveUploadSafe se résolvaient alors vers saveUploadSafe elle-même —
+       « Maximum call stack size exceeded ». Le chemin synchrone (URL déjà
+       hébergée) plantait net ; les deux chemins asynchrones récursaient en
+       microtâches, saturant sans erreur nette.
+
+       Conséquence visible : plus aucune image n'était mémorisée en session, et
+       les lignes de panier partaient sans leur design.
+
+       Le suffixe met ce nom hors d'atteinte de toute propriété de `window`.
+
+       ⚠️ PIÈGE DE CLASSE, pas cas isolé : toute `function foo(){}` de ce
+       fichier réexportée en `window.foo = autreChose` détourne silencieusement
+       ses propres appelants. */
+    function saveUploadRaw(zone, src, owner) {
       const product = owner || currentProductType;
       const store = readUploadStore();
       const u = store.byProduct[product] || {};
@@ -6781,14 +7611,14 @@
 
       // Déjà une URL hébergée : rien à compresser, rien à craindre.
       if (!/^data:/i.test(src)) {
-        saveUpload(zone, src, owner);
+        saveUploadRaw(zone, src, owner);
         return Promise.resolve(true);
       }
 
       return compressForStorage(src).then(function (stored) {
         var valeur = stored || src;
         if (valeur.length <= MAX_SRC_SESSION) {
-          saveUpload(zone, valeur, owner);
+          saveUploadRaw(zone, valeur, owner);
           return true;
         }
         /* Trop lourde même compressée : une réduction plus franche avant
@@ -6797,7 +7627,7 @@
            l'URL Cloudinary. Elle sert seulement à survivre à un F5. */
         return reduireFort(valeur).then(function (petite) {
           if (petite && petite.length <= MAX_SRC_SESSION) {
-            saveUpload(zone, petite, owner);
+            saveUploadRaw(zone, petite, owner);
             return true;
           }
           console.warn('Image trop lourde pour la session (' +
@@ -7801,7 +8631,19 @@
       'conf_sleeve_opt', 'conf_group_rows',
       /* Les URLs hébergées suivent le design : sans cette ligne, celles d'un
          mode ressurgiraient dans l'autre au rechargement. */
-      'conf_cloud_urls'
+      'conf_cloud_urls',
+      /* LE PRODUIT FAIT PARTIE DU DESIGN.
+
+         Il manquait : concevoir un t-shirt coton en commande de groupe puis
+         passer en commande libre rouvrait ce même t-shirt, avec son design.
+
+         C'est doublement gênant, car `conf_uploads` et `conf_texts` sont
+         indexés PAR PRODUIT. Garder le produit du mode quitté fait donc
+         chercher ses entrées dans le paquet du mode entrant : les deux
+         magasins se retrouvent lus de travers.
+
+         Chaque mode garde désormais le sien. */
+      'conf_current_product'
     ];
 
     /**
@@ -7897,6 +8739,66 @@
       }
     }
 
+    /* PURGE DES ZONES POUR LA RÉOUVERTURE DEPUIS LE PANIER.
+
+       Volontairement DISTINCTE de viderLogosAffiches, qui incrémente
+       `__genDesignMode` (:8581). Ce jeton annule toute restauration différée
+       encore en vol — c'est ce qu'il faut au changement de MODE, mais pas ici :
+       il tuerait `restoreProductThenUploads` (:1099), qui participe à
+       l'ouverture qu'on est en train de préparer.
+
+       Le reste est identique : mêmes 10 zones, même délégation à `rmUp`
+       (conf-share.js) qui sait retirer proprement un logo de coin, de drapeau
+       ou de patch, réinitialiser les vignettes d'aperçu, les lignes de récap
+       et le supplément manches. L'écrire à la main divergerait au premier
+       ajout de zone.
+
+       `garder` : les zones à ÉPARGNER — celles que l'instantané va reposer.
+       Les purger pour les réécrire aussitôt ferait clignoter le canvas et
+       effacerait leurs URLs hébergées (removeUpload, :7645).
+
+       @param {Object} garder - dictionnaire dont les CLÉS sont les zones à
+       conserver (typiquement `snap.zones`). */
+    function purgerZonesHorsInstantane(garder) {
+      if (typeof window.rmUp !== 'function') return;
+      var ZONES = [
+        'f', 'fr', 'b', 'sl', 'sr', 'c',
+        'coin-recto', 'coin-verso', 'flag-recto', 'flag-verso'
+      ];
+      var conserver = garder || {};
+      for (var z = 0; z < ZONES.length; z++) {
+        if (Object.prototype.hasOwnProperty.call(conserver, ZONES[z])) continue;
+        /* Une zone absente du produit courant (un coin n'a pas de manches)
+           doit rester sans effet, pas interrompre le nettoyage des autres. */
+        try { window.rmUp(ZONES[z]); } catch (e) {}
+      }
+    }
+    window.purgerZonesHorsInstantane = purgerZonesHorsInstantane;
+
+    /* LES LIGNES DE TEXTE DU RÉCAPITULATIF — hors de toute purge jusqu'ici.
+
+       `rmUp` ne connaît que rc-front / rc-back / rc-sleeves : les trois lignes
+       rc-text-* n'étaient nettoyées par personne. Rouvrir un article sans
+       texte après un article avec texte laissait donc « Texte cœur ✓
+       Personnalisé » affiché, vignette de l'article précédent comprise.
+
+       On masque ET on vide la source, pour la même raison qu'en
+       conf-text-editor.js:1475 : un `src` laissé en place réapparaît au
+       prochain affichage de la ligne.
+
+       @param {Object} garderTextes - clés des zones de texte à conserver. */
+    function purgerLignesTexteRecap(garderTextes) {
+      var conserver = garderTextes || {};
+      ['f', 'fr', 'b'].forEach(function (z) {
+        if (Object.prototype.hasOwnProperty.call(conserver, z)) return;
+        var ligne = document.getElementById('rc-text-' + z);
+        var img = document.getElementById('rc-img-text-' + z);
+        if (ligne) ligne.style.display = 'none';
+        if (img) img.removeAttribute('src');
+      });
+    }
+    window.purgerLignesTexteRecap = purgerLignesTexteRecap;
+
     /**
      * Écrit en session le design d'un mode — SANS toucher à l'affichage.
      *
@@ -7960,27 +8862,26 @@
     function basculerModeAvecRechargement(sortant, entrant) {
       if (window.__ouvertureDepuisPanier) return false;
 
-      /* AUCUN MODE À QUITTER = AUCUN RECHARGEMENT.
+      /* LE MODE QUITTÉ, MÊME QUAND LA SESSION NE LE PORTE PLUS.
 
-         La condition portait `sortant && sortant === entrant`, ce qui la
-         rendait inopérante quand `sortant` valait null — précisément l'état
-         laissé par `retourChoixMode()`, qui retire le mode de la session après
-         avoir rangé le design et vidé l'affichage.
+         « Changer de mode » passe par `retourChoixMode`, qui retire MODE_KEY :
+         `sortant` arrive donc à null alors qu'un mode VIENT d'être quitté.
+         `__modeQuitte` conserve cette information — sans elle, on ne saurait
+         pas quel design ranger.
 
-         C'est l'état d'après un ajout de commande de groupe. Reprendre un
-         parcours de groupe rechargeait donc la page pour isoler un mode qui
-         n'existait plus, le démarrage reposait `data-mode` depuis la session
-         que la bascule venait d'écrire, et le cycle se refermait : la page se
-         rechargeait sans fin.
+         Une garde `!sortant` avait été posée ici pour arrêter une boucle de
+         rechargement. Elle traitait le symptôme au mauvais endroit : elle
+         empêchait AUSSI le rechargement légitime après « Changer de mode »,
+         et c'est ce qui laissait le design fuir d'un mode à l'autre.
 
-         Le commentaire précédent justifiait ce rechargement par « l'état
-         mémoire du mode précédent, toujours vivant ». Il ne l'est plus dans ce
-         cas : l'ajout au panier l'a effacé.
+         La boucle est écartée ailleurs, et mieux : par la garde `reprise` de
+         `choisirMode`, qui interdit tout rechargement lors d'une reprise de
+         session au démarrage — le seul cas où le cycle pouvait se refermer. */
+      if (!sortant) sortant = window.__modeQuitte || null;
+      window.__modeQuitte = null;
 
-         Un rechargement ne sert qu'à séparer DEUX modes. Sans mode sortant, il
-         n'isole rien — et `choisirMode` sait entrer dans le mode par lui-même
-         quand on ne recharge pas. */
-      if (!sortant || sortant === entrant) return false;
+      /* Rester dans le même mode n'isole rien : pas de rechargement. */
+      if (sortant && sortant === entrant) return false;
 
       if (sortant) rangerDesignMode(sortant);
 
@@ -8036,8 +8937,14 @@
         barre.id = 'mode-actuel';
         barre.innerHTML =
           '<span class="mode-actuel-lbl"></span>' +
+          /* `ma-long` : les parties du texte que le MOBILE masque
+             (conf-mobile.css). Le libellé complet plus ce bouton dépassent la
+             largeur d'un téléphone, et `white-space: nowrap` interdit tout
+             repli — le bouton sortait de l'écran, donc inatteignable.
+             Sur mobile, il ne reste que « CHANGER ». */
           '<button type="button" class="mode-actuel-btn" ' +
-                  'onclick="retourChoixMode()">Changer de mode</button>';
+                  'onclick="retourChoixMode()">Changer' +
+                  '<span class="ma-long"> de mode</span></button>';
         canvas.insertBefore(barre, canvas.firstChild);
       }
 
@@ -8047,25 +8954,41 @@
       var impose = null;
       try { impose = sessionStorage.getItem('conf_mode_impose'); } catch (e) {}
 
-      var NOMS = {
-        coins: 'Les coins',
-        drapeaux: 'Les drapeaux',
-        patches: 'Les patchs'
-      };
-      /* La contrainte ne vaut que tant que le produit COURANT la subit :
-         revenu sur un textile, le client peut de nouveau commander en groupe. */
-      var subitEncore = impose && impose === currentProductType;
+      /* LE BANDEAU SUIT LE DRAPEAU, PLUS LE PRODUIT AFFICHÉ.
 
-      barre.classList.toggle('is-impose', !!subitEncore);
+         Il ne s'affichait que tant que le produit courant était CELUI qui avait
+         imposé le mode (`impose === currentProductType`). Revenu sur un
+         sweatshirt, le client retrouvait le bandeau noir « Mode actuel » — sans
+         savoir pourquoi il était en personnalisation libre, ni qu'il pouvait en
+         sortir.
+
+         Or il EST en mode libre sans l'avoir choisi, quel que soit le produit
+         qu'il regarde ensuite. Le lui cacher revient à le laisser dans un mode
+         subi sans lui dire qu'une alternative existe.
+
+         La sortie est déjà en place : `retourChoixMode` efface le drapeau
+         (:9284) dès que le client reprend la main. Le bandeau redevient alors
+         noir — le mode est redevenu un choix. */
+      var subitEncore = !!impose;
+
+      barre.classList.toggle('is-impose', subitEncore);
 
       if (subitEncore) {
-        lbl.innerHTML = (NOMS[impose] || 'Ce produit') +
-          ' ne portent pas de surnom — <strong>mode libre appliqué</strong>';
+        /* MESSAGE GÉNÉRIQUE : il nommait le produit (« Les coins ne portent pas
+           de surnom »), ce qui devient faux dès qu'on affiche un sweatshirt.
+           Celui-ci vaut partout, dit ce qui s'applique, et le bouton reste à
+           portée. */
+        lbl.innerHTML = 'Ce produit suggère la <strong>personnalisation libre</strong>';
       } else {
         var mode = document.querySelector('.conf-app-root');
         mode = mode ? mode.getAttribute('data-mode') : null;
-        lbl.innerHTML = 'Mode actuel : <strong id="mode-actuel-nom">' +
-          (mode === 'groupe' ? 'Personnalisation groupe' : 'Personnalisation libre') +
+        /* Sur mobile, `ma-long` est masqué : il ne reste que « Groupe » ou
+           « Libre » — assez pour situer le client, et la barre tient enfin
+           dans la largeur de l'écran. */
+        lbl.innerHTML = '<span class="ma-long">Mode actuel : </span>' +
+          '<strong id="mode-actuel-nom">' +
+          '<span class="ma-long">Personnalisation </span>' +
+          (mode === 'groupe' ? 'groupe' : 'libre') +
           '</strong>';
       }
     }
@@ -8239,6 +9162,44 @@
           if (typeof eqRendreNoms === 'function') eqRendreNoms();
         });
       }
+
+      /* MODE INDIVIDUEL : ON REFERME « MON ÉQUIPE ».
+
+         Cette branche manquait, et l'asymétrie se voyait enfin : la branche
+         ci-dessus OUVRE le panneau en mode groupe, mais rien nulle part ne le
+         refermait au retour en mode libre. Le client ouvrait une commande
+         libre depuis son panier et gardait sous les yeux la liste de surnoms
+         d'un groupe, qui ne le concerne pas.
+
+         Le défaut existait depuis toujours ; il était masqué par le
+         RECHARGEMENT DE PAGE que déclenchait alors tout changement de mode —
+         le démarrage rouvrait `panel-product` (conf-sidebar-modern.js:1151) et
+         remettait les choses en place. Faire basculer le mode SANS recharger,
+         pour rouvrir une ligne de panier, l'a mis au jour.
+
+         Le CSS masque bien l'onglet hors mode groupe (conf-styles.css:3762) :
+         c'est le panneau DÉJÀ OUVERT qui persistait, pas l'onglet.
+
+         `panel-product` — « Type de Produit » — est le panneau par défaut du
+         configurateur, celui qu'ouvre déjà le démarrage. `openPanel` referme
+         le panneau courant avant d'ouvrir le nouveau : un seul appel suffit.
+
+         MÊME `requestAnimationFrame` que la branche groupe, et pour la même
+         raison : la barre latérale doit être révélée avant qu'un panneau ne
+         s'y ouvre, sinon il s'ouvre sur une largeur nulle. */
+      if (mode !== 'groupe') {
+        requestAnimationFrame(function () {
+          if (typeof window.modernSidebar === 'object' &&
+              typeof window.modernSidebar.openPanel === 'function') {
+            var ouvert = document.getElementById('panel-equipe');
+            /* On ne déplace le client que si c'est bien « Mon Équipe » qui est
+               ouvert : sinon on lui ferait quitter le panneau où il travaille. */
+            if (ouvert && ouvert.classList.contains('open')) {
+              window.modernSidebar.openPanel('panel-product');
+            }
+          }
+        });
+      }
     }
 
     /**
@@ -8331,6 +9292,18 @@
            effacement. */
         viderLogosAffiches(true);
       }
+
+      /* LE MODE QUITTÉ EST MÉMORISÉ AVANT D'ÊTRE RETIRÉ.
+
+         `MODE_KEY` disparaît ici, et c'est voulu : l'écran de choix ne retient
+         aucun mode. Mais `choisirMode` en a besoin au clic suivant — c'est lui
+         qui dit QUEL design ranger avant de charger celui du mode entrant.
+
+         Sans cette trace, le mode sortant valait null, la permutation était
+         sautée, et le design du parcours précédent restait en session : il
+         réapparaissait dans l'autre mode. */
+      try { window.__modeQuitte = sessionStorage.getItem(MODE_KEY) || null; }
+      catch (e) { window.__modeQuitte = null; }
 
       try { sessionStorage.removeItem(MODE_KEY); } catch (e) {}
       window.__modePerso = null;

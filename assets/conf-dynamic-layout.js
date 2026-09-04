@@ -231,6 +231,26 @@ class DynamicLayoutManager {
            petite image centrée au lieu de remplir la pièce. */
         if (typeof window.syncCoinCrop === "function") window.syncCoinCrop();
         if (typeof window.syncFlagCrop === "function") window.syncFlagCrop();
+
+        /* SIGNAL DE FIN — pour que la réouverture depuis le panier cesse de
+           PARIER sur une durée.
+
+           Ce bloc est la dernière chose qui écrit sur le canvas après une
+           reconstruction. La réouverture posait ses passes à 560 et 1000 ms,
+           calibrées pour tomber après ces 250 ms — mais l'injection du DOM
+           qui les précède n'est pas instantanée (loadDrapeauxCanvas et
+           consorts). Sur un appareil lent, ce callback pouvait donc arriver
+           APRÈS la passe de restauration et lui reprendre la main : le motif
+           en mode « couverture » redevenait une petite image centrée.
+
+           Un événement dit ce qu'un délai ne peut que supposer : « le canvas
+           est reconstruit ET restauré, à vous ». Sans auditeur, il est inerte :
+           l'ancien chemin par setTimeout reste en place comme filet. */
+        try {
+          document.dispatchEvent(new CustomEvent("conf:layout-restored", {
+            detail: { category: category }
+          }));
+        } catch (e) {}
       }, 250);
     }
   }
@@ -678,7 +698,12 @@ class DynamicLayoutManager {
                   <p>Téléchargez votre design<br>pour voir l'aperçu</p>
                 </div>
                 <div class="design-logo flag-logo" id="flag-logo-recto" data-zone="flag-recto" style="display:none; left:28%; top:32%; width:44%;">
-                  <img class="flag-design-img" id="flag-recto-img" src="" alt="Design recto" draggable="false">
+                  <!-- crossorigin : même défaut que sur les coins (:980).
+                       flagCoverDataUrl échouait silencieusement sur un canvas
+                       contaminé, et la vignette repartait sur l'image brute.
+                       Moins voyant que sur un disque — la zone du drapeau est
+                       rectangulaire — mais tout aussi faux. -->
+                  <img class="flag-design-img" id="flag-recto-img" crossorigin="anonymous" src="" alt="Design recto" draggable="false">
                   <span class="logo-resize" data-resize="flag-recto"></span>
                 </div>
               </div>
@@ -725,7 +750,8 @@ class DynamicLayoutManager {
                   <p>Téléchargez votre design verso<br>pour voir l'aperçu</p>
                 </div>
                 <div class="design-logo flag-logo" id="flag-logo-verso" data-zone="flag-verso" style="display:none; left:28%; top:32%; width:44%;">
-                  <img class="flag-design-img" id="flag-verso-img" src="" alt="Design verso" draggable="false">
+                  <!-- Même raison qu'au recto. -->
+                  <img class="flag-design-img" id="flag-verso-img" crossorigin="anonymous" src="" alt="Design verso" draggable="false">
                   <span class="logo-resize" data-resize="flag-verso"></span>
                 </div>
               </div>
@@ -957,7 +983,14 @@ class DynamicLayoutManager {
                 <!-- Zone imprimable : repère de placement du design. -->
                 <div class="coin-safe-zone" data-face="recto"></div>
                 <div class="design-logo coin-logo" id="coin-logo-recto" data-zone="coin-recto" style="display:none; left:28%; top:28%; width:44%;">
-                  <img src="" alt="Logo recto" draggable="false">
+                  <!-- crossorigin : SANS lui, dessiner ce logo (hébergé sur
+                       Cloudinary) sur un canvas le CONTAMINE, et toDataURL lève
+                       une SecurityError. coinCoverDataUrl retombait alors sur
+                       une chaîne vide, et la vue d'ensemble affichait l'image
+                       BRUTE, non rognée, débordant du disque.
+                       Déclaré ICI, dans le gabarit : posé après l'affectation
+                       du src, l'attribut ne relancerait pas le chargement. -->
+                  <img crossorigin="anonymous" src="" alt="Logo recto" draggable="false">
                   <span class="logo-resize" data-resize="coin-recto"></span>
                 </div>
               </div>
@@ -971,7 +1004,8 @@ class DynamicLayoutManager {
                 <!-- Zone imprimable : repère de placement du design. -->
                 <div class="coin-safe-zone" data-face="verso"></div>
                 <div class="design-logo coin-logo" id="coin-logo-verso" data-zone="coin-verso" style="display:none; left:28%; top:28%; width:44%;">
-                  <img src="" alt="Logo verso" draggable="false">
+                  <!-- Même raison qu'au recto (:980). -->
+                  <img crossorigin="anonymous" src="" alt="Logo verso" draggable="false">
                   <span class="logo-resize" data-resize="coin-verso"></span>
                 </div>
                 <!-- Numéro (type "recto verso numéroté") -->

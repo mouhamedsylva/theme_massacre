@@ -117,6 +117,53 @@
   var boiteCanvas = null;
   var captureEnCours = false;
 
+  /* EXPOSÉ : l'ajout au panier doit savoir attendre.
+
+     `capturerPourNom` masque des calques de logos et force ses propres
+     dimensions sur `.cv-wrap` le temps de photographier chaque carte. Or
+     l'ajout au panier compose ses vignettes en LISANT ces mêmes calques : il
+     ignore toute zone dont le style porte `display:none`.
+
+     Ajouter pendant cette fenêtre donnait donc un tableau de logos vide, aucune
+     composition, et la ligne retombait sur le vêtement nu — sans le moindre
+     signal.
+
+     Une fonction plutôt qu'un booléen recopié : l'état reste ici, à un seul
+     endroit, et ne peut pas se désynchroniser. */
+  window.grpCaptureEnCours = function () { return captureEnCours; };
+
+  /**
+   * @returns {{w:number,h:number}} la boîte à imposer au canvas pour le rendre
+   * mesurable hors du flux.
+   *
+   * POURQUOI ELLE EST EXPOSÉE
+   * -------------------------
+   * L'ajout au panier compose ses vignettes en MESURANT le canvas, exactement
+   * comme les cartes de cette étape. Mais il se contentait de lever le
+   * `display:none` : or `.cv-wrap` est en `flex: 1` et FRÈRE des cartes dans la
+   * même colonne. Révélé alors qu'elles occupent tout l'espace, il obtenait une
+   * hauteur quasi NULLE — les logos sortaient démesurés, ou la mesure échouait
+   * et la vignette partait nue.
+   *
+   * C'est le problème que `capturerPourNom` résout depuis toujours en imposant
+   * une boîte explicite. On partage donc ce calcul plutôt que de le dupliquer :
+   * les deux chemins mesurent la même géométrie, donc produisent le même rendu.
+   */
+  window.grpBoiteCanvas = function () {
+    var RAIL = 65;      /* conf-sidebar-modern.css : largeur du rail d'icônes */
+    var RECAP = 252;    /* conf-styles.css : --recap-w */
+    var PADDING = 40;   /* marges horizontales du canvas */
+
+    /* Repli identique à celui de la capture : le canvas n'a jamais été
+       mesurable — arrivée directe sur « Vérifier » après un rechargement. */
+    return {
+      w: boiteCanvas ? boiteCanvas.w
+                     : Math.max(320, window.innerWidth - RAIL - RECAP - PADDING),
+      h: boiteCanvas ? boiteCanvas.h
+                     : Math.round(window.innerHeight * 0.85)
+    };
+  };
+
   /** Relève les dimensions du canvas si elles sont exploitables. */
   function memoriserBoiteCanvas() {
     /* Jamais pendant une capture : celle-ci force ses propres dimensions sur

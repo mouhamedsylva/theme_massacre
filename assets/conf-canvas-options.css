@@ -355,6 +355,28 @@
 /* Les calques suivent exactement la boîte de l'image de fond. */
 .ov-layers { position: absolute; inset: 0; }
 .ov-layer { position: absolute; height: auto; display: block; }
+
+/* COUCHE RONDE — repli des coins, quand la mise à plat a échoué.
+
+   Décalque de ce que fait déjà le récapitulatif latéral
+   (conf-coin-thumb.js:81) : un conteneur circulaire qui rogne, et une image en
+   `object-fit: cover`. Sans cela, l'image brute s'affichait à son ratio natif
+   et débordait du disque.
+
+   `aspect-ratio: 1` garantit le cercle : la largeur seule est donnée en % de
+   l'image de fond, qui n'est pas carrée. */
+.ov-layer-round {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+}
+.ov-layer-round img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
 /* Manche droite : le FOND est retourné, jamais les calques — le design du
    client apparaîtrait inversé (même règle que le canvas). */
 .ov-stage.is-mirror .ov-bg { transform: scaleX(-1); }

@@ -460,7 +460,10 @@
 
       return c.toDataURL('image/png');
     } catch (e) {
-      // Canvas teinté (CORS) : l'appelant retombe sur l'image brute.
+      /* Canvas teinté (CORS) : l'appelant retombe sur l'image brute.
+         Tracé désormais — même défaut et même silence que sur les coins
+         (conf-coin-thumb.js). */
+      console.warn('Mise à plat du drapeau impossible — repli sur l\'image brute :', e);
       return '';
     }
   }

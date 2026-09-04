@@ -153,7 +153,14 @@
 
       return c.toDataURL('image/png');
     } catch (e) {
-      // Canvas taint (CORS) : on laisse l'appelant retomber sur l'image brute.
+      /* Canvas taint (CORS) : on laisse l'appelant retomber sur l'image brute.
+
+         L'ERREUR EST DÉSORMAIS TRACÉE. Ce `catch` était muet, et c'est ce
+         silence qui a rendu le défaut invisible : les logos manquaient de
+         `crossorigin` (conf-dynamic-layout.js:980), toDataURL levait une
+         SecurityError à chaque appel, et la vue d'ensemble affichait l'image
+         brute non rognée — sans que rien ne l'explique. */
+      console.warn('Mise à plat du coin impossible — repli sur l\'image brute :', e);
       return '';
     }
   }

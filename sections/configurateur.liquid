@@ -841,11 +841,15 @@
         dépend du mode retenu, pas du markup.
       {%- endcomment -%}
       <div class="mode-actuel" id="mode-actuel">
-        <span class="mode-actuel-lbl">
-          Mode actuel : <strong id="mode-actuel-nom">Personnalisation libre</strong>
-        </span>
+        {%- comment -%}
+          `ma-long` : les fragments que le MOBILE masque (conf-mobile.css).
+          Le libellé complet plus le bouton dépassent la largeur d'un
+          téléphone, et `white-space: nowrap` interdit tout repli — le bouton
+          sortait de l'écran. Sur mobile il reste « Libre » et « CHANGER ».
+        {%- endcomment -%}
+        <span class="mode-actuel-lbl"><span class="ma-long">Mode actuel : </span><strong id="mode-actuel-nom"><span class="ma-long">Personnalisation </span>libre</strong></span>
         <button type="button" class="mode-actuel-btn" onclick="retourChoixMode()">
-          Changer de mode
+          Changer<span class="ma-long"> de mode</span>
         </button>
       </div>
 
@@ -1566,7 +1570,22 @@
         <span class="cd-title">Panier</span>
         <span class="cd-count" id="cd-count"></span>
       </div>
-      <button type="button" class="cd-close" onclick="closeCartDrawer()" aria-label="Fermer">×</button>
+      <div class="cd-hdr-actions">
+        {%- comment -%}
+          Masqué par défaut : renderCartDrawer l'affiche dès qu'il y a une
+          ligne. Un bouton destructeur ne doit pas rester sous la main quand
+          il n'a rien à vider.
+        {%- endcomment -%}
+        <button type="button" class="cd-clear" id="cd-clear" style="display:none"
+                onclick="viderPanier()" aria-label="Vider le panier" title="Vider le panier">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
+            <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </button>
+        <button type="button" class="cd-close" onclick="closeCartDrawer()" aria-label="Fermer">×</button>
+      </div>
     </div>
 
     <div class="cd-items" id="cd-items">

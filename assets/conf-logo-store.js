@@ -101,9 +101,41 @@
     const aQuelqueChose = !depuisPanier && saved && Object.keys(saved).some(function (z) {
       return !!saved[z];
     });
-    /* `depuisPanier` force ce repli : l'instantané mémoire est périmé dans ce
-       cas, la session porte le design de la ligne ouverte. */
-    if (!aQuelqueChose) {
+    /* ═══ L'INSTANTANÉ DE LIGNE FAIT FOI PENDANT UNE RÉOUVERTURE ══════════
+
+       Cette fonction est appelée depuis `selProd` (conf-main-inline.js:2472),
+       donc AVANT toute passe de restauration. Et elle est DESTRUCTIVE : sa
+       boucle plus bas pose `src = ''` et `display: none` sur les zones
+       qu'elle croit vides.
+
+       Sa garde `protegee` consultait la SESSION pour éviter d'effacer ce
+       qu'une autre source déclare valide. Mais `saved` et `enSession` en
+       venaient tous deux : quand l'écriture de session avait échoué (quota
+       dépassé — le cas des coins et drapeaux lourds), les deux étaient vides,
+       `protegee` valait faux, et la fonction effaçait TOUT ce que
+       l'ouverture venait de poser.
+
+       L'instantané ne dépend d'aucun quota : il vit en mémoire vive et porte
+       exactement les zones de la ligne. En le prenant pour source, la boucle
+       d'effacement devient EXACTE — elle efface précisément les zones absentes
+       de la ligne, ce qui fait d'elle une alliée de la clôture au lieu d'une
+       menace.
+
+       Le rôle légitime de la fonction est intact : elle continue de peindre
+       les aperçus latéraux, les vignettes et les lignes de récapitulatif, que
+       `restoreUploads` ne touche jamais. */
+    const snapOuv = window.__snapshotOuverture;
+    const snapUtilisable = depuisPanier && snapOuv && snapOuv.produit === productKey;
+
+    if (snapUtilisable) {
+      saved = {};
+      zones.forEach(function (z) {
+        const e = snapOuv.zones && snapOuv.zones[z];
+        if (e && e.src) saved[z] = e.src;
+      });
+    } else if (!aQuelqueChose) {
+      /* `depuisPanier` force ce repli : l'instantané mémoire est périmé dans
+         ce cas, la session porte le design de la ligne ouverte. */
       saved = {};
       try {
         const persisted = window.readUploadStore ? window.readUploadStore().byProduct[productKey] || {} : {};
@@ -132,15 +164,28 @@
        repeupler. Une fonction de restauration ne doit jamais détruire ce qu'une
        autre source déclare encore valide. */
     let enSession = {};
-    try {
-      const p = window.readUploadStore
-        ? (window.readUploadStore().byProduct[productKey] || {}) : {};
-      Object.keys(p).forEach(function (z) {
-        const e = p[z];
-        const s = (typeof e === 'string') ? e : (e && e.src);
-        if (s) enSession[z] = 1;
-      });
-    } catch (e) { enSession = {}; }
+    if (snapUtilisable) {
+      /* MÊME SOURCE QUE `saved` — sinon la clôture ne se ferait jamais.
+
+         `protegee` arbitre un désaccord entre deux sources incertaines. Avec
+         l'instantané il n'y a plus qu'une source certaine : protéger une zone
+         qu'il ne contient PAS reviendrait à laisser en place le résidu d'une
+         autre ligne, c'est-à-dire à défaire la clôture qu'on cherche.
+
+         `protegee` devient donc toujours faux ici : une zone absente de
+         l'instantané est une zone à effacer, sans ambiguïté. */
+      enSession = {};
+    } else {
+      try {
+        const p = window.readUploadStore
+          ? (window.readUploadStore().byProduct[productKey] || {}) : {};
+        Object.keys(p).forEach(function (z) {
+          const e = p[z];
+          const s = (typeof e === 'string') ? e : (e && e.src);
+          if (s) enSession[z] = 1;
+        });
+      } catch (e) { enSession = {}; }
+    }
 
     zones.forEach(zone => {
       const src = saved[zone] || null;
@@ -224,8 +269,18 @@
   
     if (rcFront)   rcFront.style.display   = savedF  ? 'flex' : 'none';
     if (rcBack)    rcBack.style.display    = savedB  ? 'flex' : 'none';
-    if (rcImgF && savedF)  rcImgF.src = savedF;
-    if (rcImgB && savedB)  rcImgB.src = savedB;
+    /* LE `src` EST VIDÉ QUAND LA ZONE L'EST — symétrie indispensable.
+
+       L'écriture était conditionnée à `savedF` : une zone vide masquait la
+       ligne mais laissait le `src` de l'ARTICLE PRÉCÉDENT. Dès que quoi que
+       ce soit rallumait la ligne — applyUpload dans un ordre défavorable, un
+       restoreLogosForProduct tardif — l'ancienne vignette réapparaissait.
+
+       Le correctif existe depuis longtemps côté TEXTE
+       (conf-text-editor.js:1475, « sinon l'ancienne vignette réapparaîtrait au
+       prochain affichage ») ; il n'avait jamais été reporté ici. */
+    if (rcImgF) { if (savedF) rcImgF.src = savedF; else rcImgF.removeAttribute('src'); }
+    if (rcImgB) { if (savedB) rcImgB.src = savedB; else rcImgB.removeAttribute('src'); }
     if (rcSleeves) rcSleeves.style.display = (savedSl || savedSr) ? 'flex' : 'none';
   
     // Réaligne l'aperçu logo de la vignette récap pour ce produit.
