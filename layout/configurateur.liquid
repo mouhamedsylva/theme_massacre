@@ -522,17 +522,28 @@
       // Dictionnaire de toutes les images textile (clé = "produit-couleur-vue")
       // Généré côté Liquid pour avoir les URLs CDN exactes (avec ?v=...).
       window.PRODUCT_IMAGE_URLS = {
-        {%- assign tx_products = "sweatshirt,tshirt,tshirt-polyester" | split: "," -%}
-        {%- assign tx_colors = "apricot,ash,atoll,black,bottle-green,brown,burgundy,chocolate,cobalt-blue,dark-grey,diva-blue,fire-red,gold,kelly-green,millennial-lilac,millennial-mint,natural,navy,navy-blue,orange,orchid-green,orchid-pink,pacific-grey,pixel-lime,radiant-purple,red,royal-blue,sand,sky,solar-yellow,sorbet,sport-grey,stone-blue,sunset-orange,swimming-pool,urban-khaki,urban-orange,urban-purple,used-black,white" | split: "," -%}
-        {%- assign tx_views = "face,dos,cote" | split: "," -%}
-        {%- for p in tx_products -%}
-          {%- for c in tx_colors -%}
-            {%- for v in tx_views -%}
-              {%- assign fname = p | append: "-" | append: c | append: "-" | append: v | append: ".png" -%}
-              "{{ p }}-{{ c }}-{{ v }}": "{{ fname | asset_url }}",
-            {%- endfor -%}
-          {%- endfor -%}
-        {%- endfor -%}
+        {%- comment -%}
+          BOUCLE DES QUARANTE COULEURS ANGLAISES : RETIRÉE.
+
+          Elle engendrait 40 couleurs x 3 produits x 3 vues = 360 clés vers des
+          fichiers SUPPRIMÉS lors du passage aux palettes françaises. Aucun
+          `sweatshirt-black-face.png` n'existe plus ; seul `-noir-` subsiste.
+
+          Son intention était juste — permettre aux anciennes lignes de panier
+          de retrouver leur image — mais elle produisait l'inverse.
+          `asset_url` fabrique une URL même pour un fichier absent : la clé
+          existait donc TOUJOURS, et `currentProductImageURL` (conf-main-inline.js)
+          s'arrêtait dessus :
+
+            urls[enKey] || (frKey && legacyUrls[frKey]) || fallbacks[view]
+
+          Le premier terme, jamais vide, court-circuitait le repli. La vignette
+          affichait son texte alternatif au lieu du vêtement.
+
+          La traduction se fait désormais AVANT de composer la clé, via
+          LEGACY_SLUG_PAR_PRODUIT (plus bas) : « black » devient « noir » et la
+          clé pointe vers un fichier réel.
+        {%- endcomment -%}
 
         {%- comment -%}
           COULEURS PROPRES AU SWEATSHIRT.
@@ -549,6 +560,19 @@
           ne prouve donc rien sur l'existence des images. Les fichiers restant à
           produire sont recensés dans COULEURS-SWEATSHIRT.md.
         {%- endcomment -%}
+        {%- comment -%}
+          ⚠️ `tx_views` EST PARTAGÉE PAR LES TROIS PALETTES ci-dessous
+          (sweatshirt, t-shirt coton, polyester). Ne pas la supprimer avec un
+          bloc voisin.
+
+          Elle était définie par la boucle des couleurs anglaises, retirée
+          depuis. Son absence a fait passer les trois boucles à vide — en
+          Liquid, une variable inconnue vaut chaîne vide — et plus AUCUNE image
+          de couleur n'était engendrée : changer de couleur ne faisait plus
+          rien dans le canvas.
+        {%- endcomment -%}
+        {%- assign tx_views = "face,dos,cote" | split: "," -%}
+
         {%- assign sw_colors = "blanc-transparent,blanc-rose,blanc-casse,camel,taupe,taupe-rose,jaune-vif,caramel,orange-vif,rouge-cerise,corail,mauve-fonce,prune,bordeaux,rose-fuchsia,rose-pale,bleu-ciel,bleu-azur,bleu-marine,bleu-gris,gris-ardoise,gris-bleute,gris-clair,gris-perle,gris-anthracite,vert-amande,vert-sapin,vert-kaki,kaki-fonce,noir" | split: "," -%}
         {%- for c in sw_colors -%}
           {%- for v in tx_views -%}
@@ -629,26 +653,102 @@
         {%- endfor -%}
       };
 
-      // Correspondance : nouveau slug (EN) -> ancien slug d'image (FR) le plus proche.
-      // Permet aux 15 images existantes de couvrir les 40 couleurs en attendant
-      // que les vraies images couleur soient fournies.
-      window.COLOR_SLUG_LEGACY = {
-        'black': 'noir', 'used-black': 'noir',
-        'white': 'blanc-casse', 'ash': 'blanc-casse', 'natural': 'blanc-casse', 'sand': 'blanc-casse',
-        'navy': 'bleu-marine', 'navy-blue': 'bleu-marine', 'cobalt-blue': 'bleu-marine',
-        'royal-blue': 'bleu-marine', 'urban-purple': 'bleu-marine', 'stone-blue': 'bleu-marine',
-        'diva-blue': 'bleu-marine',
-        'sky': 'bleu-ciel', 'atoll': 'bleu-ciel', 'swimming-pool': 'bleu-ciel',
-        'millennial-mint': 'bleu-ciel', 'millennial-lilac': 'bleu-ciel',
-        'red': 'rouge', 'fire-red': 'rouge', 'burgundy': 'rouge',
-        'orange': 'orange', 'urban-orange': 'orange', 'sunset-orange': 'orange', 'apricot': 'orange',
-        'gold': 'jaune', 'solar-yellow': 'jaune',
-        'brown': 'marron', 'chocolate': 'marron',
-        'bottle-green': 'vert-fonce', 'kelly-green': 'vert-fonce', 'urban-khaki': 'vert-fonce',
-        'orchid-green': 'vert-fonce', 'pixel-lime': 'vert-fonce',
-        'radiant-purple': 'violet',
-        'orchid-pink': 'rose-clair', 'sorbet': 'rose',
-        'dark-grey': 'gris-fonce', 'pacific-grey': 'gris', 'sport-grey': 'gris-ardoise'
+      // Correspondance ANCIEN slug anglais -> slug de la palette du PRODUIT.
+      //
+      // Les lignes de panier et les commandes passées avant les palettes
+      // françaises portent des couleurs anglaises (« Black », « Navy »…). Leur
+      // libellé est conservé — c'est ce que le client a commandé — mais leurs
+      // images n'existent plus : seul `tshirt-noir-face.png` subsiste, pas
+      // `tshirt-black-face.png`. Sans traduction, la vignette du panier affiche
+      // son texte alternatif.
+      //
+      // PAR PRODUIT, car les palettes divergent : le sweatshirt n'a ni `blanc`
+      // (seulement `blanc-casse`) ni aucun vert vif, le polyester n'a que 17
+      // teintes. Une table unique donnerait des cibles inexistantes.
+      //
+      // Établie par distance colorimétrique CIELAB, puis CORRIGÉE À LA MAIN là
+      // où la métrique déraille faute d'équivalent réel : elle proposait
+      // `bleu-ciel` pour `royal-blue` (ΔE 66) ou `noir` pour `burgundy`. Les
+      // écarts assumés sont annotés.
+      //
+      // Tous les slugs cibles ont bien leurs trois vues dans assets/ — vérifié.
+      //
+      // La table PRÉCÉDENTE visait une nomenclature INTERMÉDIAIRE (`gris`,
+      // `rouge`, `vert-fonce`…), elle aussi disparue : sur ses 15 entrées, 9 ne
+      // correspondaient plus à aucun fichier. Son commentaire disait « en
+      // attendant que les vraies images couleur soient fournies » — elles l'ont
+      // été, la table n'avait pas suivi.
+      window.LEGACY_SLUG_PAR_PRODUIT = {
+        sweatshirt: {
+          'black': 'noir', 'used-black': 'gris-anthracite',
+          'white': 'blanc-casse', 'ash': 'blanc-casse',
+          'natural': 'vert-amande', 'sand': 'camel',
+          'brown': 'kaki-fonce', 'chocolate': 'caramel',       // pas de marron
+          'urban-khaki': 'kaki-fonce', 'bottle-green': 'vert-sapin',
+          'kelly-green': 'vert-sapin',                          // pas de vert vif
+          'orchid-green': 'vert-kaki', 'pixel-lime': 'jaune-vif',
+          'millennial-mint': 'vert-amande',
+          'swimming-pool': 'bleu-azur', 'atoll': 'bleu-azur', 'sky': 'bleu-azur',
+          'stone-blue': 'gris-ardoise', 'diva-blue': 'gris-ardoise',
+          'navy': 'bleu-marine', 'navy-blue': 'bleu-marine',
+          'dark-grey': 'gris-anthracite',
+          'cobalt-blue': 'bleu-marine', 'royal-blue': 'bleu-marine',
+          'urban-purple': 'bleu-marine', 'millennial-lilac': 'bleu-ciel',
+          'radiant-purple': 'prune', 'burgundy': 'prune',
+          'sorbet': 'rose-fuchsia', 'orchid-pink': 'rose-pale',
+          'red': 'bordeaux', 'fire-red': 'rouge-cerise',        // pas de rouge franc
+          'urban-orange': 'rouge-cerise', 'sunset-orange': 'rouge-cerise',
+          'orange': 'orange-vif', 'apricot': 'orange-vif',
+          'gold': 'jaune-vif', 'solar-yellow': 'jaune-vif',
+          'pacific-grey': 'vert-kaki', 'sport-grey': 'vert-kaki'  // gris verdâtre
+        },
+        tshirt: {
+          'black': 'noir', 'used-black': 'gris-ardoise-fonce',
+          'white': 'blanc', 'ash': 'blanc', 'natural': 'blanc',
+          'sand': 'rose-taupe',
+          'brown': 'marron-chocolat', 'chocolate': 'marron-chocolat',
+          'urban-khaki': 'vert-militaire', 'bottle-green': 'vert-sapin',
+          'kelly-green': 'vert-emeraude',
+          'orchid-green': 'vert-anis-clair', 'pixel-lime': 'vert-anis-clair',
+          'millennial-mint': 'vert-anis-clair',
+          'swimming-pool': 'bleu-turquoise', 'atoll': 'bleu-turquoise',
+          'sky': 'bleu-ciel-pale',
+          'stone-blue': 'bleu-ardoise', 'diva-blue': 'bleu-ardoise',
+          'navy': 'bleu-marine-fonce', 'navy-blue': 'bleu-marine-fonce',
+          'dark-grey': 'gris-ardoise-fonce',
+          'cobalt-blue': 'bleu-roi', 'royal-blue': 'bleu-roi',
+          'urban-purple': 'bleu-marine-fonce', 'millennial-lilac': 'bleu-roi',
+          'radiant-purple': 'violet-aubergine', 'burgundy': 'violet-aubergine',
+          'sorbet': 'rose-fuchsia', 'orchid-pink': 'rose-pale',
+          'red': 'bordeaux', 'fire-red': 'rouge-ecarlate',
+          'urban-orange': 'rouge-ecarlate', 'sunset-orange': 'rouge-ecarlate',
+          'orange': 'orange-vif', 'apricot': 'orange-vif',
+          'gold': 'jaune-vif', 'solar-yellow': 'jaune-vif',
+          'pacific-grey': 'gris-perle', 'sport-grey': 'gris-perle'
+        },
+        'tshirt-polyester': {
+          'black': 'noir', 'used-black': 'vert-militaire',
+          'white': 'blanc', 'ash': 'blanc', 'natural': 'blanc',
+          'sand': 'beige-taupe', 'brown': 'beige-taupe', 'chocolate': 'beige-taupe',
+          'urban-khaki': 'vert-militaire', 'bottle-green': 'vert-militaire',
+          'kelly-green': 'vert-emeraude',
+          'orchid-green': 'vert-anis', 'pixel-lime': 'vert-anis',
+          'millennial-mint': 'vert-emeraude',
+          'swimming-pool': 'bleu-turquoise', 'atoll': 'bleu-turquoise',
+          'sky': 'bleu-turquoise',
+          'stone-blue': 'bleu-roi', 'diva-blue': 'bleu-roi',
+          'navy': 'bleu-marine-fonce', 'navy-blue': 'bleu-marine-fonce',
+          'dark-grey': 'bleu-marine-fonce',
+          'cobalt-blue': 'bleu-roi', 'royal-blue': 'bleu-roi',
+          'urban-purple': 'violet-indigo', 'millennial-lilac': 'violet-indigo',
+          'radiant-purple': 'violet-indigo', 'burgundy': 'violet-indigo',
+          'sorbet': 'rose-fuchsia', 'orchid-pink': 'corail',
+          'red': 'rouge-ecarlate', 'fire-red': 'rouge-ecarlate',
+          'urban-orange': 'rouge-ecarlate', 'sunset-orange': 'corail',
+          'orange': 'orange-vif', 'apricot': 'orange-vif',
+          'gold': 'jaune-vif', 'solar-yellow': 'jaune-vif',
+          'pacific-grey': 'beige-taupe', 'sport-grey': 'beige-taupe'
+        }
       };
 
       // Images génériques (sans couleur) servant de repli si une image couleur manque

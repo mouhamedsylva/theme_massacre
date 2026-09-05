@@ -1651,9 +1651,22 @@
        posée sur le polyester et trop à droite sur le coton. Le desktop les
        sépare déjà pour la même raison (SLEEVE, conf-main-inline.js:1394-1400).
 
-       Le coton recule de 2,5 points ; le polyester garde la valeur relevée. */
+       Le coton recule de 2,5 points.
+
+       POLYESTER ramené de 48.5 à 45.2 — MESURÉ, comme sur le desktop. À la
+       hauteur de la zone, sa silhouette est centrée à 49,7 % ; la zone l'était
+       à 53,0 % (48,5 + 9/2), donc décalée de 3,3 points vers la droite, mordant
+       sur le torse. left = 49,7 − 9/2 = 45,2.
+
+       Le coton confirme la règle : centré à 50,5 %, exactement comme sa
+       silhouette.
+
+       Recalé à 46.4 après contrôle visuel : le centre géométrique (45,2)
+       plaçait la zone trop à gauche. Manche RAGLAN — la surface floquée est
+       décalée vers l'extérieur du bras, pas centrée sur la silhouette. Même
+       correction que sur le desktop (+1,2 point). */
     tshirt: { left: 46, top: 23, width: 9, height: 12 },
-    tshirt_polyester: { left: 48.5, top: 23, width: 9, height: 12 },
+    tshirt_polyester: { left: 46.4, top: 23, width: 9, height: 12 },
   };
 
   /* Produit courant : les silhouettes diffèrent (manche longue / courte),

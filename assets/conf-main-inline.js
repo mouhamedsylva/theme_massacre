@@ -1295,14 +1295,36 @@
     /* Charge les images {produit}-{couleur}-{vue}.png pour les 3 vues.
        Repli automatique sur l'image générique si le fichier couleur manque. */
     /* Renvoie la liste ordonnée d'URLs candidates pour (prefix, slug, view) :
-       1) image couleur EN {produit}-{slugEN}-{vue}.png
-       2) image couleur FR existante (via COLOR_SLUG_LEGACY)
-       3) image générique du produit.
-       On essaie chaque URL dans l'ordre (onerror -> suivante). */
+       1) image couleur {produit}-{slug}-{vue}.png, le slug étant TRADUIT au
+          préalable par slugImageProduit() s'il vient de l'ancienne palette ;
+       2) image générique du produit.
+       On essaie chaque URL dans l'ordre (onerror -> suivante).
+
+       L'ancien palier intermédiaire (COLOR_SLUG_LEGACY + PRODUCT_IMAGE_URLS_LEGACY)
+       a disparu : il visait une nomenclature elle-même supprimée, dont 9 des
+       15 entrées ne correspondaient plus à aucun fichier. */
+    /* Traduit un slug de l'ANCIENNE palette anglaise vers celui de la palette
+       du produit. Renvoie le slug inchangé si aucune traduction n'existe —
+       c'est le cas nominal, celui des couleurs actuelles.
+
+       PAR PRODUIT : les palettes divergent. Le sweatshirt n'a pas `blanc` mais
+       `blanc-casse`, le polyester n'a que 17 teintes. Une table unique
+       viserait des fichiers inexistants.
+
+       Sans cette traduction, une ligne de panier ancienne (« Black ») compose
+       `tshirt-black-face.png`, supprimé lors du passage aux palettes
+       françaises, et sa vignette affiche son texte alternatif. */
+    function slugImageProduit(prefix, slug) {
+      if (!slug) return slug;
+      var tables = window.LEGACY_SLUG_PAR_PRODUIT;
+      if (!tables) return slug;
+      var t = tables[prefix];
+      return (t && t[slug]) || slug;
+    }
+    window.slugImageProduit = slugImageProduit;
+
     function colorImageCandidates(prefix, slug, view) {
       const urls = window.PRODUCT_IMAGE_URLS || {};
-      const legacyUrls = window.PRODUCT_IMAGE_URLS_LEGACY || {};
-      const legacyMap = window.COLOR_SLUG_LEGACY || {};
       const fallbacks = (window.PRODUCT_FALLBACK_URLS || {})[prefix] || {};
 
       /* URL normalisées par absUrl() — voir sa définition plus bas (:1885).
@@ -1320,14 +1342,14 @@
          c'est cette asymétrie entre les deux résolveurs d'URL qu'on supprime
          ici. */
       const list = [];
-      const enUrl = urls[prefix + '-' + slug + '-' + view];
-      if (enUrl) list.push(absUrl(enUrl));
 
-      const frSlug = legacyMap[slug];
-      if (frSlug) {
-        const frUrl = legacyUrls[prefix + '-' + frSlug + '-' + view];
-        if (frUrl) list.push(absUrl(frUrl));
-      }
+      /* Le slug est TRADUIT avant de composer la clé — une couleur de
+         l'ancienne palette anglaise vise ainsi le fichier français qui existe
+         réellement. Sans traduction, le slug passe inchangé. */
+      const slugReel = slugImageProduit(prefix, slug);
+      const url = urls[prefix + '-' + slugReel + '-' + view];
+      if (url) list.push(absUrl(url));
+
       if (fallbacks[view]) list.push(absUrl(fallbacks[view]));
       return list;
     }
@@ -1576,9 +1598,23 @@
       /* T-shirt POLYESTER : entrée DISTINCTE du coton. Les deux partageaient la
          même zone, si bien qu'un réglage fait sur le coton déplaçait aussi le
          polyester — alors que leurs visuels n'ont pas le même cadrage de manche.
-         `left` reste à 49.5 (position d'origine, centrée sur ce visuel) : c'est
-         le coton qui a reculé à 47.9, pas le polyester qui a avancé. */
-      tshirt_polyester: { left: 49.5, top: 29, w: 5.1, h: 10.6 },
+
+         `left` ramené de 49.5 à 47.1 — MESURÉ, plus estimé. À la hauteur de la
+         zone (29 % → 39,6 %), la silhouette polyester s'étend de 36,0 % à
+         63,5 %, soit un centre à 49,7 %. La zone, elle, était centrée à 52,1 %
+         (49,5 + 5,1/2) : elle mordait donc sur le torse, décalée de 2,4 points
+         vers la droite.
+
+         Repère de justesse : sur le coton, silhouette centrée à 50,5 % et zone
+         centrée à 50,5 % — parfaitement alignées.
+
+         Le centre géométrique donnait left = 47,1 (49,7 − 5,1/2). Recalé À
+         L'ŒIL à 48.3 : la manche du polyester est RAGLAN, sa couture part de
+         l'encolure en biais. Le centre de la silhouette n'est donc pas le
+         centre de la surface floquée — celle-ci est un peu plus à droite, vers
+         l'extérieur du bras. La géométrie donnait un repère utile, le rendu
+         tranche. */
+      tshirt_polyester: { left: 48.3, top: 29, w: 5.1, h: 10.6 },
     };
 
     /* Contraintes atelier (en cm) :
@@ -2339,16 +2375,24 @@
          deux replis restent pour un fichier qui viendrait à manquer — mieux vaut
          une image approximative qu'un canvas vide. */
       const urls = window.PRODUCT_IMAGE_URLS || {};
-      const legacyUrls = window.PRODUCT_IMAGE_URLS_LEGACY || {};
-      const legacyMap = window.COLOR_SLUG_LEGACY || {};
-      const enKey = prefix + '-' + currentColorSlug + '-' + view;
-      const frSlug = legacyMap[currentColorSlug];
-      const frKey = frSlug ? (prefix + '-' + frSlug + '-' + view) : null;
       const fallbacks = (window.PRODUCT_FALLBACK_URLS || {})[prefix] || {};
-      const chosen =
-        urls[enKey] ||
-        (frKey && legacyUrls[frKey]) ||
-        fallbacks[view] || '';
+
+      /* LE SLUG EST TRADUIT AVANT DE COMPOSER LA CLÉ.
+
+         Cette fonction est SYNCHRONE : elle ne teste pas l'existence des
+         fichiers, contrairement à loadFirstAvailable. Elle ne peut donc pas
+         « essayer puis se rabattre » — il faut viser juste du premier coup.
+
+         C'est ce qui cassait la vignette du panier : une couleur anglaise
+         (« Black ») composait `tshirt-black-face`, une clé qui EXISTAIT dans le
+         dictionnaire — asset_url fabrique une URL même sans fichier — et la
+         chaîne s'arrêtait sur ce lien mort sans jamais atteindre le repli.
+
+         La traduction en amont supprime le problème à la racine : `black`
+         devient `noir`, et la clé pointe vers un fichier réel. */
+      const slug = slugImageProduit(prefix, currentColorSlug);
+      const chosen = urls[prefix + '-' + slug + '-' + view] ||
+                     fallbacks[view] || '';
       return absUrl(chosen);
     }
 
