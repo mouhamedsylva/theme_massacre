@@ -46,6 +46,14 @@
     document.querySelectorAll(".icon-nav-item.active").forEach(function (i) {
       i.classList.remove("active");
     });
+    /* PASSAGE OBLIGÉ DE TOUTE FERMETURE — le voile, la poignée, une autre
+       feuille qui s'ouvre y mènent tous. Le chevron du bouton Taille s'y
+       remet donc à l'endroit, quel que soit le chemin emprunté ; le suivre
+       depuis chaque appelant en aurait oublié un.
+
+       Garde `typeof` : cette fonction s'exécute avant la déclaration du
+       chevron au tout premier rendu. */
+    if (typeof majChevronTailleQte === "function") majChevronTailleQte();
   }
 
   /* ── Voile ────────────────────────────────────────────────────────── */
@@ -673,6 +681,10 @@
           f.classList.add("open");
           showScrim(true);
         }
+        /* Le chevron suit l'état de la feuille : il se retourne pour montrer la
+           sortie. Lu APRÈS les branches ci-dessus, donc sur l'état final —
+           `closeAllPanels` peut avoir refermé d'autres feuilles au passage. */
+        majChevronTailleQte();
       });
       canvas.appendChild(btn);
     } else if (btn.parentNode !== canvas) {
@@ -681,6 +693,19 @@
 
     majBoutonTailleQte();
   }
+
+  /* Le chevron suit l'ÉTAT RÉEL de la feuille, jamais un état mémorisé.
+
+     Elle se referme par plusieurs chemins — le bouton, le voile, une autre
+     feuille qui s'ouvre : suivre chacun d'eux aurait laissé le chevron à
+     l'envers le jour où l'on en ajoute un. On relit la feuille, qui fait foi. */
+  function majChevronTailleQte() {
+    var btn = document.getElementById("mob-tq-btn");
+    var f = document.getElementById("mob-tq-sheet");
+    if (!btn) return;
+    btn.classList.toggle("is-open", !!(f && f.classList.contains("open")));
+  }
+  window.majChevronTailleQte = majChevronTailleQte;
 
   /* Le bouton affiche l'état COURANT : « M · Qté 1 ». Relu depuis les nœuds
      eux-mêmes, jamais mémorisé — ils restent la seule source de vérité. */
@@ -694,11 +719,53 @@
     var taille = (sel && sel.value) || "";
     var n = (qte && parseInt(qte.value, 10)) || 1;
 
+    /* UN CHEVRON DIT QUE ÇA S'OUVRE.
+
+       Le bouton n'affichait que « Taille M » : il se lisait comme une étiquette
+       d'information, pas comme une commande. Le client ne savait pas qu'il
+       pouvait changer sa taille ni sa quantité — les deux seuls réglages de
+       l'article, et ils n'existaient nulle part ailleurs sur mobile.
+
+       Chevron VERS LE HAUT, et non le bas : la feuille monte depuis le bas de
+       l'écran. C'est la convention iOS, et elle annonce le sens du geste autant
+       que sa possibilité.
+
+       `aria-haspopup` et `aria-label` portent la même information pour un
+       lecteur d'écran, qui ne voit pas le chevron. */
+    btn.setAttribute("aria-haspopup", "dialog");
+    btn.setAttribute(
+      "aria-label",
+      "Taille et quantité : " + (taille || "taille non choisie") +
+        ", " + n + (n > 1 ? " articles" : " article") +
+        ". Appuyez pour modifier."
+    );
+
+    /* LE LIBELLÉ NOMME TOUT CE QUI SE RÈGLE ICI.
+
+       Il disait « Taille », alors que la feuille porte aussi la QUANTITÉ et la
+       répartition par tailles. Le client cherchant à commander trois pièces
+       n'avait aucune raison d'ouvrir un bouton qui n'annonçait qu'une taille.
+
+       LA QUANTITÉ EST TOUJOURS ÉCRITE, même à 1. Elle n'apparaissait qu'au-delà
+       — donc jamais au moment où le client se demande justement où la changer.
+       « M · 1 article » se lit comme un état complet ; « M » seul se lit comme
+       une étiquette. */
+    var motArticle = (n > 1) ? " articles" : " article";
+
+    /* `mtq-txt` empile le libellé et la valeur ; le chevron reste son voisin
+       sur la même ligne (conf-mobile.css). */
     btn.innerHTML =
-      '<span class="mtq-lbl">Taille</span>' +
-      '<span class="mtq-val">' + (taille || "—") +
-      (n > 1 ? ' <span class="mtq-x">×' + n + "</span>" : "") +
-      "</span>";
+      '<span class="mtq-txt">' +
+        '<span class="mtq-lbl">Taille &amp; quantité</span>' +
+        '<span class="mtq-val">' + (taille || "—") +
+          '<span class="mtq-sep"> · </span>' +
+          '<span class="mtq-x">' + n + motArticle + "</span>" +
+        "</span>" +
+      "</span>" +
+      '<svg class="mtq-caret" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true">' +
+      '<polyline points="6 15 12 9 18 15"/></svg>';
   }
   window.majBoutonTailleQte = majBoutonTailleQte;
 
@@ -800,6 +867,31 @@
       if (isMobile()) fillActionBar();
     });
     obs.observe(recap, { childList: true, subtree: true });
+  }
+
+  /* L'ÉTAPE ET LE MODE VIVENT SUR LA RACINE, PAS DANS LE RÉCAP.
+
+     `poserTailleQte` retire le bouton « Taille & quantité » à l'écran de choix
+     et en mode groupe — deux états portés par `data-etape` et `data-mode` sur
+     `.conf-app-root`.
+
+     Mais elle n'était rappelée que par l'observateur du récap ci-dessus. Revenir
+     à l'écran de choix ne touche pas au récap : personne ne la relançait, et le
+     bouton restait affiché par-dessus les deux cartes de mode — annonçant une
+     taille pour un article que le client n'a pas commencé à composer.
+
+     On observe donc les attributs qui portent réellement ces états. Le filtre
+     `attributeFilter` limite les notifications aux deux qui nous concernent :
+     la racine en porte d'autres, changés bien plus souvent. */
+  function observeEtapeMode() {
+    var racine = document.querySelector(".conf-app-root");
+    if (!racine) return;
+    new MutationObserver(function () {
+      if (isMobile()) fillActionBar();
+    }).observe(racine, {
+      attributes: true,
+      attributeFilter: ["data-etape", "data-mode", "data-etape-groupe"]
+    });
   }
 
   /* Retour en desktop : le prix et le bouton doivent regagner le récap,
@@ -2187,6 +2279,7 @@
     syncScrim();
     fillActionBar();
     observeRecap();
+    observeEtapeMode();
     watchImages();
     watchNav();
     measureNav();
@@ -2342,16 +2435,53 @@
     var fond = source ? source.style.background : '';
 
     box.innerHTML = '';
+
+    /* DEUX GROUPES AUX EXTRÉMITÉS, CHACUN ÉTIQUETÉ.
+
+       Les trois valeurs étaient enfilées en une phrase — « M · Noir · ×1 » —
+       centrée sous le nom. Rien ne disait ce qu'elles désignaient : « M » se
+       devine, mais « ×1 » se lit aussi bien comme une quantité que comme une
+       référence, et la carte laissait deux grands vides sur ses côtés.
+
+       Séparés, ils occupent la carte et se nomment. Le surnom garde le centre :
+       c'est le titre de la vignette, il ne doit pas se disputer la place avec
+       ses attributs.
+
+       On construit chaque valeur par `textContent` : elles viennent de champs
+       saisis ou importés d'un fichier. */
+    var groupe = function (classe, libelle) {
+      var g = document.createElement('span');
+      g.className = 'grp-res-grp ' + classe;
+      var l = document.createElement('span');
+      l.className = 'grp-res-lbl';
+      l.textContent = libelle;
+      g.appendChild(l);
+      return g;
+    };
+
+    // ── Gauche : la couleur, pastille comprise.
+    var gauche = groupe('grp-res-gauche', 'Couleur');
+    var valG = document.createElement('span');
+    valG.className = 'grp-res-val';
     if (fond) {
       var dot = document.createElement('span');
       dot.className = 'grp-resume-dot';
       dot.style.background = fond;
-      box.appendChild(dot);
+      valG.appendChild(dot);
     }
-    var txt = document.createElement('span');
-    /* textContent : ces valeurs viennent de champs saisis ou importés. */
-    txt.textContent = [taille, couleur, '×' + qte].filter(Boolean).join(' · ');
-    box.appendChild(txt);
+    var nomCoul = document.createElement('span');
+    nomCoul.textContent = couleur || '—';
+    valG.appendChild(nomCoul);
+    gauche.appendChild(valG);
+    box.appendChild(gauche);
+
+    // ── Droite : taille et quantité, les deux réglages chiffrés.
+    var droite = groupe('grp-res-droite', 'Taille · Qté');
+    var valD = document.createElement('span');
+    valD.className = 'grp-res-val';
+    valD.textContent = (taille || '—') + ' · ×' + qte;
+    droite.appendChild(valD);
+    box.appendChild(droite);
   }
 
   /** Renumérote et rafraîchit tous les résumés. */

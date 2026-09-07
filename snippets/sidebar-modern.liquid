@@ -293,6 +293,31 @@
         </div>
       </div>
 
+      {%- comment -%}
+        COINS, DRAPEAUX ET PATCHS EN MODE GROUPE.
+
+        Ces trois produits n'ont pas de zone de texte : ils ne peuvent pas
+        porter un surnom par personne, donc pas de commande de groupe. Ils
+        étaient simplement masqués — le client qui en cherchait un voyait sa
+        grille passer de six produits à trois, sans explication.
+
+        La note dit ce qui va se passer AVANT le clic. Le basculement, lui, est
+        déjà en place (conf-sidebar-modern.js) : c'est de ne pas l'annoncer qui
+        manquait.
+
+        Masquée hors mode groupe (conf-styles.css) : en commande libre, ces
+        produits sont des choix comme les autres.
+      {%- endcomment -%}
+      <p class="pc-note-libre">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 8h.01M11 12h1v4h1"/>
+        </svg>
+        <span>Coins, drapeaux et patchs ne portent pas de surnom :
+          les choisir bascule vers la <strong>personnalisation libre</strong>.</span>
+      </p>
+
     </div>
   </div>
 </aside>

@@ -186,9 +186,51 @@ class DynamicLayoutManager {
       if (racineChoix &&
           racineChoix.getAttribute("data-etape") === "choix" &&
           typeof window.choisirMode === "function") {
+        /* MODE IMPOSÉ, PAS CHOISI — on le note.
+
+           Sans cette marque, le mode libre s'enregistre comme une décision du
+           client : reprenant un textile, il y resterait sans jamais avoir
+           choisi ni su qu'une alternative existait.
+
+           Le drapeau était posé dans conf-sidebar-modern.js, sur un chemin que
+           le clic n'emprunte pas — les cartes appellent `selProd` directement,
+           jamais `selectProduct`. Il ne s'écrivait donc jamais. On le pose ici,
+           au point de passage réel.
+
+           Deux lecteurs : la barre « Mode actuel », qui explique POURQUOI, et
+           le retour au textile juste en dessous. */
+        try {
+          sessionStorage.setItem("conf_mode_impose", productType);
+        } catch (e) {}
+
         window.choisirMode("individuelle", true);
       }
     }
+
+    /* ── RETOUR AU TEXTILE : LA QUESTION SE REPOSE ───────────────────────
+
+       Le bloc ci-dessus impose le mode libre pour un coin, un drapeau ou un
+       patch. Il n'avait pas de symétrique : en reprenant un textile, le client
+       restait enfermé dans ce mode qu'il n'avait jamais choisi. La seule
+       sortie était le bouton « Changer de mode » de la barre — encore
+       fallait-il le remarquer.
+
+       CONDITIONNÉ AU DRAPEAU, PAS AU MODE COURANT. `conf_mode_impose` marque
+       précisément un mode SUBI. Se fier au seul fait d'être en mode libre
+       renverrait aussi le client qui l'a délibérément choisi — le rejetant sur
+       l'écran de choix à chaque changement de textile.
+
+       `true` : le produit entrant vient d'être sélectionné par `selProd` ;
+       `retourChoixMode` ne doit pas le remplacer par un sweatshirt.
+
+       APPLIQUÉ PLUS BAS, une fois la sidebar textile reconstruite : ce retour
+       rouvre le panneau « Type de produit », et le faire avant
+       `loadTextileSidebar` reviendrait à ouvrir un panneau qui va être
+       remplacé. */
+    const revenirAuChoix = (category === "textile") && (function () {
+      try { return !!sessionStorage.getItem("conf_mode_impose"); }
+      catch (e) { return false; }
+    })();
 
     const layout = PRODUCT_LAYOUTS[category];
 
@@ -244,6 +286,13 @@ class DynamicLayoutManager {
       // (selProd le gère aussi, mais on s'assure de l'état après restauration).
       var grpBtn = document.getElementById("btn-group-order");
       if (grpBtn) grpBtn.style.display = "";
+
+      /* La sidebar textile est en place : le retour à l'écran de choix peut
+         maintenant y rouvrir le panneau « Type de produit » sans être écrasé.
+         Voir la décision prise en tête de cette fonction. */
+      if (revenirAuChoix && typeof window.retourChoixMode === "function") {
+        window.retourChoixMode(true);
+      }
     }
 
     // Restaurer les designs sauvegardés pour cette catégorie (après chargement du DOM)

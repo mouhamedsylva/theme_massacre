@@ -34,6 +34,20 @@ function selView(btn, viewName) {
   const logoLayer = document.getElementById('logo-layer');
   if (logoLayer) logoLayer.setAttribute('data-view', viewName);
 
+  /* LA VUE EST AUSSI PUBLIÉE SUR LA RACINE.
+
+     `#logo-layer` vit DANS le canvas ; le rail d'onglets vit dans la barre
+     latérale. Aucun sélecteur descendant ne peut donc aller de l'un à l'autre —
+     et le mode groupe a besoin que ses onglets suivent la vue : « Mon Équipe »
+     en face, « Ajout Texte » au dos.
+
+     La racine porte déjà `data-mode` et `data-etape-groupe`, lus par des dizaines
+     de règles. On y ajoute la vue, sur le même modèle, plutôt que de recourir à
+     `:has()` — que ce projet évite, sa prise en charge restant inégale sur les
+     navigateurs mobiles encore en circulation. */
+  const racine = document.querySelector('.conf-app-root');
+  if (racine) racine.setAttribute('data-view', viewName);
+
   /* Les textes de CETTE vue viennent de devenir mesurables. clampTextToZone()
      sort sans rien faire tant qu'un texte est masqué (sa boîte vaut 0) : sans
      ce rappel, un texte restauré alors qu'une autre vue était active resterait
@@ -92,15 +106,28 @@ function selView(btn, viewName) {
     window.modernSidebar.switchView(viewName);
   }
 
-  /* LA LISTE DES SURNOMS SUIT LA VUE (mode groupe).
+  /* LES ONGLETS SUIVENT LA VUE (mode groupe).
 
-     Chaque surnom appartient à un côté ; ceux de l'autre côté sont estompés
-     dans le panneau « Mon Équipe ». Sans ce rappel, le grisage resterait figé
-     sur le côté précédent après une bascule — la liste dirait l'inverse de ce
-     que montre le vêtement.
+     En face, le client saisit ses surnoms — l'onglet « Mon Équipe ». Au dos, il
+     pose un texte libre commun à toute la commande — l'onglet « Ajout Texte ».
+     Les deux ne coexistent jamais : chaque vue a son outil.
 
-     `eqRendreNoms` est le point de passage unique de l'affichage de cette
-     liste ; elle relit l'état réel et ne peut donc rien détruire. */
+     « Mon Équipe » se règle en CSS, sur `data-view` posé plus haut. « Ajout
+     Texte », lui, est piloté par un `style` inline que `refreshCategoryUI`
+     écrit — et un style inline bat toute règle CSS. Il faut donc la rappeler.
+
+     Elle ne l'était qu'au changement de PRODUIT ou de MODE : sans cette ligne,
+     basculer en vue de dos ne changeait rien au rail. */
+  if (window.modernSidebar &&
+      typeof window.modernSidebar.refreshCategoryUI === 'function') {
+    try {
+      window.modernSidebar.refreshCategoryUI(window.currentProductType);
+    } catch (e) {}
+  }
+
+  /* La liste des surnoms se redessine : elle porte l'aperçu du nom essayé, et
+     `eqRendreNoms` est son point de passage unique. Elle relit l'état réel et
+     ne peut donc rien détruire. */
   if (typeof window.eqRendreNoms === 'function') {
     try { window.eqRendreNoms(); } catch (e) {}
   }

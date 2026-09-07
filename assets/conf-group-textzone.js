@@ -18,40 +18,13 @@
 (function () {
   'use strict';
 
-  /* Ordre d'affichage = ordre de lecture du vêtement. Les libellés reprennent
-     ceux du récapitulatif, pour que le client reconnaisse la même zone d'un
-     écran à l'autre. */
-  var ZONES = [
-    { z: 'f',  label: 'Texte cœur' },
-    { z: 'fr', label: 'Texte poitrine droite' },
-    { z: 'b',  label: 'Texte dos' }
-  ];
+  /* `ZONES` et `zonesActives()` ont été RETIRÉS avec le sélecteur qu'ils
+     servaient : ils inventoriaient les zones garnies pour départager laquelle
+     porterait les surnoms. La réponse est désormais constante — la face — et
+     cet inventaire n'avait plus de lecteur. */
 
-  /** Zones portant réellement un texte visible, avec leur contenu. */
-  function zonesActives() {
-    var out = [];
-    ZONES.forEach(function (def) {
-      var el = document.getElementById('text-' + def.z);
-      if (!el || el.style.display === 'none') return;
-
-      var c = el.querySelector('.dt-content');
-      /* Texte courbé : le contenu est un SVG, `textContent` est vide. On lit
-         alors l'état sauvegardé, seule source fiable dans ce cas. */
-      var txt = c ? (c.textContent || '').trim() : '';
-      if (!txt && typeof window.getSavedText === 'function') {
-        var st = window.getSavedText(def.z);
-        txt = (st && st.text) ? String(st.text).trim() : '';
-      }
-      if (!txt) return;
-
-      out.push({ zone: def.z, label: def.label, texte: txt });
-    });
-    return out;
-  }
-
-  /* Zone retenue. Par défaut la PREMIÈRE zone active — donc `f` dans le cas
-     courant, ce qui préserve le comportement d'avant ce module. */
-  var choisie = null;
+  /* La variable `choisie` a disparu avec le sélecteur : elle mémorisait la zone
+     retenue par le client, un choix qui n'existe plus. */
 
   /* AUCUNE PERSISTANCE : la zone se DÉDUIT de l'état réel — une zone déjà
      garnie, sinon la vue affichée. Rien à mémoriser, donc rien qui puisse
@@ -88,82 +61,74 @@
    * @param {Object} row - une ligne de `groupOrderRows`
    */
   window.grpZoneDeLigne = function (row) {
-    if (row && (row.zone === 'f' || row.zone === 'b')) return row.zone;
-    return window.grpTextZone();
+    /* ═══ LES SURNOMS SONT EN FACE, ET NULLE PART AILLEURS ═══════════════
+
+       Cette fonction rendait le côté propre à chaque personne (`row.zone`),
+       pour que Jean porte son nom devant et Marie derrière.
+
+       Ce n'est plus la règle : le dos est désormais réservé à un TEXTE LIBRE,
+       commun à toute la commande — un nom d'équipe, un slogan — saisi par
+       l'onglet « Ajout Texte » qui apparaît en vue de dos.
+
+       On force donc ici, en UN SEUL POINT. Tous ses consommateurs — le grisage
+       de la liste, l'essayage d'un surnom, les planches d'atelier, les cartes
+       de vérification, le renommage au double-clic — reçoivent mécaniquement
+       la bonne réponse, sans avoir à les corriger un par un.
+
+       `row.zone` continue d'exister et de voyager : le retirer traverserait le
+       panier, l'instantané, le tableau « Configurer » et la propriété
+       « Emplacement » du checkout, pour aucun gain visible. Sa valeur est
+       simplement toujours 'f'. */
+    return 'f';
   };
 
   /** Zone à substituer par le surnom. Lue par l'aperçu et l'ajout au panier. */
   window.grpTextZone = function () {
-    /* UNE ZONE DÉJÀ GARNIE FAIT FOI, quelle que soit la vue affichée.
+    /* ═══ LA FACE, TOUJOURS — ET C'EST UNE GARDE DE SÛRETÉ ═══════════════
 
-       Sans cela, un client qui a posé ses surnoms en face puis bascule en vue
-       de dos pour ajouter un logo verrait la zone changer sous lui — et le
-       surnom suivant partirait au dos, séparé des précédents.
+       Cette fonction désigne la zone que les surnoms SUBSTITUENT : celle dont
+       le texte est remplacé, personne par personne, à l'aperçu comme à l'ajout
+       au panier.
 
-       Le choix ne se fait donc qu'AU PREMIER surnom, par la vue affichée. */
-    var actives = zonesActives();
-    if (actives.length) {
-      var porteuse = actives.filter(function (a) {
-        return a.zone === 'f' || a.zone === 'b';
-      })[0];
-      if (porteuse) return porteuse.zone;
-      return actives[0].zone;
-    }
+       Elle retombait sur la vue affichée quand aucune zone n'était garnie. Or
+       le dos accueille désormais un TEXTE LIBRE — un client qui le pose AVANT
+       son premier surnom obtenait donc 'b' ici, et ses surnoms venaient écraser
+       ce texte, un par vêtement.
 
-    /* Aucune zone garnie : c'est le premier surnom. La vue affichée décide. */
-    return vueAffichee();
+       C'est exactement le défaut que le masquage de l'onglet « Ajout Texte »
+       prévenait, et la raison pour laquelle il pouvait être démasqué : les deux
+       zones sont désormais DISJOINTES. Ce forçage n'est pas une simple mise en
+       cohérence — il est ce qui rend le texte du dos intouchable.
+
+       La zone `fr` (poitrine droite) reste hors sujet : elle est capturée dans
+       la même vue que la face et n'a jamais porté de surnom. */
+    return 'f';
   };
 
   /** Construit le sélecteur, ou le masque s'il n'y a rien à départager. */
   window.grpRefreshTextZonePicker = function () {
     var bloc = document.getElementById('grp-textzone');
-    var sel = document.getElementById('grp-textzone-sel');
-    if (!bloc || !sel) return;
+    if (!bloc) return;
 
-    var actives = zonesActives();
+    /* ═══ PLUS RIEN À DÉPARTAGER ═════════════════════════════════════════
 
-    /* 0 ou 1 texte : aucune ambiguïté à lever. */
-    if (actives.length < 2) {
-      bloc.style.display = 'none';
-      choisie = actives.length ? actives[0].zone : null;
-      return;
-    }
+       Ce sélecteur existait pour trancher quand plusieurs zones portaient du
+       texte : lequel devient le surnom ? La question n'a plus lieu d'être, la
+       réponse étant toujours la face.
 
-    /* On rappelle le CONTENU de chaque texte, pas seulement l'emplacement :
-       « Texte cœur » seul obligerait le client à se souvenir duquel il s'agit,
-       alors que « Texte cœur (« Modou ») » se reconnaît d'un coup d'œil. */
-    sel.innerHTML = actives.map(function (a) {
-      var court = a.texte.length > 24 ? a.texte.slice(0, 24) + '…' : a.texte;
-      return '<option value="' + a.zone + '">' +
-             esc(a.label) + ' (« ' + esc(court) + ' »)</option>';
-    }).join('');
+       Le laisser vivre serait pire qu'inutile : le texte libre du dos garnit
+       désormais une seconde zone, donc le sélecteur APPARAÎTRAIT — et
+       proposerait au client de floquer ses surnoms au dos, l'inverse exact de
+       la règle qu'on installe.
 
-    var courante = window.grpTextZone();
-    sel.value = courante;
-    choisie = courante;
-
-    bloc.style.display = 'flex';
+       On le masque toujours. La fonction reste en place et exposée : ses
+       appelants (ouverture de la modale, changement de zone) n'ont pas à savoir
+       qu'elle n'a plus rien à faire. */
+    bloc.style.display = 'none';
   };
 
-  /* Échappement : le contenu vient d'une saisie libre du client. */
-  function esc(s) {
-    if (typeof window.grpEsc === 'function') return window.grpEsc(s);
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
-  /* Délégation : le <select> existe dès le rendu de la section, mais on reste
-     robuste si la modale était reconstruite un jour. */
-  document.addEventListener('change', function (e) {
-    if (e.target && e.target.id === 'grp-textzone-sel') {
-      choisie = e.target.value;
-      /* La zone visée change : la nouvelle n'est pas forcément courbée comme
-         l'ancienne. On rejoue le contrôle, sans quoi la validation resterait
-         bloquée — ou le serait à tort. */
-      if (typeof window.grpRefreshCurveWarning === 'function') {
-        window.grpRefreshCurveWarning();
-      }
-    }
-  });
+  /* L'échappement HTML et l'écouteur du <select> ont été RETIRÉS avec le
+     sélecteur : le premier ne servait qu'à composer ses options, le second à
+     réagir à un choix qui ne se fait plus. Le bloc reste masqué en permanence,
+     personne ne peut donc en émettre l'événement. */
 })();

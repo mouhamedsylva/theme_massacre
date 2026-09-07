@@ -656,6 +656,17 @@
     font-weight: 700;
   }
 
+  /* Survol de l'onglet ACTIF neutralisé.
+
+     Le desktop lui donne un fond bleu très clair, pensé pour son rail gris. Sur
+     cette barre noire il ressortirait en clair au moindre survol — et un
+     appareil tactile déclenche `:hover` au toucher, laissant l'onglet coincé
+     dans cet état après le doigt levé. On rétablit le fond de la barre. */
+  .icon-nav-item.active:hover {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+  }
+
   /* Retour tactile : l'item s'assombrit brièvement au doigt. */
   .icon-nav-item:active { background: rgba(255,255,255,.06); }
 
@@ -1343,22 +1354,82 @@
     cursor: pointer;
     font: inherit;
   }
+  /* DEUX LIGNES EMPILÉES, plus côte à côte.
+
+     Le libellé nomme désormais les deux réglages (« Taille & quantité ») au
+     lieu d'un seul : en ligne, il poussait la valeur hors du bouton, lequel
+     partage sa largeur avec le prix et le bouton d'ajout.
+
+     Empilés, ils tiennent dans la même emprise — et la hiérarchie devient plus
+     nette qu'avant : ce qu'on règle au-dessus, l'état courant en dessous.
+
+     Le bouton lui-même reste en ligne (`display: flex` par défaut) : il aligne
+     ce bloc de deux lignes et le chevron. */
+  .mob-tq-btn .mtq-txt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+  }
   .mob-tq-btn .mtq-lbl {
     font-size: 8px;
     font-weight: 600;
-    letter-spacing: .05em;
+    letter-spacing: .04em;
     text-transform: uppercase;
     color: #888;
+    white-space: nowrap;
   }
   .mob-tq-btn .mtq-val {
-    /* Suit l'agrandissement du bouton : à 14px le texte flottait dans 48px de
-       haut. Même corps que le prix (:1291), qui lui fait face. */
-    font-size: 15px;
+    /* 14px : la ligne porte maintenant taille ET quantité. À 15px, « XXL · 12
+       articles » débordait sur les écrans les plus étroits. */
+    font-size: 14px;
     font-weight: 800;
     color: var(--black);
     line-height: 1;
+    white-space: nowrap;
   }
-  .mob-tq-btn .mtq-x { font-weight: 700; color: var(--muted); }
+  /* Séparateur et quantité en retrait : la TAILLE reste l'information
+     principale, la quantité la complète sans lui disputer le regard. */
+  .mob-tq-btn .mtq-sep { color: #c4c4c4; font-weight: 600; }
+  .mob-tq-btn .mtq-x { font-weight: 600; color: var(--muted); font-size: 13px; }
+
+  /* LE CHEVRON — ce bouton s'OUVRE.
+
+     Sans lui, « Taille M » se lisait comme une étiquette d'information. Le
+     client ne savait pas qu'il pouvait y régler sa taille et sa quantité, seuls
+     réglages de l'article et absents partout ailleurs en mobile.
+
+     Pointe vers le HAUT : la feuille monte depuis le bas de l'écran. Le
+     chevron annonce donc le sens du geste, pas seulement sa possibilité —
+     c'est la convention des feuilles iOS.
+
+     Léger décalage à gauche (`margin-left: 2px`) : il respire après la valeur
+     sans élargir le bouton, qui partage sa ligne avec le prix. */
+  .mob-tq-btn .mtq-caret {
+    width: 15px;
+    height: 15px;
+    margin-left: 2px;
+    color: #9a9a9a;
+    flex-shrink: 0;
+    transition: transform .22s cubic-bezier(.4, 0, .2, 1), color .2s ease;
+  }
+
+  /* FEUILLE OUVERTE : le chevron se retourne et fonce.
+
+     Il montre alors la sortie — refermer — au lieu de l'entrée. Le bouton reste
+     visible pendant que la feuille est ouverte : sans ce retournement, il
+     continuerait d'inviter à ouvrir ce qui l'est déjà.
+
+     La classe est posée par le gestionnaire de clic (conf-mobile.js). */
+  .mob-tq-btn.is-open .mtq-caret {
+    transform: rotate(180deg);
+    color: var(--black);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mob-tq-btn .mtq-caret { transition: color .2s ease; }
+  }
 
   /* La feuille hérite de `.side-panel` (position, animation, état `open`) :
      seul son contenu demande un réglage. */
@@ -1861,10 +1932,37 @@
     border-color: var(--black);
   }
 
-  /* Le nom laisse la place au numéro et au chevron. */
+  /* CARTE REPLIÉE : LE NOM ET SON RÉSUMÉ SONT CENTRÉS.
+
+     Ils étaient alignés à gauche, comme les champs d'une ligne dépliée. Mais
+     une carte repliée n'est plus un formulaire : c'est une VIGNETTE de
+     personne, où le nom est le titre et le résumé sa légende. Alignés à
+     gauche, ils flottaient dans une carte pleine largeur, avec un grand vide à
+     droite.
+
+     Le numéro et le chevron restent à leurs bords : ce sont des repères de
+     structure, pas du contenu. Les centrer les mêlerait au nom.
+
+     Le rembourrage reste SYMÉTRIQUE (24 px de chaque côté) : sans cela, le
+     centrage porterait sur une largeur décalée et le nom paraîtrait de
+     travers — c'est le défaut classique d'un centrage sur boîte asymétrique. */
   .grp-table tbody tr:not(.is-open) td:nth-child(1) {
-    padding-left: 22px;
+    padding-left: 24px;
     padding-right: 24px;
+    text-align: center;
+  }
+
+  /* LE RÉSUMÉ REPREND LA LARGEUR QUE LE NOM CÈDE.
+
+     Les 24 px de chaque côté dégagent le numéro et le chevron, qui encadrent le
+     NOM. Le résumé, lui, vit sous eux : les respecter le tasserait au centre
+     alors qu'il doit justement s'ouvrir vers les deux bords.
+
+     Marges négatives plutôt qu'un rembourrage retiré de la cellule : le nom a
+     toujours besoin du sien. */
+  .grp-table tbody tr:not(.is-open) .grp-resume {
+    margin-left: -12px;
+    margin-right: -12px;
   }
 
   .grp-table td {
@@ -1891,6 +1989,11 @@
     border-color: transparent;
     padding-left: 0;
     font-weight: 600;
+    /* Un `<input>` ne suit pas le `text-align` de sa cellule : sa valeur est
+       centrée par cette règle propre. `padding-right` annule le décalage que
+       laisserait le seul `padding-left: 0`. */
+    text-align: center;
+    padding-right: 0;
   }
 
   /* SAUF S'IL EST VIDE. Sans nom, rien ne distinguait plus le champ de son
@@ -1902,7 +2005,10 @@
      celui qui affiche son texte d'exemple — sans aucun code. */
   .grp-table tbody tr:not(.is-open) .grp-inp:placeholder-shown {
     border-color: var(--border);
+    /* Rembourrage des DEUX côtés : le champ redevenant visible, un padding
+       asymétrique décalerait son texte d'exemple, pourtant centré. */
     padding-left: 9px;
+    padding-right: 9px;
     font-weight: 400;
   }
   /* Champ vide ET ligne bloquante : la teinte ambrée le désigne parmi les
@@ -1912,16 +2018,69 @@
     background: #fffbeb;
   }
 
-  /* RÉSUMÉ de la ligne repliée : taille · couleur · quantité. */
+  /* RÉSUMÉ de la ligne repliée : la couleur à gauche, taille et quantité à
+     droite.
+
+     Les trois valeurs formaient une seule phrase centrée sous le nom. Elle
+     laissait les deux côtés de la carte vides, et surtout ne disait pas ce
+     qu'elle énumérait : « M · Noir · ×1 » se déchiffre, il ne se lit pas.
+
+     `space-between` les pousse aux extrémités : la carte est occupée, et
+     chaque groupe forme un bloc que l'œil saisit d'un coup au lieu de le
+     découper dans une suite. Le SURNOM garde le centre, seul — c'est le titre
+     de la vignette. */
   .grp-resume {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 2px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
     font-size: 12px;
     color: var(--muted);
   }
   .grp-table tbody tr.is-open .grp-resume { display: none; }
+
+  /* Chaque groupe : son libellé au-dessus, sa valeur en dessous. */
+  .grp-res-grp {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .grp-res-gauche { align-items: flex-start; text-align: left; }
+  .grp-res-droite { align-items: flex-end;   text-align: right; }
+
+  /* Le libellé nomme sans peser : c'est la valeur qu'on vient lire. Même
+     traitement que les libellés du bouton « Taille & quantité » (:1357), pour
+     que les deux se reconnaissent comme une même famille. */
+  .grp-res-lbl {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #a8a8a8;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .grp-res-val {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--black);
+    line-height: 1.15;
+    min-width: 0;
+  }
+  /* Un nom de couleur long ne doit pas repousser la taille : il se coupe. */
+  .grp-res-gauche .grp-res-val { overflow: hidden; }
+  .grp-res-gauche .grp-res-val > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grp-res-droite .grp-res-val { white-space: nowrap; }
+
   .grp-resume-dot {
     width: 11px; height: 11px; border-radius: 3px;
     border: 1px solid rgba(0,0,0,.15); flex: none;
@@ -2179,6 +2338,33 @@
     bottom: 116px !important;
   }
 
+  /* ÉTAPES « CONFIGURER » ET « VÉRIFIER » — le chat passe au-dessus des boutons.
+
+     Ces deux étapes empilent DEUX boutons pleine largeur en bas de l'écran, là
+     où le mode libre n'en a qu'un. Les 116px calculés pour lui laissaient donc
+     le chat par-dessus le bouton du haut — « Modifier le design » sur la
+     capture, dont il masquait une partie.
+
+     IL REMONTE AU-DESSUS DE LA BARRE, il ne descend pas dessous. Posé bas, il
+     recouvrait le bouton « Modifier le design » — or cette barre est ancrée au
+     bas de l'écran et ne défile pas : aucune position basse ne peut l'éviter.
+
+     190px = le menu du bas (56) + les deux boutons empilés (2 × 45) + leur
+     écart (8) + le rembourrage de la barre (10 + 4) + une marge. Le chat se
+     pose donc juste au-dessus, là où il ne masque plus rien.
+
+     Le menu compte dans le calcul : la barre d'action repose SUR lui, elle ne
+     part pas du bord de l'écran.
+
+     SÉLECTEUR SUR `body`, PAS DESCENDANT DE LA RACINE : l'app injecte
+     `<shopify-chat>` dans le `<body>`, hors de `.conf-app-root`. Un sélecteur
+     descendant depuis l'étape ne l'atteindrait donc jamais. `:has()` remonte du
+     marqueur d'étape jusqu'au body, seul ancêtre commun. */
+  body:has(.conf-app-root[data-etape-groupe="configurer"]) shopify-chat,
+  body:has(.conf-app-root[data-etape-groupe="valider"]) shopify-chat {
+    bottom: calc(190px + env(safe-area-inset-bottom)) !important;
+  }
+
   /* ── Rangée Couleur / Taille / Vue d'ensemble ──────────────────────────
      Cas particulier : `.cv-opts` est figée à 30px de haut (:130) à dessein —
      elle flotte sur l'aperçu et ne doit pas le recouvrir. On ne peut donc pas
@@ -2417,12 +2603,10 @@
     max-width: none;
   }
 
-  [data-etape-groupe="configurer"] .grp-actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
-  }
+  /* Même traitement qu'à l'étape « Vérifier » : la règle est écrite une seule
+     fois pour les deux, plus bas. Les séparer les avait déjà fait diverger —
+     « Vérifier » centrait ses boutons pendant que « Configurer » les étirait
+     encore d'un bord à l'autre. */
 
   /* PRIX MASQUÉ à ces deux étapes : il est ancré au bas du canvas, où la barre
      d'action occupe désormais toute la largeur — les deux se recouvraient. Le
@@ -2443,11 +2627,48 @@
   [data-etape-groupe="valider"] .grp-verif-total { text-align: left; }
   [data-etape-groupe="valider"] .grp-verif-title { font-size: 18px; }
   [data-etape-groupe="valider"] .grp-verif-grid { gap: 14px; }
+  /* BARRE RESSERRÉE, BOUTONS CENTRÉS.
+
+     Les deux boutons s'étiraient d'un bord à l'autre de l'écran, et leur
+     contenu restait collé à gauche — le libellé d'un côté, la flèche perdue à
+     l'autre bout. Un bouton pleine largeur au texte non centré se lit comme une
+     ligne de liste, pas comme une action.
+
+     `align-items: center` remplace `stretch` : chaque bouton prend une largeur
+     confortable sans occuper toute la ligne, et le rembourrage latéral de la
+     barre lui donne de l'air. */
+  /* RAPPROCHÉE DU MENU DU BAS.
+
+     Le rembourrage bas valait `max(12px, safe-area)` — une marge de sécurité
+     reprise des barres FLOTTANTES, qui s'ancrent au bord de l'écran et doivent
+     éviter la zone tactile du système.
+
+     Celle-ci ne s'y trouve pas : le canvas s'arrête à `--nav-h`, donc la barre
+     repose déjà SUR le menu de navigation, lequel absorbe la zone système.
+     Cette marge n'écartait donc rien — elle laissait seulement un vide entre
+     les boutons et le menu. */
+  [data-etape-groupe="configurer"] .grp-actions,
   [data-etape-groupe="valider"] .grp-actions {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: 8px;
-    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    padding: 10px 16px 4px;
+  }
+  /* Largeur commune aux deux : ils forment une pile, des largeurs inégales y
+     seraient lues comme une hiérarchie qui n'existe pas — la distinction se
+     fait déjà par la couleur. Bornée pour ne pas s'étirer sur les grands
+     téléphones. */
+  [data-etape-groupe="configurer"] .grp-actions > .grp-actions-retour,
+  [data-etape-groupe="configurer"] .grp-actions > .grp-actions-btn,
+  [data-etape-groupe="valider"] .grp-actions > .grp-actions-retour,
+  [data-etape-groupe="valider"] .grp-actions > .grp-actions-btn {
+    width: 100%;
+    max-width: 340px;
+    flex: 0 0 auto;
+    justify-content: center;
+    text-align: center;
+    font-size: 13px;
+    padding: 12px 16px;
   }
   /* L'information disparaît de la barre FLOTTANTE : sur 375 px, elle réduisait
      le bouton à un libellé tronqué. Elle reste à l'étape « configurer », où
@@ -2487,17 +2708,16 @@
     font-size: 13px;
     padding: 12px 16px;
   }
-  /* « Retour » côte à côte avec « Continuer », et non empilé : la barre est
-     déjà basse sur l'écran, une seconde rangée mangerait l'aperçu. Il reste
-     étroit — l'action principale garde la place. */
-  [data-etape-groupe="configurer"] .grp-actions-retour,
-  [data-etape-groupe="valider"] .grp-actions-retour {
-    flex: 0 0 auto;
-    font-size: 13px;
-    padding: 12px 14px;
-  }
-  [data-etape-groupe="configurer"] .grp-actions-btn,
-  [data-etape-groupe="valider"] .grp-actions-btn { flex: 1; width: auto; }
+  /* Les règles qui plaçaient « Retour » et « Continuer » CÔTE À CÔTE ont été
+     retirées.
+
+     Elles posaient `flex: 1` et `width: auto`, pensés pour une barre en ligne.
+     Mais les deux étapes empilent leurs boutons depuis longtemps
+     (`flex-direction: column`, plus haut) : ces déclarations n'y servaient plus
+     qu'à les réétirer d'un bord à l'autre, contre l'intention de la mise en
+     colonne — et à décaler leur libellé, faute de centrage.
+
+     Leur mise en forme est désormais écrite en un seul endroit, ci-dessus. */
   /* Descriptions de longueurs différentes : sans hauteur imposée, la carte
      s'ajuste à son texte — l'alignement des boutons n'a plus de sens une fois
      les cartes empilées. */

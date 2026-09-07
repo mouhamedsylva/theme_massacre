@@ -1578,6 +1578,18 @@
     if (typeof window.updateRecapThumbLogo === 'function') {
       window.updateRecapThumbLogo();
     }
+
+    /* MODE GROUPE : CE TEXTE EST UN SURNOM.
+
+       Le corriger sur le vêtement doit renommer la personne dans la liste —
+       sans quoi les deux divergent, et c'est la LISTE qui part en production :
+       le client verrait « paPa » sur son écran et recevrait « Papa » floqué.
+
+       La fonction appelée ne fait rien hors du mode groupe, et rien non plus
+       si elle ne sait pas quelle ligne ce côté affiche. */
+    if (typeof window.grpRenommerDepuisCanvas === 'function') {
+      try { window.grpRenommerDepuisCanvas(zone, value); } catch (e) {}
+    }
   };
 
   /* ── LIGNES « TEXTE » DU RÉCAPITULATIF ──────────────────────────────────

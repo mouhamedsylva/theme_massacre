@@ -2831,23 +2831,68 @@
    ou de changer de produit. Le masquer enfermerait le client dans l'étape. */
 [data-etape-groupe="configurer"] .side-panel { display: none; }
 
-/* MODE GROUPE — seuls les TEXTILES sont proposés.
+/* MODE GROUPE — les trois produits sans surnom RESTENT PROPOSÉS.
 
-   Une commande de groupe repose sur un surnom floqué par personne. Coins,
-   drapeaux et patchs n'ont pas de zone de texte : le parcours entier — liste
-   de surnoms, substitution des noms, aperçu par membre — n'a aucun sens pour
-   eux, et les proposer menait à une impasse silencieuse.
+   Ils étaient masqués : une commande de groupe repose sur un surnom floqué par
+   personne, et coins, drapeaux et patchs n'ont pas de zone de texte.
 
-   Leurs onglets d'options partent avec : sans produit à régler, ils ouvrent
-   un panneau vide. */
-[data-mode="groupe"] .product-card[data-product="coins"],
-[data-mode="groupe"] .product-card[data-product="drapeaux"],
-[data-mode="groupe"] .product-card[data-product="patches"],
+   Mais les retirer de la liste posait une autre question, sans réponse : le
+   client qui cherchait un coin voyait sa grille passer de six produits à trois,
+   sans savoir s'il l'avait mal vu, si le produit avait disparu du catalogue, ou
+   comment y accéder. Un produit absent n'explique rien.
+
+   Ils sont donc VISIBLES et cliquables, mais marqués : la vignette est
+   atténuée, et une note sous la grille annonce le basculement vers la
+   commande libre. Le client sait ce qu'il abandonne AVANT de cliquer, et le
+   basculement lui-même est déjà géré (conf-sidebar-modern.js).
+
+   Leurs onglets d'options, eux, restent masqués tant qu'un textile est
+   affiché : sans produit à régler, ils ouvrent un panneau vide. */
 [data-mode="groupe"] .icon-nav-item[data-panel="panel-coin"],
 [data-mode="groupe"] .icon-nav-item[data-panel="panel-flag"],
 [data-mode="groupe"] .icon-nav-item[data-panel="panel-patch"] {
   display: none;
 }
+
+/* Vignette atténuée : elle reste lisible et cliquable, mais se distingue au
+   premier coup d'œil des trois textiles — le mode groupe leur est destiné. */
+[data-mode="groupe"] .product-card[data-product="coins"],
+[data-mode="groupe"] .product-card[data-product="drapeaux"],
+[data-mode="groupe"] .product-card[data-product="patches"] {
+  opacity: .58;
+}
+[data-mode="groupe"] .product-card[data-product="coins"]:hover,
+[data-mode="groupe"] .product-card[data-product="drapeaux"]:hover,
+[data-mode="groupe"] .product-card[data-product="patches"]:hover {
+  opacity: 1;
+}
+
+/* LA NOTE QUI EXPLIQUE — visible seulement en mode groupe.
+
+   Elle vit dans le markup en permanence (snippets/sidebar-modern.liquid) et
+   n'apparaît que là où elle a un sens. Placée SOUS la grille : elle commente
+   ce que le client vient de voir, au moment où il hésite. */
+.pc-note-libre { display: none; }
+[data-mode="groupe"] .pc-note-libre {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 2px 0;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #92400e;
+}
+.pc-note-libre svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.pc-note-libre strong { font-weight: 700; }
 
 /* Chaque étape est un BOUTON : le client peut revenir sur une étape franchie.
    Les étapes à venir sont désactivées par le script — on ne saute pas en
@@ -3766,6 +3811,26 @@
    sur une commande individuelle. */
 .icon-nav-equipe { display: none !important; }
 [data-mode="groupe"] .icon-nav-equipe { display: flex !important; }
+
+/* SAUF EN VUE DE DOS — chaque vue a son outil.
+
+   Les surnoms se posent en FACE, et seulement là. Le dos accueille un texte
+   libre, commun à toute la commande, saisi par l'onglet « Ajout Texte » qui
+   apparaît alors à sa place (conf-sidebar-modern.js).
+
+   Laisser « Mon Équipe » accessible au dos inviterait le client à y saisir des
+   noms en regardant l'arrière du vêtement — alors qu'ils se poseront devant.
+   Le geste et son résultat se contrediraient.
+
+   `data-view` est posé sur la racine par selView (conf-view-switcher.js), à
+   côté de celui du calque : le rail d'onglets n'est pas un descendant du
+   canvas, un sélecteur depuis `#logo-layer` ne pourrait pas l'atteindre.
+
+   `!important` face au `!important` de la règle précédente — c'est l'ordre qui
+   tranche entre deux déclarations de même poids. */
+[data-mode="groupe"][data-view="dos"] .icon-nav-equipe {
+  display: none !important;
+}
 
 /* APERÇU CADRÉ À MI-POITRINE.
 

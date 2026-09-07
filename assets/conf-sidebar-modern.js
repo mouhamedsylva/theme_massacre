@@ -199,13 +199,25 @@
        question reviendrait à proposer un choix dont une branche est un
        cul-de-sac.
 
-       Seulement depuis l'ÉCRAN DE CHOIX (`data-etape="choix"`) : changer de
-       produit en cours de parcours ne doit pas basculer le client de mode. */
+       DEUX SITUATIONS, ET NON PLUS UNE SEULE :
+
+         • depuis l'ÉCRAN DE CHOIX — la question n'a pas encore été posée, on
+           la saute ;
+         • depuis le MODE GROUPE — ces produits y sont désormais proposés, avec
+           une note qui annonce le basculement (snippets/sidebar-modern.liquid).
+           Les masquer laissait le client sans explication ; les afficher sans
+           basculer le laisserait dans un parcours de surnoms sur un produit qui
+           n'en porte pas.
+
+       Le mode LIBRE, lui, n'est jamais touché : il accueille déjà ces trois
+       produits sans rien changer. */
     const racine = document.querySelector(".conf-app-root");
     const surEcranChoix = racine && racine.getAttribute("data-etape") === "choix";
+    const enGroupe = racine && racine.getAttribute("data-mode") === "groupe";
     const sansSurnom = ["coins", "drapeaux", "patches"].indexOf(productType) !== -1;
 
-    if (surEcranChoix && sansSurnom && typeof window.choisirMode === "function") {
+    if ((surEcranChoix || enGroupe) && sansSurnom &&
+        typeof window.choisirMode === "function") {
       /* `true` = REPRISE DE SESSION : l'écran de choix est retiré EN PLACE,
          sans rechargement de page.
 
@@ -234,31 +246,21 @@
         sessionStorage.setItem("conf_mode_impose", productType);
       } catch (e) {}
 
-      window.choisirMode("individuelle", true);
-      return;
-    }
+      /* DEPUIS LE GROUPE : UN VRAI CHANGEMENT DE MODE, PAS UNE REPRISE.
 
-    /* RETOUR AU TEXTILE : LA QUESTION SE REPOSE.
+         `true` (reprise) convient à l'écran de choix — aucun mode n'est encore
+         retenu, il n'y a ni design à ranger ni état à isoler.
 
-       Le bloc ci-dessus impose le mode libre pour un coin, un drapeau ou un
-       patch. Il n'avait pas de symétrique : en reprenant un textile, le client
-       restait enfermé dans ce mode qu'il n'avait jamais choisi, sans que rien
-       ne le ramène à la question. La seule sortie était le bouton « Changer de
-       mode » de la barre — encore fallait-il le remarquer.
-
-       CONDITIONNÉ AU DRAPEAU, PAS AU MODE COURANT. `conf_mode_impose` marque
-       précisément un mode SUBI (posé juste au-dessus). Se fier au seul fait
-       d'être en mode libre renverrait aussi le client qui l'a délibérément
-       choisi — le rejetant sur l'écran de choix à chaque changement de textile,
-       ce que le commentaire du bloc précédent interdit.
-
-       `true` : le produit entrant est déjà sélectionné, `retourChoixMode` ne
-       doit pas le remplacer par un sweatshirt. */
-    var impose = null;
-    try { impose = sessionStorage.getItem("conf_mode_impose"); } catch (e) {}
-
-    if (impose && !sansSurnom && typeof window.retourChoixMode === "function") {
-      window.retourChoixMode(true);
+         Depuis le mode GROUPE, ce serait un piège : la reprise saute
+         `basculerModeAvecRechargement`, donc le rangement du design
+         (conf-main-inline.js) et le rechargement qui isole les deux parcours.
+         Le design du groupe — et sa liste de surnoms — fuirait dans la commande
+         libre. On passe donc par le chemin complet, celui qu'emprunte déjà le
+         bouton « Changer de mode ». */
+      /* `productType` : le produit que le client VIENT de cliquer. Sans lui, le
+         rechargement rouvrirait celui que la commande libre portait la dernière
+         fois — un sweatshirt, alors qu'il a demandé un coin. */
+      window.choisirMode("individuelle", !enGroupe, productType);
     }
   }
 
@@ -1053,23 +1055,41 @@
     const patchNav = document.getElementById("patch-nav-item");
     if (patchNav) patchNav.style.display = isPatch ? "" : "none";
 
-    /* Onglet Texte : réservé aux textiles EN MODE LIBRE.
+    /* Onglet Texte : réservé aux textiles.
 
        Le texte est posé dans les zones pointillées du vêtement (poitrine,
        dos) ; ni un coin ni un drapeau n'en possède.
 
-       MASQUÉ AUSSI EN MODE GROUPE : les textes y sont les SURNOMS, saisis dans
-       « Mon Équipe » et reportés sur chaque vêtement. Ouvrir l'éditeur de texte
-       libre à côté proposait deux chemins concurrents pour la même zone — un
-       texte posé là aurait été écrasé par le surnom au premier ajout au panier.
+       EN MODE GROUPE, IL DÉPEND DE LA VUE.
 
-       Le mode est lu sur la racine, comme les règles CSS `[data-mode="groupe"]`
-       (conf-styles.css:2611). */
+       Il y était masqué en permanence, et pour une bonne raison : les textes du
+       mode groupe sont les SURNOMS, saisis dans « Mon Équipe » et substitués
+       personne par personne. Ouvrir l'éditeur libre à côté offrait deux chemins
+       concurrents POUR LA MÊME ZONE — un texte posé là était écrasé par le
+       premier surnom.
+
+       Cette concurrence n'existe plus : les surnoms sont désormais réservés à
+       la FACE (grpTextZone, conf-group-textzone.js), et le dos accueille un
+       texte libre commun à toute la commande — un nom d'équipe, un slogan. Les
+       deux zones sont disjointes, donc les deux outils peuvent coexister… à
+       condition de ne jamais s'afficher ensemble : chaque vue a le sien.
+
+       `addTextToDesign` pose déjà son texte dans la zone de la vue affichée :
+       en vue de dos, c'est `b`. Rien à ajouter de ce côté.
+
+       Le mode et la vue sont lus sur la racine, comme les règles CSS
+       `[data-mode="groupe"]` (conf-styles.css:2611). */
     const racineMode = document.querySelector(".conf-app-root");
     const estGroupe = racineMode &&
       racineMode.getAttribute("data-mode") === "groupe";
+    const vueCourante = racineMode
+      ? racineMode.getAttribute("data-view")
+      : null;
+    /* Au tout premier rendu, `data-view` n'est pas encore posé : selView ne
+       s'est pas exécuté. La face est la vue de départ du canvas. */
+    const auDos = vueCourante === "dos";
     const textNav = document.getElementById("text-nav-item");
-    const texteMasque = twoFaced || estGroupe;
+    const texteMasque = twoFaced || (estGroupe && !auDos);
     if (textNav) textNav.style.display = texteMasque ? "none" : "";
 
     /* Le PANNEAU suit son onglet.
@@ -1081,6 +1101,20 @@
 
        On revient sur « Type de Produit », toujours disponible. */
     if (texteMasque && currentPanel === "panel-text") {
+      openPanel("panel-product");
+    }
+
+    /* MÊME RÈGLE POUR « MON ÉQUIPE », et elle en a besoin depuis peu.
+
+       Cet onglet disparaît maintenant en vue de dos, où le client pose son
+       texte libre. Sans cette réciproque, la liste des surnoms resterait
+       affichée sans onglet pour la désigner — et le client y saisirait des noms
+       en regardant le dos, alors qu'ils se poseront devant.
+
+       L'onglet est piloté par CSS (`.icon-nav-equipe`, conf-styles.css) : c'est
+       donc ici, en JS, qu'on rattrape le panneau resté ouvert. */
+    const equipeMasquee = !estGroupe || auDos;
+    if (equipeMasquee && currentPanel === "panel-equipe") {
       openPanel("panel-product");
     }
 
@@ -1123,10 +1157,34 @@
        fermé, ou si plus rien n'est ouvert. */
     if (closedActive || !currentPanel) openPanel("panel-product");
 
-    // Bascule la vue d'upload selon la famille de produit.
-    switchView(
-      isCoin ? "coin" : isFlag ? "flag" : isPatch ? "patch" : "face",
-    );
+    /* Bascule la vue d'upload selon la famille de produit.
+
+       LE TEXTILE SUIT LA VUE AFFICHÉE, il ne repart plus de la face.
+
+       « face » était écrit en dur, ce qui convenait tant que cette fonction
+       n'était appelée qu'au changement de PRODUIT — le canvas y revient de
+       face, les deux concordaient.
+
+       Elle est désormais rappelée à chaque changement de VUE (conf-view-switcher.js),
+       pour que le rail d'onglets suive. Elle s'exécute donc APRÈS le
+       `switchView(viewName)` de selView et le défaisait : basculer en vue de
+       dos rouvrait le panneau Upload sur les zones de FACE, et la zone d'upload
+       du dos devenait inatteignable.
+
+       On relit la vue réelle du canvas. Les familles non textiles gardent leur
+       vue dédiée, qui n'a pas d'équivalent sur le vêtement. */
+    var vueUpload;
+    if (isCoin) vueUpload = "coin";
+    else if (isFlag) vueUpload = "flag";
+    else if (isPatch) vueUpload = "patch";
+    else {
+      var couche = document.getElementById("logo-layer");
+      var vueCanvas = couche ? couche.getAttribute("data-view") : null;
+      vueUpload = (vueCanvas === "dos" || vueCanvas === "cote")
+        ? vueCanvas
+        : "face";
+    }
+    switchView(vueUpload);
   }
 
   /**

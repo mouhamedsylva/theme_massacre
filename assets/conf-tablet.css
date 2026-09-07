@@ -462,11 +462,15 @@
   .icon-nav-label br { display: inline; font-size: 0; }
   .icon-nav-label br::after { content: "\00a0"; font-size: 9px; }
 
-  /* Pastille noire + contenu orange, comme en desktop : le rail est clair
-     (#ebebeb), donc l'ancien voile blanc à 12 % y était invisible. */
-  .icon-nav-item.active { background: #000000; color: #ff6b35; }
-  .icon-nav-item.active svg,
-  .icon-nav-item.active .icon-nav-label { color: #ff6b35; }
+  /* ALIGNÉE SUR LE DESKTOP — fond bleu pâle, contenu bleu.
+
+     Cette règle disait « comme en desktop » en posant une pastille NOIRE à
+     contenu ORANGE : elle décrivait un état que le desktop a quitté deux fois
+     depuis. Le rail tablette est le même gris clair (#ebebeb) que celui du
+     desktop, rien ne justifiait donc un traitement propre.
+
+     On laisse la règle desktop s'appliquer et on ne surcharge plus rien : deux
+     définitions du même état finissent toujours par diverger. */
 
   /* ── Aperçu : l'image profite de toute la largeur ── */
   .cv-wrap { min-height: 0; }

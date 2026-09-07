@@ -710,6 +710,42 @@
         </div>
       </div>
 
+      {%- comment -%}
+        MODE COURANT — au-dessus du produit, là où le client travaille.
+
+        Il vivait dans l'en-tête, parmi les boutons d'action : il disait ce
+        qu'on peut faire (« changer de type de commande ») sans jamais dire où
+        l'on est. Ici, il annonce d'abord le mode en cours, et le bouton n'est
+        que la sortie.
+
+        EN TÊTE DU CANVAS, AVANT LE TITRE — et c'est ce qui compte ici.
+
+        Elle était placée entre l'en-tête et le vêtement, donc SOUS les onglets
+        de vue. Sur un coin, un drapeau ou un patch, le canvas est reconstruit
+        de zéro et la barre recréée en première position (majBarreMode,
+        conf-main-inline.js) : elle s'y trouvait bien plus haut. Le client
+        passant d'un produit à l'autre voyait donc la même pastille sauter d'une
+        hauteur à l'autre.
+
+        Une seule position pour tous les produits : celle des non-textiles, que
+        le code impose déjà là où il reconstruit.
+
+        Le libellé est écrit par choisirMode() (conf-main-inline.js) : il
+        dépend du mode retenu, pas du markup.
+      {%- endcomment -%}
+      <div class="mode-actuel" id="mode-actuel">
+        {%- comment -%}
+          `ma-long` : les fragments que le MOBILE masque (conf-mobile.css).
+          Le libellé complet plus le bouton dépassent la largeur d'un
+          téléphone, et `white-space: nowrap` interdit tout repli — le bouton
+          sortait de l'écran. Sur mobile il reste « Libre » et « CHANGER ».
+        {%- endcomment -%}
+        <span class="mode-actuel-lbl"><span class="ma-long">Mode actuel : </span><strong id="mode-actuel-nom"><span class="ma-long">Personnalisation </span><span class="ma-court">Mode </span>libre</strong></span>
+        <button type="button" class="mode-actuel-btn" onclick="retourChoixMode()">
+          Changer<span class="ma-long"> de mode</span>
+        </button>
+      </div>
+
       <div class="cv-hdr">
         <h2 class="cv-title">Personnalisez votre article</h2>
         <p class="cv-sub">Visualisez votre design en temps réel</p>
@@ -827,30 +863,6 @@
           </div>
         </div>
 
-      </div>
-
-      {%- comment -%}
-        MODE COURANT — au-dessus du produit, là où le client travaille.
-
-        Il vivait dans l'en-tête, parmi les boutons d'action : il disait ce
-        qu'on peut faire (« changer de type de commande ») sans jamais dire où
-        l'on est. Ici, il annonce d'abord le mode en cours, et le bouton n'est
-        que la sortie.
-
-        Le libellé est écrit par choisirMode() (conf-main-inline.js) : il
-        dépend du mode retenu, pas du markup.
-      {%- endcomment -%}
-      <div class="mode-actuel" id="mode-actuel">
-        {%- comment -%}
-          `ma-long` : les fragments que le MOBILE masque (conf-mobile.css).
-          Le libellé complet plus le bouton dépassent la largeur d'un
-          téléphone, et `white-space: nowrap` interdit tout repli — le bouton
-          sortait de l'écran. Sur mobile il reste « Libre » et « CHANGER ».
-        {%- endcomment -%}
-        <span class="mode-actuel-lbl"><span class="ma-long">Mode actuel : </span><strong id="mode-actuel-nom"><span class="ma-long">Personnalisation </span><span class="ma-court">Mode </span>libre</strong></span>
-        <button type="button" class="mode-actuel-btn" onclick="retourChoixMode()">
-          Changer<span class="ma-long"> de mode</span>
-        </button>
       </div>
 
             <div class="cv-wrap">

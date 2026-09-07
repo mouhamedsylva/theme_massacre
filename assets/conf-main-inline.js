@@ -9821,7 +9821,12 @@
      * @returns {boolean} true si un rechargement est lancé (l'appelant doit
      *   alors s'arrêter : la page est en train de partir).
      */
-    function basculerModeAvecRechargement(sortant, entrant) {
+    /**
+     * @param {string} [produitVise] - produit à rouvrir après le rechargement.
+     *   Réservé aux bascules déclenchées par un CLIC PRODUIT : sans lui, le
+     *   mode entrant rouvre le produit qu'il portait la dernière fois.
+     */
+    function basculerModeAvecRechargement(sortant, entrant, produitVise) {
       if (window.__ouvertureDepuisPanier) return false;
 
       /* LE MODE QUITTÉ, MÊME QUAND LA SESSION NE LE PORTE PLUS.
@@ -9851,6 +9856,24 @@
          AVANT le rechargement — c'est elle que le démarrage lira. */
       try { sessionStorage.setItem(MODE_KEY, entrant); } catch (e) {}
       poserDesignModeEnSession(entrant);
+
+      /* LE PRODUIT QUE LE CLIENT VIENT DE CLIQUER GAGNE.
+
+         `conf_current_product` fait partie du design d'un mode (CLES_DESIGN) :
+         chaque parcours garde le sien, et `poserDesignModeEnSession` vient donc
+         de reposer celui que le mode ENTRANT portait la dernière fois — ou de
+         l'effacer s'il n'en avait aucun, auquel cas le démarrage repart sur le
+         sweatshirt.
+
+         C'est le bon comportement pour le bouton « Changer de mode », qui ne
+         désigne aucun produit. Mais quand la bascule est déclenchée PAR un clic
+         produit — choisir un coin depuis le mode groupe —, le client verrait
+         apparaître un tout autre article que celui qu'il vient de demander.
+
+         Son geste est le plus récent : il tranche. */
+      if (produitVise) {
+        try { sessionStorage.setItem('conf_current_product', produitVise); } catch (e) {}
+      }
 
       window.location.href = '/pages/configurateur';
       return true;
@@ -9957,7 +9980,12 @@
     }
     window.majBarreMode = majBarreMode;
 
-    function choisirMode(mode, reprise) {
+    /**
+     * @param {string} [produitVise] - produit à rouvrir si la bascule recharge
+     *   la page. Passé par la sidebar quand c'est un clic produit qui a
+     *   provoqué le changement de mode.
+     */
+    function choisirMode(mode, reprise, produitVise) {
       var root = document.querySelector('.conf-app-root');
       if (!root) return;
 
@@ -9973,7 +10001,10 @@
       if (!reprise) {
         var precedent = null;
         try { precedent = sessionStorage.getItem(MODE_KEY); } catch (e) {}
-        if (basculerModeAvecRechargement(precedent, mode)) return;
+        /* `produitVise` : voir basculerModeAvecRechargement. Renseigné quand la
+           bascule vient d'un clic produit (conf-sidebar-modern.js), pour que le
+           rechargement rouvre CE produit et non celui du mode entrant. */
+        if (basculerModeAvecRechargement(precedent, mode, produitVise)) return;
       }
 
       try { sessionStorage.setItem(MODE_KEY, mode); } catch (e) {}
@@ -10996,26 +11027,17 @@
         return;
       }
 
-      /* CÔTÉ AFFICHÉ : les surnoms de l'AUTRE côté sont estompés.
+      /* LE GRISAGE PAR CÔTÉ A ÉTÉ RETIRÉ.
 
-         Le vêtement ne montre qu'une face à la fois. Sans distinction visuelle,
-         le client voyait une liste uniforme dont la moitié ne correspondait pas
-         à ce qu'il regardait.
-
-         Un surnom estompé reste CLIQUABLE — le toucher bascule la vue vers son
-         côté (eqEssayerNom). Le grisage indique une appartenance, il ne bloque
-         pas : un clic sans effet dérouterait davantage. */
-      var coteVu = (typeof window.grpVueAffichee === 'function')
-        ? window.grpVueAffichee() : 'f';
-
+         Il estompait les surnoms de l'autre face, du temps où chaque personne
+         avait le sien. Les surnoms sont désormais tous en FACE, et ce panneau
+         n'est même plus accessible en vue de dos — la classe aurait donc été
+         posée sur tout le monde, ou sur personne, sans jamais rien distinguer. */
       var html = '';
       for (var i = 0; i < rows.length; i++) {
         var nom = rows[i].flock || rows[i].name || '';
-        var coteLigne = (typeof window.grpZoneDeLigne === 'function')
-          ? window.grpZoneDeLigne(rows[i]) : 'f';
-        var classeAutre = (coteLigne === coteVu) ? '' : ' est-autre-cote';
         /* grpEsc : ces valeurs viennent d'une saisie libre ou d'un import CSV. */
-        html += '<div class="eq-nom' + classeAutre + '" data-index="' + i + '">' +
+        html += '<div class="eq-nom" data-index="' + i + '">' +
                   '<button type="button" class="eq-nom-txt" onclick="eqEssayerNom(' + i + ')">' +
                     grpEsc(nom) +
                   '</button>' +
@@ -11255,14 +11277,16 @@
       /* Taille et couleur RESTENT VIDES : elles se choisissent à l'étape
          « Configurer ». Les pré-remplir ici imposerait un défaut que le client
          n'a pas choisi, et qu'il pourrait ne pas remarquer. */
-      /* LE CÔTÉ EST MÉMORISÉ SUR LA LIGNE, depuis la vue affichée.
+      /* LE CÔTÉ EST TOUJOURS LA FACE.
 
-         Sans ce champ, une seule zone portait tous les surnoms : la première
-         garnie se verrouillait, et saisir un nom en vue de dos le posait quand
-         même en face. Le geste ne change pas — on bascule la vue, on tape un
-         nom — mais chaque personne garde désormais son côté. */
-      var coteSaisie = (typeof window.grpVueAffichee === 'function')
-        ? window.grpVueAffichee() : 'f';
+         Il était lu sur la vue affichée, pour que chaque personne porte son nom
+         devant ou derrière. Ce n'est plus la règle : le dos revient à un texte
+         libre, commun à toute la commande.
+
+         Le champ reste écrit sur la ligne — il voyage jusqu'au panier et à la
+         propriété « Emplacement » de la commande, et le retirer traverserait
+         tout ce chemin pour aucun gain. Sa valeur est simplement constante. */
+      var coteSaisie = 'f';
 
       rows.push({ name: nom, flock: nom, size: '', color: '', qty: 1, zone: coteSaisie });
 
@@ -11291,6 +11315,13 @@
          affiché à l'instant de la saisie, déjà mémorisé sur la ligne — qui
          décide désormais. */
       var zoneNom = coteSaisie;
+
+      /* CE CÔTÉ MONTRE DÉSORMAIS CETTE PERSONNE — la dernière de la liste,
+         celle qu'on vient d'ajouter. Retenu pour que corriger le texte au
+         double-clic renomme la bonne ligne (voir `eqEssayerNom`). */
+      window.__grpLigneAffichee = window.__grpLigneAffichee || {};
+      window.__grpLigneAffichee[zoneNom] = rows.length - 1;
+
       var dejaLa = (typeof window.getSavedText === 'function')
         ? window.getSavedText(zoneNom) : null;
 
@@ -11401,24 +11432,17 @@
       var zone = (typeof window.grpZoneDeLigne === 'function')
         ? window.grpZoneDeLigne(rows[i]) : 'f';
 
-      /* LA VUE BASCULE VERS LA PERSONNE.
+      /* LA VUE REVIENT EN FACE.
 
-         Cliquer « Marie » doit MONTRER Marie, où qu'elle soit. Sans cette
-         bascule, cliquer un surnom du dos depuis la face ne changerait rien à
-         l'écran — un clic sans effet visible, le pire des cas.
-
-         ⚠️ Effet de bord assumé : la vue ainsi basculée décide du côté du
-         PROCHAIN surnom saisi. Un client qui essaie un nom de face après avoir
-         travaillé au dos verra donc sa saisie suivante partir en face. La liste
-         estompée le signale — les surnoms de l'autre côté changent d'aspect au
-         même instant. */
-      var vueVoulue = (zone === 'b') ? 'dos' : 'face';
+         Les surnoms n'y sont plus que là. Ce panneau n'est même pas accessible
+         au dos — mais la vue peut avoir été laissée sur le côté, ou le clic
+         venir d'un autre chemin : essayer un nom sans le montrer serait un clic
+         sans effet visible, le pire des cas. */
       var vueActuelle = (typeof window.grpVueAffichee === 'function')
         ? (window.grpVueAffichee() === 'b' ? 'dos' : 'face') : 'face';
 
-      if (vueVoulue !== vueActuelle) {
-        var ongletVue = document.querySelector(
-          '.vt[aria-label="' + (zone === 'b' ? 'Vue de dos' : 'Vue de face') + '"]');
+      if (vueActuelle !== 'face') {
+        var ongletVue = document.querySelector('.vt[aria-label="Vue de face"]');
         if (ongletVue) ongletVue.click();
       }
 
@@ -11446,8 +11470,90 @@
       for (var k = 0; k < noms.length; k++) {
         noms[k].classList.toggle('is-actif', k === i);
       }
+
+      /* QUELLE LIGNE CE CÔTÉ MONTRE — retenu pour l'édition en double-clic.
+
+         Le canvas ne porte qu'un texte par zone : celui de la dernière personne
+         saisie ou essayée. Corriger ce texte au double-clic devait donc renommer
+         CETTE personne dans la liste — mais rien ne disait laquelle, et la liste
+         gardait l'ancien nom pendant que le vêtement affichait le nouveau.
+
+         On retient l'index PAR ZONE : la face et le dos montrent chacun leur
+         personne, et modifier l'une ne doit pas toucher l'autre. */
+      window.__grpLigneAffichee = window.__grpLigneAffichee || {};
+      window.__grpLigneAffichee[zone] = i;
     }
     window.eqEssayerNom = eqEssayerNom;
+
+    /**
+     * Répercute dans la LISTE un surnom corrigé sur le vêtement.
+     *
+     * Le client peut double-cliquer le texte du canvas pour le corriger
+     * (conf-text-dblclick.js). En mode groupe, ce texte EST un surnom : le
+     * modifier sans toucher à la liste laissait les deux en désaccord — le
+     * vêtement affichait « paPa » pendant que la liste, l'étape « Configurer »
+     * et la commande gardaient « Papa ». C'est la liste qui part en production.
+     *
+     * On renomme UNE ligne : celle que ce côté affiche, mémorisée à la saisie
+     * et à chaque essayage. Renommer toutes les lignes portant ce nom
+     * toucherait des personnes que le client n'a pas désignées — et les
+     * homonymes sont fréquents dans une équipe.
+     *
+     * @param {string} zone - 'f' ou 'b'
+     * @param {string} valeur - le nouveau texte
+     */
+    function grpRenommerDepuisCanvas(zone, valeur) {
+      var racine = document.querySelector('.conf-app-root');
+      if (!racine || racine.getAttribute('data-mode') !== 'groupe') return;
+
+      var nom = String(valeur || '').trim();
+      if (!nom) return;
+
+      var idx = window.__grpLigneAffichee && window.__grpLigneAffichee[zone];
+      if (typeof idx !== 'number') return;
+
+      var rows = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []).slice() : [];
+      if (idx < 0 || idx >= rows.length) return;
+
+      /* La ligne visée doit encore appartenir à CE côté : le client a pu la
+         déplacer ou en supprimer d'autres entre-temps, décalant les index. */
+      var zoneLigne = (typeof window.grpZoneDeLigne === 'function')
+        ? window.grpZoneDeLigne(rows[idx]) : rows[idx].zone;
+      if (zoneLigne !== zone) return;
+
+      if ((rows[idx].flock || rows[idx].name || '') === nom) return;  // rien à faire
+
+      rows[idx].name = nom;
+      rows[idx].flock = nom;
+
+      if (typeof window.setGroupOrderRows === 'function') {
+        window.setGroupOrderRows(rows);
+      }
+      /* LES DEUX AFFICHAGES DE LA LISTE.
+
+         Le panneau « Mon Équipe » se redessine depuis les données. Le tableau
+         de l'étape « Configurer », lui, n'existe qu'à cette étape : ailleurs il
+         est reconstruit à l'entrée, et le repeupler ici serait sans objet.
+
+         Même motif de repeuplement qu'à l'entrée dans l'étape (:2825-2840) :
+         vider le corps, puis rejouer `grpAddRow` sur chaque ligne. */
+      if (typeof window.eqRendreNoms === 'function') window.eqRendreNoms();
+
+      var etapeCourante = racine.getAttribute('data-etape-groupe');
+      var corps = document.getElementById('grp-rows');
+      if (etapeCourante === 'configurer' && corps &&
+          typeof window.grpAddRow === 'function') {
+        corps.innerHTML = '';
+        rows.forEach(function (r) {
+          try { window.grpAddRow(r, true); } catch (e) {}
+        });
+        if (typeof window.grpUpdateTotals === 'function') {
+          try { window.grpUpdateTotals(); } catch (e) {}
+        }
+      }
+    }
+    window.grpRenommerDepuisCanvas = grpRenommerDepuisCanvas;
 
     /* Entrée au clavier : ajouter sans quitter le champ. */
     document.addEventListener('keydown', function (e) {

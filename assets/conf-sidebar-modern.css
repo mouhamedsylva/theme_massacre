@@ -87,10 +87,15 @@
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 30px;
+  /* La hauteur du liseré s'ANIME : au repos il est réduit à un point, il se
+     déploie à la sélection. Une barre qui grandit se remarque sans clignoter —
+     l'œil suit un mouvement là où une couleur qui apparaît d'un bloc passe
+     inaperçue. */
+  height: 0;
   background: transparent;
-  transition: background 0.2s ease;
-  border-radius: 0 2px 2px 0;
+  transition: height .22s cubic-bezier(.4, 0, .2, 1),
+              background .2s ease;
+  border-radius: 0 3px 3px 0;
 }
 
 /* Survol : voile NOIR transparent, pas blanc — sur le rail clair (#ebebeb) un
@@ -100,23 +105,36 @@
   color: #2a2a2a;
 }
 
-/* Sélection : pastille BLANCHE pleine, contenu NOIR.
+/* Sélection : pastille BLANCHE pleine, contenu BLEU.
 
-   La pastille était noire à contenu orange. Le blanc se détache tout autant du
-   rail gris clair (#ebebeb) — c'est le même principe de contraste inversé —
-   mais sans introduire une seconde couleur d'accent dans une interface qui
-   n'en emploie aucune ailleurs.
+   La pastille était noire à contenu orange, puis blanche à contenu noir. Le
+   blanc se détache du rail gris clair (#ebebeb) — c'est le principe de
+   contraste inversé — et il RESTE le fond : une pastille bleue pleine à icône
+   blanche crierait plus fort que le canvas, alors que ce rail n'est qu'un
+   repère de navigation.
 
-   Le contenu passe en noir et non en blanc : une icône blanche sur pastille
-   blanche serait invisible. C'est bien le couple qui s'inverse, pas chacun de
-   ses termes séparément.
+   C'est donc le CONTENU qui passe en bleu. Un onglet inactif est gris moyen,
+   l'actif est coloré : la différence se lit sans avoir à comparer deux
+   pastilles voisines.
 
-   L'ombre portée remplace le contraste que la pastille noire apportait à elle
-   seule : sans elle, le blanc sur gris très clair manquerait de relief. */
+   `#1d4ed8` n'est pas un bleu de plus — c'est celui que le projet emploie déjà
+   pour ses actions secondaires (`.mtxt-multi-btn`, :1195). Ajouter une teinte
+   proche mais distincte donnerait deux bleus qu'on croirait liés sans l'être.
+
+   UN FOND BLEU PÂLE, PAS BLANC. Le blanc pur sur le rail gris (#ebebeb) tenait
+   à un écart de luminosité si faible que la pastille se devinait plus qu'elle
+   ne se voyait — et le bleu du contenu semblait posé dessus, sans rapport avec
+   elle. Un fond teinté de la même famille relie les deux : la pastille EST
+   bleue, discrètement, et son contenu en est la version dense.
+
+   L'ombre est BLEUTÉE plutôt que grise. Une ombre neutre sous un élément
+   coloré le fait flotter au-dessus du rail comme un corps étranger ; teintée,
+   elle prolonge la couleur au lieu de la contredire. */
 .icon-nav-item.active {
-  background: #ffffff;
-  color: #1a1a1a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .12);
+  background: linear-gradient(180deg, #f4f8ff 0%, #e8f0fe 100%);
+  color: #1d4ed8;
+  box-shadow: 0 1px 3px rgba(29, 78, 216, .16),
+              0 4px 12px rgba(29, 78, 216, .10);
 }
 
 /* L'icône et le libellé héritent mal de `color` selon les navigateurs (le SVG
@@ -124,13 +142,39 @@
    ici, sinon seul le libellé changeait de couleur. */
 .icon-nav-item.active svg,
 .icon-nav-item.active .icon-nav-label {
-  color: #1a1a1a;
+  color: #1d4ed8;
 }
 
-/* Liseré : NOIR sur la pastille blanche — il était blanc sur la pastille
-   noire. Même raison qu'au-dessus : c'est le couple qui s'inverse. */
+/* L'ICÔNE PORTE L'ACCENT, le libellé reste sobre.
+
+   Les deux au même bleu dense donnaient un bloc coloré uniforme, où rien ne
+   guidait le regard. L'icône est le repère — elle garde la teinte pleine ; le
+   libellé descend d'un cran en poids visuel, il nomme ce que l'icône montre
+   déjà. */
+.icon-nav-item.active .icon-nav-label {
+  font-weight: 600;
+}
+
+/* Liseré : BLEU, plein et déployé. Il marque le bord du rail, c'est le repère
+   que l'œil suit en premier — le laisser noir dissocierait les deux moitiés du
+   même état. Sa hauteur s'anime depuis 0 (voir la règle de base). */
 .icon-nav-item.active::before {
-  background: #1a1a1a;
+  height: 34px;
+  background: #1d4ed8;
+  box-shadow: 0 0 8px rgba(29, 78, 216, .45);
+}
+
+/* Le survol d'un onglet DÉJÀ actif ne doit pas le grisailler : la règle de
+   survol pose un voile noir, qui salissait le bleu. */
+.icon-nav-item.active:hover {
+  background: linear-gradient(180deg, #eef4ff 0%, #dfe9fd 100%);
+  color: #1d4ed8;
+}
+
+/* Préférence système : le liseré prend sa taille sans se déployer. L'état
+   reste parfaitement lisible — c'est le mouvement qu'on retire, pas le repère. */
+@media (prefers-reduced-motion: reduce) {
+  .icon-nav-item::before { transition: background .2s ease; }
 }
 
 .icon-nav-item svg {
