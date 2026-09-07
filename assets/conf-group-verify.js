@@ -80,14 +80,27 @@
    * toutes les cartes seraient identiques. On le remplace donc, exactement
    * comme le fait l'aperçu de ligne (conf-group-preview.js:175).
    */
-  function fondPourCouleur(nomCouleur) {
+  /**
+   * @param {string} nomCouleur
+   * @param {string} [vueNom] - 'face' (défaut) ou 'dos'.
+   *
+   *   La vue était FIGÉE sur « face ». Depuis que les surnoms peuvent se poser
+   *   au dos, ce fond — PRIORITAIRE sur celui de la vue capturée (voir plus
+   *   bas) — écrasait le dos par une silhouette de face : le nom, peint aux
+   *   coordonnées du dos, tombait hors du vêtement. Le client vérifiait donc un
+   *   article apparemment vierge avant de commander.
+   *
+   *   L'aperçu de ligne (conf-group-preview.js) a reçu ce correctif ; ce module
+   *   avait été oublié.
+   */
+  function fondPourCouleur(nomCouleur, vueNom) {
     if (!nomCouleur) return '';
     var key = window.currentProductKey || window.currentProductType || 'sweatshirt';
     var slug = (window.COLOR_SLUGS_MAP && window.COLOR_SLUGS_MAP[nomCouleur]) ||
                (window.COLOR_SLUGS && window.COLOR_SLUGS[nomCouleur]);
     var prefix = window.PRODUCT_SLUGS && window.PRODUCT_SLUGS[key];
     if (!prefix || !slug || typeof window.colorImageCandidates !== 'function') return '';
-    var cands = window.colorImageCandidates(prefix, slug, 'face') || [];
+    var cands = window.colorImageCandidates(prefix, slug, vueNom || 'face') || [];
     var url = cands[0] || '';
     /* `colorImageCandidates` peut renvoyer une URL protocole-relative (`//…`),
        que la liste blanche d'images rejette. */
@@ -243,14 +256,39 @@
   }
 
   /**
-   * Capture la vue de FACE avec un nom substitué au texte du canvas.
+   * Le côté d'une ligne — `'f'` ou `'b'`.
+   *
+   * Délègue à `grpZoneDeLigne` (conf-group-textzone.js), seule autorité sur ce
+   * point, pour que la vérification, l'aperçu et le panier répondent tous la
+   * même chose. Le repli couvre un chargement partiel des scripts.
+   */
+  function zoneDeLigne(l) {
+    if (typeof window.grpZoneDeLigne === 'function') return window.grpZoneDeLigne(l);
+    if (l && (l.zone === 'f' || l.zone === 'b')) return l.zone;
+    return 'f';
+  }
+
+  /**
+   * Capture le vêtement, du côté de cette personne, son nom substitué au texte.
    *
    * Le bloc de substitution/restauration est repris de
    * conf-group-preview.js:126-156 : la capture lit le DOM live, on y pose donc
    * le nom le temps du calcul, puis on remet l'état d'origine.
    */
-  function capturerPourNom(nom) {
-    var zone = (typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f';
+  function capturerPourNom(nom, zoneDemandee) {
+    /* LA ZONE VIENT DE LA LIGNE, pas de l'état global du canvas.
+
+       `grpTextZone()` décrit LE CANVAS — la zone garnie, ou à défaut la vue
+       affichée. Elle répond donc la même chose pour tout le monde. Depuis que
+       chaque personne porte son côté, interroger le canvas reviendrait à
+       substituer le nom de Marie dans la zone de Jean : une carte fausse, avec
+       le bon nom au mauvais endroit.
+
+       Repli sur `grpTextZone()` quand l'appelant ne précise rien — les lignes
+       d'avant ce champ se comportent comme avant. */
+    var zone = (zoneDemandee === 'f' || zoneDemandee === 'b' || zoneDemandee === 'fr')
+      ? zoneDemandee
+      : ((typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f');
     var el = document.getElementById('text-' + zone);
     var contenu = el ? el.querySelector('.dt-content') : null;
     var ancien = null, styleAncien = null, donneesAnciennes = null;
@@ -408,8 +446,29 @@
     }).then(function (views) {
       restaurer();
       remasquer();
-      var face = (views || []).filter(function (v) { return v.label === 'FACE'; })[0];
-      return face || null;
+      /* LA VUE CAPTURÉE SUIT LE CÔTÉ DE CETTE PERSONNE.
+
+         Elle était figée sur FACE. Depuis que le client peut placer ses
+         surnoms au DOS, cette carte lui aurait montré un vêtement vierge —
+         sans le nom qu'elle est précisément censée lui faire vérifier avant
+         commande.
+
+         AUCUN REPLI SUR LA FACE. Il en existait un, posé quand tous les
+         surnoms partageaient une zone : la face était alors la seule carte
+         possible, et la montrer valait mieux que rien.
+
+         Avec un côté par personne, ce repli devient un piège. La carte de
+         Marie, dont le nom est au dos, afficherait la face — donc le nom de
+         QUELQU'UN D'AUTRE. Le client validerait une planche fausse et
+         l'atelier floquerait le mauvais côté, sans que rien ne signale
+         l'erreur : la carte serait plausible.
+
+         On retourne donc `null`. `carteHTML` affiche alors « Aperçu
+         indisponible », visible et sans ambiguïté. Une carte manquante se
+         remarque et se signale ; une carte fausse se commande. */
+      var libelle = (zone === 'b') ? 'DOS' : 'FACE';
+      var vues = views || [];
+      return vues.filter(function (v) { return v.label === libelle; })[0] || null;
     }).catch(function () {
       restaurer();
       remasquer();
@@ -420,8 +479,36 @@
   /** Construit le HTML d'une carte. */
   function carteHTML(ligne, face) {
     var nom = ligne.flock || ligne.name || '';
-    var fond = fondPourCouleur(ligne.color) ||
-               (face && face.background) || '';
+
+    /* LA VUE VIENT DE LA CARTE CAPTURÉE, pas d'un nouvel appel à grpTextZone().
+
+       Le fond et les calques posés dessus proviennent ainsi FORCÉMENT de la
+       même vue : les désynchroniser est impossible. Réinterroger la zone
+       laisserait une fenêtre où elle répondrait autre chose. */
+    var vueNom = (face && face.label === 'DOS') ? 'dos' : 'face';
+
+    /* Le CÔTÉ ANNONCÉ vient de la ligne, pas de la capture.
+
+       `vueNom` sert à choisir l'image ; il retombe sur 'face' quand la capture
+       manque, ce qui est le bon défaut pour une image mais un mensonge pour un
+       libellé : la carte de Marie dirait « Devant » alors que son nom est au
+       dos. La ligne, elle, sait toujours. */
+    var coteLigne = (zoneDeLigne(ligne) === 'b') ? 'dos' : 'face';
+
+    /* PAS DE CAPTURE, PAS DE CARTE.
+
+       `fondPourCouleur` sait produire un vêtement vierge à partir de la seule
+       couleur, sans rien devoir à la capture. Le conserver ici rouvrait, par un
+       autre chemin, le repli qu'on vient de retirer : capture manquante, la
+       carte s'affichait quand même — vêtement plausible, aucun nom dessus, et
+       le côté deviné plutôt que constaté. Le client n'avait alors rien vérifié
+       tout en croyant l'avoir fait.
+
+       On exige donc la capture. `fondPourCouleur` garde son rôle : donner à la
+       carte la BONNE COULEUR, la capture n'en portant qu'une. */
+    var fond = face
+      ? (fondPourCouleur(ligne.color, vueNom) || face.background || '')
+      : '';
 
 
     var calques = (face && face.logos ? face.logos : []).map(function (g) {
@@ -452,9 +539,22 @@
                'style="max-width:none;max-height:none;">' +
           '<div class="ov-layers">' + calques + '</div>' +
         '</div>'
-      : '<div class="gv-vide">Aperçu indisponible</div>';
+      /* Le message NOMME la cause. « Aperçu indisponible » seul se lit comme un
+         défaut d'affichage passager, et le client valide en haussant les
+         épaules. Dire que c'est CE côté qui n'a pas pu être rendu le renvoie
+         vers l'étape Designer, seul endroit où il peut le corriger. */
+      : '<div class="gv-vide">Aperçu ' + (coteLigne === 'dos' ? 'du dos' : 'de la face') +
+        ' indisponible<br><small>Vérifiez ce côté à l\'étape Designer.</small></div>';
 
     var qte = parseInt(ligne.qty, 10) || 1;
+
+    /* LE CÔTÉ EST ÉCRIT SUR LA CARTE.
+
+       Un vêtement de dos ressemble beaucoup à un vêtement de face : sans
+       mention, le client compte sur le seul emplacement du nom pour distinguer
+       les deux — indice ténu, et absent quand l'aperçu manque. C'est justement
+       cette planche qui engage la production. */
+    var coteLisible = (coteLigne === 'dos') ? 'Au dos' : 'Devant';
 
     return '<article class="gv-card">' +
         (nom ? '<span class="gv-tag">' + esc(nom) + '</span>' : '') +
@@ -465,6 +565,7 @@
             '<span class="gv-dot" style="background:' + hexDeCouleur(ligne.color) + '"></span>' +
             esc(ligne.color || '') +
             '<span class="gv-sep">·</span>Taille ' + esc(ligne.size || '') +
+            '<span class="gv-sep">·</span>' + coteLisible +
             (qte > 1 ? '<span class="gv-sep">·</span>×' + qte : '') +
           '</p>' +
           /* Le bloc « Texte personnalisé » a été RETIRÉ : le nom figure déjà
@@ -560,23 +661,29 @@
     var grille = document.getElementById('grp-verif-grid');
     if (!grille) return Promise.resolve();
 
-    /* Une capture par NOM DISTINCT : deux personnes portant le même nom
-       partagent géométrie et PNG de texte — seule leur couleur de fond
-       diffère, et elle est substituée après coup. */
+    /* Une capture par NOM ET CÔTÉ : deux personnes portant le même nom DU MÊME
+       CÔTÉ partagent géométrie et PNG de texte — seule leur couleur de fond
+       diffère, et elle est substituée après coup.
 
-    var noms = [];
-    for (var i = 0; i < page.length; i++) {
-      var n = page[i].flock || page[i].name || '';
-      if (noms.indexOf(n) === -1) noms.push(n);
+       LE CÔTÉ FAIT PARTIE DE LA CLÉ. Sans lui, deux « Jean » — l'un en face,
+       l'autre au dos — se confondraient : le premier capturé servirait aux
+       deux, et l'un des deux verrait sa carte montrer le mauvais côté. Le cas
+       n'a rien d'exotique dans une équipe : les homonymes sont fréquents, et
+       c'est précisément là que la vérification doit être irréprochable. */
+    function cleDe(l) {
+      return (l.flock || l.name || '') + '|' + zoneDeLigne(l);
     }
 
+    /* On parcourt toutes les lignes : le cache écarte lui-même les doublons,
+       une pré-déduplication ferait le même travail deux fois. */
     var suite = Promise.resolve();
-    noms.forEach(function (n) {
+    page.forEach(function (l) {
+      var cle = cleDe(l);
       suite = suite.then(function () {
         if (mien !== jeton) return;
-        if (cacheCaptures.hasOwnProperty(n)) return;
-        return capturerPourNom(n).then(function (face) {
-          cacheCaptures[n] = face;
+        if (cacheCaptures.hasOwnProperty(cle)) return;
+        return capturerPourNom(l.flock || l.name || '', zoneDeLigne(l)).then(function (face) {
+          cacheCaptures[cle] = face;
           /* On rend la main au navigateur entre deux rasterisations : douze
              captures d'affilée figeraient l'onglet près d'une seconde. */
           return respirer();
@@ -587,7 +694,7 @@
     return suite.then(function () {
       if (mien !== jeton) return;
       var html = page.map(function (l) {
-        return carteHTML(l, cacheCaptures[l.flock || l.name || '']);
+        return carteHTML(l, cacheCaptures[cleDe(l)]);
       }).join('');
       grille.innerHTML = html || '<p class="gv-attente">Aucune personne dans la liste.</p>';
     });

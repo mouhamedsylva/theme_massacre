@@ -2251,7 +2251,24 @@
   [data-etape="choix"] .rp-price,
   /* Le conteneur part avec eux : vidé de son contenu, il laisserait une bande
      sombre en bas d'écran, sans rien à y montrer. */
-  [data-etape="choix"] .rp-acts { display: none !important; }
+  [data-etape="choix"] .rp-acts,
+  /* LA BARRE DU BAS PART AUSSI.
+
+     Elle ne portait plus qu'un onglet « Produits » — les autres (Images,
+     Textes, Équipe) sont masqués tant qu'aucun mode n'est choisi. Une barre
+     noire pleine largeur pour un seul onglet inutile : l'écran de choix doit
+     montrer ses deux cartes, rien d'autre.
+
+     Même raisonnement que `.rp-acts` juste au-dessus. */
+  [data-etape="choix"] .icon-nav { display: none !important; }
+
+  /* La place RÉSERVÉE par la barre part avec elle.
+
+     `--nav-h` est posée par measureNav (conf-mobile.js:236) et sert de marge
+     basse à plusieurs blocs. measureNav n'écrit que si la hauteur mesurée est
+     non nulle : sur une barre masquée, elle conserve donc l'ANCIENNE valeur, et
+     un vide de ~52 px resterait sous les cartes. On la neutralise ici. */
+  .conf-app-root[data-etape="choix"] { --nav-h: 0px; }
   /* ══════════════════════════════════════════════════════════════════════
      PARCOURS GROUPE — stepper et barre d'action sur petit écran
      ══════════════════════════════════════════════════════════════════════ */

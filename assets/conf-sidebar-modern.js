@@ -235,6 +235,30 @@
       } catch (e) {}
 
       window.choisirMode("individuelle", true);
+      return;
+    }
+
+    /* RETOUR AU TEXTILE : LA QUESTION SE REPOSE.
+
+       Le bloc ci-dessus impose le mode libre pour un coin, un drapeau ou un
+       patch. Il n'avait pas de symétrique : en reprenant un textile, le client
+       restait enfermé dans ce mode qu'il n'avait jamais choisi, sans que rien
+       ne le ramène à la question. La seule sortie était le bouton « Changer de
+       mode » de la barre — encore fallait-il le remarquer.
+
+       CONDITIONNÉ AU DRAPEAU, PAS AU MODE COURANT. `conf_mode_impose` marque
+       précisément un mode SUBI (posé juste au-dessus). Se fier au seul fait
+       d'être en mode libre renverrait aussi le client qui l'a délibérément
+       choisi — le rejetant sur l'écran de choix à chaque changement de textile,
+       ce que le commentaire du bloc précédent interdit.
+
+       `true` : le produit entrant est déjà sélectionné, `retourChoixMode` ne
+       doit pas le remplacer par un sweatshirt. */
+    var impose = null;
+    try { impose = sessionStorage.getItem("conf_mode_impose"); } catch (e) {}
+
+    if (impose && !sansSurnom && typeof window.retourChoixMode === "function") {
+      window.retourChoixMode(true);
     }
   }
 
@@ -1029,11 +1053,36 @@
     const patchNav = document.getElementById("patch-nav-item");
     if (patchNav) patchNav.style.display = isPatch ? "" : "none";
 
-    /* Onglet Texte : réservé aux textiles. Le texte est posé dans les zones
-       pointillées du vêtement (poitrine, dos) ; ni un coin ni un drapeau
-       n'en possède. */
+    /* Onglet Texte : réservé aux textiles EN MODE LIBRE.
+
+       Le texte est posé dans les zones pointillées du vêtement (poitrine,
+       dos) ; ni un coin ni un drapeau n'en possède.
+
+       MASQUÉ AUSSI EN MODE GROUPE : les textes y sont les SURNOMS, saisis dans
+       « Mon Équipe » et reportés sur chaque vêtement. Ouvrir l'éditeur de texte
+       libre à côté proposait deux chemins concurrents pour la même zone — un
+       texte posé là aurait été écrasé par le surnom au premier ajout au panier.
+
+       Le mode est lu sur la racine, comme les règles CSS `[data-mode="groupe"]`
+       (conf-styles.css:2611). */
+    const racineMode = document.querySelector(".conf-app-root");
+    const estGroupe = racineMode &&
+      racineMode.getAttribute("data-mode") === "groupe";
     const textNav = document.getElementById("text-nav-item");
-    if (textNav) textNav.style.display = twoFaced ? "none" : "";
+    const texteMasque = twoFaced || estGroupe;
+    if (textNav) textNav.style.display = texteMasque ? "none" : "";
+
+    /* Le PANNEAU suit son onglet.
+
+       Masquer l'onglet laissait le panneau Texte ouvert s'il l'était déjà : le
+       client gardait sous les yeux un éditeur dont l'accès venait de
+       disparaître. Le cas existait pour les coins et drapeaux ; basculer en
+       mode groupe le rend courant.
+
+       On revient sur « Type de Produit », toujours disponible. */
+    if (texteMasque && currentPanel === "panel-text") {
+      openPanel("panel-product");
+    }
 
     // Sous-titre du panneau Upload : « la vue » n'a de sens qu'en textile.
     const uploadSub = document.querySelector(

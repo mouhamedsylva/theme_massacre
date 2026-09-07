@@ -268,12 +268,14 @@
 
          Rien de partagé avec le bureau n'est modifié : le replacement différé
          garde son rôle légitime au premier dépôt d'un logo. */
-      if (!geo || typeof window.applyUploadGeo !== 'function') return;
+      if (typeof window.applyUploadGeo !== 'function') return;
 
       /* Les identifiants ne suivent pas tous `logo-<zone>` : le patch est
          `patch-logo`, les coins et drapeaux `coin-logo-recto`,
          `flag-logo-verso`… Même table que applyUploadGeo (conf-share.js:736),
-         pour que les deux ne divergent pas. */
+         pour que les deux ne divergent pas.
+
+         Déclarée AVANT la branche sans géométrie, qui s'en sert aussi. */
       var ID_LOGO = {
         'f': 'logo-f', 'fr': 'logo-fr', 'b': 'logo-b',
         'sl': 'logo-sl', 'sr': 'logo-sr',
@@ -281,6 +283,35 @@
         'coin-recto': 'coin-logo-recto', 'coin-verso': 'coin-logo-verso',
         'flag-recto': 'flag-logo-recto', 'flag-verso': 'flag-logo-verso'
       };
+
+      /* AUCUNE GÉOMÉTRIE ENREGISTRÉE — le cas où cette défense manquait.
+
+         Ce `return` couvrait aussi `!geo`, et s'abstenait donc exactement là où
+         il fallait agir : sans géométrie, `restoreUploads` appelle
+         `placeLogoInZone`, le seul écrivain contre lequel tout ce mécanisme a
+         été construit.
+
+         On ne peut pas RETROUVER une largeur qui n'a jamais été enregistrée.
+         Mais on peut empêcher le débordement : `#logo-b` porte `width: 34 %` en
+         dur dans le markup (configurateur.liquid:945), soit plus du double de
+         sa zone. `clampLogoToZone` borne sans replacer — elle ne peut que
+         réduire, jamais annuler un réglage. */
+      if (!geo) {
+        var elSansGeo = document.getElementById(ID_LOGO[zone] || ('logo-' + zone));
+        var imgSansGeo = elSansGeo && elSansGeo.querySelector('img');
+        if (!imgSansGeo || typeof window.clampLogoToZone !== 'function') return;
+        var borner = function () {
+          try { window.clampLogoToZone(zone); } catch (e) {}
+        };
+        if (imgSansGeo.complete && imgSansGeo.naturalWidth > 0) {
+          requestAnimationFrame(borner);
+        } else if (imgSansGeo.dataset.bornePanier !== '1') {
+          imgSansGeo.dataset.bornePanier = '1';
+          imgSansGeo.addEventListener('load', borner);
+        }
+        return;
+      }
+
       var el = document.getElementById(ID_LOGO[zone] || ('logo-' + zone));
       var img = el && el.querySelector('img');
       if (!img) return;
@@ -447,7 +478,28 @@
          s'auto-replanifie sur `load` et repose une géométrie recalculée.
          On repose la nôtre sur le MÊME événement, enregistrée après la
          sienne, donc exécutée après. Durement acquis, ne pas simplifier. */
-      if (!geo || typeof window.applyUploadGeo !== 'function') return;
+      if (typeof window.applyUploadGeo !== 'function') return;
+
+      /* AUCUNE GÉOMÉTRIE ENREGISTRÉE — même traitement que
+         `appliquerUploadsDirect`, dont ce bloc est le jumeau. On ne peut pas
+         retrouver une largeur jamais enregistrée, mais on empêche le
+         débordement : `#logo-b` porte `width: 34 %` en dur dans le markup
+         (configurateur.liquid:945), plus du double de sa zone. */
+      if (!geo) {
+        var elSansGeo = document.getElementById(ID_LOGO_ZONES[zone] || ('logo-' + zone));
+        var imgSansGeo = elSansGeo && elSansGeo.querySelector('img');
+        if (!imgSansGeo || typeof window.clampLogoToZone !== 'function') return;
+        var borner = function () {
+          try { window.clampLogoToZone(zone); } catch (e) {}
+        };
+        if (imgSansGeo.complete && imgSansGeo.naturalWidth > 0) {
+          requestAnimationFrame(borner);
+        } else if (imgSansGeo.dataset.bornePanier !== '1') {
+          imgSansGeo.dataset.bornePanier = '1';
+          imgSansGeo.addEventListener('load', borner);
+        }
+        return;
+      }
 
       var el = document.getElementById(ID_LOGO_ZONES[zone] || ('logo-' + zone));
       var img = el && el.querySelector('img');
@@ -627,16 +679,36 @@
          avec deux groupes distincts elle donnerait celle du dernier ajouté. */
       if (typeof window.setGroupOrderRows === 'function') {
         var rowsLigne = snap.groupRows || null;
-        if (!rowsLigne) {
-          try {
-            var brutRows = sessionStorage.getItem('conf_group_rows');
-            rowsLigne = brutRows ? (JSON.parse(brutRows) || null) : null;
-          } catch (e) { rowsLigne = null; }
+        if (!rowsLigne && typeof window.getGroupOrderRows === 'function') {
+          /* Repli pour les lignes antérieures à l'instantané : la liste DU
+             PRODUIT de la ligne. La lecture directe de `conf_group_rows` qui
+             se trouvait ici y verrait désormais le CONTENEUR indexé, pas un
+             tableau — l'accesseur fait la lecture correcte. */
+          try { rowsLigne = window.getGroupOrderRows(snap.produit); } catch (e) { rowsLigne = null; }
         }
         /* Une ligne SANS liste ne doit pas effacer celle en place : la ligne
            libre qu'on vient d'ouvrir n'a rien à dire du groupe. */
         if (rowsLigne && rowsLigne.length) {
-          try { window.setGroupOrderRows(rowsLigne); } catch (e) {}
+          /* SOUS LE PRODUIT DE LA LIGNE. À cet instant `currentProductType`
+             désigne encore l'article précédent — la bascule n'a pas eu lieu.
+             Sans ce paramètre, la liste serait rangée sous le mauvais produit
+             et n'apparaîtrait pas une fois la bascule faite. */
+          try { window.setGroupOrderRows(rowsLigne, snap.produit); } catch (e) {}
+
+          /* L'IDENTITÉ DU GROUPE EST REPOSÉE AVEC SA LISTE.
+
+             C'est le geste le plus courant : rouvrir une vignette de groupe,
+             modifier la liste, ré-ajouter. Sans cette ligne, le ré-ajout
+             repartirait sur une identité NEUVE et créerait un second groupe au
+             lieu de mettre à jour le premier.
+
+             APRÈS setGroupOrderRows, jamais avant : celle-ci appelle
+             saveGroupRows, qui EFFACE l'identité quand la liste est vide.
+             L'ordre inverse la perdrait aussitôt posée. */
+          var idGroupe = (item && item.groupId) || (snap && snap.groupId) || null;
+          if (idGroupe && typeof window.poserGroupId === 'function') {
+            try { window.poserGroupId(idGroupe, snap.produit); } catch (e) {}
+          }
         }
       }
 
@@ -956,6 +1028,53 @@
        ressort de la fin de restauration, déjà indépendante de cette carte. */
     window.__ouvertureDepuisPanier = true;
 
+    /* ═══ VOILE D'ATTENTE PENDANT TOUTE LA RESTAURATION ═══════════════════
+
+       Le canvas se recompose sous les yeux du client : produit qui bascule,
+       couleur qui s'applique, logos qui se posent, textes qui arrivent,
+       replacements différés. Le voile couvre ce remue-ménage.
+
+       ── JETON DE GÉNÉRATION ──────────────────────────────────────────────
+
+       `__ouvertureDepuisPanier` est un BOOLÉEN, pas un compteur : rien
+       n'apparie une pose à sa dépose. Cliquer une seconde vignette pendant la
+       première superpose deux séquences, et la retombée de la première
+       retirerait le voile alors que la seconde travaille encore.
+
+       Chaque ouverture prend donc un numéro. Le voile n'est retiré que par
+       CELLE QUI PORTE LE NUMÉRO COURANT — une ouverture dépassée s'abstient.
+
+       ── POSÉ ICI, ET PAS AILLEURS ────────────────────────────────────────
+
+       Après la seule sortie anticipée (`if (!item) return`), avant toute
+       écriture en session, et hors de toute branche : c'est le seul point qui
+       garantisse qu'un voile posé sera vu par la suite du code. */
+    var genVoile = (window.__genVoileOuverture || 0) + 1;
+    window.__genVoileOuverture = genVoile;
+
+    var retirerVoile = function () {
+      /* Une ouverture plus récente est en cours : le voile lui appartient. */
+      if (genVoile !== window.__genVoileOuverture) return;
+      if (typeof window.montrerVoileAjout === 'function') {
+        try { window.montrerVoileAjout(false); } catch (e) {}
+      }
+    };
+
+    if (typeof window.montrerVoileAjout === 'function') {
+      try { window.montrerVoileAjout(true, 'Ouverture de votre design…'); } catch (e) {}
+    }
+
+    /* FILET DE DERNIER RECOURS.
+
+       La première passe de restauration est appelée HORS du try/finally qui
+       fait retomber le drapeau : si elle lève, ce finally n'est jamais atteint
+       et le voile resterait sur l'écran, bloquant tout.
+
+       Ce minuteur est la seule garantie qui couvre ce cas. Six secondes : bien
+       au-delà de la restauration la plus lente (~1,6 s pour un non textile),
+       donc invisible en fonctionnement normal. */
+    setTimeout(retirerVoile, 6000);
+
     /* AVANT toute bascule : la session doit porter le design de cette ligne
        quand selProd et les restaurateurs iront le chercher.
 
@@ -1232,12 +1351,48 @@
            Elle reste en place pour les lignes ANTÉRIEURES à l'instantané,
            même logique de repli que `reposerEtatDesign`. */
         var snapNom = window.__snapshotOuverture;
+
+        /* ═══ VÉRIFIER, PAS SUPPOSER ═══════════════════════════════════════
+
+           Cette garde comparait le nom de l'instantané à celui de la ligne.
+           Or `capturerSnapshot` remplit TOUJOURS `personName` : elle était donc
+           toujours vraie pour une ligne de groupe, et tout le bloc de repli
+           ci-dessous — celui qui repose le surnom AVEC SON STYLE — était sauté
+           intégralement.
+
+           Le nom n'est réellement déjà posé que si l'instantané le porte dans
+           l'une de ses ZONES DE TEXTE : c'est ce que `restoreTexts` aura rendu.
+           Sinon, le repli doit reprendre la main. */
+        var tSnapNom = (snapNom && snapNom.textes && snapNom.produit)
+          ? snapNom.textes[snapNom.produit] : null;
         var nomDejaPose = !!(snapNom && snapNom.personName &&
-                             snapNom.personName === item.personName);
+                             snapNom.personName === item.personName &&
+                             tSnapNom &&
+                             Object.keys(tSnapNom).some(function (z) {
+                               return tSnapNom[z] && tSnapNom[z].text === item.personName;
+                             }));
 
         if (item.personName && !nomDejaPose) {
-          var zoneNom = (typeof window.grpTextZone === 'function')
-            ? window.grpTextZone() : 'f';
+          /* LA ZONE VIENT DE L'INSTANTANÉ, PAS DU DOM.
+
+             `grpTextZone()` s'appuie sur `zonesActives()`, qui inspecte les
+             éléments `#text-*` RÉELLEMENT AFFICHÉS. Pendant une réouverture,
+             ce sont ceux de la ligne précédente : la zone retournée pouvait
+             donc désigner la face alors que le surnom vit au dos.
+
+             L'instantané, lui, la donne sans ambiguïté : c'est la zone dont le
+             texte vaut le nom de la personne. `grpTextZone()` ne sert plus que
+             de repli, pour les lignes qui n'ont pas d'instantané. */
+          var zoneNom = null;
+          if (tSnapNom) {
+            Object.keys(tSnapNom).forEach(function (z) {
+              if (!zoneNom && tSnapNom[z] && tSnapNom[z].text === item.personName) zoneNom = z;
+            });
+          }
+          if (!zoneNom) {
+            zoneNom = (typeof window.grpTextZone === 'function')
+              ? window.grpTextZone() : 'f';
+          }
           var elNom = document.getElementById('text-' + zoneNom);
           var contenuNom = elNom ? elNom.querySelector('.dt-content') : null;
 
@@ -1253,7 +1408,29 @@
              passait pour « la couleur n'est pas restaurée ».
 
              `dt-seg` ou un contenu non vide signalent un rendu réel. */
-          var dejaRendu = contenuNom &&
+          /* ═══ L'ÉTAT DE LA ZONE FAIT FOI, PAS LE CONTENU DU DOM ══════════
+
+             La garde testait « y a-t-il du contenu ? ». Or un RÉSIDU de la
+             ligne ouverte juste avant répond oui — et son style aussi.
+
+             La couleur d'un texte vit sur `#text-<zone>`
+             (conf-text-editor.js:1019). Quand la restauration ne trouve pas
+             l'état de cette zone, renderTextOnCanvas n'est jamais appelée et
+             l'élément garde INTÉGRALEMENT le style de la ligne précédente. On
+             y écrivait alors le bon surnom dans la mauvaise couleur — le
+             symptôme observé : un nom terne sur un sweat corail, là où la
+             vignette du panier le montre en blanc.
+
+             On lit donc la session : elle porte l'état réel de la zone pour
+             CETTE ligne, écrit par poserSnapshot juste avant. Sans état, on
+             s'abstient — mieux vaut pas de surnom qu'un surnom mal rendu. */
+          var etatZone = null;
+          try {
+            var tousTextes = JSON.parse(sessionStorage.getItem('conf_texts') || '{}');
+            etatZone = (tousTextes[window.currentProductType] || {})[zoneNom] || null;
+          } catch (e) { etatZone = null; }
+
+          var dejaRendu = contenuNom && etatZone && etatZone.text &&
             (contenuNom.querySelector('.dt-seg') ||
              (contenuNom.textContent || '').trim() !== '');
 
@@ -1270,14 +1447,45 @@
                il hérite ainsi du style du texte qu'il remplace. Sans segment,
                le style vit sur le conteneur et `textContent` ne détruit
                rien. */
-            var segs = contenuNom.querySelectorAll('.dt-seg');
-            if (segs.length) {
-              segs[0].textContent = item.personName;
-              for (var iS = segs.length - 1; iS >= 1; iS--) {
-                if (segs[iS].parentNode) segs[iS].parentNode.removeChild(segs[iS]);
+            /* ── LE POINT DE PASSAGE UNIQUE, plutôt que le DOM à la main ────
+
+               renderTextOnCanvas pose couleur, police, graisse, taille et
+               position d'un seul geste (conf-text-editor.js:1018-1045), puis
+               recale le texte dans sa zone. Le surnom hérite ainsi du style
+               RÉEL de la zone, lu en session, au lieu de celui que l'élément
+               traînait de la ligne précédente.
+
+               `segments: null` : un surnom est un texte d'un seul tenant. Les
+               segments décrivent une mise en forme par caractère qui n'a plus
+               d'objet une fois le contenu remplacé — les garder ferait
+               reconstruire des <span> pour un texte qui n'existe plus.
+
+               Repli sur l'ancienne manipulation si la fonction n'est pas
+               exposée : mieux vaut un surnom mal coloré que pas de surnom. */
+            var poseParRendu = false;
+            if (typeof window.renderTextOnCanvas === 'function') {
+              try {
+                var etatNom = Object.assign({}, etatZone, {
+                  text: item.personName,
+                  segments: null
+                });
+                window.renderTextOnCanvas(zoneNom, etatNom);
+                poseParRendu = true;
+              } catch (e) {
+                console.warn('Surnom non reposé par renderTextOnCanvas :', e);
               }
-            } else {
-              contenuNom.textContent = item.personName;
+            }
+
+            if (!poseParRendu) {
+              var segs = contenuNom.querySelectorAll('.dt-seg');
+              if (segs.length) {
+                segs[0].textContent = item.personName;
+                for (var iS = segs.length - 1; iS >= 1; iS--) {
+                  if (segs[iS].parentNode) segs[iS].parentNode.removeChild(segs[iS]);
+                }
+              } else {
+                contenuNom.textContent = item.personName;
+              }
             }
             if (elNom.style.display === 'none') elNom.style.display = '';
             /* Le surnom peut être plus long que le texte commun : la police
@@ -1467,9 +1675,19 @@
            s'exécuterait avant celle qui pose le design — elle n'aurait rien à
            rattraper, et la première écrirait ensuite sans que personne ne
            reprenne les images arrivées entre-temps. */
-        premierePasse();
+        /* LES DEUX PASSES DANS LE MÊME `try`.
 
-        try { reposerDesign(false); }
+           `premierePasse()` était appelée JUSTE AVANT le `try`. Si elle levait,
+           le `finally` n'était jamais atteint : `__ouvertureDepuisPanier`
+           restait levé pour la vie de la page, neutralisant durablement
+           restoreLogosForProduct et la branche d'effacement des textes — le
+           configurateur cessait de nettoyer le canvas d'un produit à l'autre.
+
+           Défaut discret jusqu'ici ; avec le voile il deviendrait bloquant. */
+        try {
+          premierePasse();
+          reposerDesign(false);
+        }
         finally {
           /* ── LE RÉCAPITULATIF EST REPEINT DEPUIS L'ÉTAT FINAL ────────────
 
@@ -1500,7 +1718,14 @@
             console.warn('Récapitulatif non rafraîchi :', e);
           }
 
-          setTimeout(function () { window.__ouvertureDepuisPanier = false; }, 400);
+          setTimeout(function () {
+            window.__ouvertureDepuisPanier = false;
+            /* Le voile part avec le drapeau : c'est le moment où la
+               restauration est réellement stabilisée, replacements différés
+               compris. Retiré seulement si cette ouverture est encore la
+               plus récente (voir le jeton). */
+            retirerVoile();
+          }, 400);
         }
       }, estTextile ? 700 : 1000);
     }, switched ? 220 : 0);

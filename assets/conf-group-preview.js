@@ -73,8 +73,16 @@
        sans préfixe, la référence était introuvable depuis CE module — elle
        levait une ReferenceError, que grpSafe() avalait pour renvoyer un tableau
        vide. L'aperçu s'ouvrait donc, mais sans image. */
+    /* LA VUE SUIT LA ZONE DES SURNOMS.
+
+       Elle était figée sur « face ». Depuis que le client peut placer ses
+       surnoms au DOS, l'aperçu montrait un vêtement vierge — le nom se trouvait
+       de l'autre côté. */
+    var vueNom = ((typeof window.grpTextZone === 'function' &&
+                   window.grpTextZone()) === 'b') ? 'dos' : 'face';
+
     var candidates = grpSafe(function () {
-      return window.colorImageCandidates(prefix, slug, 'face');
+      return window.colorImageCandidates(prefix, slug, vueNom);
     }, []) || [];
   
     // Repli : l'image de face actuellement affichée dans le configurateur.
@@ -83,7 +91,7 @@
     var baseUrl = candidates[0] || '';
     var fallbackUsed = false;
     if (!baseUrl) {
-      var liveImg = document.getElementById('view-face');
+      var liveImg = document.getElementById('view-' + vueNom);
       if (liveImg && liveImg.src) { baseUrl = liveImg.src; fallbackUsed = true; }
     }
   
@@ -184,7 +192,13 @@
     ).then(function (views) {
       restaurerTexte();
 
-      var face = (views || []).filter(function (v) { return v.label === 'FACE'; })[0];
+      /* Même vue que l'image de fond choisie plus haut : les mélanger
+         donnerait un dos avec un design de face. Repli sur FACE si la vue
+         voulue n'a pas été capturée. */
+      var lblVue = (vueNom === 'dos') ? 'DOS' : 'FACE';
+      var vuesDispo = views || [];
+      var face = vuesDispo.filter(function (v) { return v.label === lblVue; })[0] ||
+                 vuesDispo.filter(function (v) { return v.label === 'FACE'; })[0];
 
       /* Repli : produit non textile, ou capture impossible. On garde l'ancien
          message plutôt qu'une scène vide. */

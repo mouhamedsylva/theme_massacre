@@ -3842,6 +3842,20 @@
   overflow: hidden;
 }
 .eq-nom.is-actif { border-color: #c2410c; background: #fff7f4; }
+
+/* Surnom de l'AUTRE côté du vêtement — estompé, mais toujours cliquable.
+
+   Le vêtement ne montre qu'une face à la fois : sans distinction, la moitié de
+   la liste ne correspondait pas à ce que le client regarde.
+
+   `opacity` seule, sans `pointer-events: none` : le toucher bascule la vue vers
+   le côté du surnom. Le grisage indique une appartenance, il n'interdit rien —
+   un clic sans effet dérouterait davantage qu'une puce pâle. */
+.eq-nom.est-autre-cote {
+  opacity: .42;
+  background: var(--bg-light, #f6f6f6);
+}
+.eq-nom.est-autre-cote:hover { opacity: .72; }
 .eq-nom-txt {
   flex: 1 1 auto;
   min-height: 38px;
@@ -3908,4 +3922,97 @@
   font-size: 10.5px;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VOILE D'ATTENTE — AJOUT AU PANIER
+
+   L'ajout manipule le canvas : il le masque et le remesure pour composer les
+   vignettes. Sans ce voile, le client voit son vêtement disparaître puis
+   revenir.
+
+   Posé par montrerVoileAjout() (conf-main-inline.js), dans `.conf-app-root`
+   et non dans le `body` — la racine porte un fond opaque et son propre
+   empilement, un frère resterait invisible derrière elle.
+
+   z-index AU-DESSUS DE TOUT (99999 est le plus haut du projet) : le voile doit
+   couvrir aussi le tiroir du panier et les modales, sinon l'une d'elles
+   percerait au milieu de l'attente.
+   ══════════════════════════════════════════════════════════════════════ */
+.cart-busy-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* FLOU PLUTÔT QU'OPACITÉ.
+
+     Le blanc à 72 % écrasait l'arrière-plan : le flou existait mais ne se
+     voyait pas, l'écran paraissait simplement blanc. La page doit rester
+     RECONNAISSABLE derrière le voile — le client comprend qu'une opération se
+     déroule sur SON design, il ne se demande pas où il a atterri.
+
+     On inverse donc le rapport : un voile presque transparent (18 %), et un
+     flou franc (14 px) qui fait tout le travail. Le blanc résiduel sert
+     seulement à éclaircir le fond pour que la carte blanche s'en détache. */
+  background: rgba(255, 255, 255, .18);
+  -webkit-backdrop-filter: blur(14px) saturate(115%);
+  backdrop-filter: blur(14px) saturate(115%);
+  /* Fermé : invisible ET intangible. `visibility` retire le voile du parcours
+     de clic — `opacity: 0` seul le laisserait intercepter les gestes. */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .22s ease, visibility .22s ease;
+}
+.cart-busy-veil.on {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* REPLI SANS `backdrop-filter` (Firefox ancien, certains navigateurs mobiles).
+
+   Le voile y serait presque transparent — 18 % de blanc sans flou ne masque
+   rien : le client verrait le vêtement disparaître, c'est-à-dire exactement ce
+   que ce voile existe pour cacher. On remonte alors l'opacité, faute de mieux. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cart-busy-veil { background: rgba(255, 255, 255, .88); }
+}
+
+.cbv-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 34px;
+  border-radius: 16px;
+  background: #fff;
+  /* Ombre plus marquée qu'auparavant : le fond n'est plus un aplat blanc mais
+     la page floutée, et la carte doit s'en détacher nettement. */
+  box-shadow: 0 12px 44px rgba(0, 0, 0, .22);
+}
+
+.cbv-spin {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--border, #e5e5e5);
+  border-top-color: var(--black, #111);
+  animation: cbv-tourne .7s linear infinite;
+}
+
+@keyframes cbv-tourne { to { transform: rotate(360deg); } }
+
+.cbv-txt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--black, #111);
+  letter-spacing: .01em;
+}
+
+/* Mouvement réduit : l'anneau cesse de tourner, le voile reste informatif.
+   Une rotation continue peut gêner les personnes sensibles au mouvement. */
+@media (prefers-reduced-motion: reduce) {
+  .cbv-spin { animation: none; opacity: .55; }
+  .cart-busy-veil { transition: none; }
 }

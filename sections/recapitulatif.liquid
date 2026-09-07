@@ -958,6 +958,26 @@
         // « Personne » vient d'une liste de groupe : chaque ligne de la commande
         // indique alors à qui le vêtement est destiné (nécessaire à l'atelier).
         if (it.personName) properties['Personne'] = it.personName;
+        /* EMPLACEMENT DU FLOCAGE — visible au checkout.
+
+           Le nom seul ne dit pas de quel côté il est floqué. Un devant et un
+           dos se ressemblent sur une planche, et jusqu'ici l'atelier ne pouvait
+           déduire le côté que des libellés d'images (« _Texte dos ») — indirect
+           et fragile. Le client, lui, n'avait aucun moyen de le vérifier.
+
+           Visible plutôt que cachée (préfixe « _ ») : le checkout est le
+           dernier moment où une erreur de côté coûte encore zéro.
+
+           Mêmes mots qu'à l'étape « Vérifier » (conf-group-verify.js) : le
+           client relit au paiement exactement ce qu'il a validé.
+
+           TEST EXPLICITE, pas un ternaire : les lignes hors groupe (commande
+           libre, coins, drapeaux) n'ont pas de côté, et celles créées avant ce
+           champ non plus. Un ternaire écrirait « Devant » sur un coin — une
+           propriété fausse, et visible du client. */
+        if (it.personZone === 'f' || it.personZone === 'b') {
+          properties['Emplacement'] = (it.personZone === 'b') ? 'Au dos' : 'Devant';
+        }
         // Rattache la ligne à sa liste de groupe : les lignes d'une même
         // commande restent lisibles comme un ensemble (« 2/5 »).
         if (it.groupLabel) properties['Liste'] = it.groupLabel;

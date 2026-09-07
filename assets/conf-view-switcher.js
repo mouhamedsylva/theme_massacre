@@ -45,6 +45,42 @@ function selView(btn, viewName) {
     });
   }
 
+  /* LES LOGOS DE CETTE VUE VIENNENT DE DEVENIR MESURABLES.
+
+     Le même contrat que les textes ci-dessus, qui leur manquait entièrement :
+     un logo masqué par sa vue a une boîte nulle, et toute géométrie calculée
+     sur cette boîte est fausse. `placeLogoInZone` sort désormais dans ce cas —
+     mais si personne ne la rappelait, un logo déposé dans une vue non affichée
+     ne serait jamais placé.
+
+     DEUX GESTES DISTINCTS, et ne pas les confondre :
+
+       • un placement REPORTÉ (drapeau `placementDiffere`) s'exécute enfin,
+         drapeau consommé pour qu'il ne rejoue pas à chaque bascule ;
+
+       • les autres sont seulement BORNÉS. `clampLogoToZone` lit la géométrie
+         courante et se contente de la contraindre : elle est idempotente.
+
+     Appeler `placeLogoInZone` sans condition serait une régression connue :
+     elle IGNORE la position et la taille courantes et les recalcule depuis les
+     valeurs de départ — le déplacement du client serait annulé à chaque
+     changement de vue (voir conf-mobile.js:1897-1913).
+
+     Les manches sont incluses : `.for-cote` subit le même masquage. */
+  requestAnimationFrame(function () {
+    ['f', 'fr', 'b', 'sl', 'sr'].forEach(function (z) {
+      var el = document.getElementById('logo-' + z);
+
+      if (el && el.dataset && el.dataset.placementDiffere === '1' &&
+          typeof window.placeLogoInZone === 'function') {
+        delete el.dataset.placementDiffere;
+        window.placeLogoInZone(z);
+        return;
+      }
+      if (typeof window.clampLogoToZone === 'function') window.clampLogoToZone(z);
+    });
+  });
+
   // La bascule gauche/droite n'a de sens qu'en vue de côté.
   if (typeof window.syncSideToggle === 'function') window.syncSideToggle(viewName);
 
@@ -54,6 +90,19 @@ function selView(btn, viewName) {
   // Synchroniser le panneau Upload de la sidebar moderne avec la vue du canvas
   if (window.modernSidebar && typeof window.modernSidebar.switchView === 'function') {
     window.modernSidebar.switchView(viewName);
+  }
+
+  /* LA LISTE DES SURNOMS SUIT LA VUE (mode groupe).
+
+     Chaque surnom appartient à un côté ; ceux de l'autre côté sont estompés
+     dans le panneau « Mon Équipe ». Sans ce rappel, le grisage resterait figé
+     sur le côté précédent après une bascule — la liste dirait l'inverse de ce
+     que montre le vêtement.
+
+     `eqRendreNoms` est le point de passage unique de l'affichage de cette
+     liste ; elle relit l'état réel et ne peut donc rien détruire. */
+  if (typeof window.eqRendreNoms === 'function') {
+    try { window.eqRendreNoms(); } catch (e) {}
   }
 }
 

@@ -133,7 +133,31 @@
       return {};
     }
   }
+  /* CLÉ DE LECTURE DES TEXTES.
+
+     ── PENDANT UNE RÉOUVERTURE, L'INSTANTANÉ FAIT FOI ────────────────────
+
+     Elle rendait `window.currentProductType` — la variable JS. Or
+     `poserSnapshot` écrit `conf_texts` sous le produit de la LIGNE, et il le
+     fait AVANT que la bascule produit n'ait eu lieu : les deux divergent donc
+     pendant toute la réouverture.
+
+     Conséquence : `getState` cherchait au mauvais endroit, `restoreTexts` ne
+     trouvait rien, et `renderTextOnCanvas` n'était jamais appelée. L'élément
+     `#text-<zone>` gardait alors INTÉGRALEMENT le style de la ligne ouverte
+     juste avant — sa couleur comprise. D'où le surnom terne d'une commande de
+     groupe, là où la vignette le montre en blanc.
+
+     Le défaut ne se voyait qu'en GROUPE : son parcours traverse trois écrans
+     avant l'ajout, le temps que le produit affiché s'écarte de celui de la
+     ligne (voir conf-main-inline.js:3901). En commande libre, les deux
+     coïncident.
+
+     Cette fonction est partagée par `getState`, `saveState`, `clearState`,
+     `getSavedText` et `zonesActives` : les corriger ici les corrige tous. */
   function productKey() {
+    var snap = window.__snapshotOuverture;
+    if (window.__ouvertureDepuisPanier && snap && snap.produit) return snap.produit;
     return window.currentProductType || "sweatshirt";
   }
   function getState(zone) {
@@ -1104,6 +1128,90 @@
     if (typeof window.updateTextRecap === "function")
       window.updateTextRecap(zone);
   }
+
+  /* Exposée : la réouverture depuis le panier (conf-cart-open-design.js) doit
+     reposer le SURNOM d'une ligne de groupe avec le style de sa zone — couleur
+     comprise. Elle bricolait le DOM à la main et héritait alors du style de la
+     ligne ouverte juste avant. Passer par ce point unique lui donne couleur,
+     police, taille et position d'un seul geste. */
+  window.renderTextOnCanvas = renderTextOnCanvas;
+
+  /* ═══ CRÉER OU METTRE À JOUR LE TEXTE D'UNE ZONE — pour le mode GROUPE ═══
+
+     En mode groupe, l'onglet « Ajout Texte » est masqué : deux chemins de
+     création vers la même zone se seraient écrasés au premier ajout au panier.
+     Mais alors PLUS RIEN ne créait de texte, et les surnoms n'avaient aucun
+     élément où s'accrocher — d'où leur cantonnement à la face, seule zone que
+     le client avait pu garnir avant que l'onglet ne disparaisse.
+
+     Le modèle du groupe est l'inverse de celui du libre : LE SURNOM EST LE
+     TEXTE. Le premier surnom saisi le crée ; la seule question est où il se
+     pose. C'est ce que l'interface promet déjà (sidebar-modern.liquid:205).
+
+     `saveState` et `renderTextOnCanvas` sont TOUS DEUX nécessaires — même
+     couple que confirmTextInline (:373-374). Le rendu seul ne persiste rien, et
+     c'est `conf_texts` que lisent l'instantané de ligne, la réouverture depuis
+     le panier et le récapitulatif.
+
+     `saveState` étant privée au module, ce helper évite d'écrire `conf_texts`
+     à la main depuis un troisième endroit — `productKey()` a une logique non
+     triviale (repli sur l'instantané en cours d'ouverture) qu'on dupliquerait
+     mal.
+
+     @param {string} zone   - 'f', 'fr' ou 'b'
+     @param {string} texte  - contenu (le surnom)
+     @param {Object} [base] - style à reprendre ; sinon celui de la zone, sinon
+                              le défaut du mode libre.
+     @returns {Object|null} l'état écrit */
+  window.poserTexteGroupe = function (zone, texte, base) {
+    if (!zone || !texte) return null;
+
+    var prev = base || getState(zone) || {};
+    var etat = {
+      zone: zone,
+      text: texte,
+      font: prev.font || "Arial, sans-serif",
+      fontName: prev.fontName || "Arial",
+      color: prev.color || "#ffffff",
+      /* TOUJOURS « normal ». Un texte courbé est rendu en SVG : son
+         `textContent` est vide et la substitution des noms devient impossible —
+         cas que le projet garde en quatre endroits. Le surnom ne doit jamais
+         naître dans cet état. */
+      shape: "normal",
+      bold: !!prev.bold,
+      italic: !!prev.italic,
+      underline: !!prev.underline,
+      size: Math.min(prev.size || 20, maxSize())
+    };
+
+    /* GÉOMÉTRIE VOLONTAIREMENT ABSENTE quand on change de zone : les gabarits
+       de `f` et `b` ont des dimensions différentes (le dos est plus large), et
+       la position par défaut de la zone d'arrivée doit s'appliquer. Reprise en
+       revanche si l'on réécrit la MÊME zone, pour ne pas défaire un
+       déplacement du client. */
+    if (!base) {
+      ["left", "top", "width", "fontSize"].forEach(function (k) {
+        if (prev[k] !== undefined) etat[k] = prev[k];
+      });
+    }
+
+    saveState(zone, etat);
+    renderTextOnCanvas(zone, etat);
+    if (typeof window.setTextZoneMode === "function")
+      window.setTextZoneMode(zone, true);
+    return etat;
+  };
+
+  /* Efface le texte d'une zone — état ET affichage. Utilisé quand le client
+     déplace ses surnoms d'une face à l'autre : sans cela, le vêtement en
+     porterait deux. */
+  window.retirerTexteGroupe = function (zone) {
+    if (!zone) return;
+    clearState(zone);
+    renderTextOnCanvas(zone, null);
+    if (typeof window.setTextZoneMode === "function")
+      window.setTextZoneMode(zone, false);
+  };
 
   // Construit le SVG d'un texte courbé qui remplit la largeur de l'élément.
   function buildShapeSVG(data) {

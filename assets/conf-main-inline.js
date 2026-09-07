@@ -160,10 +160,41 @@
       var submit = document.getElementById('grp-submit');
       if (!box) return;
 
-      var zone = (typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f';
-      var el = document.getElementById('text-' + zone);
-      var courbe = !!(el && el.classList.contains('is-shaped') &&
-                      el.style.display !== 'none');
+      /* LES DEUX CÔTÉS SONT EXAMINÉS, pas seulement la zone « courante ».
+
+         Ce test n'interrogeait que `grpTextZone()` — une zone unique, du temps
+         où tous les surnoms la partageaient. Depuis qu'une personne peut porter
+         son nom au dos, un texte COURBÉ de ce côté passait au travers : ces
+         personnes recevaient une planche au nom d'un autre, précisément ce que
+         ce garde-fou existe pour empêcher.
+
+         On regarde donc les zones RÉELLEMENT OCCUPÉES par la liste, plus la
+         zone courante — cette dernière couvrant le cas d'une liste encore
+         vide. */
+      var zonesAVerifier = [];
+      var lignesG = (typeof window.getGroupOrderRows === 'function')
+        ? (window.getGroupOrderRows() || []) : [];
+      lignesG.forEach(function (r) {
+        var z = (typeof window.grpZoneDeLigne === 'function')
+          ? window.grpZoneDeLigne(r) : (r && r.zone);
+        if ((z === 'f' || z === 'b') && zonesAVerifier.indexOf(z) === -1) {
+          zonesAVerifier.push(z);
+        }
+      });
+
+      /* Liste encore vide : on juge sur la zone courante, celle qui recevra le
+         premier surnom. Sans ce repli, l'avertissement n'apparaîtrait qu'après
+         la première saisie — trop tard pour éviter le geste. */
+      if (!zonesAVerifier.length) {
+        zonesAVerifier.push((typeof window.grpTextZone === 'function')
+          ? window.grpTextZone() : 'f');
+      }
+
+      var courbe = zonesAVerifier.some(function (z) {
+        var e = document.getElementById('text-' + z);
+        return !!(e && e.classList.contains('is-shaped') &&
+                  e.style.display !== 'none');
+      });
 
       box.style.display = courbe ? 'block' : 'none';
       if (submit) {
@@ -387,6 +418,10 @@
 
       var tr = document.createElement('tr');
       tr.id = id;
+      /* Le côté du surnom voyage par `dataset` : `grpCollect` le relit depuis
+         le DOM, où il serait sinon perdu au passage par cette étape. Défaut
+         'f' pour les lignes qui n'en portent pas — import CSV, liste ancienne. */
+      tr.dataset.zone = (preset.zone === 'b') ? 'b' : 'f';
       tr.innerHTML =
         // '<td><input class="grp-inp grp-f-name" type="text" placeholder="Nom / réf." value="' + (preset.name || '') + '"></td>' +
         /* maxlength="20" : le nom floque est une contrainte PHYSIQUE (largeur
@@ -448,6 +483,9 @@
       if (!deferTotals) grpUpdateTotals();
     }
     window.grpAddRow = grpAddRow;   // conf-group-csv.js
+    /* Exposée pour la même raison : quand selProd repeuple le tableau après un
+       changement de produit, les totaux doivent suivre. */
+    window.grpUpdateTotals = grpUpdateTotals;
 
     /* ── Import CSV / Excel ─────────────────────────────────────────────
        Le CSV est lu nativement (aucune librairie). Un vrai .xlsx est un ZIP
@@ -543,6 +581,19 @@
       var tr = btn.closest('tr');
       if (tr) tr.remove();
       grpUpdateTotals();
+
+      /* ⚠️ LE CANVAS N'EST PAS SYNCHRONISÉ ICI — et c'est délibéré.
+
+         Contrairement à `eqRetirerNom` (:10824), cette suppression ne retire
+         pas le texte du vêtement. Le canvas est masqué à l'étape « Configurer »
+         (conf-styles.css:3059) : rien ne se verrait, et `retirerTexteGroupe`
+         mesurerait un calque sans boîte.
+
+         Le rattrapage se fait au RETOUR vers « Designer », où `eqRendreNoms`
+         repeint le panneau depuis la liste. Si un décalage subsistait — un
+         texte resté sur le vêtement alors que plus personne ne l'occupe — c'est
+         ici qu'il faudrait le traiter, en différant l'appel jusqu'à ce que le
+         canvas redevienne mesurable. */
     }
 
     /* Lit une valeur de champ dans une ligne, sans planter si la colonne a été
@@ -578,7 +629,17 @@
           size: grpVal(tr, 'grp-f-size'),
           color: grpVal(tr, 'grp-f-color'),
           flock: flock,
-          qty: qty
+          qty: qty,
+          /* LE CÔTÉ SURVIT PAR `dataset`, sans colonne dédiée.
+
+             Cette fonction RELIT le DOM : un champ absent du tableau serait
+             perdu au passage « Designer → Configurer → Vérifier ». Or le côté
+             se décide à l'étape Designer et n'est pas modifiable ici — le
+             tableau porte taille, couleur et quantité.
+
+             Repli sur 'f' : les lignes d'un import CSV, ou d'une liste
+             composée avant ce champ, n'en portent pas. */
+          zone: (tr.dataset && tr.dataset.zone) || 'f'
         });
       });
       return rows;
@@ -644,6 +705,129 @@
     var GRP_KEY = 'conf_group_rows';
     var groupOrderRows = null;
 
+    /* IDENTITÉ STABLE DE LA LISTE DE GROUPE.
+
+       C'est ce qui manquait pour que ré-ajouter une commande de groupe METTE À
+       JOUR celle du panier au lieu de la dupliquer — comportement qu'une
+       commande LIBRE a déjà, parce que sa ligne a une identité stable
+       (produit + nom + couleur + taille, voir la clé de fusion de pushToCart).
+
+       Le groupe, lui, n'en avait aucune : `groupLabel` portait un `Date.now()`
+       et `groupIndex` encodait le nombre de personnes (« 2/5 »). Les deux
+       changeaient à chaque ajout — si bien qu'un second clic créait un second
+       groupe MÊME SANS modifier la liste.
+
+       STOCKÉE À CÔTÉ DE LA LISTE, pas dans ses lignes : `grpCollect()` relit
+       le tableau depuis le DOM à chaque validation, un champ posé sur une
+       ligne y serait perdu. Une clé de session distincte y échappe.
+
+       ⚠️ SON CYCLE DE VIE SUIT EXACTEMENT CELUI DE `conf_group_rows`. Si elle
+       survivait à un effacement de la liste, une liste NEUVE hériterait de
+       l'identité de l'ancienne et écraserait au panier un groupe qu'on voulait
+       garder. Les deux clés partent ensemble : clearGroupOrder(),
+       clearConfiguratorState() et CLES_DESIGN. */
+    var GRP_ID_KEY = 'conf_group_id';
+
+    /* ══════════════════════════════════════════════════════════════════════
+       LISTE DE SURNOMS ET IDENTITÉ : INDEXÉES PAR PRODUIT.
+
+       Les deux clés portaient une valeur UNIQUE, partagée par les trois
+       textiles : une liste composée sur le sweatshirt réapparaissait sur les
+       t-shirts, où elle n'avait rien à faire.
+
+       Elles suivent désormais le schéma déjà retenu pour `conf_texts` et
+       `conf_uploads` — un conteneur indexé sous la MÊME clé :
+
+         conf_group_rows = { sweatshirt: [...], tshirt: [...] }
+         conf_group_id   = { sweatshirt: 'g1ab2…', tshirt: 'g3cd4…' }
+
+       Une clé PAR PRODUIT (`conf_group_rows_tshirt`…) aurait obligé à les
+       énumérer dans CLES_DESIGN (:8945) et dans clearConfiguratorState —
+       un quatrième textile y aurait été oublié en silence.
+
+       ⚠️ L'IDENTITÉ DOIT SUIVRE LA LISTE. `saveGroupRows` efface l'identité
+       quand la liste se vide (voir son commentaire). Avec une identité restée
+       globale, vider la liste du t-shirt aurait effacé celle du sweatshirt
+       DÉJÀ AU PANIER — son ré-ajout aurait alors créé un doublon au lieu de
+       mettre à jour.
+       ══════════════════════════════════════════════════════════════════════ */
+
+    /* Produit de référence pour ces deux magasins.
+
+       Lit la SESSION, jamais `currentProductType` : cette variable est
+       déclarée en `let` plus bas (:920) et se trouve donc dans sa zone morte
+       au premier appel de `relireGroupRows`, ici même. Y toucher lèverait une
+       ReferenceError qui casserait le module entier. */
+    function produitGroupe(hint) {
+      if (hint) return hint;
+      try {
+        var p = sessionStorage.getItem('conf_current_product');
+        if (p) return p;
+      } catch (e) {}
+      return 'sweatshirt';
+    }
+
+    /* Normalise un magasin de l'ancien format (valeur nue) vers le conteneur
+       indexé. `Array.isArray` / `typeof string` tranchent sans ambiguïté : une
+       valeur ancienne n'est jamais un objet indexé, et réciproquement.
+
+       Appelée à CHAQUE lecture, comme migrateUploadStore l'est par
+       readUploadStore (:7746) — donc idempotente par construction, et capable
+       de rattraper un paquet de mode rangé avant ce changement, qu'une
+       migration jouée une seule fois au démarrage ne verrait jamais. */
+    function normaliserMagasinGroupe(brut, estListe, produit) {
+      if (!brut) return {};
+      var ancien = estListe ? Array.isArray(brut) : (typeof brut === 'string');
+      if (ancien) {
+        var o = {};
+        o[produitGroupe(produit)] = brut;   // rattaché, jamais perdu
+        return o;
+      }
+      return (typeof brut === 'object') ? brut : {};
+    }
+
+    function lireMagasinGroupe(cle, estListe, produit) {
+      var brut = null;
+      try {
+        var s = sessionStorage.getItem(cle);
+        brut = s ? JSON.parse(s) : null;
+      } catch (e) { brut = null; }
+      return normaliserMagasinGroupe(brut, estListe, produit);
+    }
+
+    function ecrireMagasinGroupe(cle, magasin) {
+      try {
+        if (magasin && Object.keys(magasin).length) {
+          sessionStorage.setItem(cle, JSON.stringify(magasin));
+        } else {
+          sessionStorage.removeItem(cle);
+        }
+      } catch (e) {}
+    }
+
+    /** Identifiant de la liste du produit courant, créé à la demande. */
+    function groupIdCourant(creer, produit) {
+      var p = produitGroupe(produit);
+      var mag = lireMagasinGroupe(GRP_ID_KEY, false, p);
+      var id = mag[p] || null;
+      if (!id && creer) {
+        id = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        mag[p] = id;
+        ecrireMagasinGroupe(GRP_ID_KEY, mag);
+      }
+      return id;
+    }
+    window.groupIdCourant = groupIdCourant;
+
+    /** Repose une identité venue d'une ligne de panier (réouverture). */
+    function poserGroupId(id, produit) {
+      var p = produitGroupe(produit);
+      var mag = lireMagasinGroupe(GRP_ID_KEY, false, p);
+      if (id) mag[p] = id; else delete mag[p];
+      ecrireMagasinGroupe(GRP_ID_KEY, mag);
+    }
+    window.poserGroupId = poserGroupId;
+
     /**
      * Relit la liste depuis la session — réciproque exacte de saveGroupRows().
      *
@@ -656,24 +840,43 @@
      * variable, elle, gardait la liste du mode précédent — le badge « Liste :
      * n lignes » s'affichait alors en personnalisation libre.
      */
-    function relireGroupRows() {
-      try {
-        var brut = sessionStorage.getItem(GRP_KEY);
-        groupOrderRows = brut ? (JSON.parse(brut) || null) : null;
-      } catch (e) { groupOrderRows = null; }
+    function relireGroupRows(produit) {
+      var p = produitGroupe(produit);
+      var mag = lireMagasinGroupe(GRP_KEY, true, p);
+      var l = mag[p];
+      groupOrderRows = (l && l.length) ? l : null;
+      /* La normalisation est PERSISTÉE : sans cela, `rangerDesignMode`
+         continuerait de ranger l'ancien format dans les paquets de mode. Son
+         échec est sans conséquence — la lecture suivante remigrera. */
+      ecrireMagasinGroupe(GRP_KEY, mag);
       return groupOrderRows;
     }
+    window.relireGroupRows = relireGroupRows;
     relireGroupRows();
 
     /** Écrit (ou efface) la liste en session. */
-    function saveGroupRows() {
-      try {
-        if (groupOrderRows && groupOrderRows.length) {
-          sessionStorage.setItem(GRP_KEY, JSON.stringify(groupOrderRows));
-        } else {
-          sessionStorage.removeItem(GRP_KEY);
-        }
-      } catch (e) {}
+    function saveGroupRows(produit) {
+      var p = produitGroupe(produit);
+      var mag = lireMagasinGroupe(GRP_KEY, true, p);
+
+      if (groupOrderRows && groupOrderRows.length) {
+        mag[p] = groupOrderRows;
+        ecrireMagasinGroupe(GRP_KEY, mag);
+      } else {
+        delete mag[p];
+        ecrireMagasinGroupe(GRP_KEY, mag);
+        /* L'IDENTITÉ PART AVEC LA LISTE — point de passage unique.
+
+           Toute fonction qui vide la liste passe par ici (clearGroupOrder,
+           setGroupOrderRows(null)…). Effacer l'identité au même endroit
+           garantit qu'une liste NEUVE ne peut jamais hériter de celle d'un
+           groupe déjà au panier — ce qui l'écraserait.
+
+           SEULE CELLE DU PRODUIT est effacée : globale, elle emporterait
+           l'identité d'un groupe d'un AUTRE produit déjà au panier, dont le
+           ré-ajout créerait alors un doublon. */
+        poserGroupId(null, p);
+      }
     }
 
     /**
@@ -687,15 +890,26 @@
      *
      * @param {Array} rows - lignes { name, size, color, qty, … }
      */
-    function setGroupOrderRows(rows) {
+    function setGroupOrderRows(rows, produit) {
       groupOrderRows = (rows && rows.length) ? rows : null;
-      saveGroupRows();
+      saveGroupRows(produit);
       refreshGroupBadge();
     }
     window.setGroupOrderRows = setGroupOrderRows;
+
     /* Lecture : conf-size-quantity-modal.js recharge ses quantités depuis la
-       liste validée. */
-    window.getGroupOrderRows = function () { return groupOrderRows; };
+       liste validée.
+
+       `produit` sert à la CAPTURE de l'instantané, qui doit lire la liste du
+       produit de la LIGNE et non celle affichée à l'écran — les deux divergent
+       lors d'un ré-ajout portant sur un autre produit. Sans argument, la
+       variable de module suffit : c'est le cas courant. */
+    window.getGroupOrderRows = function (produit) {
+      if (!produit || produit === produitGroupe()) return groupOrderRows;
+      var mag = lireMagasinGroupe(GRP_KEY, true, produit);
+      var l = mag[produit];
+      return (l && l.length) ? l : null;
+    };
 
     /* Lecture DIRECTE du tableau à l'écran, sans passer par la liste validée.
 
@@ -1806,6 +2020,56 @@
       var layer = document.getElementById('logo-layer');
       if (!logo || !layer) return;
 
+      /* ═══ CALQUE NON MESURABLE : ON NE PLACE RIEN ═══════════════════════
+
+         Tout ce qui suit convertit des pourcentages depuis `offsetWidth` et
+         `offsetHeight`. Sur un calque sans boîte, ces mesures valent 0 et le
+         repli plus bas retombe sur `layer.offsetWidth || 1` — soit UN PIXEL.
+         La géométrie calculée est alors aberrante, le logo recentré… et le
+         tout PERSISTÉ en session quelques lignes plus loin.
+
+         C'est ce qui faisait perdre taille et position aux designs de GROUPE :
+         leur parcours traverse les étapes « Configurer » et « Vérifier », où
+         `.cv-wrap` est masqué (conf-styles.css:3059, :3252). À chaque
+         transition, les observateurs rappelaient cette fonction sur un canvas
+         plat et écrasaient la bonne géométrie. La commande libre, qui ne
+         traverse aucune étape, n'était pas touchée.
+
+         Le repli sur le ratio naturel (plus bas) garde son rôle d'origine :
+         l'image pas encore décodée, canvas VISIBLE. Il ne peut simplement plus
+         s'appliquer à un calque sans boîte.
+
+         Même garde que conf-group-verify.js:220 et conf-text-clamp.js:32, pour
+         le même motif. */
+      if (!layer.offsetWidth || !layer.offsetHeight) return;
+
+      /* ═══ LOGO NON MESURABLE : ON DIFFÈRE, ON NE DEVINE PAS ═══════════════
+
+         La garde ci-dessus regarde le CALQUE ; celle-ci regarde le LOGO. La
+         distinction est tout le défaut : le calque garde son `inset: 0` alors
+         que `#logo-b`, portant `.for-dos`, est effacé par le CSS en vue de face
+         (conf-canvas-single.css:26-33). Sa boîte vaut zéro, celle du calque non.
+
+         Le code descendait donc ici sur une zone invisible, ignorait la largeur
+         réglée par le client et repartait sur celle par défaut — la zone du dos
+         n'ayant pas de `startW`, environ 90 % de sa largeur. Le logo revenait
+         plus gros et recentré, par-dessus le texte du dos (que le DOM place
+         AVANT lui, donc dessous — configurateur.liquid:931 et :945).
+
+         Plus bas, `!logo.offsetHeight` DÉTECTAIT déjà ce cas et son commentaire
+         nommait même le logo de dos — mais il poursuivait sur le ratio naturel
+         au lieu de sortir.
+
+         On sort, et on MARQUE : `selView` reprendra ce placement quand la vue
+         rendra le logo mesurable. Même contrat que les textes, dont le clamp
+         sort sur une boîte nulle (conf-text-clamp.js:32) et que `selView`
+         rejoue au changement de vue. Sans ce report, un logo légitimement
+         déposé dans une vue non affichée ne serait jamais placé. */
+      if (!logo.offsetWidth || !logo.offsetHeight) {
+        logo.dataset.placementDiffere = '1';
+        return;
+      }
+
       /* Largeur d'arrivée : `startW` quand la zone en définit une, sinon ~90 % de
          sa largeur. La distinction compte pour la poitrine, où le logo doit
          arriver PETIT (7,5 % — un logo de cœur) tout en pouvant être agrandi
@@ -1822,11 +2086,12 @@
          zone, en bas comme sur les côtés. On lit la hauteur réelle rendue. */
       var lh = layer.offsetHeight || 1;
       var h = (logo.offsetHeight / lh) * 100;
-      /* offsetHeight = 0 si l'image n'est pas décodée OU si le calque est
-         masqué (un logo de dos n'est rendu qu'en vue de dos). La géométrie
-         nulle qui en résultait plaçait le logo hors zone — invisible sur le
-         vêtement alors que la vignette du panneau s'affichait — et elle était
-         PERSISTÉE. On retombe sur le ratio naturel de l'image. */
+      /* offsetHeight = 0 alors que la boîte du logo est mesurable : l'image
+         n'est pas encore décodée. Le cas du logo MASQUÉ par sa vue ne parvient
+         plus jusqu'ici — la garde d'entrée le renvoie désormais vers `selView`
+         plutôt que de deviner sa géométrie.
+         On retombe donc sur le ratio naturel de l'image, seul rôle qui reste à
+         cette branche. */
       var im0 = logo.querySelector('img');
       if (!logo.offsetHeight) {
         if (im0 && im0.naturalWidth && im0.naturalHeight) {
@@ -1864,7 +2129,19 @@
          90 % de la zone au lieu de sa taille réelle.
          Pas pendant une restauration : on écraserait la valeur qu'on est
          justement en train de relire. */
-      if (!window.__restoringUploads && typeof saveUploadGeo === 'function') {
+      /* CEINTURE, en plus de la garde d'entrée : le LOGO doit ENCORE être
+         mesurable au moment d'écrire. Entre-temps, un changement d'étape ou de
+         vue a pu le masquer — et l'écriture en session, elle, est irréversible :
+         elle se propage à l'instantané de la ligne, donc au panier.
+
+         ELLE TESTAIT LE CALQUE, PAS LE LOGO. Or le calque reste mesurable quand
+         seul le logo est masqué : `#logo-b` porte la classe `.for-dos`, que le
+         CSS efface en vue de face (conf-canvas-single.css:26-33), pendant que
+         `#logo-layer` garde son `inset: 0`. La ceinture laissait donc passer
+         exactement le cas qu'elle devait retenir — et c'est cette ligne qui
+         rendait le dégât PERMANENT. */
+      if (logo.offsetWidth > 0 && logo.offsetHeight > 0 &&
+          !window.__restoringUploads && typeof saveUploadGeo === 'function') {
         saveUploadGeo(zone, {
           left: logo.style.left,
           top: logo.style.top,
@@ -2517,6 +2794,53 @@
         // Restaurer les textes personnalisés de ce produit.
         if (typeof restoreTexts === 'function') restoreTexts();
 
+        /* ── LA LISTE DE SURNOMS SUIT LE PRODUIT ────────────────────────────
+
+           Elle est le pendant exact des textes : même nature, même indexation,
+           donc même point de relecture.
+
+           `relireGroupRows` n'était appelée qu'AU CHARGEMENT du module. La
+           variable gardait donc la liste du produit quitté : les surnoms d'un
+           sweatshirt réapparaissaient sur le t-shirt, badge compris.
+
+           Seulement sur un VRAI changement : selProd est rejouée au démarrage
+           et à chaque re-rendu, et les rafraîchissements ci-dessous ne sont pas
+           gratuits. */
+        if (productType && productType !== produitQuitte) {
+          relireGroupRows(productType);
+          refreshGroupBadge();
+          if (typeof window.eqRendreNoms === 'function') {
+            try { window.eqRendreNoms(); } catch (e) {}
+          }
+          /* Le tableau de l'étape « Configurer » ne se REPEUPLE que si la liste
+             est non vide (deplacerTableauGroupe) : sur un produit sans liste,
+             il garderait les lignes du précédent. On le vide alors nous-mêmes,
+             sinon la fuite persiste là où elle est corrigée ailleurs. */
+          /* L'étape est lue sur le DOM, comme le fait déjà :3224.
+             `etapeGroupeCourante` est déclarée en `var` bien plus bas (:9865)
+             et vaudrait `undefined` ici. */
+          var racineGrp = document.querySelector('.conf-app-root');
+          var etapeGrp = racineGrp ? racineGrp.getAttribute('data-etape-groupe') : null;
+
+          if (etapeGrp === 'configurer') {
+            var corpsGrp = document.getElementById('grp-rows');
+            if (corpsGrp && typeof window.grpAddRow === 'function') {
+              corpsGrp.innerHTML = '';
+              if (groupOrderRows) {
+                groupOrderRows.forEach(function (r) {
+                  try { window.grpAddRow(r, true); } catch (e) {}
+                });
+              } else {
+                /* Deux lignes vierges : l'état d'un tableau neuf. */
+                try { window.grpAddRow(); window.grpAddRow(); } catch (e) {}
+              }
+              if (typeof window.grpUpdateTotals === 'function') {
+                try { window.grpUpdateTotals(); } catch (e) {}
+              }
+            }
+          }
+        }
+
         /* Zones REJOUÉES après la restauration.
 
            applyZonesForProduct() a déjà tourné plus haut (:2021), mais à ce
@@ -2652,10 +2976,76 @@
     var cartAddBusy = false;
 
     /** Enveloppe une fonction d'ajout : un seul ajout à la fois. */
+    /* ═══ VOILE D'ATTENTE PENDANT L'AJOUT AU PANIER ═══════════════════════
+
+       L'ajout manipule le canvas : il le masque et le remesure pour composer
+       les vignettes. Le client voyait donc son vêtement disparaître puis
+       revenir. Ce voile couvre ce moment.
+
+       ATTACHÉ À `.conf-app-root`, JAMAIS AU `body`. La racine porte
+       `z-index: 9999` et un fond opaque : un élément frère serait comparé à
+       elle, pas à ses voisins, et resterait invisible derrière. Le projet est
+       déjà tombé dans ce piège pour les feuilles mobiles et les modales, qui
+       ont dû monter à 10001.
+
+       Créé une fois puis réutilisé : le recréer à chaque ajout relancerait
+       l'animation depuis son début et ferait clignoter le fondu. */
+    function voileAjout() {
+      var v = document.getElementById('cart-busy-veil');
+      if (v) return v;
+
+      v = document.createElement('div');
+      v.id = 'cart-busy-veil';
+      v.className = 'cart-busy-veil';
+      v.setAttribute('role', 'status');
+      v.setAttribute('aria-live', 'polite');
+      v.innerHTML =
+        '<div class="cbv-box">' +
+          '<div class="cbv-spin" aria-hidden="true"></div>' +
+          '<div class="cbv-txt">Ajout au panier…</div>' +
+        '</div>';
+
+      var racine = document.querySelector('.conf-app-root');
+      (racine || document.body).appendChild(v);
+      return v;
+    }
+
+    /**
+     * @param {boolean} on    - afficher ou retirer
+     * @param {string} [texte] - libellé ; « Ajout au panier… » par défaut.
+     *   La réouverture d'un design depuis le panier réutilise ce voile avec
+     *   « Ouverture de votre design… » : même attente, autre opération, et
+     *   annoncer un ajout au panier y serait trompeur.
+     */
+    function montrerVoileAjout(on, texte) {
+      var v = voileAjout();
+      if (on) {
+        var lbl = v.querySelector('.cbv-txt');
+        if (lbl) lbl.textContent = texte || 'Ajout au panier…';
+        /* Reflow forcé : sans lui, ajouter la classe dans le même instant que
+           l'insertion saute la transition d'opacité — le voile apparaîtrait
+           d'un bloc. Même technique que showScrim (conf-mobile.js). */
+        void v.offsetHeight;
+        v.classList.add('on');
+        v.setAttribute('aria-busy', 'true');
+      } else {
+        v.classList.remove('on');
+        v.setAttribute('aria-busy', 'false');
+      }
+    }
+    /* Exposée : la réouverture depuis le panier vit dans conf-cart-open-design.js
+       et n'a pas accès à cette portée. */
+    window.montrerVoileAjout = montrerVoileAjout;
+
     function withCartLock(fn) {
       return async function () {
         if (cartAddBusy) return;
         cartAddBusy = true;
+
+        /* Le voile part AVANT toute manipulation du canvas — c'est justement
+           ce qu'il doit cacher. Retiré dans le `finally`, donc en cas d'échec
+           aussi : un voile resté affiché bloquerait toute l'interface. */
+        try { montrerVoileAjout(true); } catch (e) {}
 
         /* Retour visuel INCONDITIONNEL, en complément du verrou : celui-ci
            empêche le second ajout, mais sans bouton grisé le client croit que
@@ -2692,6 +3082,13 @@
 
              On trace pour le diagnostic, et on le dit au client. */
           console.error('Ajout au panier échoué :', err);
+
+          /* LE VOILE PART AVANT L'ALERTE. Le `finally` ne s'exécute qu'APRÈS
+             ce bloc : sans ce retrait, la modale d'échec s'ouvrirait derrière
+             le voile — ou serait recouverte par lui. Le retirer deux fois est
+             sans effet, `classList.remove` étant idempotent. */
+          try { montrerVoileAjout(false); } catch (e) {}
+
           if (typeof confAlert === 'function') {
             confAlert("L'ajout au panier a échoué. Réessayez ; si le problème persiste, rechargez la page.",
                       { icon: 'warning', title: 'Ajout impossible' });
@@ -2701,6 +3098,14 @@
           if (ecoule < 420) {
             await new Promise(function (r) { setTimeout(r, 420 - ecoule); });
           }
+          /* APRÈS la durée minimale : le voile profite de la même garde que
+             l'état d'attente du bouton. Un ajout servi par le cache le ferait
+             sinon clignoter en quelques dizaines de millisecondes.
+
+             Dans le `finally`, donc même après un échec — sans quoi le voile
+             resterait sur l'écran et bloquerait tout. */
+          try { montrerVoileAjout(false); } catch (e) {}
+
           cartAddBusy = false;
           /* On ne réactive que si NOUS avons désactivé : sinon on annulerait
              une désactivation légitime posée entre-temps (bouton masqué parce
@@ -2801,9 +3206,34 @@
          préfixe, tout le monde retomberait sur le variant de repli. */
       if (groupOrderRows && groupOrderRows.length) {
         const rows = groupOrderRows;
-        // Toutes les lignes partagent ce libellé : elles restent identifiables
-        // comme UNE même liste dans le panier et sur la commande Shopify.
-        const groupLabel = 'Groupe ' + rows.length + ' pers. #' + String(Date.now()).slice(-5);
+        /* IDENTITÉ STABLE, créée au premier ajout puis conservée.
+
+           C'est elle qui permet de RETROUVER ce groupe au panier lors d'un
+           ré-ajout, comme la clé produit+couleur+taille le fait pour une
+           commande libre. */
+        const groupId = groupIdCourant(true);
+
+        /* GROUPE DÉJÀ AU PANIER : ses lignes partent AVANT d'ajouter les
+           nouvelles. Le panier reflète alors exactement la liste — ajouts,
+           suppressions, renommages et changements de couleur ou de taille
+           compris, sans avoir à traiter chaque cas séparément.
+
+           `removeGroupItems` purge aussi les réserves mémoire de design ; les
+           lignes réajoutées juste après en recapturent de fraîches. */
+        if (typeof removeGroupItems === 'function' &&
+            cartItems.some(function (i) { return i.groupId === groupId; })) {
+          removeGroupItems(groupId);
+        }
+
+        /* Toutes les lignes partagent ce libellé : elles restent identifiables
+           comme UNE même liste dans le panier et sur la commande Shopify.
+
+           SANS HORODATAGE désormais. `Date.now()` produisait une étiquette
+           neuve à chaque clic : deux ajouts de la même liste donnaient deux
+           groupes distincts dans le tiroir. La part unique vient maintenant de
+           `groupId` — stable d'un ajout à l'autre, distincte entre deux
+           listes. */
+        const groupLabel = 'Groupe ' + rows.length + ' pers. #' + groupId.slice(-5);
 
         /* CANVAS RENDU MESURABLE LE TEMPS DE LA COMPOSITION.
 
@@ -2907,8 +3337,32 @@
            les cartes montrent le même design, par construction. */
         const styleAvantAdd = wrapAdd ? wrapAdd.getAttribute('style') : null;
 
+        /* ═══ MASQUER SEULEMENT QUAND LE CANVAS GÊNE ══════════════════════
+
+           Ce masquage est nécessaire à l'étape « VÉRIFIER », où le canvas a
+           cédé la place aux cartes des personnes : la composition doit le
+           MESURER, donc le rendre mesurable — mais le montrer l'afficherait
+           par-dessus les cartes.
+
+           Il ne l'est PAS ailleurs. Et il s'appliquait pourtant à une commande
+           LIBRE : « Répartir par tailles » écrit dans `groupOrderRows`
+           (conf-size-quantity-modal.js:281), la même liste que les surnoms du
+           mode groupe. Une commande libre avec répartition entre donc dans
+           cette branche et subissait tout son traitement — le vêtement
+           disparaissait du canvas pendant l'ajout, puis revenait.
+
+           `data-etape-groupe="valider"` désigne exactement l'étape
+           « Vérifier ». L'attribut est absent hors du mode groupe (:9658 le
+           pose, :9495 le retire) : en commande libre, le canvas reste donc
+           visible pendant tout l'ajout.
+
+           La composition, elle, ne change pas : elle mesure le canvas de la
+           même façon. On cesse seulement de le masquer sans raison. */
+        const etapeAdd = rootAdd ? rootAdd.getAttribute('data-etape-groupe') : null;
+        const masquerCanvas = (etapeAdd === 'valider');
+
         if (rootAdd) rootAdd.setAttribute('data-compose', '1');
-        if (wrapAdd) {
+        if (wrapAdd && masquerCanvas) {
           var boiteAdd = (typeof window.grpBoiteCanvas === 'function')
             ? window.grpBoiteCanvas() : null;
           if (boiteAdd) {
@@ -2994,8 +3448,25 @@
            ont divergé sur un caractère invisible — chaque ligne retombait alors
            sur la couleur affichée à l'écran. Une fonction unique rend cette
            divergence impossible. */
+        /* ═══ LE CÔTÉ ENTRE DANS LA CLÉ ═══════════════════════════════════
+
+           Depuis qu'une personne peut porter son surnom au DOS, une vignette
+           de face lui montrerait un vêtement vierge : elle relirait son panier
+           sans y retrouver ce qu'elle vient de composer.
+
+           Le coût reste borné, contrairement au surnom qui avait fait
+           abandonner la clé « couleur + nom » : les côtés sont DEUX, pas un par
+           personne. Trois teintes réparties sur les deux faces coûtent au pire
+           six compositions — jamais trente.
+
+           Le côté est pris sur la LIGNE, comme partout ailleurs depuis le
+           palier 2 (`grpZoneDeLigne`), et non sur l'état du canvas. */
+        const coteDe = (r) => (
+          (typeof window.grpZoneDeLigne === 'function' ? window.grpZoneDeLigne(r) : (r && r.zone))
+            === 'b' ? 'dos' : 'face'
+        );
         const vignettes = new Map();
-        const cleVignette = (r) => r.color || '';
+        const cleVignette = (r) => (r.color || '') + '|' + coteDe(r);
 
         /* `try/finally` : le canvas doit retrouver son état MÊME si une
            composition échoue. Sans lui, une exception laisserait le vêtement
@@ -3034,11 +3505,19 @@
 
 
         const composer = async function (cle, i) {
+          /* La clé porte « couleur|côté » : on la sépare ici plutôt que de
+             transporter deux paramètres, pour que la Map reste indexée par une
+             valeur unique — c'est ce qui rend impossible la divergence entre
+             écriture et lecture que ce code a déjà connue. */
+          const sep = cle.lastIndexOf('|');
+          const couleur = (sep === -1) ? cle : cle.slice(0, sep);
+          const vue = (sep !== -1 && cle.slice(sep + 1) === 'dos') ? 'dos' : 'face';
+
           /* Même résolution que le canvas : slug EN, puis FR, puis générique.
              On passe par les candidats plutôt que de deviner un nom de fichier,
              pour hériter des replis quand une teinte n'a pas d'image dédiée. */
-          const slug = COLOR_SLUGS[cle] || '';
-          const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, 'face');
+          const slug = COLOR_SLUGS[couleur] || '';
+          const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, vue);
           const base = cand[0] || fallbackSrc;
 
           /* Plus de substitution du surnom avant la capture : la vignette est
@@ -3068,18 +3547,230 @@
              on recommence avec l'image du canvas. La vignette montre alors le
              vêtement de l'écran AVEC son design, plutôt qu'un vêtement nu — le
              design étant précisément ce que le client vient de composer. */
-          let dz = await resolveDesignImage(base, i === 0 ? btnEl : null);
+          /* `true` : PAS DE PLANCHE ICI. Elles sont composées par personne
+             juste après, chacune avec son propre surnom. La demander aussi
+             dans cette boucle ajouterait une requête serveur par couleur pour
+             un résultat qui serait jeté. */
+          let dz = await resolveDesignImage(base, i === 0 ? btnEl : null, vue, true);
 
           var composee = dz && dz.thumb && dz.thumb !== base;
-          if (!composee && fallbackSrc && fallbackSrc !== base) {
-            var dz2 = await resolveDesignImage(fallbackSrc, null);
+          /* REPLI RÉSERVÉ À LA FACE.
+
+             `fallbackSrc` est l'image RÉELLEMENT AFFICHÉE dans le canvas, donc
+             celle de face. Le filet consiste à composer dessus quand l'URL
+             théorique n'a rien donné.
+
+             Pour une vignette de DOS, ce serait un piège : on plaquerait le
+             design du dos sur un vêtement vu de devant. Le client verrait une
+             image cohérente en apparence, et fausse. Mieux vaut le vêtement nu
+             — visiblement incomplet, donc signalé. */
+          if (!composee && vue === 'face' && fallbackSrc && fallbackSrc !== base) {
+            var dz2 = await resolveDesignImage(fallbackSrc, null, vue, true);
             if (dz2 && dz2.thumb && dz2.thumb !== fallbackSrc) dz = dz2;
           }
 
           vignettes.set(cle, dz);
         };
 
+        /* ═══════════════════════════════════════════════════════════════════
+           LA PLANCHE ATELIER, UNE PAR PERSONNE
+
+           C'est le document que l'atelier imprime : il part vers Shopify en
+           propriété `_Aperçu` (recapitulatif.liquid), cachée au client mais
+           visible dans l'admin du marchand.
+
+           Il portait le texte du CANVAS pour toute la liste — c'est-à-dire le
+           DERNIER surnom saisi de chaque côté. Marie recevait une planche
+           montrant « Jean ». Le commentaire du haut de cette branche décrit
+           déjà ce défaut : « L'atelier devait croiser les deux — source
+           d'erreur de production. »
+
+           Un correctif avait existé puis avait été retiré, la clé
+           « couleur + surnom » ne mutualisant jamais rien : trente personnes
+           coûtaient soixante requêtes en série. Trois choses ont changé :
+
+             • la VIGNETTE reste mutualisée par couleur|côté — on n'y touche
+               pas, et c'est elle qui coûtait la seconde requête ;
+             • une planche ne coûte donc qu'UN appel, pas deux ;
+             • la rasterisation du texte est LOCALE (canvas 2D), pas réseau.
+
+           ─── DEUX PHASES, ET C'EST TOUT L'ENJEU ───
+
+           Les captures de vignettes tournent en parallèle parce qu'elles sont
+           purement LECTRICES ; le commentaire ci-dessus l'énonce et met en
+           garde : « À ne PAS imiter : capturerPourNom écrit le surnom dans le
+           DOM pour le photographier. Celle-là doit rester séquentielle. »
+
+           On sépare donc les deux natures de travail :
+
+             PHASE A — séquentielle, DOM, zéro réseau : substituer le nom,
+                       capturer les vues EN MÉMOIRE, restaurer.
+             PHASE B — concurrente, réseau, zéro DOM : composer les images.
+
+           La phase B ne reçoit que des objets déjà matérialisés : elle n'a
+           aucun moyen de toucher au DOM, même par accident. La règle est donc
+           tenue par construction, pas par discipline. */
+
+        /* Clé = NOM + CÔTÉ. La couleur n'y entre pas : le fond est réécrit
+           après coup (voir plus bas), sans capture ni requête supplémentaire.
+           Deux personnes de même nom et même côté partagent réellement une
+           planche — leur consigne d'atelier est identique.
+
+           Une liste SANS surnom (répartition par tailles) donne une clé unique
+           « |f » : une seule planche pour tout le monde, exactement le coût
+           d'avant. */
+        const planches = new Map();
+        const clePlanche = (r) => (r.flock || r.name || '') + '|' + coteDe(r);
+
+        /* Vues capturées, en attente de composition. Clé -> views. */
+        const vuesParCle = new Map();
+
+        /* Progression dans le VOILE, pas dans le bouton : le voile couvre
+           l'écran, le bouton est derrière lui — et `resolveDesignImage` y écrit
+           déjà « Préparation du design… ». Deux libellés concurrents sur le
+           même bouton clignoteraient. Le voile est déjà allumé par
+           `withCartLock` ; le rappeler ne fait que réécrire son texte. */
+        const majVoile = function (txt) {
+          if (typeof window.montrerVoileAjout === 'function') {
+            try { window.montrerVoileAjout(true, txt); } catch (e) {}
+          }
+        };
+
+        /**
+         * Rejoue des vues capturées sur les visuels d'une AUTRE couleur.
+         *
+         * Purement une réécriture d'URL : aucune capture, aucune mesure,
+         * aucune requête. Les positions des logos sont des fractions de
+         * l'image produit — elles valent donc pour tous les visuels d'une même
+         * pièce, qui partagent leur cadrage.
+         *
+         * Une couleur sans visuel dédié garde le fond capturé : mieux vaut la
+         * mauvaise teinte que pas de planche du tout, le nom et l'emplacement
+         * étant ce que l'atelier vient y chercher.
+         *
+         * @param {Array} vues     - sortie de captureAllViews()
+         * @param {string} couleur - nom de couleur de la ligne
+         */
+        const vuesAvecCouleur = function (vues, couleur) {
+          if (!vues || !couleur) return vues;
+          const slugC = COLOR_SLUGS[couleur] || '';
+          const prefixC = PRODUCT_SLUGS[currentProductKey];
+          if (!slugC || !prefixC) return vues;
+
+          /* Le libellé de la vue porte le nom du visuel à viser : la planche
+             les nomme FACE / DOS / MANCHE …, les fichiers face / dos / cote. */
+          const imgDe = function (label) {
+            if (label === 'DOS') return 'dos';
+            if (label === 'FACE') return 'face';
+            return 'cote';
+          };
+
+          return vues.map(function (v) {
+            const cands = colorImageCandidates(prefixC, slugC, imgDe(v.label)) || [];
+            const fond = cands[0] ? absUrl(cands[0]) : '';
+            if (!fond) return v;
+            /* Copie : les vues d'origine servent aux autres couleurs de la
+               même personne. Les muter les contaminerait l'une après l'autre. */
+            return {
+              label: v.label,
+              background: fond,
+              logos: v.logos,
+              mirror: v.mirror
+            };
+          });
+        };
+
+        /**
+         * Capture les vues du vêtement avec UN surnom substitué dans SA zone.
+         *
+         * Reprend la méthode de `capturerPourNom` (conf-group-verify.js), qui
+         * résout ce problème depuis toujours : sauvegarde du texte, de
+         * l'attribut `style` ENTIER et des `data-*` que clampTextToZone
+         * recalcule, substitution, puis restauration à l'identique.
+         *
+         * La restauration est dans un `finally` : une exception qui la
+         * sauterait laisserait le canvas du client portant le nom d'un
+         * inconnu, avec une géométrie recalculée pour ce nom.
+         *
+         * @param {string} nom  - surnom à incruster
+         * @param {string} zone - 'f' ou 'b'
+         * @returns {Promise<Array|null>} les vues, ou null
+         */
+        const capturerVuesPourNom = async function (nom, zone) {
+          const el = document.getElementById('text-' + zone);
+          const contenu = el ? el.querySelector('.dt-content') : null;
+
+          /* TEXTE COURBÉ : rendu en SVG, `textContent` est vide — la
+             substitution est impossible. Même garde que les trois autres
+             chemins du projet. Un nom vide (répartition par tailles) ne
+             substitue rien non plus : la capture est alors celle du canvas tel
+             quel, comportement d'avant. */
+          const substituable = nom && el && contenu &&
+                               !el.classList.contains('is-shaped');
+
+          const ATTRS = ['data-w', 'data-wanted-size', 'data-max-fit'];
+          let ancien = null, styleAncien = null, donneesAnciennes = null;
+
+          if (substituable) {
+            ancien = contenu.textContent;
+            styleAncien = el.getAttribute('style');
+            donneesAnciennes = ATTRS.map(function (a) { return el.getAttribute(a); });
+
+            contenu.textContent = nom;
+            if (el.style.display === 'none') el.style.display = '';
+            /* Le nom peut être plus long que le texte commun : la police doit
+               être re-calée dans la zone imprimable avant la mesure. */
+            if (typeof window.clampTextToZone === 'function') {
+              window.clampTextToZone(zone);
+            }
+          }
+
+          try {
+            return await captureAllViews();
+          } catch (e) {
+            console.warn('Capture des vues échouée pour « ' + nom + ' » : ' +
+                         'cette ligne partira sans planche.', e);
+            return null;
+          } finally {
+            if (ancien !== null && contenu) {
+              contenu.textContent = ancien;
+              /* Le style d'origine est REPOSÉ TEL QUEL — aucun recalcul, donc
+                 aucune dépendance à une mesure du DOM. */
+              if (styleAncien === null) el.removeAttribute('style');
+              else el.setAttribute('style', styleAncien);
+              for (let a = 0; a < ATTRS.length; a++) {
+                if (donneesAnciennes[a] === null) el.removeAttribute(ATTRS[a]);
+                else el.setAttribute(ATTRS[a], donneesAnciennes[a]);
+              }
+            }
+          }
+        };
+
         try {
+          /* ═══ PHASE A — CAPTURES, UNE PERSONNE À LA FOIS ═════════════════ */
+          const clesPlanche = [];
+          for (const r of rows) {
+            const cp = clePlanche(r);
+            if (clesPlanche.indexOf(cp) === -1) clesPlanche.push(cp);
+          }
+
+          for (let iP = 0; iP < clesPlanche.length; iP++) {
+            const cp = clesPlanche[iP];
+            const sep = cp.lastIndexOf('|');
+            const nomP = cp.slice(0, sep);
+            const coteP = (cp.slice(sep + 1) === 'dos') ? 'dos' : 'face';
+
+            majVoile('Préparation des visuels… ' + (iP + 1) + '/' + clesPlanche.length);
+
+            const vues = await capturerVuesPourNom(nomP, coteP === 'dos' ? 'b' : 'f');
+            if (vues) vuesParCle.set(cp, vues);
+
+            /* On rend la main au navigateur : trente rasterisations d'affilée
+               figeraient l'onglet. Même précaution que la capture des cartes
+               de vérification. */
+            await new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
+          }
+
           /* CONCURRENCE PLAFONNÉE À 4. Une liste très bariolée lancerait sinon
              vingt paires de requêtes d'un coup : le navigateur les mettrait de
              toute façon en file d'attente, et le serveur d'images encaisserait
@@ -3096,6 +3787,60 @@
             })());
           }
           await Promise.all(ouvriers);
+
+          /* ═══ PHASE B — COMPOSITIONS RÉSEAU, PLUS AUCUN ACCÈS AU DOM ═════
+
+             LA COULEUR ENTRE ICI, ET SEULEMENT ICI.
+
+             `captureAllViews` bâtit ses fonds avec `currentProductImageURL`,
+             qui lit la couleur AFFICHÉE à l'écran — pas celle de la ligne.
+             Sans correction, toutes les planches sortiraient à la teinte du
+             canvas : l'atelier verrait le bon nom sur le mauvais vêtement.
+
+             Changer la couleur du canvas entre deux captures coûterait un
+             chargement d'image par personne, insoutenable. Mais le fond n'est
+             qu'une URL dans un objet déjà capturé : on la RÉÉCRIT après coup,
+             sans capture ni mesure supplémentaire. Les logos, eux, sont
+             exprimés en fractions de l'image — ils restent valables, les
+             visuels d'une même pièce partageant leur cadrage.
+
+             D'où deux clés distinctes : la CAPTURE est mutualisée par
+             `nom|côté` (le travail coûteux), la COMPOSITION par
+             `nom|côté|couleur` (une requête, comme la vignette). */
+          const cleCompo = (r) => clePlanche(r) + '|' + (r.color || '');
+
+          const aComposer = [];
+          const vues = [];
+          for (const r of rows) {
+            const cc = cleCompo(r);
+            if (aComposer.indexOf(cc) !== -1) continue;
+            const capt = vuesParCle.get(clePlanche(r));
+            if (!capt) continue;
+            aComposer.push(cc);
+            vues.push(vuesAvecCouleur(capt, r.color));
+          }
+
+          let curseurP = 0;
+          let faitesP = 0;
+          const ouvriersP = [];
+          for (let k = 0; k < Math.min(EN_VOL, aComposer.length); k++) {
+            ouvriersP.push((async function () {
+              while (curseurP < aComposer.length) {
+                const iP2 = curseurP++;
+                try {
+                  const res = await window.ConfAPI.createMultiViewImage(vues[iP2]);
+                  if (res && res.url) planches.set(aComposer[iP2], res.url);
+                } catch (eP) {
+                  /* JAMAIS MUET : la ligne repartira sur sa vignette, il faut
+                     pouvoir savoir laquelle et pourquoi. */
+                  console.error('Planche non composée pour « ' + aComposer[iP2] + ' » :', eP);
+                }
+                faitesP++;
+                majVoile('Composition des planches… ' + faitesP + '/' + aComposer.length);
+              }
+            })());
+          }
+          await Promise.all(ouvriersP);
 
         } catch (eComp) {
           /* JAMAIS MUET. Une erreur ici interrompt la composition de TOUTES
@@ -3163,9 +3908,28 @@
           var dzTrouvee = vignettes.get(cleVignette(r));
           if (!dzTrouvee) {
             console.warn('Vignette non composée pour « ' + r.color +
-                         ' » : la ligne partira avec le vêtement nu.');
+                         ' » (' + coteDe(r) + ') : la ligne partira avec le ' +
+                         'vêtement nu.');
           }
-          const dz = dzTrouvee || { thumb: fallbackSrc, sheet: null };
+          /* Le repli ne vaut que pour la FACE : `fallbackSrc` est l'image
+             affichée, donc un devant. L'imposer à une ligne « dos » donnerait
+             une vignette du mauvais côté — plus trompeuse qu'une vignette
+             absente. Sans repli, `img` reste vide et le panier affiche son
+             propre substitut. */
+          const dz = dzTrouvee ||
+            { thumb: (coteDe(r) === 'face' ? fallbackSrc : ''), sheet: null };
+
+          /* LA PLANCHE DE CETTE PERSONNE, portant SON nom.
+             Absente, `sheet` reste null et `_Aperçu` retombe sur la vignette
+             (recapitulatif.liquid) : un vêtement sans nom, jamais le nom d'un
+             autre. Le nom et le côté partent de toute façon en clair, en
+             propriétés « Personne » et « Emplacement ». */
+          const planchePerso = planches.get(clePlanche(r) + '|' + (r.color || '')) || null;
+          if (!planchePerso) {
+            console.warn('Planche atelier absente pour « ' + (r.name || r.flock || '?') +
+                         ' » : la ligne partira avec sa vignette. Le nom et ' +
+                         'l\'emplacement restent en propriétés de commande.');
+          }
           pushToCart({
             id: nouvelIdLigne(),
             productType: currentProductType,
@@ -3173,11 +3937,20 @@
             color: 'Couleur : ' + r.color,
             size: r.size,
             personName: r.name || '',    // distingue deux personnes identiques
+            /* LE CÔTÉ VOYAGE AVEC LA LIGNE.
+               Sans lui, rouvrir une vignette depuis le panier perdrait
+               l'information : la liste reconstruite mettrait tout le monde en
+               face, et le client devrait refaire la répartition. */
+            personZone: (typeof coteDe === 'function' && coteDe(r) === 'dos') ? 'b' : 'f',
             groupLabel: groupLabel,
+            /* L'identité du groupe voyage sur CHAQUE ligne : c'est elle qui
+               les rassemble au panier (cleGroupeCd) et qui permet de les
+               retrouver toutes lors d'un ré-ajout. */
+            groupId: groupId,
             groupIndex: (idx + 1) + '/' + rows.length,
             price: price,
             img: dz.thumb,        // vignette à LA couleur de cette ligne
-            sheet: dz.sheet,
+            sheet: planchePerso,  // planche atelier portant SON nom
             assets: logoAssets.concat(textAssets),
             /* Même état complet que pour un ajout unitaire, capturé une seule
                fois au-dessus : les lignes de groupe partagent un design commun,
@@ -3404,7 +4177,14 @@
        - sheet : PLANCHE multi-vues (face+dos+côté) pour l'aperçu de la commande
                  (null si non textile ou si aucun logo/échec).
        Si aucun logo, thumb = fallbackSrc (image couleur simple). */
-    async function resolveDesignImage(fallbackSrc, btnEl) {
+    /**
+     * @param {string} [cote] - côté de la VIGNETTE : 'face' (défaut) ou 'dos'.
+     *   La PLANCHE, elle, porte toujours toutes les vues : elle sert la
+     *   production, qui a besoin des deux quoi qu'il arrive.
+     * @param {boolean} [sansPlanche] - ne composer QUE la vignette. Le mode
+     *   groupe compose ses planches lui-même, une par personne.
+     */
+    async function resolveDesignImage(fallbackSrc, btnEl, cote, sansPlanche) {
       let original = null;
       const busy = () => { if (btnEl && original === null) { original = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = 'Préparation du design…'; } };
       const done = () => { if (btnEl && original !== null) { btnEl.disabled = false; btnEl.innerHTML = original; original = null; } };
@@ -3447,7 +4227,7 @@
          On reste donc sur `captureFaceDesign`, qui juge une zone sur son
          CONTENU et non sur sa visibilité. */
       try {
-        faceDesign = await captureFaceDesign();
+        faceDesign = await captureFaceDesign(cote);
         // Coins / drapeaux / patchs n'ont pas de « vue de face » : pour eux, la
         // vue courante EST le design. Le repli reste donc légitime.
         if (!isTextile &&
@@ -3486,7 +4266,15 @@
       }
 
       // --- 2) PLANCHE multi-vues (textile uniquement, si au moins un logo) ---
+      /* PLANCHE FACULTATIVE.
+
+         En commande de GROUPE, la planche est désormais composée par personne,
+         avec SON surnom incrusté (voir `planchesParPersonne`). La composer ici
+         serait un doublon : une requête serveur pour une planche portant le
+         texte brut du canvas — celle-là même qui montrait à Marie le nom de
+         Jean. L'appelant la réclame donc explicitement, ou s'en passe. */
       let sheet = null;
+      if (sansPlanche) { done(); return { thumb: thumb, sheet: null }; }
       try {
         const views = await captureAllViews();
         if (views && views.length && views.some(v => v.logos && v.logos.length)) {
@@ -3756,10 +4544,19 @@
           if (cibleSnap.groupIndex || cibleSnap.groupLabel) {
             try {
               var rowsGrp = (typeof window.getGroupOrderRows === 'function')
-                ? window.getGroupOrderRows() : null;
+                /* La liste DU PRODUIT DE LA LIGNE, pas celle affichée.
+
+                   Les deux divergent lors d'un ré-ajout portant sur un autre
+                   produit : l'instantané embarquerait alors la liste du produit
+                   à l'écran. Même argument que `capturerSnapshot`, quelques
+                   lignes plus haut, qui reçoit déjà `cibleSnap.productType`. */
+                ? window.getGroupOrderRows(cibleSnap.productType) : null;
               snapComplet.groupRows = (rowsGrp && rowsGrp.length)
                 ? JSON.parse(JSON.stringify(rowsGrp))   // détachée, comme `textes`
                 : null;
+              /* L'identité voyage avec la liste : après un rechargement, la
+                 réserve mémoire a disparu et c'est l'instantané qui la rend. */
+              snapComplet.groupId = cibleSnap.groupId || null;
             } catch (e) { snapComplet.groupRows = null; }
           }
 
@@ -3785,6 +4582,21 @@
               var tProduit = snapComplet.textes[snapComplet.produit];
               if (tProduit && tProduit[zNom] && tProduit[zNom].text) {
                 tProduit[zNom].text = cibleSnap.personName;
+              } else {
+                /* ÉCHEC SIGNALÉ, plus silencieux.
+
+                   La ligne porte un nom floqué mais l'instantané n'a pas la
+                   zone de texte correspondante — le plus souvent parce que
+                   `conf_texts` était indexé sous un AUTRE produit au moment de
+                   la capture (le parcours de groupe traverse trois écrans).
+
+                   Conséquence en aval : la réouverture ne retrouve pas le
+                   style de la zone, et le surnom hérite de celui de la ligne
+                   précédente. C'est la racine du « surnom sans sa couleur ».
+                   Sans cette trace, elle restait invisible. */
+                console.warn('Nom floqué « ' + cibleSnap.personName + ' » : zone de texte « ' +
+                             zNom + ' » absente de l\'instantané (produit ' +
+                             snapComplet.produit + '). Le style du surnom ne sera pas restauré.');
               }
             } catch (e) {}
           }
@@ -4482,6 +5294,10 @@
            contrainte qui n'existait plus. */
         sessionStorage.removeItem('conf_mode_impose');
         sessionStorage.removeItem('conf_group_rows');      // liste de noms validée
+        /* L'identité de la liste part AVEC elle : sans cela, la prochaine
+           commande de groupe hériterait de celle-ci et écraserait au panier un
+           groupe qui n'a rien à voir. */
+        sessionStorage.removeItem('conf_group_id');
         /* Option manches (payante, +4 €/manche) : elle échappait au reset et
            restait donc active sur un design pourtant vidé — le surcoût
            réapparaissait sans logo pour le justifier. */
@@ -4630,8 +5446,21 @@
     /* `async` depuis l'ajout de la capture du texte (textZoneImage renvoie une
        Promise). Un seul appelant dans le dépôt — resolveDesignImage (:2558),
        déjà asynchrone — d'où l'absence de risque sur les autres chemins. */
-    async function captureFaceDesign() {
-      const background = currentProductImageURL('face');
+    /**
+     * @param {string} [cote] - 'face' (défaut) ou 'dos'.
+     *
+     * LE CÔTÉ EST UN PARAMÈTRE, PAS UNE CONSTANTE.
+     *
+     * La vignette du panier montrait la face, en dur. Depuis qu'une personne
+     * peut porter son surnom au DOS, sa ligne affichait un devant vierge : le
+     * client relisait son panier sans y voir ce qu'il venait de composer.
+     *
+     * `'face'` par défaut — la commande libre et tout appelant existant gardent
+     * exactement le comportement d'avant.
+     */
+    async function captureFaceDesign(cote) {
+      const vue = (cote === 'dos') ? 'dos' : 'face';
+      const background = currentProductImageURL(vue);
       if (!background) return null;
 
       // Convertit "38%" -> 0.38 ; renvoie null si non exprimé en %.
@@ -4651,7 +5480,18 @@
       // Boîte réelle de l'image produit. On privilégie la MESURE directe de
       // l'image affichée (getBoundingClientRect via imageContentRect, précise) ;
       // à défaut (image masquée), on approxime avec imgBoxWithinLayer.
-      let refImg = document.querySelector('.product-img-single.on') || document.getElementById('view-face');
+      /* L'IMAGE DE RÉFÉRENCE EST CELLE DU CÔTÉ DEMANDÉ.
+
+         `.on` désigne la vue AFFICHÉE. Elle convenait tant que la fonction ne
+         savait faire que la face. Ce n'est plus le cas : composer le dos en
+         mesurant la boîte de la face reprojetterait les logos sur les
+         proportions d'une AUTRE image. On ne retient donc la vue affichée que
+         si elle est bien celle qu'on veut. */
+      const idVue = 'view-' + vue;
+      const affichee = document.querySelector('.product-img-single.on');
+      let refImg = (affichee && affichee.id === idVue)
+        ? affichee
+        : (document.getElementById(idVue) || affichee);
       let imgBox = null;
       if (refImg && refImg.getBoundingClientRect().width > 0) {
         imgBox = imageContentRect(refImg);
@@ -4667,12 +5507,15 @@
         imgBox = imgBoxWithinLayer(refImg, layerBox);
       }
 
-      // Vue de FACE : uniquement ce qui est visible de face, donc le logo cœur.
+      // Uniquement ce qui est visible du côté demandé.
       // Les manches (logo-sl-face / logo-sr-face) étaient incluses ici — un
       // reste de l'époque où elles s'affichaient sur la vue de face. Elles ont
       // été retirées du canevas mais pas d'ici : leurs logos se retrouvaient
       // plaqués sur la vignette du panier alors qu'ils sont sur les côtés.
-      const faceZones = ['logo-f', 'logo-fr'];
+      /* Le dos ne porte qu'une zone ; la face en a deux (poitrine gauche et
+         droite). Les manches restent exclues des deux : elles figurent sur la
+         planche de production, pas sur la vignette. */
+      const faceZones = (vue === 'dos') ? ['logo-b'] : ['logo-f', 'logo-fr'];
       const logos = [];
       faceZones.forEach(id => {
         const el = document.getElementById(id);
@@ -4749,7 +5592,7 @@
          face sont traitées — poitrine gauche et droite peuvent coexister. */
       const canReproject = !!(layerBox && imgBox && imgBox.width > 0 && imgBox.height > 0);
       if (typeof window.textZoneImage === 'function') {
-        for (const zt of ['f', 'fr']) {
+        for (const zt of ((vue === 'dos') ? ['b'] : ['f', 'fr'])) {
           /* ISOLÉ : le texte est un COMPLÉMENT, jamais une condition.
 
              Sans ce try/catch, une rasterisation qui échoue remontait jusqu'au
@@ -5967,6 +6810,53 @@
           if (el.style.top) etat.top = el.style.top;
           if (el.style.width) etat.width = el.style.width;
           if (el.style.fontSize) etat.fontSize = el.style.fontSize;
+
+          /* COULEUR ET POLICE, quand la session ne les fournit pas.
+
+             Le commentaire ci-dessus suppose que la session porte toujours le
+             style. C'est faux dans un cas : un texte affiché mais jamais écrit
+             en session (quota dépassé, ou capture antérieure à l'écriture).
+             L'état partait alors SANS couleur, et renderTextOnCanvas posait
+             `el.style.color = undefined` à la réouverture — le texte héritait
+             de la couleur en place.
+
+             On ne complète que ce qui MANQUE : la session reste prioritaire,
+             elle porte la valeur choisie par le client, là où le DOM ne montre
+             que la valeur calculée. */
+          if (!etat.color && el.style.color) etat.color = el.style.color;
+          if (!etat.font && el.style.fontFamily) etat.font = el.style.fontFamily;
+
+          /* GRAISSE, ITALIQUE ET SOULIGNÉ — omis de la correction précédente.
+
+             Ce sont des BOOLÉENS dans l'état, traduits en CSS au rendu
+             (conf-text-editor.js:1046-1048). Le complément doit donc faire le
+             chemin INVERSE : lire le CSS affiché et en déduire le booléen.
+             C'est ce qui les distingue de `color` et `font`, simples recopies,
+             et ce qui m'a fait les manquer.
+
+             Sans eux, `data.bold` valait `undefined` à la réouverture — donc
+             FAUX — et le surnom revenait en graisse normale quel qu'ait été
+             son style.
+
+             `=== undefined` et non `!etat.bold` : `false` est une valeur
+             LÉGITIME, posée par le client qui a retiré le gras. La confondre
+             avec « absent » ferait relire le DOM et rétablirait un style qu'il
+             venait d'enlever.
+
+             Valeurs tolérantes : `fontWeight` rend « 800 », « bold » ou « 700 »
+             selon le navigateur ; `textDecoration` peut valoir
+             « underline solid rgb(255,255,255) », d'où un test d'inclusion. */
+          if (etat.bold === undefined && el.style.fontWeight) {
+            var fw = String(el.style.fontWeight);
+            etat.bold = (fw === 'bold' || parseInt(fw, 10) >= 600);
+          }
+          if (etat.italic === undefined && el.style.fontStyle) {
+            etat.italic = /italic|oblique/i.test(el.style.fontStyle);
+          }
+          if (etat.underline === undefined && el.style.textDecoration) {
+            etat.underline = /underline/i.test(el.style.textDecoration);
+          }
+
           snap.textes[produit][z] = etat;
         });
       } catch (e) {
@@ -6039,7 +6929,19 @@
           produitSnapshot: src ? src.produit : null,
           coherent: src ? (src.produit === it.productType) : null,
           origine: vive ? 'mémoire vive' : (miroir ? 'miroir persisté' : 'AUCUN'),
-          zones: src ? Object.keys(src.zones || {}) : [],
+          /* LA GÉOMÉTRIE EST AFFICHÉE, pas seulement le nom des zones.
+
+             Sans elle, impossible de distinguer « l'image est là » de « l'image
+             est là, à la bonne place ». C'est précisément la différence qui
+             séparait une ligne libre d'une ligne de groupe quand la géométrie
+             était corrompue par un calque masqué. Comparer les deux lignes
+             donne la preuve directe. */
+          zones: src ? Object.keys(src.zones || {}).map(function (z) {
+            var g = src.zones[z] && src.zones[z].geo;
+            return z + (g ? ' (' + (g.left || '?') + ', ' + (g.top || '?') +
+                             ', ' + (g.width || '?') + ')'
+                          : ' SANS-GEO');
+          }) : [],
           textes: src && src.textes ? Object.keys(src.textes) : [],
           /* Le nom floqué TEL QUE L'INSTANTANÉ le porte, pas tel que la ligne
              le porte. Afficher `it.personName` masquait un vrai défaut : le
@@ -6178,8 +7080,14 @@
      * @returns {string|null} null pour un article individuel.
      */
     function cleGroupeCd(item) {
-      if (!item || !item.groupLabel) return null;
-      return item.groupLabel;
+      if (!item) return null;
+      /* `groupId` d'abord : il est STABLE d'un ajout à l'autre, là où
+         `groupLabel` portait un horodatage et changeait à chaque clic.
+
+         Repli sur `groupLabel` pour les lignes déjà au panier avant ce
+         changement : elles gardent ainsi leur affichage groupé et leur bouton
+         de suppression. */
+      return item.groupId || item.groupLabel || null;
     }
 
     /**
@@ -8679,7 +9587,10 @@
     var CLES_DESIGN = [
       'conf_texts', 'conf_uploads', 'conf_current_color', 'conf_patch_color',
       'conf_coin_finish', 'conf_flag_color', 'conf_flag_color_name',
-      'conf_sleeve_opt', 'conf_group_rows',
+      /* `conf_group_id` suit `conf_group_rows` : l'identité d'une liste
+         appartient au design de son mode. Séparées, la liste d'un mode
+         hériterait de l'identité de l'autre. */
+      'conf_sleeve_opt', 'conf_group_rows', 'conf_group_id',
       /* Les URLs hébergées suivent le design : sans cette ligne, celles d'un
          mode ressurgiraient dans l'autre au rechargement. */
       'conf_cloud_urls',
@@ -9094,6 +10005,25 @@
           (mode === 'groupe' ? 'groupe' : 'libre');
       }
       majBarreMode();
+
+      /* LA BARRE D'ONGLETS SUIT LE MODE.
+
+         `refreshCategoryUI` décide notamment de l'onglet « Ajout Texte »,
+         masqué en mode groupe où les textes sont les surnoms de « Mon Équipe ».
+         Mais elle n'est appelée qu'au changement de PRODUIT.
+
+         Un changement de mode volontaire recharge la page (:9365) et la rejoue
+         donc au démarrage. Deux chemins l'évitent pourtant : la reprise de
+         session, et la réouverture d'une vignette de panier — qui bascule le
+         mode en place, sans rechargement. Sans cet appel, l'onglet resterait
+         visible sur ces deux chemins. */
+      try {
+        if (window.modernSidebar &&
+            typeof window.modernSidebar.refreshCategoryUI === 'function') {
+          window.modernSidebar.refreshCategoryUI(currentProductType);
+        }
+      } catch (e) {}
+
       if (mode === 'groupe' && typeof allerEtapeGroupe === 'function') {
         /* REPRISE DE SESSION (rechargement) : on retrouve l'étape en cours.
            CHOIX DÉLIBÉRÉ du mode : on repart du début — le client vient de
@@ -9326,7 +10256,12 @@
      * d'un espace propre. Le client peut se tromper de mode après avoir
      * commencé, et perdre son travail pour cela serait brutal.
      */
-    function retourChoixMode() {
+    /**
+     * @param {boolean} [garderProduit] - ne pas remettre le sweatshirt.
+     *   Réservé à l'appelant qui vient LUI-MÊME de sélectionner un textile :
+     *   sans cela, le rappel différé plus bas écraserait ce choix.
+     */
+    function retourChoixMode(garderProduit) {
       var root = document.querySelector('.conf-app-root');
       if (!root) return;
 
@@ -9408,7 +10343,17 @@
 
          On repart d'un textile, celui qui ouvre le configurateur. Différé d'un
          tour de boucle : l'attribut d'étape vient d'être posé, la sidebar doit
-         d'abord être révélée pour que les mesures du canvas soient justes. */
+         d'abord être révélée pour que les mesures du canvas soient justes.
+
+         SAUF QUAND L'APPELANT VIENT DE CHOISIR UN TEXTILE.
+
+         Reprendre un textile après un coin ramène désormais ici (voir
+         conf-sidebar-modern.js). Le produit entrant est alors DÉJÀ le bon : ce
+         rappel le remplacerait par un sweatshirt — le client cliquerait
+         « T-shirt coton » et obtiendrait un sweat. Il rappellerait en outre
+         `selectProduct`, d'où l'on vient : une récursion. */
+      if (garderProduit) return;
+
       requestAnimationFrame(function () {
         var carteSweat = document.querySelector('.product-card[data-product="sweatshirt"]');
         if (carteSweat && !carteSweat.classList.contains('selected') &&
@@ -10026,6 +10971,7 @@
       var compte = document.getElementById('eq-liste-compte');
       if (!hote) return;
 
+
       var rows = (typeof window.getGroupOrderRows === 'function')
         ? (window.getGroupOrderRows() || []) : [];
 
@@ -10050,11 +10996,26 @@
         return;
       }
 
+      /* CÔTÉ AFFICHÉ : les surnoms de l'AUTRE côté sont estompés.
+
+         Le vêtement ne montre qu'une face à la fois. Sans distinction visuelle,
+         le client voyait une liste uniforme dont la moitié ne correspondait pas
+         à ce qu'il regardait.
+
+         Un surnom estompé reste CLIQUABLE — le toucher bascule la vue vers son
+         côté (eqEssayerNom). Le grisage indique une appartenance, il ne bloque
+         pas : un clic sans effet dérouterait davantage. */
+      var coteVu = (typeof window.grpVueAffichee === 'function')
+        ? window.grpVueAffichee() : 'f';
+
       var html = '';
       for (var i = 0; i < rows.length; i++) {
         var nom = rows[i].flock || rows[i].name || '';
+        var coteLigne = (typeof window.grpZoneDeLigne === 'function')
+          ? window.grpZoneDeLigne(rows[i]) : 'f';
+        var classeAutre = (coteLigne === coteVu) ? '' : ' est-autre-cote';
         /* grpEsc : ces valeurs viennent d'une saisie libre ou d'un import CSV. */
-        html += '<div class="eq-nom" data-index="' + i + '">' +
+        html += '<div class="eq-nom' + classeAutre + '" data-index="' + i + '">' +
                   '<button type="button" class="eq-nom-txt" onclick="eqEssayerNom(' + i + ')">' +
                     grpEsc(nom) +
                   '</button>' +
@@ -10294,24 +11255,130 @@
       /* Taille et couleur RESTENT VIDES : elles se choisissent à l'étape
          « Configurer ». Les pré-remplir ici imposerait un défaut que le client
          n'a pas choisi, et qu'il pourrait ne pas remarquer. */
-      rows.push({ name: nom, flock: nom, size: '', color: '', qty: 1 });
+      /* LE CÔTÉ EST MÉMORISÉ SUR LA LIGNE, depuis la vue affichée.
+
+         Sans ce champ, une seule zone portait tous les surnoms : la première
+         garnie se verrouillait, et saisir un nom en vue de dos le posait quand
+         même en face. Le geste ne change pas — on bascule la vue, on tape un
+         nom — mais chaque personne garde désormais son côté. */
+      var coteSaisie = (typeof window.grpVueAffichee === 'function')
+        ? window.grpVueAffichee() : 'f';
+
+      rows.push({ name: nom, flock: nom, size: '', color: '', qty: 1, zone: coteSaisie });
 
       if (typeof window.setGroupOrderRows === 'function') window.setGroupOrderRows(rows);
       champ.value = '';
       champ.focus();          // saisie en série : le clavier reste ouvert
       eqRendreNoms();
+
+      /* LE PREMIER SURNOM CRÉE LE TEXTE.
+
+         L'onglet « Ajout Texte » est masqué en mode groupe : plus rien n'y
+         créait de texte, et les surnoms n'avaient aucun élément où s'accrocher.
+         Ils restaient donc cantonnés à la face, seule zone que le client avait
+         pu garnir avant que l'onglet ne disparaisse.
+
+         C'est le modèle propre au groupe, et celui que l'interface promet
+         déjà : le surnom EST le texte. La seule question — où le poser — est
+         réglée par le sélecteur Face/Dos juste au-dessus.
+
+         `eqEssayerNom` prend le relais dès que la zone porte un texte : elle se
+         contente alors de substituer le contenu, sans toucher au style. */
+      /* LE CÔTÉ DE CETTE PERSONNE, pas celui du canvas.
+
+         `grpTextZone()` décrit la zone que le vêtement montre ; elle se
+         verrouillait sur la première garnie. C'est `coteSaisie` — le côté
+         affiché à l'instant de la saisie, déjà mémorisé sur la ligne — qui
+         décide désormais. */
+      var zoneNom = coteSaisie;
+      var dejaLa = (typeof window.getSavedText === 'function')
+        ? window.getSavedText(zoneNom) : null;
+
+      if ((!dejaLa || !dejaLa.text) && typeof window.poserTexteGroupe === 'function') {
+        /* LE SECOND CÔTÉ HÉRITE DU STYLE DU PREMIER.
+
+           Sans cela, le dos naîtrait en Arial blanc 20 px alors que la face a
+           peut-être été soignée — deux inscriptions dépareillées sur le même
+           vêtement, contraire au « même design pour tous » que promet ce mode.
+
+           La GÉOMÉTRIE, elle, ne suit pas : les gabarits de la face et du dos
+           n'ont pas les mêmes dimensions, et la position par défaut de la zone
+           d'arrivée est la bonne. `poserTexteGroupe` traite déjà cette
+           distinction quand on lui passe un style de base.
+
+           Le style est copié À LA CRÉATION : restyler la face ensuite ne
+           modifiera pas le dos. Un miroir permanent coupleraient les deux zones
+           pour un cas minoritaire. */
+        var autreCote = (zoneNom === 'b') ? 'f' : 'b';
+        var styleSource = (typeof window.getSavedText === 'function')
+          ? window.getSavedText(autreCote) : null;
+        var base = (styleSource && styleSource.text) ? styleSource : null;
+
+        window.poserTexteGroupe(zoneNom, nom, base);
+
+        /* LA BARRE D'OUTILS S'OUVRE — couleur, taille, police, graisse.
+
+           C'est le seul chemin de MISE EN FORME laissé au mode groupe, et il
+           n'est pas un second chemin de CRÉATION : elle ne fait que styler un
+           texte existant. Même séquence que confirmTextInline (:373-380). */
+        var elNouveau = document.getElementById('text-' + zoneNom);
+        if (elNouveau && typeof window.selectDesignText === 'function') {
+          window.selectDesignText(elNouveau);
+        }
+        if (typeof window.showTextToolbar === 'function') {
+          window.showTextToolbar(zoneNom);
+        }
+      }
+
       eqEssayerNom(rows.length - 1);
     }
     window.eqAjouterNom = eqAjouterNom;
-
     /** Retire un surnom. */
     function eqRetirerNom(i) {
       var rows = (typeof window.getGroupOrderRows === 'function')
         ? (window.getGroupOrderRows() || []).slice() : [];
       if (i < 0 || i >= rows.length) return;
+
+      /* La zone de la ligne retirée, AVANT de la sortir du tableau. */
+      var zoneRetiree = rows[i].zone ||
+        (typeof window.grpTextZone === 'function' ? window.grpTextZone() : 'f');
+
       rows.splice(i, 1);
       if (typeof window.setGroupOrderRows === 'function') window.setGroupOrderRows(rows);
       eqRendreNoms();
+
+      /* ═══ LE TEXTE SUIT LA LISTE ═══════════════════════════════════════
+
+         Retirer un surnom le sortait de la liste mais le laissait AFFICHÉ sur
+         le vêtement : les deux se désynchronisaient, et le client voyait un nom
+         qu'il venait de supprimer.
+
+         LA DÉCISION SE PREND SUR LA LISTE, PAS SUR LE CANVAS. C'est
+         l'inversion qui manquait : le code interrogeait le DOM pour savoir ce
+         que la liste voulait. La liste est la source — elle seule sait si
+         quelqu'un occupe encore cette zone.
+
+         `retirerTexteGroupe` efface l'état ET l'affichage ensemble
+         (conf-text-editor.js:1208), ce qui est la définition même de la
+         désynchronisation qu'on corrige ici. */
+      var resteQuelquun = rows.some(function (r) {
+        return (r.zone || zoneRetiree) === zoneRetiree;
+      });
+
+      if (!resteQuelquun) {
+        if (typeof window.retirerTexteGroupe === 'function') {
+          window.retirerTexteGroupe(zoneRetiree);
+        }
+      } else {
+        /* D'autres personnes occupent encore cette zone : le texte reste, mais
+           il doit porter un nom SURVIVANT — pas celui qu'on vient d'effacer. */
+        for (var s = 0; s < rows.length; s++) {
+          if ((rows[s].zone || zoneRetiree) === zoneRetiree) {
+            eqEssayerNom(s);
+            break;
+          }
+        }
+      }
     }
     window.eqRetirerNom = eqRetirerNom;
 
@@ -10329,7 +11396,32 @@
       if (i < 0 || i >= rows.length) return;
 
       var nom = rows[i].flock || rows[i].name || '';
-      var zone = (typeof window.grpTextZone === 'function') ? window.grpTextZone() : 'f';
+
+      /* LA ZONE DE CETTE PERSONNE, et la vue qui va avec. */
+      var zone = (typeof window.grpZoneDeLigne === 'function')
+        ? window.grpZoneDeLigne(rows[i]) : 'f';
+
+      /* LA VUE BASCULE VERS LA PERSONNE.
+
+         Cliquer « Marie » doit MONTRER Marie, où qu'elle soit. Sans cette
+         bascule, cliquer un surnom du dos depuis la face ne changerait rien à
+         l'écran — un clic sans effet visible, le pire des cas.
+
+         ⚠️ Effet de bord assumé : la vue ainsi basculée décide du côté du
+         PROCHAIN surnom saisi. Un client qui essaie un nom de face après avoir
+         travaillé au dos verra donc sa saisie suivante partir en face. La liste
+         estompée le signale — les surnoms de l'autre côté changent d'aspect au
+         même instant. */
+      var vueVoulue = (zone === 'b') ? 'dos' : 'face';
+      var vueActuelle = (typeof window.grpVueAffichee === 'function')
+        ? (window.grpVueAffichee() === 'b' ? 'dos' : 'face') : 'face';
+
+      if (vueVoulue !== vueActuelle) {
+        var ongletVue = document.querySelector(
+          '.vt[aria-label="' + (zone === 'b' ? 'Vue de dos' : 'Vue de face') + '"]');
+        if (ongletVue) ongletVue.click();
+      }
+
       var el = document.getElementById('text-' + zone);
       var contenu = el ? el.querySelector('.dt-content') : null;
 

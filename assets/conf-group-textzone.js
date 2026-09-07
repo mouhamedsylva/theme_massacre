@@ -53,15 +53,65 @@
      courant, ce qui préserve le comportement d'avant ce module. */
   var choisie = null;
 
+  /* AUCUNE PERSISTANCE : la zone se DÉDUIT de l'état réel — une zone déjà
+     garnie, sinon la vue affichée. Rien à mémoriser, donc rien qui puisse
+     diverger de ce que le client voit. */
+
+  /* LA VUE AFFICHÉE DÉSIGNE LA ZONE — pas de commande dédiée.
+
+     Un sélecteur « Face / Dos » a d'abord été ajouté dans « Mon Équipe ». Il
+     faisait doublon avec les onglets « Vue de face » / « Vue de dos » situés
+     juste au-dessus du canvas : deux commandes pour le même geste, à quelques
+     centimètres l'une de l'autre. Le client change de vue pour VOIR le dos ;
+     c'est évidemment là qu'il veut son surnom.
+
+     `logo-layer` porte `data-view`, posé par selView (conf-view-switcher.js:35).
+     C'est le repère le plus fiable : il suit la vue réellement affichée, quel
+     que soit le chemin emprunté pour y arriver. */
+  function vueAffichee() {
+    var couche = document.getElementById('logo-layer');
+    var v = couche && couche.getAttribute('data-view');
+    return (v === 'dos') ? 'b' : 'f';
+  }
+  /* Exposée : la saisie d'un surnom (conf-main-inline.js) doit connaître le
+     côté affiché pour le mémoriser sur la ligne. */
+  window.grpVueAffichee = vueAffichee;
+
+  /**
+   * Le côté d'UNE ligne — par opposition à `grpTextZone()`, qui décrit la zone
+   * du canvas.
+   *
+   * Repli sur `grpTextZone()` : les listes composées avant ce champ, et les
+   * lignes importées par CSV, n'en portent pas. Elles se comportent alors
+   * comme avant.
+   *
+   * @param {Object} row - une ligne de `groupOrderRows`
+   */
+  window.grpZoneDeLigne = function (row) {
+    if (row && (row.zone === 'f' || row.zone === 'b')) return row.zone;
+    return window.grpTextZone();
+  };
+
   /** Zone à substituer par le surnom. Lue par l'aperçu et l'ajout au panier. */
   window.grpTextZone = function () {
-    var actives = zonesActives();
-    if (!actives.length) return 'f';
+    /* UNE ZONE DÉJÀ GARNIE FAIT FOI, quelle que soit la vue affichée.
 
-    /* Le choix mémorisé n'est plus valide si le client a supprimé ce texte
-       entre-temps : on retombe alors sur la première zone active. */
-    var encoreLa = actives.some(function (a) { return a.zone === choisie; });
-    return encoreLa ? choisie : actives[0].zone;
+       Sans cela, un client qui a posé ses surnoms en face puis bascule en vue
+       de dos pour ajouter un logo verrait la zone changer sous lui — et le
+       surnom suivant partirait au dos, séparé des précédents.
+
+       Le choix ne se fait donc qu'AU PREMIER surnom, par la vue affichée. */
+    var actives = zonesActives();
+    if (actives.length) {
+      var porteuse = actives.filter(function (a) {
+        return a.zone === 'f' || a.zone === 'b';
+      })[0];
+      if (porteuse) return porteuse.zone;
+      return actives[0].zone;
+    }
+
+    /* Aucune zone garnie : c'est le premier surnom. La vue affichée décide. */
+    return vueAffichee();
   };
 
   /** Construit le sélecteur, ou le masque s'il n'y a rien à départager. */

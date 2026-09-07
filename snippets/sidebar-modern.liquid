@@ -202,11 +202,23 @@
     {%- endcomment -%}
     <p class="eq-info">
       Composez le design commun à toute l'équipe.<br>
-      Saisissez un premier surnom : il apparaîtra sur le vêtement.
+      Choisissez la <strong>vue de face ou de dos</strong>, puis saisissez un
+      premier surnom : il se posera sur le côté affiché.
       <strong>Sa position et sa taille vaudront pour tous les membres</strong> —
       les autres noms viendront s'y placer à l'identique.
     </p>
 
+    {%- comment -%}
+      PAS DE SÉLECTEUR « Face / Dos » ICI.
+
+      Il en existait un, et il faisait doublon avec les onglets « Vue de face »
+      / « Vue de dos » situés juste au-dessus du canvas : deux commandes pour le
+      même geste, à quelques centimètres l'une de l'autre.
+
+      Le surnom se pose désormais sur LA VUE AFFICHÉE — le client bascule en vue
+      de dos pour voir le dos, c'est évidemment là qu'il le veut. Voir
+      `grpTextZone` (conf-group-textzone.js).
+    {%- endcomment -%}
     <div class="eq-liste-hdr">
       <span class="eq-liste-titre">Surnoms</span>
       <span class="eq-liste-compte" id="eq-liste-compte">0</span>

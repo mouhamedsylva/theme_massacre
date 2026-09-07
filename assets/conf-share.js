@@ -670,6 +670,12 @@
           // Placement auto dans la zone de la manche concernée.
           // Pas à la restauration : la géométrie sauvegardée ferait foi et
           // serait écrasée par ce recentrage (voir zone 'b').
+          /* Aucune bascule de vue à inverser ici, contrairement au dos : c'est
+             `showSleeve` (appelée par doUpload) qui passe en vue de côté, APRÈS
+             cet appel. Le logo n'est donc pas encore mesurable et le placement
+             se REPORTE — `selView` le reprendra à la bascule. C'est exactement
+             ce que le report est fait pour couvrir ; ce chemin plaçait jusqu'ici
+             sur un calque masqué, avec le même défaut qu'au dos. */
           if (!window.__restoringUploads) window.placeLogoInZone(zone);
 
           // La rotation vers la bonne manche est déclenchée par doUpload
@@ -697,16 +703,19 @@
             }
             logo.style.display = 'block';
           }
-          if (!restoringF) window.placeLogoInZone(zone);
-          // Aperçu temps réel dans la vignette récap
-          window.updateRecapThumbLogo();
           if (!restoringF) {
-            // Basculer vers la vue de face pour positionner le logo
+            /* Bascule AVANT placement, comme pour le dos : `placeLogoInZone`
+               exige un logo mesurable. La face est déjà la vue par défaut, donc
+               l'ordre ne change rien aujourd'hui — mais le laisser inversé
+               rouvrirait le défaut le jour où le canvas s'ouvrirait ailleurs. */
             const faceBtn = document.querySelector('.vt[onclick*="face"]');
             if (faceBtn && typeof selView === 'function') {
               selView(faceBtn, 'face');
             }
+            window.placeLogoInZone(zone);
           }
+          // Aperçu temps réel dans la vignette récap
+          window.updateRecapThumbLogo();
         }
 
         // Logo dos déplaçable sur le produit + bascule automatique vers la vue de dos
@@ -730,13 +739,23 @@
             logo.style.display = 'block';
           }
           if (!restoring) {
-            window.placeLogoInZone('b');
+            /* LA VUE BASCULE AVANT LE PLACEMENT — l'ordre compte désormais.
+
+               Le placement précédait la bascule. `placeLogoInZone` sort
+               maintenant sans rien faire quand le logo n'est pas mesurable, et
+               `#logo-b` l'est seulement une fois la vue de dos affichée : dans
+               l'ancien ordre, ce placement pourtant légitime aurait été reporté
+               à la prochaine bascule.
+
+               `selView` pose `data-view` de façon synchrone ; le logo est donc
+               mesurable dès la ligne suivante. */
             // Basculer vers la vue de dos pour que le client positionne le logo.
             // Pas à la restauration : la vue sauterait au chargement de la page.
             const dosBtn = document.querySelector('.vt[onclick*="dos"]');
             if (dosBtn && typeof selView === 'function') {
               selView(dosBtn, 'dos');
             }
+            window.placeLogoInZone('b');
           }
         }
 

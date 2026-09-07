@@ -567,7 +567,19 @@
        Un réglage global n'y a pas de sens. */
     var racine = document.querySelector(".conf-app-root");
     var estGroupe = racine && racine.getAttribute("data-mode") === "groupe";
-    if (estGroupe) {
+
+    /* ÉCRAN DE CHOIX : aucun produit n'est encore configuré.
+
+       Le bouton s'y affichait par-dessus les deux cartes de mode — il annonce
+       une taille pour un article que le client n'a pas commencé à composer.
+
+       `data-etape="choix"` est l'attribut qui porte cet écran ; il est retiré
+       dès qu'un mode est retenu (conf-main-inline.js). Même test que le saut
+       de l'écran de choix pour les produits sans surnom
+       (conf-sidebar-modern.js:208). */
+    var surEcranChoix = racine && racine.getAttribute("data-etape") === "choix";
+
+    if (estGroupe || surEcranChoix) {
       var bGrp = document.getElementById("mob-tq-btn");
       if (bGrp) bGrp.remove();
       if (feuille) feuille.remove();
