@@ -238,10 +238,14 @@
          client. Il reste alors dedans même en reprenant un sweatshirt, sans
          jamais avoir choisi ni su qu'une alternative existait.
 
-         La barre « Mode actuel » lit ce drapeau pour expliquer POURQUOI
-         (conf-main-inline.js). Il est levé dès que le client change de mode
-         lui-même : le mode redevient un choix, le message n'a plus lieu
-         d'être. */
+         Un lecteur : le retour au textile (conf-dynamic-layout.js), qui repose
+         la question du mode quand le client reprend un sweatshirt. Le drapeau
+         est levé dès qu'il change de mode lui-même.
+
+         La barre « Mode actuel » le lisait aussi, pour afficher un bandeau
+         ambré expliquant la contrainte. Ce bandeau a été retiré : il redisait
+         après coup ce que le client venait de faire, alors que la note de la
+         sidebar (.pc-note-libre) l'annonce déjà avant le clic. */
       try {
         sessionStorage.setItem("conf_mode_impose", productType);
       } catch (e) {}
@@ -465,109 +469,26 @@
   }
 
   /**
-   * Met à jour l'affichage du bouton d'option manches
-   * Active/désactive le toggle selon l'état de l'option
+   * Les blocs « manches » sont devenus de simples bandeaux d'information :
+   * l'interrupteur a été retiré, les vues manche sont toujours accessibles et
+   * le supplément se déclenche à la pose d'un logo.
+   *
+   * Cette fonction ne posait que la classe `active`, qui colorait le track de
+   * l'interrupteur. Elle n'a plus rien à piloter, mais reste appelée depuis
+   * switchView() et applySleeveOption() : on la garde vide plutôt que de
+   * traquer ses appelants.
+   *
+   * (Le masquage des bandeaux hors textile est ailleurs — voir la boucle
+   * `upload-sleeve-option-` dans la mise à jour du type de produit.)
    */
-  function updateSleeveOptionButton() {
-    const sleeveOptionFace = document.getElementById(
-      "upload-sleeve-option-face",
-    );
-    const sleeveOptionDos = document.getElementById("upload-sleeve-option-dos");
-    const sleeveOptionCote = document.getElementById(
-      "upload-sleeve-option-cote",
-    );
+  function updateSleeveOptionButton() {}
 
-    // Vérifier si l'option manches est activée
-    // La fonction sleeveOptOn() existe déjà dans configurateur.liquid
-    const isSleeveEnabled =
-      typeof window.sleeveOptOn === "function" && window.sleeveOptOn();
+  /* handleSleeveToggle a été retiré avec l'interrupteur qu'il pilotait.
 
-    // Mettre à jour l'état visuel du toggle (pas cacher le bouton)
-    if (sleeveOptionFace) {
-      if (isSleeveEnabled) {
-        sleeveOptionFace.classList.add("active");
-      } else {
-        sleeveOptionFace.classList.remove("active");
-      }
-    }
-
-    if (sleeveOptionDos) {
-      if (isSleeveEnabled) {
-        sleeveOptionDos.classList.add("active");
-      } else {
-        sleeveOptionDos.classList.remove("active");
-      }
-    }
-
-    if (sleeveOptionCote) {
-      if (isSleeveEnabled) {
-        sleeveOptionCote.classList.add("active");
-      } else {
-        sleeveOptionCote.classList.remove("active");
-      }
-    }
-  }
-
-  /**
-   * Gestionnaire personnalisé pour le toggle manches
-   * Redirige vers la vue de face si l'option est désactivée depuis la vue de côté
-   */
-  function handleSleeveToggle() {
-    // Vérifier l'état actuel AVANT le toggle
-    const wasEnabled =
-      typeof window.sleeveOptOn === "function" && window.sleeveOptOn();
-
-    // Appeler la fonction de toggle existante
-    if (typeof window.toggleSleeveOption === "function") {
-      window.toggleSleeveOption();
-    }
-
-    /* ACTIVATION : on bascule aussi la vue vers le côté.
-
-       Le cas symétrique — désactiver puis revenir en face — était traité juste
-       en dessous, mais pas celui-ci. Sur ordinateur cela ne se voyait pas : le
-       client cliquait ensuite un onglet de manche, qui appelle selView() et
-       synchronise le panneau. Sur mobile ces onglets sont dans le rail, DERRIÈRE
-       la feuille montante — inatteignables tant qu'elle est ouverte. Le panneau
-       restait donc sur les zones de face (« GAUCHE (CŒUR) / DROITE (POITRINE) »),
-       et le bouton « Ajouter un drapeau FR », qui vit dans #upload-view-cote,
-       n'apparaissait jamais.
-
-       Le délai laisse le toggle s'animer, comme pour la désactivation. */
-    if (!wasEnabled) {
-      const coteBtn = document.getElementById("cote-view-btn");
-      if (coteBtn && typeof window.selView === "function") {
-        setTimeout(() => {
-          /* selView refuse un bouton désactivé. L'onglet reste `disabled` tant
-             que l'option n'est pas prise en compte : on lève le verrou le temps
-             de l'appel, comme le fait déjà conf-sleeve-side.js:92-96. */
-          const wasDisabled = coteBtn.disabled;
-          coteBtn.disabled = false;
-          window.selView(coteBtn, "cote");
-          coteBtn.disabled = wasDisabled;
-        }, 100);
-      }
-    }
-
-    // Si on vient de désactiver l'option (était ON, maintenant OFF)
-    if (wasEnabled) {
-      // Vérifier si on est actuellement en vue de côté
-      const logoLayer = document.getElementById("logo-layer");
-      const currentView = logoLayer
-        ? logoLayer.getAttribute("data-view")
-        : null;
-
-      if (currentView === "cote") {
-        // Rediriger vers la vue de face
-        const faceBtn = document.querySelector('.vt[onclick*="face"]');
-        if (faceBtn && typeof window.selView === "function") {
-          setTimeout(() => {
-            window.selView(faceBtn, "face");
-          }, 100); // Petit délai pour laisser le toggle s'animer
-        }
-      }
-    }
-  }
+     Il synchronisait la vue au moment de la bascule — vers le côté à
+     l'activation, retour en face à la désactivation. Les vues manche étant
+     désormais toujours ouvertes, il n'y a plus de bascule à suivre : le client
+     clique directement l'onglet « Manche gauche » ou « Manche droite ». */
 
   /* ═══════════════════════════════════════════════════════════
      PANNEAU TEXTE (saisie directe, façon CustomInk)
@@ -1236,9 +1157,6 @@
     syncFlagPanelToCanvas,
     syncPatchPanelToCanvas,
   };
-
-  // Exposer handleSleeveToggle globalement pour les boutons HTML
-  window.handleSleeveToggle = handleSleeveToggle;
 
   /**
    * Démarrage : restaure l'interface du produit réellement sélectionné.

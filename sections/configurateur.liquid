@@ -46,6 +46,131 @@
     })();
   </script>
 
+  {%- comment -%}
+    LE BON PRODUIT DÈS LE PREMIER AFFICHAGE.
+
+    Le serveur écrit toujours les images du SWEATSHIRT (plus bas) : il ne peut
+    pas savoir quel produit la session du navigateur mémorise. Ce sweatshirt
+    s'affichait donc systématiquement avant d'être remplacé par le JavaScript —
+    un clignotement, très visible après le rechargement qu'impose un changement
+    de mode (choisir un coin depuis le mode groupe, par exemple).
+
+    Même principe que le script ci-dessus : SYNCHRONE, donc exécuté avant que
+    le navigateur ne peigne quoi que ce soit. Un bloc distinct parce que
+    celui-ci sort tôt quand aucun mode n'est retenu — or un produit peut être
+    mémorisé sans mode (après « Réinitialiser », au retour d'un paiement).
+
+    AUTONOME : les scripts du configurateur sont en `defer`, aucune de leurs
+    fonctions n'existe encore. Il ne lit que la session et les dictionnaires
+    d'images, définis en synchrone dans le <head> (layout/configurateur.liquid).
+
+    IL N'ÉCRIT JAMAIS EN SESSION — seulement dans le DOM. Écrire ici créerait
+    des courses avec le rangement des designs par mode.
+  {%- endcomment -%}
+  <script>
+    (function () {
+      try {
+        /* PARTAGE DE DESIGN : on s'abstient.
+
+           `?design=` écrit le produit APRÈS un appel réseau, donc bien après ce
+           script : la session porte encore l'état précédent, sans rapport avec
+           le lien ouvert. Sans information fiable, ne rien faire. */
+        if (/[?&](design|share)=/.test(location.search)) return;
+
+        var produit = sessionStorage.getItem('conf_current_product');
+        if (!produit) return;   // première visite : le markup convient
+
+        var racine = document.currentScript && document.currentScript.parentElement;
+        if (!racine || !racine.classList.contains('conf-app-root')) return;
+
+        /* ── PRODUIT NON TEXTILE : on masque, il n'y a rien de juste à montrer.
+
+           Le canvas est entièrement reconstruit par `switchLayout`
+           (conf-dynamic-layout.js), qui retire l'attribut une fois la pièce
+           reconstruite ET ses designs restaurés. */
+        if (produit === 'coins' || produit === 'drapeaux' || produit === 'patches') {
+          racine.setAttribute('data-canvas-attente', produit);
+
+          /* FILET : le canvas se révèle quoi qu'il arrive.
+
+             La révélation nominale dépend de scripts qui peuvent ne pas se
+             charger, ou d'une carte produit introuvable dans le DOM. Sans ce
+             filet, le client resterait devant un trou gris, en silence — bien
+             pire que le clignotement qu'on corrige.
+
+             Passé ce délai, il voit le sweatshirt : exactement le défaut
+             d'avant ce correctif. On ne peut donc jamais être PIRE qu'avant. */
+          setTimeout(function () {
+            racine.removeAttribute('data-canvas-attente');
+          }, 1200);
+          return;
+        }
+
+        /* ── PRODUIT TEXTILE : on corrige les images plutôt que de masquer.
+
+           Ici quelque chose de juste EST affichable tout de suite ; masquer
+           remplacerait un clignotement par un trou.
+
+           `sweatshirt-face.png` n'est d'ailleurs jamais l'image réellement
+           affichée : le configurateur recompose toujours le `src` vers la
+           déclinaison couleur (`sweatshirt-noir-face.png`). Le markup serveur
+           fait donc télécharger une image inutile à chaque visite, et ce sur
+           TOUS les textiles — pas seulement après un changement de mode. */
+        var PREFIXES = {
+          /* Recopié de PRODUCT_SLUGS (conf-main-inline.js) : ce script
+             s'exécute avant lui, la table n'est pas encore exposée. Un
+             quatrième textile devra être ajouté AUX DEUX ENDROITS. */
+          sweatshirt: 'sweatshirt',
+          tshirt: 'tshirt',
+          tshirt_polyester: 'tshirt-polyester'
+        };
+        var prefixe = PREFIXES[produit];
+        if (!prefixe) return;
+
+        var urls = window.PRODUCT_IMAGE_URLS || {};
+        var replis = (window.PRODUCT_FALLBACK_URLS || {})[prefixe] || {};
+
+        /* Couleur mémorisée POUR CE PRODUIT. Le magasin est indexé par
+           produit ; un objet portant `hex` ou `name` à sa racine est l'ancien
+           format global, à ignorer — sinon on lirait la couleur d'un autre
+           vêtement (même garde que savedColorFor, conf-main-inline.js). */
+        var slug = '';
+        try {
+          var tout = JSON.parse(sessionStorage.getItem('conf_current_color') || '{}');
+          if (tout && !tout.hex && !tout.name && tout[produit]) {
+            slug = tout[produit].slug || '';
+          }
+        } catch (e) {}
+
+        ['face', 'dos', 'cote'].forEach(function (vue) {
+          var img = document.getElementById('view-' + vue);
+          if (!img) return;
+
+          var url = (slug && urls[prefixe + '-' + slug + '-' + vue]) || replis[vue];
+          if (!url || url === img.getAttribute('src')) return;
+
+          /* REPLI SUR L'IMAGE D'ORIGINE si le fichier n'existe pas.
+
+             Les dictionnaires sont engendrés par `asset_url`, qui compose une
+             URL même pour un fichier absent : une couleur sans visuel dédié
+             donnerait une image cassée. On remet alors le markup serveur,
+             c'est-à-dire l'état d'avant ce correctif — le JavaScript posera
+             la bonne image quelques instants plus tard, comme aujourd'hui. */
+          var origine = img.getAttribute('src');
+          img.addEventListener('error', function () {
+            img.setAttribute('src', origine);
+          }, { once: true });
+
+          img.setAttribute('src', url);
+          /* Le libellé annonçait « Sweatshirt » quel que soit le vêtement : un
+             lecteur d'écran nommait le mauvais produit pendant toute la
+             session. */
+          img.setAttribute('alt', 'Vêtement personnalisé, vue de ' + vue);
+        });
+      } catch (e) {}
+    })();
+  </script>
+
   <!-- ══ HEADER ══ -->
   <header class="hdr">
     <div class="hdr-brand">
@@ -474,25 +599,24 @@
               <span class="perso-caret">›</span>
             </button>
             <div class="perso-body">
-          <!-- Carte d'option : intitulé, prix, bascule. Design professionnel
-               avec badge de prix bien visible. Repliée tant que l'option n'est
-               pas activée — on ne montre pas des zones d'upload pour une
-               prestation que le client n'a pas choisie. -->
+          <!-- Bandeau d'information : intitulé et prix, sans bascule. Les
+               manches ne sont plus une option à activer — les zones d'upload
+               sont toujours offertes, et le supplément se déclenche à la POSE
+               d'un logo, pas avant. Le badge de prix reste alimenté par
+               updateSleeveSurcharge() (tarif de l'admin, pas figé). -->
           <div class="opt-card" id="slv-opt">
-            <button type="button" class="opt-row" id="slv-toggle-row"
-                    onclick="toggleSleeveOption()" aria-expanded="false" aria-controls="slv-body">
+            <div class="opt-row" id="slv-toggle-row">
               <span class="opt-txt">
                 <span class="opt-name">
-                  Ajouter un logo sur les manches
+                  Logo sur les manches
                   <span class="opt-badge" id="slv-price-badge">+ 4,00 €/manche</span>
                 </span>
-                <span class="opt-desc">Logo imprimé sur manche gauche et/ou droite</span>
+                <span class="opt-desc">Facturé uniquement pour les manches que vous personnalisez</span>
               </span>
-              <span class="opt-switch" id="slv-switch"><span class="opt-knob"></span></span>
-            </button>
+            </div>
           </div>
 
-          <div id="slv-body" style="display:none">
+          <div id="slv-body">
           <div class="note">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="#999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
             Position : à 5 cm de la couture de l'épaule
@@ -773,33 +897,34 @@
             </svg>
             <span class="vt-txt">Vue de dos</span>
           </button>
-          <!-- Le point signale que l'option manches est active : l'onglet
-               devient utile, il faut que ça se voie sans le survoler.
-               Affiché par applySleeveOption(). -->
-          <button type="button" class="vt" id="cote-view-btn" onclick="selView(this,'cote')" disabled aria-label="Vue de côté">
+          <!-- Remplacé par les deux onglets manche, qui sont désormais
+               toujours visibles. Conservé masqué : quatre chemins le
+               référencent encore. Le verrou `disabled` est retiré — il ne
+               protégeait plus rien et faisait échouer selView(). -->
+          <button type="button" class="vt" id="cote-view-btn" onclick="selView(this,'cote')" style="display:none" aria-label="Vue de côté">
             <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
               <path d="M10 3 7 5v16h7V5l-3-2z"/>
               <path d="M14 7h3v10h-3"/>
             </svg>
             <span class="vt-txt">Vue de côté</span><span class="vt-dot" id="cote-view-dot" style="display:none"></span>
           </button>
-          <!-- Option manches ACTIVE : « Vue de côté » est remplacé par deux
-               onglets explicites, un par manche — la bascule flottante
-               Gauche/Droite devenait redondante et se lisait mal.
-               Bascule gérée par applySleeveOption() / setSleeveSide().
+          <!-- Deux onglets explicites, un par manche, TOUJOURS visibles : ils
+               remplacent « Vue de côté » et rendent la bascule flottante
+               Gauche/Droite sans objet.
                L'icône est la même des deux côtés, retournée en miroir par le
                CSS (.vt-ico-flip) : la manche pointe vers la gauche ou vers la
                droite, ce qui distingue les deux onglets d'un coup d'œil. -->
           <!-- Le point orange rappelle que la manche est PAYANTE (+ 4 €/manche
-               au prix unitaire dès qu'un logo y est posé). -->
-          <button type="button" class="vt" id="sleeve-l-btn" onclick="selectSleeveView('l')" style="display:none" aria-label="Manche gauche">
+               au prix unitaire dès qu'un logo y est posé). C'est bien la POSE
+               qui déclenche le supplément, pas l'ouverture de la vue. -->
+          <button type="button" class="vt" id="sleeve-l-btn" onclick="selectSleeveView('l')" aria-label="Manche gauche">
             <svg class="vt-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
               <path d="M13 4h5v16h-5z"/>
               <path d="M13 6 6 8.5 7.5 13 10 12"/>
             </svg>
             <span class="vt-txt">Manche gauche</span><span class="vt-dot"></span>
           </button>
-          <button type="button" class="vt" id="sleeve-r-btn" onclick="selectSleeveView('r')" style="display:none" aria-label="Manche droite">
+          <button type="button" class="vt" id="sleeve-r-btn" onclick="selectSleeveView('r')" aria-label="Manche droite">
             <svg class="vt-ico vt-ico-flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
               <path d="M13 4h5v16h-5z"/>
               <path d="M13 6 6 8.5 7.5 13 10 12"/>
@@ -1352,13 +1477,14 @@
         <div class="rp-pval" id="rp-price-val">45,00 € <span class="rp-pvat">TTC</span></div>
       </div>
 
-      <!-- Option payante activée : rappel sous le prix, pour que le supplément
-           inclus dans le total soit explicite. Piloté par applySleeveOption(). -->
+      <!-- Rappel sous le prix, pour que le supplément inclus dans le total soit
+           explicite. Affiché dès qu'un logo est posé sur une manche — c'est ce
+           que le panier facture. Piloté par applySleeveOption(). -->
       <div class="rp-opt-flag" id="rp-sleeve-flag" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M20 6L9 17l-5-5"/>
         </svg>
-        <span>Option manches activée <b id="rp-sleeve-amount"></b></span>
+        <span>Supplément manches <b id="rp-sleeve-amount"></b></span>
       </div>
 
       <div class="rp-acts">

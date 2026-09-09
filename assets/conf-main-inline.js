@@ -1344,7 +1344,19 @@
       }
       /* Sweatshirt (ou produit inconnu) : selProd n'a PAS été appelé, la couleur
          du textile est donc à restaurer ici. */
-      setTimeout(function () { doRestore(false); }, 200);
+      setTimeout(function () {
+        doRestore(false);
+
+        /* LA TAILLE ET LA QUANTITÉ SUIVENT LA COULEUR, pour la même raison :
+           `selProd` ne s'est pas exécuté, donc `applySizeQtyFor` non plus.
+
+           Ce rappel peuple aussi le <select> des tailles, écrit VIDE dans le
+           gabarit : sans lui, le récapitulatif n'affiche aucune taille tant que
+           le client n'a pas cliqué, et la première sauvegarde relit du vide. */
+        if (typeof applySizeQtyFor === 'function') {
+          try { applySizeQtyFor(currentProductType); } catch (e) {}
+        }
+      }, 200);
     }
 
     /* Restaure la couleur mémorisée : reclique la pastille correspondante pour
@@ -2336,9 +2348,23 @@
       var logoImg = logoEl ? logoEl.querySelector('img') : null;
       var logoSrc = (logoImg && logoEl.style.display !== 'none')
         ? safeImgSrc(logoImg.getAttribute('src')) : '';
-      var left = logoEl ? (parseFloat(logoEl.style.left) || 28) : 28;
-      var top  = logoEl ? (parseFloat(logoEl.style.top)  || 32) : 32;
-      var width = logoEl ? (parseFloat(logoEl.style.width) || 44) : 44;
+      /* UNE POSITION À ZÉRO EST UNE POSITION VALIDE.
+
+         `parseFloat(...) || 28` écartait le zéro, qui est falsy : un motif en
+         COUVERTURE — posé à `left: 0%, top: 0%, width: 100%`
+         (conf-flag-cover.js) — recevait le repli 28/32 et sortait de son cadre.
+         Même défaut que la vignette des coins, même cause.
+
+         `isFinite` sépare la valeur nulle (un nombre) de la valeur absente
+         (`NaN`, ce que rend `parseFloat('')`). */
+      var pctFlag = function (valeur, defaut) {
+        var n = parseFloat(valeur);
+        return isFinite(n) ? n : defaut;
+      };
+
+      var left  = logoEl ? pctFlag(logoEl.style.left,  28) : 28;
+      var top   = logoEl ? pctFlag(logoEl.style.top,   32) : 32;
+      var width = logoEl ? pctFlag(logoEl.style.width, 44) : 44;
 
       if (!bgSrc) return;
 
@@ -2700,6 +2726,30 @@
       var produitQuitte = currentProductType;
       if (productType && productType !== produitQuitte) memoriserZoom(produitQuitte);
 
+      /* La TAILLE et la QUANTITÉ du produit quitté sont mises de côté ici, pour
+         la même raison que le cadrage : `currentProductType` désigne encore
+         l'ancien, et les deux champs portent encore SES valeurs. Une ligne plus
+         bas, il serait trop tard.
+
+         Elles sont reposées après le changement, une fois le récapitulatif du
+         nouveau produit en place. */
+      /* SEULEMENT SI LE PRODUIT QUITTÉ EST UN TEXTILE QUI A VRAIMENT ÉTÉ VU.
+
+         `selProd` s'exécute AUSSI au démarrage, via `restoreProductThenUploads`,
+         pour rouvrir le produit de la session. `produitQuitte` vaut alors
+         'sweatshirt' — sa valeur initiale — alors qu'aucun sweatshirt n'a été
+         affiché : on enregistrerait la taille par défaut de l'écran par-dessus
+         celle que la session portait peut-être déjà.
+
+         La condition écarte aussi le retour d'un coin, d'un drapeau ou d'un
+         patch : leur gabarit n'a pas de grille de tailles, il n'y a rien à
+         retenir sous leur clé. */
+      var TEXTILES_TQ = ['sweatshirt', 'tshirt', 'tshirt_polyester'];
+      if (productType && productType !== produitQuitte &&
+          TEXTILES_TQ.indexOf(produitQuitte) !== -1) {
+        saveSizeQtyFor(produitQuitte);
+      }
+
       // Mémorise le type courant pour TOUS les produits (utilisé au checkout).
       if (productType) currentProductType = productType;
       /* Exposé : conf-overview.js s'en sert pour n'afficher l'onglet
@@ -2786,6 +2836,16 @@
         // Restaure la couleur PROPRE à ce produit (chaque textile garde la sienne).
         // Si aucune couleur mémorisée, on revient au Noir par défaut.
         applyColorForProduct(productType);
+
+        /* Même règle pour la TAILLE et la QUANTITÉ : chaque textile garde les
+           siennes. Sans cela, « L · 5 articles » choisi sur un sweatshirt
+           s'affichait tel quel sur les t-shirts — le récapitulatif textile
+           n'étant pas reconstruit d'un textile à l'autre, ses deux champs
+           gardaient simplement leur valeur.
+
+           Un produit jamais configuré repart des valeurs par défaut, jamais de
+           celles du produit quitté. */
+        applySizeQtyFor(productType);
 
         updateProductImages();
 
@@ -4778,24 +4838,35 @@
         if (thumbImg && thumbImg.src) {
           imgSrc = thumbImg.src;
         } else {
-          /* `.coin-base-img` A ÉTÉ RETIRÉ de cette liste.
+          /* LE DISQUE NU DU COIN : SELON QUE LA PIÈCE EST VIERGE OU NON.
 
-             C'est le DISQUE VIERGE du coin — le métal nu, sans aucun design.
-             Il donnait au panier une vignette de rond blanc, que le client
-             lisait comme un design perdu alors que son écran montrait deux
-             disques logotés.
+             `.coin-base-img` avait été retiré d'ici en bloc. C'est le métal nu,
+             sans aucun design : pour un coin QUI PORTE un design mais dont la
+             composition a échoué, il donne une vignette de rond blanc que le
+             client lit comme un design perdu, alors que son écran montre deux
+             disques logotés. Ce rejet-là reste juste.
 
-             Les autres sélecteurs restent : l'image du drapeau porte déjà sa
-             couleur, et celle du patch sa forme — retomber dessus reste
-             informatif. Un fond de coin nu, non.
+             Mais il condamnait aussi le coin COMMANDÉ VIERGE — métal, taille et
+             finition seuls, ce que l'atelier produit très bien. Celui-là
+             n'avait plus aucune vignette : le tiroir affichait un `<img src="">`,
+             donc l'icône « image brisée ».
 
-             Avec le filtre des vues sans logo (captureCoinDesign) et la
-             détection par boîte réelle, ce repli ne devrait plus être atteint
-             pour un coin pourvu d'un design. S'il l'est, mieux vaut une
-             vignette vide qu'une vignette trompeuse. */
-          const canvasImg = document.querySelector(
-            '.flag-base-img, #coins-preview-img, .coins-canvas-circle img'
-          );
+             Les deux cas se distinguent exactement : `captureCoinDesign` renvoie
+             null quand AUCUNE face ne porte de logo. Le disque nu est alors la
+             représentation fidèle de ce qui est commandé, pas un pis-aller.
+
+             Les autres sélecteurs valent dans tous les cas : l'image du drapeau
+             porte déjà sa couleur, celle du patch sa forme.
+
+             On vise `#coin-base-recto`, PAS la classe `.coin-base-img` : elle
+             porte trois images (recto, verso, côté — conf-dynamic-layout.js) et
+             `querySelector` rendrait la première du DOCUMENT, pas de la liste.
+             La vignette du panier montre le recto, comme partout ailleurs. */
+          var selecteurs = '.flag-base-img, #coins-preview-img, .coins-canvas-circle img';
+          if (currentProductType === 'coins' && !customViews) {
+            selecteurs += ', #coin-base-recto';
+          }
+          const canvasImg = document.querySelector(selecteurs);
           if (canvasImg && canvasImg.src) imgSrc = canvasImg.src;
         }
       }
@@ -5305,6 +5376,9 @@
         /* URLs hébergées : sans cette ligne, la restauration les reposerait au
            rechargement et le design reviendrait après un reset. */
         sessionStorage.removeItem('conf_cloud_urls');
+        /* Tailles et quantités par produit : elles font partie de ce que le
+           client a configuré, et doivent repartir avec le reste. */
+        sessionStorage.removeItem('conf_size_qty');
 
         /* PAQUETS RANGÉS PAR MODE — `conf_design_mode_libre`,
            `conf_design_mode_groupe`, etc.
@@ -6249,21 +6323,38 @@
       var logoEl = document.getElementById('patch-logo');
       var logoImg = logoEl ? logoEl.querySelector('img') : null;
       var logoSrc = (logoImg && logoEl.style.display !== 'none') ? logoImg.getAttribute('src') : '';
-      if (!logoSrc) return null;
+
+      /* PAS DE LOGO N'EST PAS UN ÉCHEC.
+
+         On sortait ici en `return null`, AVANT même de dessiner le fond. Un
+         patch commandé vierge — forme et couleur seules, ce que l'atelier sait
+         parfaitement produire — arrivait donc au panier sans aucune image :
+         `imgSrc` restait vide et le tiroir affichait un `<img src="">`, soit
+         l'icône « image brisée » du navigateur.
+
+         Tout le code de fond ci-dessous fonctionne sans logo. On le laisse
+         composer et on renvoie `logos: []` : l'appelant (addCustomToCartInner)
+         a déjà la branche qui prend le fond tel quel dans ce cas. */
 
       var shape = patchShapeName();
-      var slug = window.currentPatchSlug || 'noir';
 
-      // 1) Image source : la vraie image colorée si elle existe, sinon l'image
-      //    blanche telle quelle (aucune teinte).
-      var colorUrl = (window.PATCH_IMAGE_URLS || {})[shape + '-' + slug] || '';
-      var whiteUrl = (window.PATCH_WHITE_URLS || {})[shape] || '';
+      /* 1) LE FOND EST UNE COULEUR, PLUS UNE IMAGE.
 
-      var baseImg = colorUrl ? await loadImagePromise(colorUrl) : null;
-      if (!baseImg) baseImg = await loadImagePromise(whiteUrl);
+         On chargeait ici un PNG par forme et par couleur, avec repli sur un PNG
+         BLANC quand la combinaison n'existait pas. Or l'écran n'affiche plus
+         aucune image depuis le passage à la forme vectorielle : `.patch-body`
+         porte la couleur en CSS (conf-coins.css) et `updatePatchShapeImg` ne
+         règle plus que le ratio.
 
-      /* 2) Canvas au ratio de la FORME AFFICHÉE, pas à celui du PNG de fond
-         (simple texture) : s'y caler faussait le cadrage « cover ». */
+         La forme « rond » — celle par défaut — n'ayant AUCUNE image colorée, le
+         repli attrapait le PNG blanc et la vignette du panier sortait blanche
+         alors que le patch était noir à l'écran.
+
+         On peint donc la couleur courante, comme le CSS : `currentPatchHex`,
+         tenu à jour par selectPatchColor et restauré au rechargement. */
+      var patchHex = window.currentPatchHex || '#1a1a1a';
+
+      /* 2) Canvas au ratio de la FORME AFFICHÉE. */
       var ratio = (window.PATCH_SHAPE_RATIO || {})[shape] || 1;
       var W = 1000;
       var H = Math.round(W / ratio);
@@ -6272,24 +6363,14 @@
       var ctx = c.getContext('2d');
       ctx.clearRect(0, 0, W, H);
 
-      /* 3) Fond du patch.
-         Toutes les images ne sont pas fournies : la forme « rond » n'en a
-         AUCUNE (0/16) et « rectangle » seulement 2/16, alors que « rond » est
-         la forme par défaut. On renvoyait alors null, et la planche envoyée à
-         l'atelier partait sans aperçu — sans que rien ne le signale.
-         À l'écran, la forme est de toute façon dessinée en CSS (.patch-body,
-         border-radius / clip-path) et non par un PNG : on reproduit ici le même
-         rendu avec tracePatchShape(), qui connaît déjà les quatre silhouettes.
-         L'image PNG reste préférée quand elle existe, pour sa texture (couture). */
-      if (baseImg) {
-        ctx.drawImage(baseImg, 0, 0, W, H);
-      } else {
-        ctx.save();
-        tracePatchShape(ctx, shape, 0, 0, W, H);
-        ctx.fillStyle = window.currentPatchHex || '#000000';
-        ctx.fill();
-        ctx.restore();
-      }
+      /* 3) Fond du patch : la silhouette, remplie de la couleur choisie.
+         tracePatchShape() connaît déjà les quatre formes et reproduit le rendu
+         de .patch-body (border-radius / masque SVG). */
+      ctx.save();
+      tracePatchShape(ctx, shape, 0, 0, W, H);
+      ctx.fillStyle = patchHex;
+      ctx.fill();
+      ctx.restore();
 
       // 4) Logo : ses % sont relatifs au canvas = à l'image entière.
       var lx = logoEl ? (parseFloat(logoEl.style.left) || 0) / 100 : 0;
@@ -6307,11 +6388,25 @@
         ctx.save();
         tracePatchShape(ctx, shape, 0, 0, W, H);
         ctx.clip();
-        var bw = Math.max(lw * W, H);
+        /* LE PLANCHER DE HAUTEUR NE VAUT QUE POUR UN DESIGN QUI COUVRE.
+
+           `Math.max(lw * W, H)` transcrit le `min-height: 100%` du CSS : le
+           blason étant plus haut que large, un carré de 100 % y laisserait un
+           vide en bas.
+
+           Mais sous 100 %, ce plancher ANNULERAIT la réduction : la boîte
+           resterait à la hauteur de la silhouette pendant que sa largeur
+           diminue. Le panier montrerait un patch couvert alors que le client
+           voit une vignette. Le CSS lève d'ailleurs `min-height` dans ce cas
+           (`.patch-logo.is-reduced`, conf-coins.css). */
+        var bw = (lw >= 1) ? Math.max(lw * W, H) : lw * W;
         var bx = lx * W, by = ly * H;
         var nw2 = logoImgEl.naturalWidth || 1;
         var nh2 = logoImgEl.naturalHeight || 1;
-        var scale = Math.max(bw / nw2, bw / nh2);
+        /* `max` = couvrir, `min` = contenir — même bascule qu'à l'écran. */
+        var scale = (lw >= 1)
+          ? Math.max(bw / nw2, bw / nh2)
+          : Math.min(bw / nw2, bw / nh2);
         var dw = nw2 * scale, dh = nh2 * scale;
         ctx.drawImage(logoImgEl, bx + (bw - dw) / 2, by + (bw - dh) / 2, dw, dh);
         ctx.restore();
@@ -6320,10 +6415,21 @@
       var bgDataUrl;
       try { bgDataUrl = c.toDataURL('image/png'); }
       catch (e) {
-        /* Canvas taint (CORS) : impossible d'exporter. On repasse au calque
-           séparé — la vignette sera moins fidèle, mais elle existera. */
+        /* Canvas taint (CORS) : impossible d'exporter. Seul le LOGO peut
+           contaminer le canvas — le fond n'est plus qu'un remplissage de
+           couleur. On le redessine donc seul, sur un canvas neuf et propre, et
+           on laisse le serveur superposer le logo par-dessus. */
         console.warn('Patch: canvas taint, repli sur calque serveur', e);
-        return { background: baseImg.src, logos: [{ src: logoSrc, x: lx, y: ly, w: lw }] };
+        var cf = document.createElement('canvas');
+        cf.width = W; cf.height = H;
+        var ctxf = cf.getContext('2d');
+        tracePatchShape(ctxf, shape, 0, 0, W, H);
+        ctxf.fillStyle = patchHex;
+        ctxf.fill();
+        return {
+          background: cf.toDataURL('image/png'),
+          logos: logoSrc ? [{ src: logoSrc, x: lx, y: ly, w: lw }] : []
+        };
       }
 
       // Le logo est déjà dans le fond : aucun calque à superposer.
@@ -7234,11 +7340,15 @@
 
           const divG = document.createElement('div');
           divG.className = 'cd-item cd-item-grp';
+          // Sans source, pas de balise : voir la vignette des lignes simples.
+          const vignetteG = safeImgSrc(tete.img);
           divG.innerHTML =
             '<div class="cd-thumb-pile' + (estPile ? ' is-pile' : '') + '">' +
             '<button type="button" class="cd-thumb" onclick="openCartItemDesign(' +
               (Number(tete.id) || 0) + ')" title="Revenir au design de cette commande">' +
-              '<img src="' + safeImgSrc(tete.img) + '" alt="' + grpEsc(tete.name) + '">' +
+              (vignetteG
+                ? '<img src="' + vignetteG + '" alt="' + grpEsc(tete.name) + '">'
+                : '') +
             '</button>' +
             /* Le compte sous la VIGNETTE, pas dans la colonne de droite : il
                qualifie l'image — combien de pièces cette commande représente —
@@ -7281,10 +7391,19 @@
            l'absence d'échappement — mais `id` passe par une coercition
            explicite, la valeur atterrissant dans un attribut onclick. */
         const cdId = Number(item.id) || 0;
+        /* PAS D'`<img>` SANS SOURCE.
+
+           `safeImgSrc` rend '' pour une valeur vide ou non conforme, et un
+           `src=""` fait charger la PAGE elle-même comme image : le navigateur
+           affiche alors son icône « image brisée » par-dessus le texte
+           alternatif. La vignette venant parfois d'une composition serveur qui
+           peut échouer, on garde ce filet quelle qu'en soit la cause : mieux
+           vaut un cadre vide qu'une image morte. */
+        const vignette = safeImgSrc(item.img);
         div.innerHTML = `
           <button type="button" class="cd-thumb" onclick="openCartItemDesign(${cdId})"
                   title="Revenir au design de cet article">
-            <img src="${safeImgSrc(item.img)}" alt="${grpEsc(item.name)}">
+            ${vignette ? `<img src="${vignette}" alt="${grpEsc(item.name)}">` : ''}
           </button>
           <div class="cd-info">
             <div class="cd-name">${grpEsc(item.name)}</div>
@@ -7732,6 +7851,154 @@
       } catch (e) { return null; }
     }
 
+    /* ═══ TAILLE ET QUANTITÉ, PAR PRODUIT ═══════════════════════════════════
+
+       Elles ne vivaient que dans le DOM. Le récapitulatif textile n'étant PAS
+       reconstruit d'un textile à l'autre — seul le canvas l'est — les deux
+       champs gardaient leur valeur : choisir « L · 5 articles » sur un
+       sweatshirt affichait « L · 5 articles » sur les t-shirts, pour un article
+       que le client n'avait pas configuré.
+
+       Elles suivent donc le schéma DÉJÀ retenu pour la couleur juste au-dessus,
+       et pour les designs (`conf_uploads`, `conf_texts`) : un objet indexé par
+       produit sous une clé unique.
+
+         conf_size_qty = { sweatshirt: { size: 'L', qty: 5 }, tshirt: {…} }
+
+       TEXTILES SEULEMENT. Les coins, drapeaux et patchs ont leur propre champ,
+       dans un récapitulatif que `switchLayout` réécrit en entier à chaque
+       bascule : leur quantité repart donc déjà de la valeur par défaut de leur
+       gabarit, avec le minimum de commande propre à chacun. Rien à cloisonner
+       là où rien ne fuit. */
+    var SIZE_QTY_KEY = 'conf_size_qty';
+
+    function saveSizeQtyFor(productType) {
+      if (!productType) return;
+
+      /* ═══ LA TAILLE SE LIT SUR LE BOUTON, JAMAIS SUR LE MENU ══════════════
+
+         Cette fonction lisait `rp-taille-select.value`. Or ce <select> est écrit
+         ENTIÈREMENT VIDE dans le gabarit (configurateur.liquid:1429) : ses
+         options n'existent qu'après un passage de `syncSelectTaille`, qui les
+         fabrique depuis les boutons. Le lire renvoyait donc une chaîne vide tant
+         que le client n'avait pas cliqué une taille — et l'on enregistrait
+         `size: ""`, ce qui ne restaurait rien.
+
+         C'est aussi ce qui expliquait l'asymétrie observée : la QUANTITÉ est un
+         <input value="1">, réel et pré-rempli, donc elle fonctionnait ; la
+         taille, non.
+
+         Même sélecteur que `syncSelectTaille`, `choisirTailleDepuisRecap` et
+         `applySizeQtyFor` — les quatre doivent rester d'accord. `.cv-opt-clone`
+         écarte la grille clonée dans le menu du canvas, `.sb-group` le bouton
+         « Pour Groupe », qui est une action et ne désigne aucune taille. */
+      var btnOn = document.querySelector('.sg:not(.cv-opt-clone) .sb.on:not(.sb-group)');
+      var qte = document.getElementById('textile-qty-input');
+
+      /* Ni grille ni champ : gabarit non textile (coin, drapeau, patch). Il n'y
+         a rien à retenir — et surtout rien à écraser. */
+      if (!btnOn && !qte) return;
+
+      try {
+        var all = JSON.parse(sessionStorage.getItem(SIZE_QTY_KEY) || '{}');
+        var prec = all[productType] || {};
+        all[productType] = {
+          /* JAMAIS ÉCRASER UNE VALEUR CONNUE PAR DU VIDE. `selectModalSize`
+             (conf-sidebar-modern.js) passe à `selSize` un bouton détaché du
+             DOM : après son appel, plus aucun `.sb` visible ne porte `.on`. Sans
+             ce repli, ce chemin viderait la taille mémorisée. */
+          size: btnOn ? btnOn.textContent.trim() : (prec.size || null),
+          qty: qte ? (parseInt(qte.value, 10) || 1) : (prec.qty || null)
+        };
+        sessionStorage.setItem(SIZE_QTY_KEY, JSON.stringify(all));
+      } catch (e) {}
+    }
+
+    function applySizeQtyFor(productType) {
+      var sel = document.getElementById('rp-taille-select');
+      var qte = document.getElementById('textile-qty-input');
+      if (!sel && !qte) return;
+
+      var saved = null;
+      try {
+        var all = JSON.parse(sessionStorage.getItem(SIZE_QTY_KEY) || '{}');
+        saved = all[productType] || null;
+      } catch (e) {}
+
+      /* PRODUIT JAMAIS CONFIGURÉ : on repart des valeurs par défaut du gabarit,
+         jamais de celles du produit qu'on vient de quitter — c'est précisément
+         le défaut qu'on corrige. La première option du menu est la taille de
+         base, et 1 la quantité minimale d'un textile. */
+      /* ═══ LA TAILLE SE POSE SUR LE BOUTON, PAS SUR LE MENU ════════════════
+
+         J'écrivais `sel.value` — et rien ne tenait : la taille restait celle du
+         produit précédent alors que la quantité, elle, suivait.
+
+         La raison est écrite dans `syncSelectTaille` : ce menu est un REFLET,
+         reconstruit « depuis la seule source de vérité, les boutons de
+         taille ». Toute valeur posée dessus est écrasée au premier rafraîchis-
+         sement — et sur mobile il y en a un par lot d'observateur.
+
+         On agit donc sur la source. `selSize` met aussi à jour le libellé du
+         récapitulatif, l'échelle du produit et le prix : la réimplémenter
+         l'aurait fait diverger, comme le note déjà `choisirTailleDepuisRecap`. */
+      /* PRODUIT JAMAIS CONFIGURÉ : on retombe sur M.
+
+         Le repli était `btns[0]`, soit XS, au motif que « les gammes diffèrent
+         d'un produit à l'autre ». C'est faux : la grille est UNIQUE et statique
+         (configurateur.liquid:424-434), partagée par les trois textiles, et
+         passer de l'un à l'autre ne reconstruit rien — la catégorie ne change
+         pas (conf-dynamic-layout.js:148).
+
+         M est la taille que le gabarit marque active, et le repli qu'emploie
+         déjà `grpCurrentSize` pour le mode groupe. */
+      var voulue = (saved && saved.size) ? saved.size : 'M';
+      var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb:not(.sb-group)');
+
+      if (btns.length) {
+        var cible = null;
+        for (var i = 0; i < btns.length; i++) {
+          if (btns[i].textContent.trim() === voulue) { cible = btns[i]; break; }
+        }
+        if (!cible) cible = btns[0];
+
+        if (cible && !cible.classList.contains('on') &&
+            typeof selSize === 'function') {
+          selSize(cible);
+        } else if (typeof window.syncSelectTaille === 'function') {
+          /* DÉJÀ SUR LA BONNE TAILLE — mais le menu, lui, peut être encore vide.
+
+             `selSize` n'a pas tourné, donc rien n'a peuplé le <select> du
+             gabarit. Sans ce rappel, il resterait sans option : le
+             récapitulatif n'afficherait aucune taille, et la sauvegarde
+             suivante relirait du vide. */
+          window.syncSelectTaille();
+        }
+      }
+      if (qte) qte.value = (saved && saved.qty) ? saved.qty : 1;
+
+      /* Le prix suit la quantité : sans ce rappel, le total resterait celui du
+         produit précédent alors que le champ affiche la bonne valeur.
+         `updateTotalPrice` est la fonction qu'emploient déjà les boutons +/−
+         et la saisie directe (:9185, :9190). */
+      if (typeof updateTotalPrice === 'function') {
+        try { updateTotalPrice(); } catch (e) {}
+      }
+      if (typeof window.majBoutonTailleQte === 'function') {
+        try { window.majBoutonTailleQte(); } catch (e) {}
+      }
+
+      /* L'ÉTAT COMPLET EST RÉENREGISTRÉ EN DERNIER.
+
+         `selSize` sauvegarde en cascade (voir son commentaire), mais il tourne
+         AVANT que la quantité ne soit posée ligne 7922 : le magasin porterait
+         alors la taille du nouveau produit et la quantité de l'ancien.
+
+         Un enregistrement final, une fois les deux champs à jour, écarte cette
+         demi-écriture. Idempotent : on réécrit ce qu'on vient de lire. */
+      saveSizeQtyFor(productType);
+    }
+
     /* saveLogosForProduct() et restoreLogosForProduct() vivent desormais dans
        assets/conf-logo-store.js (limite Shopify de 256 Ko). Appelees via
        window.*. Elles dependent de window.LOGO_STORE et window.readUploadStore,
@@ -7751,6 +8018,12 @@
          depuis la grille du canvas ou restaurée depuis le panier, et les deux
          affichages ne doivent jamais diverger. */
       if (typeof window.syncSelectTaille === 'function') window.syncSelectTaille();
+
+      /* Persistée PAR PRODUIT. C'est ici, et non dans le gestionnaire du menu :
+         `selSize` est le point de passage de TOUS les choix de taille — grille
+         du canvas, sélecteur du récapitulatif, restauration depuis le panier.
+         Y placer l'enregistrement garantit qu'aucun chemin ne l'oublie. */
+      if (typeof saveSizeQtyFor === 'function') saveSizeQtyFor(currentProductType);
 
       /* L'aperçu ne change PLUS avec la taille (voir applyProductSize) :
          l'appel ne sert qu'à effacer une échelle héritée. */
@@ -8111,7 +8384,44 @@
           ? window.ConfBgRemoval.ask(original)
           : Promise.resolve(original);
 
-        decide.then(function (src) {
+        /* ═══ SECOND RECADRAGE : APRÈS LE DÉTOURAGE ═════════════════════════
+
+           Le premier passage a lieu plus haut, AVANT la question. À cet instant
+           une image à fond blanc est entièrement OPAQUE : il n'y a rien à
+           rogner. Les zones transparentes n'apparaissent qu'ici, quand le fond
+           vient d'être retiré — et plus personne ne repassait.
+
+           Le motif se retrouvait alors entouré du vide laissé par l'ancien
+           fond, et paraissait flotter loin du pointillé de sa zone.
+
+           MÊME FONCTION, sans retouche : elle mesure le canal alpha, ce que le
+           détourage produit précisément.
+
+           SEULEMENT SI LE FOND A ÉTÉ RETIRÉ. Tous les chemins « garder le
+           fond » — refus, retour en arrière, échec du traitement — renvoient
+           exactement l'image d'entrée (conf-bgremoval2.js). La comparaison
+           suffit donc, et évite une analyse pixel par pixel inutile : elle
+           coûte cher sur une photo de téléphone, motif déjà mesuré pour la
+           sortie anticipée des JPEG.
+
+           AVANT l'affichage et l'enregistrement, tous deux dans le `.then`
+           ci-dessous : sinon le canvas montrerait l'image non recadrée, et
+           c'est elle qui partirait au panier. */
+        decide.then(function (choix) {
+          if (choix === original) return original;   // fond conservé
+          /* LE RECADRAGE NE PEUT PAS FAIRE PERDRE L'IMAGE.
+
+             Il est un CONFORT — il retire des pixels déjà invisibles. Le
+             détourage, lui, est le travail du client. Si l'analyse échoue
+             (mémoire, canvas indisponible sur un mobile chargé), on garde le
+             visuel détouré tel quel plutôt que d'emporter toute la chaîne :
+             une bordure vide se voit et se rattrape, une image perdue non. */
+          return rognerBordsTransparents(choix).catch(function (e) {
+            console.warn('Recadrage après détourage échoué : le visuel garde ' +
+                         'ses bords transparents.', e);
+            return choix;
+          });
+        }).then(function (src) {
           /* Applique l'image dans l'interface EN PREMIER, en pleine résolution :
              l'aperçu reste instantané et net.
 
@@ -8940,77 +9250,43 @@
       }).length;
     }
 
-    /* Option manches activée par le client (bascule). Persistée pour survivre
-       à un rechargement, comme le reste du design. */
-    function sleeveOptOn() {
-      try { return sessionStorage.getItem('conf_sleeve_opt') === '1'; } catch (e) { return false; }
-    }
-    function setSleeveOpt(on) {
-      try { sessionStorage.setItem('conf_sleeve_opt', on ? '1' : '0'); } catch (e) {}
-    }
+    /* La bascule « option manches » a été retirée : les vues manche sont
+       toujours accessibles, et le supplément se calcule sur les logos
+       réellement posés (sleeveCount). toggleSleeveOption / setSleeveOpt /
+       sleeveOptOn n'ont donc plus de rôle.
 
-    /* Active/désactive l'option payante. En la désactivant, on retire les
-       logos déjà posés : laisser un visuel sur une prestation non facturée
-       produirait une commande que l'atelier ne saurait pas honorer. */
-    function toggleSleeveOption() {
-      var on = !sleeveOptOn();
-      if (!on && sleeveCount() > 0) {
-        confConfirm('Désactiver l’option retirera les logos déjà placés sur les manches.',
-          { icon: 'warning', title: 'Retirer la personnalisation ?',
-            confirmText: 'Retirer', cancelText: 'Annuler' })
-          .then(function (ok) {
-            if (!ok) return;
-            ['sl', 'sr'].forEach(function (z) { if (typeof rmUp === 'function') rmUp(z); });
-            setSleeveOpt(false);
-            applySleeveOption();
-          });
-        return;
-      }
-      setSleeveOpt(on);
-      applySleeveOption();
-    }
-    window.toggleSleeveOption = toggleSleeveOption;
+       La clé de session `conf_sleeve_opt` reste listée dans CLES_DESIGN : plus
+       personne ne la lit, mais l'y laisser purge celles qu'ont encore les
+       sessions ouvertes avant ce changement. */
 
-    /* Reflète l'état de l'option dans l'interface (bascule + repli du corps). */
+    /* Met l'interface manches en état : onglets de vue ouverts, rappel de
+       supplément, prix. Le nom est conservé — une dizaine d'appelants s'y
+       réfèrent — même s'il n'y a plus d'« option » à appliquer. */
     function applySleeveOption() {
-      var on = sleeveOptOn();
-      var card = document.getElementById('slv-opt');
-      var row = document.getElementById('slv-toggle-row');
-      var body = document.getElementById('slv-body');
       var coteBtn = document.getElementById('cote-view-btn');
-      
-      if (card) card.classList.toggle('on', on);
-      if (row) row.setAttribute('aria-expanded', on ? 'true' : 'false');
-      if (body) body.style.display = on ? '' : 'none';
-      
-      /* Onglets de vue.
-         Option ACTIVE   : « Vue de côté » disparaît, remplacé par deux onglets
-                           explicites « Manche gauche » / « Manche droite ».
-         Option INACTIVE : retour à « Vue de côté » (désactivé), et les onglets
-                           manche sont retirés. */
+
+      /* La carte #slv-opt est devenue un bandeau d'information : plus de
+         classe `on`, plus de repli du corps #slv-body — les zones d'upload
+         manche sont désormais toujours offertes. */
+
+      /* Onglets de vue — TOUJOURS visibles.
+
+         Les manches étaient auparavant derrière la bascule : il fallait
+         l'activer pour seulement VOIR la vue. Ce n'était pas un verrou
+         tarifaire (la facturation compte les logos réellement posés, cf.
+         sleeveCount), mais une porte d'entrée ; on l'ouvre.
+
+         « Manche gauche » / « Manche droite » remplacent définitivement
+         « Vue de côté », qui reste dans le markup — quatre chemins le
+         référencent — mais masqué et sans verrou. */
       var slL = document.getElementById('sleeve-l-btn');
       var slR = document.getElementById('sleeve-r-btn');
-      if (slL) slL.style.display = on ? '' : 'none';
-      if (slR) slR.style.display = on ? '' : 'none';
+      if (slL) slL.style.display = '';
+      if (slR) slR.style.display = '';
 
       if (coteBtn) {
-        coteBtn.disabled = !on;
-        // Masqué quand les onglets dédiés le remplacent.
-        coteBtn.style.display = on ? 'none' : '';
-
-        /* Désactivation depuis la vue de côté : on revient à la face, sinon
-           l'utilisateur resterait sur une vue dont l'onglet vient de
-           disparaître. On teste aussi les onglets manche, désormais porteurs
-           de l'état actif. */
-        var inCote = coteBtn.classList.contains('on') ||
-                     (slL && slL.classList.contains('on')) ||
-                     (slR && slR.classList.contains('on'));
-        if (!on && inCote) {
-          var faceBtn = document.querySelector('.vt[onclick*="face"]');
-          if (faceBtn && typeof selView === 'function') {
-            selView(faceBtn, 'face');
-          }
-        }
+        coteBtn.disabled = false;
+        coteBtn.style.display = 'none';
       }
 
       /* Pastille de l'onglet « Vue de côté » : sans objet maintenant que
@@ -9018,9 +9294,11 @@
       var coteDot = document.getElementById('cote-view-dot');
       if (coteDot) coteDot.style.display = 'none';
 
-      // Rappel sous le prix du récapitulatif.
+      /* Rappel sous le prix du récapitulatif : il suit désormais la PRÉSENCE
+         d'un logo, et non l'état de la bascule. C'est ce que le panier
+         facture, donc ce que le client doit lire. */
       var flag = document.getElementById('rp-sleeve-flag');
-      if (flag) flag.style.display = on ? '' : 'none';
+      if (flag) flag.style.display = sleeveCount() > 0 ? '' : 'none';
 
       // Mettre à jour le bouton manches dans la sidebar moderne
       if (window.modernSidebar && typeof window.modernSidebar.updateSleeveOptionButton === 'function') {
@@ -9089,16 +9367,22 @@
     }
     window.textileQty = textileQty;
 
+    /* La valeur est PERSISTÉE À CHAQUE CHANGEMENT, pas seulement au moment de
+       quitter le produit : `selProd` ne s'exécute que si l'on change d'article.
+       Sans ces deux appels, une quantité réglée puis laissée telle quelle
+       serait perdue au rechargement de la page. */
     function changeTextileQty(delta) {
       var el = document.getElementById('textile-qty-input');
       if (!el) return;
       el.value = Math.max(1, (parseInt(el.value, 10) || 1) + delta);
       updateTotalPrice();
+      saveSizeQtyFor(currentProductType);
     }
     function handleTextileQtyInput() {
       var el = document.getElementById('textile-qty-input');
       if (el) el.value = Math.max(1, parseInt(el.value, 10) || 1);
       updateTotalPrice();
+      saveSizeQtyFor(currentProductType);
     }
 
     function updateTotalPrice() {
@@ -9140,11 +9424,14 @@
         basePrice = window.prixUnitaire ? window.prixUnitaire(currentProductType) : 45;
       }
 
-      // Supplément manches (uniquement si l'option est activée), par pièce.
-      var sleeveExtra = 0;
-      if (sleeveOptOn()) {
-        sleeveExtra = sleeveUnitPrice() * sleeveCount();
-      }
+      /* Supplément manches, par pièce : il suit les logos RÉELLEMENT posés.
+
+         Cette ligne était conditionnée à sleeveOptOn(), alors que pushToCart
+         ne consulte jamais la bascule. L'écart restait invisible tant qu'on
+         ne pouvait pas poser de logo sans activer l'option ; les vues manche
+         étant maintenant toujours ouvertes, il se serait vu — le prix affiché
+         aurait sous-estimé le prix facturé. */
+      var sleeveExtra = sleeveUnitPrice() * sleeveCount();
 
       var total = (basePrice + sleeveExtra) * qty;
 
@@ -9399,6 +9686,13 @@
       logo.style.left = '0%';
       logo.style.top = '0%';
       logo.style.width = '100%';
+      /* LA CLASSE SUIT LA LARGEUR QU'ON VIENT DE REMETTRE.
+
+         Cette fonction ramène le design à la couverture pleine — au changement
+         de forme, notamment. Sans ce rappel, `is-reduced` survivait sur une
+         boîte redevenue à 100 % : l'image restait en « contenir », entourée de
+         bandes vides dans une forme qu'elle aurait dû remplir. */
+      if (typeof window.majReduction === 'function') window.majReduction(logo);
     }
     window.clampPatchLogo = clampPatchLogo;
 
@@ -9887,19 +10181,16 @@
      *   session au chargement : le design ne doit alors PAS être permuté.
      */
     /**
-     * Ajuste la barre « Mode actuel » selon que le mode a été CHOISI ou IMPOSÉ.
+     * Écrit le libellé de la barre « Mode actuel », au-dessus du produit.
      *
-     * Choisir un coin, un drapeau ou un patch depuis l'écran de choix bascule
-     * d'office en mode libre (conf-sidebar-modern.js) : ces produits ne portent
-     * pas de surnom, la commande de groupe n'a aucun sens pour eux.
+     * Elle nomme simplement le mode courant — « Personnalisation libre » ou
+     * « groupe » — et porte le bouton « Changer de mode ».
      *
-     * Mais le mode s'enregistrait alors comme une DÉCISION du client. Reprenant
-     * un sweatshirt, il restait en mode libre sans jamais avoir choisi — ni su
-     * qu'une alternative existait.
-     *
-     * La barre explique donc la contrainte, là où le client regarde déjà. Elle
-     * redevient neutre dès qu'il reprend un textile : la règle ne s'applique
-     * plus, et un message qui persiste devient un reproche.
+     * Elle a un temps affiché un bandeau ambré quand la personnalisation libre
+     * avait été imposée par le produit (coin, drapeau, patch, qui ne portent
+     * pas de surnom). Ce message a été retiré : il redisait après coup ce que
+     * le client venait de faire, alors que la note de la sidebar
+     * (.pc-note-libre) l'annonce déjà avant le clic.
      */
     function majBarreMode() {
       var barre = document.getElementById('mode-actuel');
@@ -9936,47 +10227,34 @@
       var lbl = barre.querySelector('.mode-actuel-lbl');
       if (!lbl) return;
 
-      var impose = null;
-      try { impose = sessionStorage.getItem('conf_mode_impose'); } catch (e) {}
+      /* LA BARRE RESTE NEUTRE, QUELLE QUE SOIT L'ORIGINE DU MODE.
 
-      /* LE BANDEAU SUIT LE DRAPEAU, PLUS LE PRODUIT AFFICHÉ.
+         Un bandeau ambré s'affichait ici quand la personnalisation libre avait
+         été IMPOSÉE par le produit — « Ce produit suggère la personnalisation
+         libre » — que la bascule vienne de l'écran de choix ou du mode groupe.
 
-         Il ne s'affichait que tant que le produit courant était CELUI qui avait
-         imposé le mode (`impose === currentProductType`). Revenu sur un
-         sweatshirt, le client retrouvait le bandeau noir « Mode actuel » — sans
-         savoir pourquoi il était en personnalisation libre, ni qu'il pouvait en
-         sortir.
+         Il occupait le haut de l'écran pour redire ce que le client venait de
+         faire, et deux avertissements le précèdent déjà : la note de la sidebar
+         en mode groupe (.pc-note-libre) annonce le basculement AVANT le clic,
+         et la barre elle-même nomme le mode courant. Le bouton « Changer de
+         mode » reste à portée dans tous les cas : rien ne se perd.
 
-         Or il EST en mode libre sans l'avoir choisi, quel que soit le produit
-         qu'il regarde ensuite. Le lui cacher revient à le laisser dans un mode
-         subi sans lui dire qu'une alternative existe.
+         Le drapeau `conf_mode_impose` reste posé et lu ailleurs — reprendre un
+         textile repose la question du mode (conf-dynamic-layout.js). C'est bien
+         l'AFFICHAGE qui disparaît, pas le mécanisme. */
+      barre.classList.remove('is-impose');
 
-         La sortie est déjà en place : `retourChoixMode` efface le drapeau
-         (:9284) dès que le client reprend la main. Le bandeau redevient alors
-         noir — le mode est redevenu un choix. */
-      var subitEncore = !!impose;
-
-      barre.classList.toggle('is-impose', subitEncore);
-
-      if (subitEncore) {
-        /* MESSAGE GÉNÉRIQUE : il nommait le produit (« Les coins ne portent pas
-           de surnom »), ce qui devient faux dès qu'on affiche un sweatshirt.
-           Celui-ci vaut partout, dit ce qui s'applique, et le bouton reste à
-           portée. */
-        lbl.innerHTML = 'Ce produit suggère la <strong>personnalisation libre</strong>';
-      } else {
-        var mode = document.querySelector('.conf-app-root');
-        mode = mode ? mode.getAttribute('data-mode') : null;
-        /* Sur mobile, `ma-long` est masqué : il ne reste que « Groupe » ou
-           « Libre » — assez pour situer le client, et la barre tient enfin
-           dans la largeur de l'écran. */
-        lbl.innerHTML = '<span class="ma-long">Mode actuel : </span>' +
-          '<strong id="mode-actuel-nom">' +
-          '<span class="ma-long">Personnalisation </span>' +
-          '<span class="ma-court">Mode </span>' +
-          (mode === 'groupe' ? 'groupe' : 'libre') +
-          '</strong>';
-      }
+      var mode = document.querySelector('.conf-app-root');
+      mode = mode ? mode.getAttribute('data-mode') : null;
+      /* Sur mobile, `ma-long` est masqué : il ne reste que « Groupe » ou
+         « Libre » — assez pour situer le client, et la barre tient enfin
+         dans la largeur de l'écran. */
+      lbl.innerHTML = '<span class="ma-long">Mode actuel : </span>' +
+        '<strong id="mode-actuel-nom">' +
+        '<span class="ma-long">Personnalisation </span>' +
+        '<span class="ma-court">Mode </span>' +
+        (mode === 'groupe' ? 'groupe' : 'libre') +
+        '</strong>';
     }
     window.majBarreMode = majBarreMode;
 
@@ -10945,6 +11223,8 @@
          bouton à cliquer. « Pour Groupe » est exclu des deux. */
       var btns = document.querySelectorAll('.sg:not(.cv-opt-clone) .sb:not(.sb-group)');
       for (var i = 0; i < btns.length; i++) {
+        /* Le clic déclenche `selSize`, qui persiste déjà la taille par produit :
+           rien à ajouter ici. */
         if (btns[i].textContent.trim() === taille) { btns[i].click(); return; }
       }
     }

@@ -81,18 +81,11 @@
       window.saveUpload(zone, src);   // repli : ancien contrat
     }
 
-    /* Le supplément « manches » est PAYANT (+4 €/manche) : l'activer est
-       indispensable, sans quoi le drapeau serait floqué sans être facturé.
-
-       `sleeveOptOn()` est l'état lu partout ailleurs (conf-sidebar-modern.js
-       :411) ; `handleSleeveToggle()` est la bascule du panneau (:444). On ne
-       la déclenche que si l'option est encore inactive — l'appeler alors
-       qu'elle est déjà active la DÉSACTIVERAIT. */
-    if (typeof window.sleeveOptOn === 'function' &&
-        !window.sleeveOptOn() &&
-        typeof window.handleSleeveToggle === 'function') {
-      window.handleSleeveToggle();
-    }
+    /* Le supplément « manches » (+4 €/manche) est facturé dès qu'un logo est
+       posé — c'est le cas ici. Il n'y a plus rien à activer : la bascule a
+       été retirée, et le prix se calcule sur les logos réellement présents
+       (sleeveCount, conf-main-inline.js). L'appel à handleSleeveToggle qui se
+       trouvait ici n'aurait désormais plus rien à basculer. */
 
     window.refreshSleeveZoneState();
   };

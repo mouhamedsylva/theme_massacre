@@ -831,6 +831,10 @@
   height: 100% !important;
   object-fit: cover !important;
 }
+/* Réduit sous 100 % : le design se contient au lieu de couvrir, et le tissu du
+   drapeau apparaît autour. Même règle et même motif que les coins
+   (conf-patches.css). */
+.flag-logo.is-cover.is-reduced .flag-design-img { object-fit: contain !important; }
 .flag-logo.is-cover {
   cursor: grab;
   touch-action: none;
@@ -867,6 +871,9 @@
   object-fit: cover !important;
   opacity: 1 !important;
 }
+/* Design réduit : la doublure montre le même cadrage que l'image réelle — même
+   raison et même mécanisme que pour les coins (conf-patches.css). */
+.flag-crop-preview .is-reduced img { object-fit: contain !important; }
 
 /* Cadre de l'image éditée : ses bords réels, ceux que les coins déplacent. */
 .flag-img-3d.flag-editing .flag-logo {

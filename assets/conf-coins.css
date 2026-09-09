@@ -1512,6 +1512,32 @@
   touch-action: none;   /* le geste tactile déplace, il ne fait pas défiler */
 }
 .patch-logo.dragging { cursor: grabbing; }
+
+/* RÉDUIT SOUS 100 % : le design se contient, la couleur du patch apparaît.
+
+   `min-height: 100%` garantit la couverture de la forme — c'est son rôle, et il
+   doit le garder au-dessus de 100 %. Mais il empêcherait la boîte de descendre :
+   le design resterait à taille pleine pendant que sa largeur diminue, donc
+   déformé.
+
+   L'image passe en `contain` pour la même raison que les coins et les drapeaux :
+   réduite, elle n'a plus rien à déborder, et le rognage y découperait un carré
+   au lieu de la montrer entière. */
+.patch-logo.is-reduced {
+  min-height: 0;
+  height: auto;
+}
+/* SPÉCIFICITÉ ALIGNÉE sur `.coins-canvas-circle .patch-body .patch-logo img`
+   (:1478), qui impose `cover` avec trois classes. Un sélecteur plus court
+   perdait l'arbitrage et le design réduit restait étiré sur toute la forme. */
+.coins-canvas-circle .patch-body .patch-logo.is-reduced img {
+  object-fit: contain !important;
+  /* `inset: 0` + `width/height: 100%` de la règle ci-dessus étirent l'image sur
+     toute la BOÎTE — ce qui est juste en couverture, la boîte valant alors la
+     forme. Réduite, la boîte est plus petite : `contain` y suffit, l'image
+     garde ses proportions et se centre. */
+}
+.patch-body .patch-logo.is-reduced img { object-fit: contain !important; }
 /* ── Mode ÉDITION du design (double-clic sur le patch) ───────────────────
    Recadrer à l'aveugle est frustrant : hors de la forme, l'image est
    invisible et on ne sait pas ce qu'on coupe. En édition, le débordement

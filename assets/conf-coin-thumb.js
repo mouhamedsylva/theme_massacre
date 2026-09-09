@@ -49,13 +49,45 @@
     var bgSrc = baseImg ? safeSrc(baseImg.getAttribute('src')) : '';
     if (!bgSrc) return;
 
+    /* MODE « DÉCOUPÉ À LA FORME » : la pièce EST le visuel.
+
+       Le disque métallique s'efface (`opacity: 0`, conf-patches.css:498) et le
+       motif détouré devient la pièce elle-même. La vignette montrait pourtant
+       les deux — le disque au fond, l'image carrée posée dessus — soit
+       exactement ce que le canevas ne montre pas.
+
+       Le rognage rond n'a pas lieu d'être non plus : il n'y a plus de disque
+       auquel rogner. */
+    var disc = document.getElementById('coin-disc-recto');
+    var decoupe = !!(disc && disc.classList.contains('shape-decoupe'));
+
     var logoEl = document.getElementById('coin-logo-recto');
     var logoImg = logoEl ? logoEl.querySelector('img') : null;
     var logoSrc = (logoImg && logoEl.style.display !== 'none')
       ? safeSrc(logoImg.getAttribute('src')) : '';
-    var left = logoEl ? (parseFloat(logoEl.style.left) || 28) : 28;
-    var top  = logoEl ? (parseFloat(logoEl.style.top)  || 28) : 28;
-    var width = logoEl ? (parseFloat(logoEl.style.width) || 44) : 44;
+    /* ═══ UNE POSITION À ZÉRO EST UNE POSITION VALIDE ════════════════════
+
+       Ces trois valeurs se lisaient `parseFloat(...) || 28`. Or **zéro est
+       falsy** : un motif à `left: 0%` recevait donc le repli 28, et se
+       retrouvait posé à 28 % / 28 % dans une boîte ronde de 78 %. Il en sortait
+       par le bas et par la droite, et le rognage n'en laissait qu'un carré au
+       centre du disque — le défaut observé.
+
+       Ce n'est pas un cas limite : `left: 0%, top: 0%, width: 100%` est
+       exactement l'état d'un motif en COUVERTURE (conf-coin-cover.js:156-159),
+       c'est-à-dire le cas le plus courant.
+
+       Le repli doit couvrir la valeur ABSENTE, jamais la valeur nulle.
+       `isFinite` fait cette distinction : `0` est un nombre, `NaN` — ce que
+       rend `parseFloat('')` — n'en est pas un. */
+    var pct = function (valeur, defaut) {
+      var n = parseFloat(valeur);
+      return isFinite(n) ? n : defaut;
+    };
+
+    var left  = logoEl ? pct(logoEl.style.left,  28) : 28;
+    var top   = logoEl ? pct(logoEl.style.top,   28) : 28;
+    var width = logoEl ? pct(logoEl.style.width, 44) : 44;
   
     /* Le logo est positionné en % de l'IMAGE du coin, or le disque n'y
        occupe que ~79 % (le reste est transparent). Sur la petite vignette,
@@ -71,27 +103,71 @@
     var html = '<div style="position:relative;width:100%;aspect-ratio:1;margin:auto;' +
       'overflow:hidden;"><div style="position:absolute;inset:0;' +
       'transform:scale(' + DISC_FILL.toFixed(3) + ');">' +
+      /* Le disque s'efface en mode découpé, comme sur le canevas — il reste
+         dans le balisage pour ne pas déstructurer le cadre, mais transparent. */
       '<img src="' + bgSrc + '" alt="Coin" style="position:absolute;inset:0;' +
-      'width:100%;height:100%;object-fit:contain;display:block;">';
+      'width:100%;height:100%;object-fit:contain;display:block;' +
+      (decoupe ? 'opacity:0;' : '') + '">';
     if (logoSrc) {
-      /* Motif en COUVERTURE : ses % sont relatifs à .coin-crop (la zone
-         frappée), pas à l'image entière, et il déborde — le disque le rogne.
-         La vignette rejoue donc cette structure : cadre rond aux mêmes
-         marges, image en `cover` dedans. Sans cela elle montrait le visuel
-         entier, non rogné, et ne correspondait plus au canevas. */
+      /* ═══ LA VIGNETTE SUIT LA FORME DE LA PIÈCE ═══════════════════════
+
+         Elle ne rognait qu'en mode COUVERTURE ; tout autre motif passait par
+         une branche qui le posait NU — image carrée par-dessus le disque
+         métallique, débordant de la pièce. Le canevas, lui, ne montre jamais
+         cela : `.coin-crop` (conf-patches.css:592) rogne au cercle, et le mode
+         découpé efface le disque.
+
+         C'est précisément la vignette que le client regarde au moment
+         d'ajouter au panier : elle ne peut pas contredire l'aperçu.
+
+         Trois cas, et un seul de plus qu'avant :
+           • DÉCOUPÉ    — pas de disque, pas de rognage : le visuel est la pièce
+           • COUVERTURE — rogné au cercle, image étirée pour couvrir la frappe
+           • LIBRE      — rogné au cercle, image à sa taille et à sa place */
       var cover = logoEl && logoEl.classList.contains('is-cover');
-      if (cover) {
-        var ins = (window.COIN_INSET != null ? window.COIN_INSET : 1);
-        var offY = (window.COIN_OFFSET_Y != null ? window.COIN_OFFSET_Y : 1.5);
-        html += '<div style="position:absolute;left:' + ins + '%;top:' + (ins + offY) +
-                '%;width:' + (100 - 2 * ins) + '%;height:' + (100 - 2 * ins) +
+
+      if (decoupe) {
+        /* DÉCOUPÉ : le visuel EST la pièce, sans cadre ni rognage. Il occupe
+           toute la vignette, comme il occupe le canevas une fois le disque
+           effacé. Ses % ne sont plus ceux d'une zone frappée — le cadre a été
+           défait (conf-coin-cover.js:62-66) et le logo est revenu sur le
+           disque. */
+        html += '<img src="' + logoSrc + '" alt="" style="position:absolute;' +
+                'inset:0;width:100%;height:100%;object-fit:contain;' +
+                'pointer-events:none;z-index:2;">';
+      } else {
+        /* ═══ LE CADRE ÉPOUSE LA ZONE FRAPPÉE, PAS L'IMAGE ════════════════
+
+           Il était posé depuis `COIN_INSET`, qui vaut 1 : le cercle de rognage
+           faisait donc 98 % de l'IMAGE — soit environ 125 % du disque. Un
+           cadre plus grand que la pièce ne rogne rien : le motif débordait de
+           tous côtés et s'affichait carré par-dessus le coin.
+
+           C'est exactement le défaut que `syncCoinCrop` (conf-coin-cover.js:91-96)
+           a corrigé pour le CANVAS. La vignette, elle, était restée sur
+           l'ancien calcul — d'où deux rendus qui se contredisaient.
+
+           On reprend donc SA constante : 10,8 %, la marge réelle de la zone
+           frappée. Le disque occupe 80 % de l'image et son centre tombe à
+           50 % sur les deux axes ; la marge vaut (100 − 80) / 2 + 80 × 1/100.
+           Si la zone bouge, ces deux fichiers doivent bouger ensemble. */
+        var ZONE = 10.8;
+
+        /* Hauteur : imposée en couverture (l'image doit remplir sa boîte),
+           libre sinon — le motif garde ses proportions comme sur le canevas. */
+        var hauteur = cover ? (width + '%') : 'auto';
+        /* Un design RÉDUIT se contient, même en couverture : sous 100 % il n'a
+           plus rien à déborder, et le rognage y découperait un carré. La
+           vignette doit montrer ce que montre le canvas. */
+        var reduitVig = logoEl && logoEl.classList.contains('is-reduced');
+        var ajustement = (cover && !reduitVig) ? 'cover' : 'contain';
+
+        html += '<div style="position:absolute;left:' + ZONE + '%;top:' + ZONE +
+                '%;width:' + (100 - 2 * ZONE) + '%;height:' + (100 - 2 * ZONE) +
                 '%;overflow:hidden;border-radius:50%;z-index:2;">' +
                 '<img src="' + logoSrc + '" alt="" style="position:absolute;left:' + left +
-                '%;top:' + top + '%;width:' + width + '%;height:' + width +
-                '%;object-fit:cover;display:block;"></div>';
-      } else {
-        html += '<img src="' + logoSrc + '" alt="" style="position:absolute;left:' + left + '%;top:' + top +
-                '%;width:' + width + '%;height:auto;object-fit:contain;pointer-events:none;z-index:2;">';
+                '%;top:' + top + '%;width:' + width + '%;height:' + hauteur +
+                ';object-fit:' + ajustement + ';display:block;"></div>';
       }
     }
     html += '</div></div>';
@@ -150,8 +226,19 @@
       var dw = lb.width / cb.width * S;
       var dh = lb.height / cb.height * S;
 
-      // « cover » dans cette boîte, comme le CSS.
-      var sc = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
+      /* MÊME AJUSTEMENT QUE LE CSS, y compris réduit.
+
+         `Math.max` reproduit `object-fit: cover`. Mais sous 100 % l'écran passe
+         en `contain` (`is-reduced`, conf-patches.css) : garder `cover` ici
+         ferait diverger la planche et le panier de ce que le client voit —
+         un carré découpé au lieu de son visuel entier.
+
+         `Math.min` est exactement `contain`. Le centrage qui suit vaut pour
+         les deux. */
+      var reduit = logo.classList.contains('is-reduced');
+      var sc = reduit
+        ? Math.min(dw / img.naturalWidth, dh / img.naturalHeight)
+        : Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
       var iw = img.naturalWidth * sc, ih = img.naturalHeight * sc;
       ctx.drawImage(img, dx + (dw - iw) / 2, dy + (dh - ih) / 2, iw, ih);
       ctx.restore();

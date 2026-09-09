@@ -94,15 +94,31 @@
       return;
     }
 
-    /* Sinon : 1 sur la taille actuellement sélectionnée. On vise le bloc
-       SOURCE — le clone du menu canvas peut porter un état « on » différent
-       (il n'est recopié qu'une fois, à la première ouverture). */
+    /* Sinon : la taille ET LA QUANTITÉ actuellement renseignées. On vise le
+       bloc SOURCE — le clone du menu canvas peut porter un état « on »
+       différent (il n'est recopié qu'une fois, à la première ouverture). */
     const sgSrc = document.querySelector('.sg:not(.cv-opt-clone)');
     const selectedBtn = (sgSrc || document).querySelector('.sb.on:not(.sb-group)');
     if (selectedBtn) {
       const selectedSize = selectedBtn.textContent.trim();
       if (sizeQuantities.hasOwnProperty(selectedSize)) {
-        sizeQuantities[selectedSize] = 1;
+        /* LA QUANTITÉ VIENT DU CHAMP, elle n'est plus figée à 1.
+
+           La taille était bien reprise, mais la quantité valait 1 en dur : un
+           client qui avait réglé « M · 6 » puis ouvrait cette modale y trouvait
+           « M × 1 » et devait ressaisir son nombre.
+
+           L'écart existait déjà, mais ne se voyait pas tant que la quantité
+           vivait ailleurs. Elle est désormais affichée juste au-dessus du
+           bouton qui ouvre cette modale : les deux doivent s'accorder.
+
+           Plancher à 1 : répartir zéro article n'a pas de sens, et c'est déjà
+           le minimum du champ lui-même. Pas de plafond — il n'en existe aucun
+           par taille (voir `changeSizeQuantity`), en poser un ici créerait une
+           règle que les boutons + ne connaissent pas. */
+        const champQte = document.getElementById('textile-qty-input');
+        const qteSaisie = champQte ? (parseInt(champQte.value, 10) || 1) : 1;
+        sizeQuantities[selectedSize] = Math.max(1, qteSaisie);
       }
     }
   }

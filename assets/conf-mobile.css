@@ -254,8 +254,8 @@
      « Libre » et « CHANGER » — assez pour situer le client et agir, sur une
      seule ligne, sans voler de hauteur au vêtement.
 
-     Le bandeau ambré (`is-impose`) n'est PAS concerné : il lève déjà
-     `white-space` (conf-styles.css:2533) et passe donc à la ligne. */
+     La barre n'a plus qu'un seul état depuis le retrait du bandeau ambré : ce
+     raccourcissement s'applique donc toujours. */
   .ma-long { display: none; }
 
   /* « Mode groupe » plutôt que « groupe » : le mot seul ne dit pas de quoi il
@@ -1041,6 +1041,28 @@
     z-index: 24;
   }
 
+  /* ── LES DEUX REPÈRES DU HAUT PASSENT SOUS LA BARRE DE MODE ──────────────
+
+     `.face-switch` et « Vue d'ensemble » sont ancrés à `top: 8px` dans
+     `.cv-wrap`. La barre « Mode actuel » occupe exactement cette bande — elle
+     est elle aussi en absolu, à `top: 8px`, sur toute la largeur (:234-246) et
+     avec un `z-index` supérieur. Elle recouvrait donc les deux.
+
+     Le défaut ne se voit QUE sur les coins, drapeaux et patchs : sur un
+     textile, ces deux éléments vivent dans la rangée `.cv-opts`, qui a déjà
+     son propre décalage. C'est `moveOverviewBtn()` qui pose `.ov-in-wrap`
+     quand cette rangée n'existe pas — d'où ce sélecteur, qui cible exactement
+     les canvas concernés.
+
+     62px = la barre (≈48px de haut) + ses 8px d'ancrage + 6px de respiration.
+     Conditionné à `[data-mode]`, l'attribut que porte la racine dès qu'un mode
+     est retenu : à l'écran de choix, la barre n'existe pas et les deux
+     éléments gardent leur place d'origine. */
+  .conf-app-root[data-mode] .face-switch,
+  .conf-app-root[data-mode] .vt.vt-overview.ov-in-wrap {
+    top: 62px;
+  }
+
   /* La colonne des vues ne contient plus « Vue d'ensemble » : elle reste
      centrée sur ce qui subsiste (face / dos / côté). */
   .vtabs { top: 50%; }
@@ -1465,6 +1487,49 @@
   .mob-tq-sheet .rp-qty-btn { min-width: 44px; min-height: 44px; flex: none; }
   .mob-tq-sheet .rp-qty-input { min-width: 0; flex: 1; }
   .mob-tq-sheet .rp-multi-btn { width: 100%; min-height: 48px; }
+
+  /* ── FEUILLE « QUANTITÉ » — coins, drapeaux, patchs ──────────────────
+     Ces produits n'ont pas de taille : leur champ de quantité, resté dans le
+     récapitulatif masqué, était inaccessible en mobile. Il est sorti dans sa
+     propre feuille (conf-mobile.js).
+
+     Le BOUTON hérite de `.mob-tq-btn` — même position, même style, même
+     chevron. Les deux ne coexistent jamais : les gabarits de récapitulatif
+     sont mutuellement exclusifs, donc partager la bande est cohérent d'un
+     produit à l'autre plutôt que risqué.
+
+     Les règles du compteur sont reprises de la feuille des tailles, y compris
+     le `min-width: 0` sans lequel le « − » passait sous le champ. */
+  .mob-q-sheet { padding: 0 16px 20px; }
+  .mob-q-sheet .rp-qty-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+  }
+  .mob-q-sheet .rp-qty-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .mob-q-sheet .rp-qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .mob-q-sheet .rp-qty-btn { min-width: 48px; min-height: 48px; flex: none; }
+  .mob-q-sheet .rp-qty-input {
+    min-width: 0;
+    flex: 1;
+    max-width: none;
+    width: 100%;
+    min-height: 48px;
+    /* 16px : en deçà, iOS zoome sur le champ au focus et le client se retrouve
+       avec une page agrandie qu'il doit refermer à la main. */
+    font-size: 16px;
+    text-align: center;
+  }
 
   /* ── Ajouter au panier : bouton plein, à DROITE du prix ───────────
      Le bouton rond n'affichait qu'une icône : l'action principale du
@@ -2314,6 +2379,15 @@
   .txt-tb-sw { width: 44px; height: 44px; }
 
   /* ══════════════════════════════════════════════════════════════════════
+     ⚠️ SANS EFFET DEPUIS QUE LE CHAT EST MASQUÉ (conf-styles.css, fin de
+     fichier) : `display: none` sur l'hôte rend tout positionnement inutile.
+
+     CONSERVÉES VOLONTAIREMENT. Elles portent le raisonnement sur le shadow DOM
+     et les hauteurs mesurées de chaque étape — si le widget est rétabli un
+     jour, ce chemin n'aura pas à être refait.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* ══════════════════════════════════════════════════════════════════════
      Widget de chat (Shopify Inbox) — remonté au-dessus de la barre du bas
 
      Il se posait à 20px du bas et masquait le bouton « Ajouter au panier »
@@ -2438,23 +2512,20 @@
   /* Le conteneur part avec eux : vidé de son contenu, il laisserait une bande
      sombre en bas d'écran, sans rien à y montrer. */
   [data-etape="choix"] .rp-acts,
-  /* LA BARRE DU BAS PART AUSSI.
+  /* LA BARRE DU BAS RESTE À L'ÉCRAN DE CHOIX.
 
-     Elle ne portait plus qu'un onglet « Produits » — les autres (Images,
-     Textes, Équipe) sont masqués tant qu'aucun mode n'est choisi. Une barre
-     noire pleine largeur pour un seul onglet inutile : l'écran de choix doit
-     montrer ses deux cartes, rien d'autre.
+     Elle avait été masquée : elle ne porte qu'un onglet « Produits », les autres
+     (Images, Textes, Équipe) n'ayant pas de sens tant qu'aucun mode n'est
+     choisi, et une barre pleine largeur pour un seul onglet paraissait
+     disproportionnée.
 
-     Même raisonnement que `.rp-acts` juste au-dessus. */
-  [data-etape="choix"] .icon-nav { display: none !important; }
+     Le client la veut malgré tout — et l'argument se défend : « Produits » est
+     le seul geste possible ici, et le rail est le repère de navigation du
+     configurateur. Le retirer à ce moment le fait disparaître puis réapparaître,
+     alors qu'il n'est jamais absent ailleurs.
 
-  /* La place RÉSERVÉE par la barre part avec elle.
-
-     `--nav-h` est posée par measureNav (conf-mobile.js:236) et sert de marge
-     basse à plusieurs blocs. measureNav n'écrit que si la hauteur mesurée est
-     non nulle : sur une barre masquée, elle conserve donc l'ANCIENNE valeur, et
-     un vide de ~52 px resterait sous les cartes. On la neutralise ici. */
-  .conf-app-root[data-etape="choix"] { --nav-h: 0px; }
+     `--nav-h` n'est donc plus neutralisée : la barre occupe sa place, et les
+     cartes s'arrêtent au-dessus d'elle au lieu de passer dessous. */
   /* ══════════════════════════════════════════════════════════════════════
      PARCOURS GROUPE — stepper et barre d'action sur petit écran
      ══════════════════════════════════════════════════════════════════════ */

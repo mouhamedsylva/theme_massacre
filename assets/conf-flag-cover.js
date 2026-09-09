@@ -135,19 +135,34 @@
         logo.classList.add('is-cover');
         /* Largeur sous 100 % = session antérieure au mode couverture (44 %
            par défaut) : le design ne couvrirait pas la zone. On repose le
-           cadrage plein, minimum garanti par le mode. */
+           cadrage plein, minimum garanti par le mode.
+
+           SAUF SI LE CLIENT L'A VOULUE — même raison et même mécanisme que pour
+           les coins (voir conf-coin-cover.js) : il peut désormais réduire son
+           visuel pour laisser voir le tissu autour, et cette fonction est
+           rappelée trop souvent pour qu'une réduction y survive sans marqueur. */
         var w = parseFloat(logo.style.width);
-        if (!w || w < 100) {
+        var geoVoulue = logo.getAttribute('data-cover-geo') === '1';
+        if (!w || (w < 100 && !geoVoulue)) {
           logo.style.left = '0%';
           logo.style.top = '0%';
           logo.style.width = '100%';
         }
         /* applyUploadGeo() ne restaure pas la hauteur (elle vaut `auto` pour
            les logos ordinaires) : sans elle, le design ne remplit que sa
-           largeur et redevient une vignette au retour sur le drapeau. */
-        if (!logo.style.height || logo.style.height === 'auto') {
-          logo.style.height = '100%';
-        }
+           largeur et redevient une vignette au retour sur le drapeau.
+
+           LA HAUTEUR SUIT LA LARGEUR, TOUJOURS. Ce test ne couvrait que
+           l'absence de hauteur : quand le repli ci-dessus remettait la largeur à
+           100 %, la hauteur gardait sa valeur réduite — 100 % de large sur 40 %
+           de haut, et `cover` étalait le design en bande écrasée.
+
+           Le coin fait déjà cet alignement (conf-coin-cover.js) ; il manquait
+           ici. */
+        logo.style.height = logo.style.width || '100%';
+
+        /* Sous 100 %, l'image se contient au lieu de couvrir. */
+        if (typeof window.majReduction === 'function') window.majReduction(logo);
       }
 
       syncPreview(f);
@@ -229,6 +244,10 @@
       inner.style.top = logo.style.top || '0%';
       inner.style.width = logo.style.width || '100%';
       inner.style.height = logo.style.height || '100%';
+
+      /* La doublure suit l'état réduit — même raison que pour le coin : c'est
+         elle qu'on voit nette en édition. */
+      inner.classList.toggle('is-reduced', logo.classList.contains('is-reduced'));
     });
   }
   window.syncFlagCropPreview = syncPreview;
@@ -453,8 +472,13 @@
       var dw = lb.width / cb.width * W;
       var dh = lb.height / cb.height * H;
 
-      // « cover » dans cette boîte, comme le CSS.
-      var sc = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
+      /* Même ajustement que le CSS, y compris réduit : sous 100 % l'écran passe
+         en `contain`, et la planche doit montrer le même cadrage. Même
+         raisonnement que pour les coins (conf-coin-thumb.js). */
+      var reduitFlag = logo.classList.contains('is-reduced');
+      var sc = reduitFlag
+        ? Math.min(dw / img.naturalWidth, dh / img.naturalHeight)
+        : Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
       var iw = img.naturalWidth * sc, ih = img.naturalHeight * sc;
       ctx.drawImage(img, dx + (dw - iw) / 2, dy + (dh - ih) / 2, iw, ih);
 

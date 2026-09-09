@@ -549,6 +549,24 @@
                   document.querySelector('.coin-disc.shape-decoupe')) {
                 window.clampCoinLogo(face, fillZone);
               }
+
+              /* LA VIGNETTE SE REPEINT UNE FOIS LA GÉOMÉTRIE POSÉE.
+
+                 Elle est déjà peinte plus bas, à la fin de ce bloc — mais
+                 SYNCHRONEMENT, alors que `setCoinCover` ne s'exécute qu'ici,
+                 différé de 80 ms ou au chargement de l'image. Elle lisait donc
+                 un logo encore à sa géométrie d'origine (28 % / 44 %) au lieu
+                 du cadrage plein que la couverture venait poser.
+
+                 D'où une vignette décalée à l'upload, qui se corrigeait dès
+                 qu'on déplaçait le motif : ce geste la rappelait, cette fois
+                 après coup.
+
+                 Repeindre ici est sans risque : la fonction relit l'état réel
+                 du DOM et n'écrit nulle part ailleurs. */
+              if (typeof window.updateCoinRecapThumb === 'function') {
+                window.updateCoinRecapThumb();
+              }
             };
             setTimeout(applyCoinCover, 80);
             if (limg) limg.addEventListener('load', applyCoinCover, { once: true });
@@ -604,6 +622,14 @@
             if (typeof window.setFlagCover !== 'function') return;
             if (freshFlag) window.setFlagCover(face);
             else if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop(face);
+
+            /* La vignette se repeint une fois le cadrage posé — même raison
+               que pour les coins : elle est peinte plus bas de façon SYNCHRONE,
+               alors que `setFlagCover` s'exécute ici, différé. Elle lisait donc
+               la géométrie d'avant le cadrage plein. */
+            if (face === 'recto' && typeof window.updateFlagRecapThumb === 'function') {
+              window.updateFlagRecapThumb();
+            }
           };
           setTimeout(applyCover, 80);
           const fimg = dragLogo && dragLogo.querySelector('.flag-design-img');
@@ -811,6 +837,22 @@
          drapeaux), où elle porte le zoom comme la largeur. Absente pour les
          logos ordinaires, qui gardent leur ratio naturel. */
       if (geo.height) el.style.height = geo.height;
+      /* MARQUEUR D'INTENTION reporté sur l'élément — voir conf-logo-drag.js.
+         Il dit à `syncCoinCrop` / `syncFlagCrop` que cette géométrie vient d'un
+         geste du client, et non d'une session antérieure au mode couverture :
+         une largeur sous 100 % doit alors être RESPECTÉE, pas repoussée. */
+      if (geo.cover) el.setAttribute('data-cover-geo', '1');
+
+      /* L'AJUSTEMENT SUIT LA LARGEUR RESTAURÉE.
+
+         `majReduction` pose `is-reduced` sous 100 %, ce qui fait passer l'image
+         de « couvrir » à « contenir ». Les coins et les drapeaux la rappellent
+         depuis leur fonction de synchronisation ; LE PATCH n'en a pas — sans
+         cette ligne, un design réduit revenait du panier étiré sur toute la
+         forme, alors que sa largeur était bien restaurée.
+
+         Posée ici, elle couvre les trois familles par le même chemin. */
+      if (typeof window.majReduction === 'function') window.majReduction(el);
     });
   }
   window.applyUploadGeo = applyUploadGeo;

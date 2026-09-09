@@ -60,7 +60,9 @@
 
       // Découpe : pas de zone frappée, on défait un éventuel cadrage.
       if (isDecoupe(disc)) {
-        logo.classList.remove('is-cover');
+        /* `is-reduced` part avec `is-cover` : elle ne qualifie qu'un design en
+           couverture. Laissée seule, elle poserait un ajustement orphelin. */
+        logo.classList.remove('is-cover', 'is-reduced');
         if (logo.parentElement !== disc) disc.appendChild(logo);
         return;
       }
@@ -128,9 +130,21 @@
         /* Une largeur sous 100 % vient d'une session antérieure au mode
            couverture (44 % par défaut) : le motif ne couvrirait pas la pièce
            et resterait une petite vignette centrée. On repose le cadrage
-           plein — c'est le minimum garanti par le mode. */
+           plein — c'est le minimum garanti par le mode.
+
+           SAUF SI LE CLIENT L'A VOULUE. Il peut désormais réduire son visuel
+           sous 100 % pour laisser voir le métal autour. Ce test, lui, ne
+           distinguait pas un 44 % HÉRITÉ d'un 44 % CHOISI — et cette fonction
+           est rappelée au moindre redimensionnement, à chaque capture et à
+           chaque réouverture depuis le panier : la réduction était effacée en
+           une fraction de seconde.
+
+           `data-cover-geo` est posé par `applyUploadGeo` à partir d'un champ
+           qui n'existe dans aucune session ancienne (voir conf-logo-drag.js).
+           Son absence identifie donc l'héritage, sa présence l'intention. */
         var w = parseFloat(logo.style.width);
-        if (!w || w < 100) {
+        var geoVoulue = logo.getAttribute('data-cover-geo') === '1';
+        if (!w || (w < 100 && !geoVoulue)) {
           logo.style.left = '0%';
           logo.style.top = '0%';
           logo.style.width = '100%';
@@ -141,6 +155,18 @@
         if (!logo.style.height || logo.style.height === 'auto') {
           logo.style.height = logo.style.width || '100%';
         }
+
+        /* SOUS 100 %, L'IMAGE SE CONTIENT AU LIEU DE COUVRIR.
+
+           `cover` remplit la boîte en rognant ce qui dépasse — ce qu'on veut
+           tant que le motif couvre la pièce. Réduit, il n'a plus rien à
+           déborder : le rognage y découperait un carré dans la vignette au lieu
+           de la montrer entière.
+
+           La classe n'est qu'un REFLET de la largeur, jamais un état à
+           maintenir : on la recalcule ici et à chaque geste, donc l'aller-retour
+           sous et au-dessus de 100 % ne peut pas laisser d'état bâtard. */
+        if (typeof window.majReduction === 'function') window.majReduction(logo);
       }
 
       syncPreview(f);
@@ -214,6 +240,14 @@
       inner.style.top = logo.style.top || '0%';
       inner.style.width = logo.style.width || '100%';
       inner.style.height = logo.style.height || '100%';
+
+      /* LA DOUBLURE SUIT L'ÉTAT RÉDUIT DU DESIGN.
+
+         C'est elle que le client voit nette en édition — le design réel y est
+         estompé. Sa règle CSS force `object-fit: cover` sans variante : sans
+         cette classe, l'image nette montrerait un cadrage différent de l'image
+         estompée pendant tout le geste. */
+      inner.classList.toggle('is-reduced', logo.classList.contains('is-reduced'));
     });
   }
   window.syncCoinCropPreview = syncPreview;

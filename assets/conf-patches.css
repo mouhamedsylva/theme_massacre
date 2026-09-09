@@ -603,6 +603,16 @@
   height: 100% !important;
   object-fit: cover !important;
 }
+/* RÉDUIT SOUS 100 % : l'image se CONTIENT au lieu de couvrir.
+
+   `cover` remplit la boîte en rognant ce qui dépasse — juste tant que le motif
+   recouvre la pièce. Réduit, il n'a plus rien à déborder : le rognage y
+   découperait un carré dans le visuel au lieu de le montrer entier.
+
+   `is-reduced` accompagne `is-cover`, elle ne la remplace pas : tout ce que
+   celle-ci porte par ailleurs — référentiel du cadre, poignées d'angle, bornes
+   du glisser — reste vrai. Seul l'ajustement change. */
+.coin-logo.is-cover.is-reduced img { object-fit: contain !important; }
 .coin-logo.is-cover {
   cursor: grab;
   touch-action: none;
@@ -633,6 +643,14 @@
   object-fit: cover !important;
   opacity: 1 !important;
 }
+/* DESIGN RÉDUIT : la doublure montre le même cadrage que l'image réelle.
+
+   C'est elle que le client voit nette en édition — le design est estompé
+   derrière. Sans cette règle, les deux divergeaient pendant tout le geste : le
+   visuel réel contenu, sa copie rognée.
+
+   La classe est posée sur le conteneur interne par `syncCoinCropPreview`. */
+.coin-crop-preview .is-reduced img { object-fit: contain !important; }
 
 /* Cadre de l'image éditée : ses bords réels, ceux que les coins déplacent. */
 .coin-disc.coin-editing .coin-logo {

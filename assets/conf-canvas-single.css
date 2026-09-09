@@ -2,6 +2,28 @@
  * Canvas Single View - Une seule grande image qui change
  */
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CANVAS EN ATTENTE DE RECONSTRUCTION
+
+   Le serveur écrit toujours les images du SWEATSHIRT dans le markup
+   (configurateur.liquid) : il ne peut pas savoir quel produit la session du
+   navigateur mémorise. Quand c'est un coin, un drapeau ou un patch, ce
+   sweatshirt s'affichait donc le temps que `switchLayout` reconstruise le
+   canvas — un clignotement, rendu très visible par le rechargement qu'impose
+   un changement de mode.
+
+   L'attribut est posé AVANT LE PREMIER RENDU par un script synchrone
+   (configurateur.liquid), et retiré par `switchLayout` (conf-dynamic-layout.js)
+   une fois le canvas reconstruit ET ses designs restaurés.
+
+   `visibility` ET NON `display: none` : un conteneur retiré du flux donne une
+   boîte NULLE, et les zones exprimées en % du calque partent alors de mesures
+   fausses — « le logo partait deux à trois fois trop petit, souvent hors du
+   vêtement » (conf-styles.css). `visibility` conserve les dimensions, et évite
+   au passage tout saut de mise en page à la révélation.
+   ══════════════════════════════════════════════════════════════════════════ */
+.conf-app-root[data-canvas-attente] .cv-wrap { visibility: hidden; }
+
 /* Container de la vue unique */
 .cv-single-view {
   position: relative;

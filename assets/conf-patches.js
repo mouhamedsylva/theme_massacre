@@ -571,6 +571,18 @@ function clampCoinLogo(face, fill) {
   faces.forEach(function (f) {
     var logo = document.getElementById('coin-logo-' + f);
     if (!logo || logo.style.display === 'none') return;
+
+    /* DESIGN EN COUVERTURE : cette fonction ne le concerne pas.
+
+       Elle borne en % du DISQUE. Un logo en couverture vit dans `.coin-crop` et
+       ses % sont relatifs à CE cadre : les deux référentiels ne coïncident pas,
+       et l'appliquer déplacerait le motif au lieu de le contenir.
+
+       `clampFlagLogo` (conf-drapeaux.js) porte déjà cette garde ; elle manquait
+       ici. Le cas devient courant depuis que le motif peut descendre sous
+       100 %, où les bornes du disque paraissent soudain « atteignables ». */
+    if (logo.classList.contains('is-cover')) return;
+
     var disc = logo.closest('.coin-disc');
     if (!disc || !disc.offsetWidth || !disc.offsetHeight) return;
 

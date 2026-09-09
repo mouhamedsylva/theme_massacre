@@ -86,14 +86,11 @@
     if (!alreadyCote) {
       /* Passe en vue de côté. On cible le bouton par SON ID : l'index dans
          .vt (tabs[2]) n'est plus fiable depuis l'ajout des onglets
-         « Manche gauche / droite ». Le verrou disabled est levé le temps de
-         l'appel — l'option est forcément active si un upload manche a lieu. */
+         « Manche gauche / droite ». L'onglet n'est plus `disabled` (le verrou
+         a disparu avec la bascule), il n'y a donc plus rien à lever. */
       var coteTab = document.getElementById('cote-view-btn');
       if (coteTab && typeof window.selView === 'function') {
-        var wasDisabled = coteTab.disabled;
-        coteTab.disabled = false;
         window.selView(coteTab, 'cote');
-        coteTab.disabled = wasDisabled;
       }
       // Laisse la vue s'afficher avant de pivoter, sinon les deux animations
       // se télescopent.
@@ -123,14 +120,7 @@
     if (!inCote) {
       var coteTab = document.getElementById('cote-view-btn');
       if (coteTab && typeof window.selView === 'function') {
-        /* selView refuse un bouton disabled. L'onglet d'origine l'est tant que
-           l'option manches est inactive : ici elle l'est forcément (ces onglets
-           ne s'affichent qu'avec elle), on lève donc le verrou le temps de
-           l'appel. */
-        var wasDisabled = coteTab.disabled;
-        coteTab.disabled = false;
         window.selView(coteTab, 'cote');
-        coteTab.disabled = wasDisabled;
       }
       // Laisse la vue s'afficher avant de pivoter (animations sinon confondues).
       setTimeout(function () { setSide(side, true); applySleeveZoom(); }, 60);
@@ -158,8 +148,11 @@
   /**
    * Affichage des sélecteurs selon la vue.
    *
-   * La bascule flottante Gauche/Droite ne sert QUE si les onglets dédiés sont
-   * absents (option manches inactive) : afficher les deux ferait doublon.
+   * La bascule flottante Gauche/Droite ne servait QUE si les onglets dédiés
+   * étaient absents : afficher les deux ferait doublon. Les onglets manche
+   * étant désormais toujours visibles, cette bascule ne s'affiche plus jamais.
+   * On garde le test tel quel plutôt que de le figer à `none` : il reste juste,
+   * et il redeviendrait utile si les onglets étaient un jour masqués.
    */
   window.syncSideToggle = function (view) {
     var box = document.getElementById('side-toggle');

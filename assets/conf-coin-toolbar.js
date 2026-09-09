@@ -111,10 +111,22 @@
     if (typeof window.saveUploadGeo !== 'function') return;
     var zone = logo.getAttribute('data-zone');
     if (!zone) return;
+    /* ALIGNÉE SUR `saveUploadGeo` DE conf-logo-drag.js.
+
+       Elle omettait la HAUTEUR et le marqueur de couverture : toute action de
+       cette barre effaçait donc la hauteur persistée, et faisait passer une
+       géométrie voulue pour un héritage — `syncCoinCrop` la repoussait alors à
+       100 %, annulant une réduction.
+
+       Les valeurs partent en CHAÎNES CSS, comme partout ailleurs : `applyUploadGeo`
+       les repose telles quelles dans le style, où un nombre nu serait ignoré. */
+    var estCouverture = logo.classList.contains('is-cover');
     window.saveUploadGeo(zone, {
-      left: parseFloat(logo.style.left) || 0,
-      top: parseFloat(logo.style.top) || 0,
-      width: parseFloat(logo.style.width) || 44
+      left: logo.style.left || '0%',
+      top: logo.style.top || '0%',
+      width: logo.style.width || '44%',
+      height: logo.style.height || undefined,
+      cover: estCouverture ? true : undefined
     });
   }
 

@@ -49,15 +49,54 @@
     clone.style.cssText = 'position:absolute;left:' + (logo.style.left || '0%') +
       ';top:' + (logo.style.top || '0%') +
       ';width:' + (logo.style.width || '100%') +
-      ';aspect-ratio:1;min-height:100%;';
+      ';aspect-ratio:1;';
 
     var ci = document.createElement('img');
     ci.src = img.getAttribute('src');
     ci.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;' +
-      'object-fit:cover;display:block;';
+      'display:block;';
     clone.appendChild(ci);
+
+    /* L'ajustement et le plancher de hauteur sont posés PAR LA FONCTION
+       COMMUNE, jamais figés ici — voir son commentaire. */
+    appliquerAjustement(clone, ci, logo.style.width);
     prev.appendChild(clone);
     body.appendChild(prev);
+  }
+
+  /**
+   * Aligne la doublure sur l'état RÉDUIT ou COUVRANT du design.
+   *
+   * ═══ C'EST LA DOUBLURE QUE LE CLIENT VOIT ═══════════════════════════════
+   *
+   * En édition, le design réel tombe à 35 % d'opacité et cette copie est
+   * affichée nette par-dessus. Ses deux propriétés décisives étaient figées EN
+   * STYLE INLINE à la construction — `min-height: 100%` et `object-fit: cover` —
+   * et `syncPreview` ne réécrivait que position et largeur.
+   *
+   * Réduire le design ne changeait donc rien à ce qu'on voit : la doublure
+   * gardait la hauteur pleine du patch, et `cover` y étalait la photo, qui
+   * débordait du cercle en haut et en bas. Aucune règle CSS ne pouvait le
+   * corriger — un style inline les bat toutes.
+   *
+   * Les deux propriétés se recalculent maintenant à chaque appel, comme la
+   * position. Elles ne sont qu'un REFLET de la largeur : franchir 100 % dans un
+   * sens ou dans l'autre pendant le geste ne peut plus laisser d'état périmé.
+   *
+   * @param {HTMLElement} boite - la doublure
+   * @param {HTMLImageElement} image - son image
+   * @param {string} largeur - `style.width` du design réel
+   */
+  function appliquerAjustement(boite, image, largeur) {
+    var w = parseFloat(largeur);
+    var reduit = !!w && w < 100;
+
+    /* `min-height: 100%` fait couvrir la forme, y compris le blason qui est
+       plus haut que large. Réduit, il empêcherait la boîte de descendre. */
+    boite.style.minHeight = reduit ? '0' : '100%';
+    /* `cover` remplit en rognant — juste tant que le design déborde. Réduit, il
+       découperait un carré au lieu de montrer le visuel entier. */
+    image.style.objectFit = reduit ? 'contain' : 'cover';
   }
 
   /** Réaligne la doublure sur le design pendant le geste. */
@@ -68,6 +107,9 @@
     prev.style.left = logo.style.left || '0%';
     prev.style.top = logo.style.top || '0%';
     prev.style.width = logo.style.width || '100%';
+
+    var img = prev.querySelector('img');
+    if (img) appliquerAjustement(prev, img, logo.style.width);
   }
   window.syncPatchCropPreview = syncPreview;
 

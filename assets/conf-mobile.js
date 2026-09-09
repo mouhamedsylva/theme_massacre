@@ -54,6 +54,7 @@
        Garde `typeof` : cette fonction s'exécute avant la déclaration du
        chevron au tout premier rendu. */
     if (typeof majChevronTailleQte === "function") majChevronTailleQte();
+    if (typeof majChevronQuantite === "function") majChevronQuantite();
   }
 
   /* ── Voile ────────────────────────────────────────────────────────── */
@@ -516,6 +517,10 @@
     }
 
     poserTailleQte(canvas, recapNow);
+    /* Les produits sans taille — coins, drapeaux, patchs — ont malgré tout une
+       quantité à régler. Les deux fonctions s'excluent d'elles-mêmes : chacune
+       sort net sur le terrain de l'autre. */
+    poserQuantiteSeule(canvas, recapNow);
 
     measureNav();
     measurePrice();
@@ -563,8 +568,32 @@
        de leur gabarit. Le bouton et la feuille doivent disparaître, sinon ils
        garderaient ceux du produit précédent — exactement le défaut que le bloc
        prix documente plus haut (« 19,90 € du drapeau restait affiché sur
-       l'écran coins »). */
-    if (!grille) {
+       l'écran coins »).
+
+       ⚠️ LE PRODUIT SE JUGE SUR LE RÉCAPITULATIF, PAS SUR `trouver`.
+
+       `trouver` regarde le récap PUIS la feuille déjà posée — c'est ce qui rend
+       le déplacement idempotent. Mais pour DÉCIDER si l'écran est textile,
+       cette seconde source ment : la feuille garde la grille du textile
+       précédent, si bien qu'un écran de coins la trouvait encore et sautait
+       cette suppression. Le bouton « Taille & quantité » survivait alors
+       derrière celui de la quantité — deux boutons superposés.
+
+       On interroge donc le RÉCAPITULATIF — mais sur un nœud QUI NE BOUGE PAS.
+
+       `.rp-tq` ne convient pas : cette fonction le déplace elle-même dans la
+       feuille quelques lignes plus bas. Au second appel — et il y en a 22 par
+       bascule — le récap ne le contient plus, et elle concluait « pas un
+       textile » sur un sweatshirt : son propre bouton disparaissait.
+
+       `#rp-qty-textile` est le CONTENEUR de cette grille : il reste en place,
+       seul son contenu voyage. Il dit donc de façon stable que le
+       récapitulatif affiché est celui d'un textile.
+
+       `recapNow` absent — cas théorique, `.recap` étant dans le markup — on
+       s'abstient de conclure : mieux vaut laisser le bouton en place que le
+       retirer sur un écran textile parce qu'on n'a rien pu lire. */
+    if (recapNow && !recapNow.querySelector("#rp-qty-textile")) {
       var bAncien = document.getElementById("mob-tq-btn");
       if (bAncien) bAncien.remove();
       if (feuille) feuille.remove();
@@ -693,6 +722,255 @@
 
     majBoutonTailleQte();
   }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     QUANTITÉ SEULE — coins, drapeaux et patchs
+
+     Ces trois produits n'ont pas de taille : le bouton « Taille & quantité »
+     ci-dessus les écarte, à juste titre. Mais leur champ de QUANTITÉ vit lui
+     aussi dans `.recap`, masqué en mobile (conf-mobile.css) — le client ne
+     pouvait donc commander que le minimum, sans aucun moyen d'en changer.
+
+     FONCTION DISTINCTE, ET NON UNE BRANCHE DE `poserTailleQte`.
+
+     Celle-ci porte trois sorties précoces qui encodent des règles propres au
+     TEXTILE. Y greffer une seconde famille transformerait chacune en branche
+     conditionnelle — dans la fonction dont dépend le seul chemin qui marche.
+     On compose plutôt qu'on ne modifie : la feuille hérite de `.side-panel`
+     (position, animation, fermeture, glisser-pour-fermer) et le bouton des
+     styles `.mob-tq-btn`. Rien de tout cela n'est réécrit.
+
+     Les deux boutons NE COEXISTENT JAMAIS : les gabarits de récapitulatif sont
+     mutuellement exclusifs, `.rp-tq` et les trois champs ci-dessous ne
+     répondent jamais sur le même écran. Ils partagent donc la même bande.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Les trois champs, et le nom à afficher. Le nommage interne est INVERSÉ —
+     documenté dans conf-dynamic-layout.js : `coin-qty-input` sert l'écran
+     PATCHS, `coin-recap-qty-input` l'écran COINS. Se tromper afficherait
+     « 50 patchs » sur un écran de coins. */
+  var CHAMPS_QTE = {
+    "coin-recap-qty-input": ["coin", "coins"],
+    "flag-qty-input": ["drapeau", "drapeaux"],
+    "coin-qty-input": ["patch", "patchs"]
+  };
+  var SEL_QTE = "#coin-recap-qty-input, #flag-qty-input, #coin-qty-input";
+
+  function poserQuantiteSeule(canvas, recapNow) {
+    if (!canvas) return;
+
+    var feuille = document.getElementById("mob-q-sheet");
+
+    /* Même motif que `poserTailleQte` : `.recap` D'ABORD — au changement de
+       produit, switchLayout y écrit un gabarit neuf, c'est celui-là qu'il faut
+       — puis la feuille, mémoire de ce qu'on a déjà déplacé. Sans cette
+       priorité, un nœud déplacé une fois ne serait jamais remplacé. */
+    var trouver = function (sel) {
+      return (recapNow && recapNow.querySelector(sel)) ||
+             (feuille && feuille.querySelector(sel)) ||
+             null;
+    };
+
+    /* ÉCRAN TEXTILE : ce n'est pas notre affaire.
+
+       `.rp-qty-section` existe AUSSI sur le textile (configurateur.liquid) : un
+       sélecteur sur cette classe seule volerait son bloc et casserait le
+       chemin qui fonctionne. On s'ancre donc sur les trois identifiants non
+       textiles, et on sort net dès que la grille du textile est là.
+
+       LE REPÈRE DOIT ÊTRE UN NŒUD QUI NE BOUGE PAS.
+
+       Ce test portait sur `.rp-tq`. Mais `poserTailleQte` s'exécute JUSTE
+       AVANT et déplace précisément cette grille dans sa propre feuille : quand
+       on arrive ici, le récapitulatif textile ne la contient plus. On concluait
+       donc « ce n'est pas un textile » sur un sweatshirt, et le bouton
+       « 50 coins » y survivait pendant que celui des tailles disparaissait.
+
+       `#rp-qty-textile` est le CONTENEUR de cette grille (configurateur.liquid).
+       Il reste en place — seul son contenu voyage. C'est donc lui qui dit, de
+       façon stable, que le récapitulatif affiché est celui d'un textile. */
+    if (recapNow && recapNow.querySelector("#rp-qty-textile")) {
+      var bTx = document.getElementById("mob-q-btn");
+      if (bTx) bTx.remove();
+      if (feuille) feuille.remove();
+      return;
+    }
+
+    /* Le repli sur la feuille reste indispensable à l'idempotence : dès le
+       second appel, le champ n'est PLUS dans le récap — il est ici. C'est la
+       DÉCISION « écran textile » qui ne doit pas s'y fier, et elle vient
+       d'être prise ci-dessus, sur le récapitulatif seul. */
+    var champ = trouver(SEL_QTE);
+    var bloc = champ && champ.closest(".rp-qty-section");
+
+    /* Pas de champ de quantité isolé : rien à sortir. On retire le bouton et
+       la feuille, sinon ils garderaient ceux du produit précédent — même
+       raison que pour la grille textile. */
+    if (!bloc) {
+      var bAncien = document.getElementById("mob-q-btn");
+      if (bAncien) bAncien.remove();
+      if (feuille) feuille.remove();
+      return;
+    }
+
+    var racine = document.querySelector(".conf-app-root");
+    var surEcranChoix = racine && racine.getAttribute("data-etape") === "choix";
+    /* Le mode groupe est un parcours TEXTILE : ces trois produits n'en ont
+       pas. Le test est défensif — il ne coûte rien et protège d'une évolution. */
+    var estGroupe = racine && racine.getAttribute("data-mode") === "groupe";
+
+    if (surEcranChoix || estGroupe) {
+      var bChoix = document.getElementById("mob-q-btn");
+      if (bChoix) bChoix.remove();
+      if (feuille) feuille.remove();
+      return;
+    }
+
+    // ── La feuille ────────────────────────────────────────────────────────
+    if (!feuille) {
+      feuille = document.createElement("div");
+      feuille.id = "mob-q-sheet";
+      feuille.className = "mob-q-sheet side-panel";
+      /* DANS `.conf-app-root`, jamais dans `body` : la racine porte un
+         z-index de 9999 et un fond opaque, une feuille sœur resterait
+         invisible derrière. Même raison que la feuille des tailles. */
+      var racineApp = document.querySelector(".conf-app-root");
+      (racineApp || document.body).appendChild(feuille);
+    }
+
+    /* ⚠️ DÉPLACER SEULEMENT SI LE NŒUD N'EST PAS DÉJÀ LÀ.
+
+       `appendChild` sur un nœud déjà en place n'est pas neutre : la
+       spécification retire puis réinsère. Ici le nœud contient un
+       `<input type="number">` — le réinsérer pendant la saisie ferme le
+       clavier numérique. Et `fillActionBar` tourne en boucle : 22 fois pour
+       une seule bascule de produit, mesuré. */
+    if (bloc.parentNode !== feuille) {
+      /* L'HÔTE EST MARQUÉ AVANT LE DÉPLACEMENT.
+
+         Au retour vers le bureau, le bloc doit regagner SA `.rp-section` — pas
+         le récapitulatif, où il atterrirait après le bouton d'ajout. Le
+         retrouver après coup par sa vacuité serait fragile : `:empty` échoue
+         sur le moindre espace blanc. On pose donc un repère tant qu'on le
+         tient encore. */
+      var hote = bloc.parentNode;
+      if (hote && hote.classList && hote.classList.contains("rp-section")) {
+        hote.setAttribute("data-hote-qte", "1");
+      }
+      feuille.appendChild(bloc);
+    }
+
+    /* PURGE DES BLOCS ORPHELINS — après le déplacement, jamais avant.
+
+       Au changement de produit, le gabarit est réécrit intégralement : un
+       exemplaire neuf arrive, l'ancien resterait dans la feuille à côté du
+       nouveau. Purger AVANT la recherche rendrait le nœud introuvable — c'est
+       un défaut que ce fichier documente déjà ailleurs. */
+    var anciens = feuille.querySelectorAll(".rp-qty-section");
+    for (var i = 0; i < anciens.length; i++) {
+      if (anciens[i] !== bloc) anciens[i].remove();
+    }
+
+    if (typeof addHandle === "function") addHandle(feuille);
+
+    // ── Le bouton d'état ──────────────────────────────────────────────────
+    var btn = document.getElementById("mob-q-btn");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "mob-q-btn";
+      /* `mob-tq-btn` en plus de sa propre classe : tout le style du bouton
+         des tailles — taille, fond, ombre, chevron — s'applique sans être
+         réécrit. Seule la position peut différer. */
+      btn.className = "mob-tq-btn mob-q-btn";
+      btn.addEventListener("click", function () {
+        var f = document.getElementById("mob-q-sheet");
+        if (!f) return;
+        if (f.classList.contains("open")) {
+          closeSheet();
+        } else {
+          closeAllPanels();
+          f.classList.add("open");
+          showScrim(true);
+        }
+        majChevronQuantite();
+      });
+      canvas.appendChild(btn);
+    } else if (btn.parentNode !== canvas) {
+      canvas.appendChild(btn);
+    }
+
+    majBoutonQuantite();
+  }
+
+  /** Le chevron suit l'état réel de la feuille, jamais un état mémorisé. */
+  function majChevronQuantite() {
+    var btn = document.getElementById("mob-q-btn");
+    var f = document.getElementById("mob-q-sheet");
+    if (!btn) return;
+    btn.classList.toggle("is-open", !!(f && f.classList.contains("open")));
+  }
+  window.majChevronQuantite = majChevronQuantite;
+
+  /* Le bouton affiche l'état COURANT : « 50 coins ». Relu depuis le champ
+     lui-même, jamais mémorisé — il reste la seule source de vérité. */
+  function majBoutonQuantite() {
+    var btn = document.getElementById("mob-q-btn");
+    if (!btn) return;
+
+    var feuille = document.getElementById("mob-q-sheet");
+    var champ = (feuille && feuille.querySelector(SEL_QTE)) ||
+                document.querySelector(SEL_QTE);
+    if (!champ) return;
+
+    var n = parseInt(champ.value, 10);
+    if (!isFinite(n) || n < 1) n = 1;
+
+    var noms = CHAMPS_QTE[champ.id] || ["unité", "unités"];
+    var mot = (n > 1) ? noms[1] : noms[0];
+
+    /* LE MINIMUM N'EST PAS SUR LE BOUTON. Il est invariant — un bouton d'état
+       montre ce qui change — et il figure déjà dans la feuille
+       (`.rp-qty-subtitle`), à l'endroit exact où le client peut agir dessus. */
+    btn.setAttribute("aria-haspopup", "dialog");
+    btn.setAttribute("aria-label",
+      "Quantité : " + n + " " + mot + ". Appuyez pour modifier.");
+
+    btn.innerHTML =
+      '<span class="mtq-txt">' +
+        '<span class="mtq-lbl">Quantité</span>' +
+        '<span class="mtq-val">' + n +
+          '<span class="mtq-sep"> </span>' +
+          '<span class="mtq-x">' + mot + "</span>" +
+        "</span>" +
+      "</span>" +
+      '<svg class="mtq-caret" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true">' +
+      '<polyline points="6 15 12 9 18 15"/></svg>';
+  }
+  window.majBoutonQuantite = majBoutonQuantite;
+
+  /* LE BOUTON SUIT LA VALEUR, PAR TROIS CHEMINS.
+
+     `input` et `change` couvrent la saisie au clavier. Mais les boutons − et +
+     écrivent `input.value` PAR PROGRAMME (changeCoinRecapQty et consorts), ce
+     qui ne déclenche NI l'un NI l'autre : sans le troisième écouteur, le
+     bouton afficherait une valeur périmée après chaque appui.
+
+     Délégation sur `document` : les nœuds sont déplacés hors du récap, un
+     écouteur posé sur eux ne survivrait pas au changement de produit. */
+  ["input", "change"].forEach(function (evt) {
+    document.addEventListener(evt, function (e) {
+      if (e.target && CHAMPS_QTE[e.target.id]) majBoutonQuantite();
+    });
+  });
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest(".rp-qty-btn");
+    if (!b) return;
+    /* Après le gestionnaire inline du bouton, qui vient d'écrire la valeur. */
+    requestAnimationFrame(majBoutonQuantite);
+  });
 
   /* Le chevron suit l'ÉTAT RÉEL de la feuille, jamais un état mémorisé.
 
@@ -959,6 +1237,32 @@
     }
     var btnTQ = document.getElementById("mob-tq-btn");
     if (btnTQ) btnTQ.remove();
+
+    /* MÊME RETOUR POUR LA QUANTITÉ DES NON-TEXTILES.
+
+       Sans ce bloc, un passage mobile → bureau laisserait coins, drapeaux et
+       patchs SANS champ de quantité dans le récapitulatif redevenu visible :
+       le nœud resterait orphelin dans une feuille supprimée, et le client ne
+       pourrait plus rien commander d'autre que le minimum. Régression grave, et
+       silencieuse.
+
+       L'hôte a été MARQUÉ au moment du déplacement (`data-hote-qte`) : le
+       retrouver après coup par sa vacuité serait fragile, `:empty` échouant sur
+       le moindre espace blanc. */
+    var feuilleQ = document.getElementById("mob-q-sheet");
+    if (feuilleQ) {
+      var blocQ = feuilleQ.querySelector(".rp-qty-section");
+      if (blocQ) {
+        var hoteQ = recap.querySelector(".rp-section[data-hote-qte]");
+        if (hoteQ) {
+          hoteQ.appendChild(blocQ);
+          hoteQ.removeAttribute("data-hote-qte");
+        }
+      }
+      feuilleQ.remove();
+    }
+    var btnQ = document.getElementById("mob-q-btn");
+    if (btnQ) btnQ.remove();
 
     document.documentElement.style.removeProperty("--nav-h");
     document.documentElement.style.removeProperty("--mp-w");
@@ -1402,6 +1706,16 @@
       // Produit textile (ou canvas pas encore construit) : pas de bascule.
       var old = document.getElementById("face-switch");
       if (old) old.remove();
+      /* L'ATTRIBUT PART AVEC ELLE.
+
+         Il était laissé sur la racine : revenir d'un coin vers un textile
+         gardait `data-face-active="verso"`, et le CSS continuait d'y accrocher
+         la mise en évidence d'une zone d'upload — un cadre orange sur un
+         vêtement, sans rien qui l'explique.
+
+         L'autre branche de sortie le nettoie déjà (voir plus bas) ; celle-ci
+         l'avait oublié. */
+      refletFaceActive(null);
       return;
     }
 
@@ -1609,15 +1923,36 @@
            250 ms : une réécriture légitime (changement de produit, de quantité)
            vient d'une action du client, jamais dans les 250 ms qui suivent notre
            propre écriture. Elle n'est donc pas masquée. */
-        if (Date.now() - _fabDerniereEcriture < 250) return;
-
         tagCanvasRow();
         buildFaceSwitch();
         /* conf-dynamic-layout.js réécrit .canvas en entier au changement de
            produit : le prix, le bouton flottant et « Vue d'ensemble », qui y
            sont ancrés, sont détruits avec. On les réinstalle. */
         moveOverviewBtn();
-        fillActionBar();
+
+        /* ⚠️ LA GARDE NE PROTÈGE QUE `fillActionBar`, PAS TOUT LE BLOC.
+
+           Elle était testée en tête, et emportait donc les cinq autres appels
+           avec elle. Or une seule d'entre elles écrit dans `.canvas` — donc une
+           seule peut se rappeler elle-même. Les autres n'ont rien à voir avec
+           la boucle qu'elle ferme.
+
+           CE QUE CETTE PORTÉE TROP LARGE COÛTAIT : la bascule Recto/Verso des
+           coins ne revenait pas après un changement de produit. Le dernier
+           écrivain de la séquence est `selectCoinType` (conf-patches.js), qui
+           pose `display` sur la vue verso à ~300 ms — juste après qu'un lot
+           précédent a rappelé `fillActionBar` et RÉ-ARMÉ la garde. Son lot
+           arrivait donc dans l'ombre, était rejeté, et plus rien ne réveillait
+           l'observateur : les deux faces restaient affichées côte à côte.
+
+           Au rafraîchissement, `selectCoinType` est programmée à 600 ms
+           (conf-sidebar-modern.js) au lieu de 300 : hors de la fenêtre, d'où un
+           défaut qui ne se voyait qu'en navigation.
+
+           La boucle documentée reste fermée par la même ligne qu'avant —
+           seule `fillActionBar` en dépendait. */
+        if (Date.now() - _fabDerniereEcriture >= 250) fillActionBar();
+
         syncLayerToImage();
         watchZoomEnd();   // .cv-single-view est neuf : réinstaller l'écouteur
       }, 60);
@@ -2299,6 +2634,30 @@
     buildFaceSwitch();
     moveOverviewBtn();
     watchStage();
+
+    /* SIGNAL DE FIN DE RECONSTRUCTION — un ancrage qui ne dépend d'aucun délai.
+
+       `switchLayout` (conf-dynamic-layout.js) émet `conf:layout-restored` quand
+       le canvas d'un coin, d'un drapeau ou d'un patch est reconstruit ET ses
+       designs restaurés. Son commentaire le dit : « un événement dit ce qu'un
+       délai ne peut que supposer ». La réouverture depuis le panier s'en sert
+       déjà.
+
+       L'observateur du canvas reste le chemin principal ; celui-ci le double,
+       au cas où un lot tomberait dans l'ombre d'une garde.
+
+       `fillActionBar` est VOLONTAIREMENT ABSENTE de cette liste : elle écrit
+       dans le canvas et ré-arme la garde. L'appeler ici aveuglerait
+       l'observateur à l'instant précis où le dernier écrivain de la séquence
+       s'apprête à agir. Le récapitulatif, lui, a son propre observateur. */
+    document.addEventListener("conf:layout-restored", function () {
+      if (!isMobile()) return;
+      tagCanvasRow();
+      buildFaceSwitch();
+      moveOverviewBtn();
+      syncLayerToImage();
+      watchZoomEnd();
+    });
 
     /* Protège la géométrie restaurée à l'ouverture d'un article du panier.
        N'entre en action que lorsque conf-cart-open-design.js publie sa

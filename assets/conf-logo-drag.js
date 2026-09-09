@@ -52,6 +52,48 @@
 
   const MIN_W = 4;       // largeur min du logo en % du canvas
   const MAX_W = 100;     // largeur max
+
+  /* ═══ PLANCHER DES DESIGNS EN COUVERTURE (coins, drapeaux, patchs) ═══════
+
+     Il valait 100 % : le motif pouvait être agrandi, jamais réduit. Le client
+     demande à pouvoir le diminuer et laisser voir la pièce autour — le métal du
+     coin, le tissu du drapeau, la couleur du patch, qui sont DÉJÀ derrière le
+     cadre de rognage (aucun de ces cadres ne porte de fond).
+
+     25 % ET NON 4 %. `MIN_W` vaut 4, mais son référentiel est le vêtement
+     entier : 4 % y font environ 2 cm. Ici les % sont relatifs au cadre de
+     rognage, à l'échelle de la pièce :
+
+       coin Ø30 mm  → 25 % = 7 mm      (4 % aurait donné 1,2 mm)
+       patch 8 cm   → 25 % = 2 cm      (4 % → 3,2 mm)
+       drapeau      → 25 % = 34 cm de large
+
+     Ces trois valeurs restent fabricables : sous ce seuil, un motif frappé ou
+     brodé perd ses détails. Le client peut tout de même descendre au quart de
+     la pièce — une réduction de 75 %. */
+  const COVER_MIN_W = 25;
+  window.COVER_MIN_W = COVER_MIN_W;
+
+  /**
+   * Pose ou retire `is-reduced` selon la largeur courante.
+   *
+   * Sous 100 %, l'image doit se CONTENIR au lieu de couvrir : réduite, elle n'a
+   * plus rien à déborder, et le rognage y découperait un carré au lieu de la
+   * montrer entière.
+   *
+   * La classe est un pur REFLET de la largeur — jamais un état à maintenir.
+   * C'est ce qui rend l'aller-retour sous et au-dessus de 100 % réversible par
+   * construction : rien à reconstruire, rien qui puisse rester à moitié posé.
+   *
+   * Exposée : `syncCoinCrop` et `syncFlagCrop` la rappellent, la largeur pouvant
+   * aussi changer par leur chemin.
+   */
+  function majReduction(el) {
+    if (!el) return;
+    var w = parseFloat(el.style.width);
+    el.classList.toggle('is-reduced', !!w && w < 100);
+  }
+  window.majReduction = majReduction;
   /* Marge de la zone imprimable des drapeaux, en % de la largeur.
      0 = la zone couvre tout le drapeau, bord à bord : le design peut être
      placé sur toute la surface, mais ne peut plus en sortir (avant, le logo
@@ -508,10 +550,16 @@
          haute pour que les deux côtés s'équivalent. */
       var curW = parseFloat(active.style.width) || 100;
       var over = Math.max(0, curW - 100);      // ce qui dépasse de la forme
-      pX0 = -PATCH_PAN - over;
-      pX1 = 100 + PATCH_PAN + over + over;     // +over compense maxPos()
-      pY0 = pX0;
-      pY1 = pX1;
+      if (curW < 100) {
+        /* Réduit : plus rien à recadrer, le motif reste dans la forme.
+           Voir le commentaire détaillé du coin, même cause. */
+        pX0 = 0; pX1 = 100; pY0 = 0; pY1 = 100;
+      } else {
+        pX0 = -PATCH_PAN - over;
+        pX1 = 100 + PATCH_PAN + over + over;   // +over compense maxPos()
+        pY0 = pX0;
+        pY1 = pX1;
+      }
     }
 
     // DRAPEAUX : le logo est positionné en % de .flag-img-3d, un conteneur
@@ -552,6 +600,13 @@
       const fOverY = Math.max(0, curFH - 100);
       fY0 = -PATCH_PAN - fOverY;
       fY1 = 100 + PATCH_PAN + fOverY + fOverY;
+
+      /* Réduit : plus rien à recadrer, le design reste dans la zone imprimable.
+         Même cause et même correction que pour le coin — voir son commentaire.
+         Posé APRÈS les quatre bornes ci-dessus, qu'il remplace entièrement. */
+      if (curFW < 100) { fX0 = 0; fX1 = 100; }
+      if (curFH < 100) { fY0 = 0; fY1 = 100; }
+
       flagMaxW = PATCH_MAX_ZOOM;
     } else if (isFlagLogo) {
       /* Marges propres à l'orientation : les fichiers paysage et portrait
@@ -605,10 +660,30 @@
     if (isCoinCover) {
       const curCW = parseFloat(active.style.width) || 100;
       const cOver = Math.max(0, curCW - 100);
-      cX0 = -PATCH_PAN - cOver;
-      cX1 = 100 + PATCH_PAN + cOver + cOver;   // compense maxPos()
-      cY0 = cX0;
-      cY1 = cX1;
+      if (curCW < 100) {
+        /* ═══ RÉDUIT : LE MOTIF RESTE DANS LA PIÈCE ═══════════════════════
+
+           Ces bornes ont été calculées pour un design QUI DÉBORDE : `cOver`
+           mesure la part au-delà de 100 %, et `PATCH_PAN` accorde 20 % de jeu
+           pour choisir la partie visible.
+
+           Sous 100 %, `cOver` vaut zéro — il ne reste que le ±20 % de jeu, sur
+           un motif qui ne déborde plus de rien. Le visuel pouvait donc glisser
+           hors du disque, puis se coincer contre une borne : c'est ce qui le
+           faisait dériver vers le haut et paraître écrasé.
+
+           Un motif réduit n'a plus rien à recadrer. Il doit simplement rester
+           dans le cadre frappé : de 0 à ce que sa propre largeur laisse. */
+        cX0 = 0;
+        cX1 = 100;
+        cY0 = 0;
+        cY1 = 100;
+      } else {
+        cX0 = -PATCH_PAN - cOver;
+        cX1 = 100 + PATCH_PAN + cOver + cOver;   // compense maxPos()
+        cY0 = cX0;
+        cY1 = cX1;
+      }
     }
 
     const MIN_POS = isPatchLogo ? pX0
@@ -649,22 +724,53 @@
       }
 
       let newW = startW + delta;
-      /* Patch : le design peut être AGRANDI (zoom sur une partie du visuel)
-         mais jamais réduit sous 100 % — en dessous, il cesserait de couvrir
-         la forme et laisserait un vide. Le plancher générique (MIN_W = 4 %)
-         autoriserait une vignette perdue au milieu du patch. */
-      var minW = (isPatchLogo || isFlagCover || isCoinCover) ? 100 : MIN_W;
+      /* Le design de ces trois familles pouvait être AGRANDI, jamais réduit
+         sous 100 % : en dessous, il cessait de couvrir la pièce et laissait un
+         vide. C'était l'arbitrage retenu jusqu'ici.
+
+         IL EST LEVÉ. Ce « vide » n'en est pas un : les cadres de rognage n'ont
+         aucun fond, et la pièce est dessous — le métal du coin, le tissu du
+         drapeau, la couleur du patch apparaissent d'eux-mêmes autour d'un motif
+         réduit. C'est le rendu que le client veut, et il correspond à ce qui
+         sera fabriqué.
+
+         Le plancher devient COVER_MIN_W (25 %), calé sur la taille réelle des
+         pièces — voir sa définition. Le plancher générique MIN_W (4 %) reste
+         celui des logos textiles, dont le référentiel est tout autre. */
+      var minW = (isPatchLogo || isFlagCover || isCoinCover) ? COVER_MIN_W : MIN_W;
       newW = Math.max(minW, Math.min(maxW, newW));
 
       // Bord opposé fixe : on compense le décalage de largeur/hauteur.
       var grown = newW - startW;                       // variation en % de largeur
-      if (g.indexOf('w') !== -1) {
-        active.style.left = (startLeft - grown) + '%';  // le bord droit ne bouge pas
-      }
-      if (g === 'n' || g === 'nw' || g === 'ne') {
-        // Hauteur en % du canvas : la largeur % est relative à la LARGEUR du canvas.
-        var ratioH = (startH || 0) / (startW || 1);     // hauteur/largeur du logo
-        active.style.top = (startTop - grown * ratioH) + '%'; // le bord bas ne bouge pas
+
+      /* ═══ SOUS 100 %, ON RÉTRÉCIT SUR PLACE ═══════════════════════════════
+
+         Garder le bord opposé fixe est le bon geste pour AGRANDIR : le design
+         pousse dans la direction tirée.
+
+         Pour réduire, il projette le visuel vers un coin — passer de 100 % à
+         40 % le déplace de 60 points d'un coup. Sur un disque cela se remarque à
+         peine ; sur le cadre rectangulaire d'un drapeau, l'image paraît partir
+         hors de la zone.
+
+         On garde donc le CENTRE fixe : l'image rétrécit là où elle est, et les
+         quatre poignées donnent le même résultat. C'est ce que le client attend
+         d'un geste de réduction. */
+      var reduitSurPlace = (isPatchLogo || isFlagCover || isCoinCover) && newW < 100;
+
+      if (reduitSurPlace) {
+        var ratioC = (startH || startW) / (startW || 1);
+        active.style.left = (startLeft + (startW - newW) / 2) + '%';
+        active.style.top = (startTop + (startW - newW) * ratioC / 2) + '%';
+      } else {
+        if (g.indexOf('w') !== -1) {
+          active.style.left = (startLeft - grown) + '%';  // le bord droit ne bouge pas
+        }
+        if (g === 'n' || g === 'nw' || g === 'ne') {
+          // Hauteur en % du canvas : la largeur % est relative à la LARGEUR du canvas.
+          var ratioH = (startH || 0) / (startW || 1);     // hauteur/largeur du logo
+          active.style.top = (startTop - grown * ratioH) + '%'; // le bord bas ne bouge pas
+        }
       }
 
       active.style.width = newW + '%';
@@ -673,6 +779,10 @@
          remplir la zone. Les logos ordinaires gardent `height: auto` (ratio
          naturel préservé). */
       if (isCoinCover || isFlagCover) active.style.height = newW + '%';
+
+      /* La largeur vient de changer : l'ajustement de l'image suit. Sous 100 %
+         elle se contient, au-dessus elle couvre. */
+      majReduction(active);
 
       /* DRAPEAUX : maxW ne borne que la LARGEUR. Un visuel très haut (ou tiré
          depuis une poignée nord/ouest, qui déplace aussi le logo) sortait donc
@@ -718,7 +828,17 @@
            autorisent volontairement le débordement — c'est ce qui rend le
            recadrage possible. Ce clamp-ci ne servait qu'aux logos posés DANS
            une zone, et il continue de s'y appliquer. */
-        if (!coverMode) {
+        /* RÉDUIT SOUS 100 % : le clamp REDEVIENT nécessaire.
+
+           Il est neutralisé en couverture parce qu'un design qui déborde n'a
+           rien à border — c'est ce débordement qui rend le recadrage possible.
+
+           Mais un motif réduit ne déborde plus : sans clamp, il pouvait glisser
+           hors de la pièce en tirant une poignée, jusqu'à se coincer contre une
+           borne lointaine. Les bornes calculées plus haut valent alors 0..100,
+           soit exactement le cadre frappé. */
+        var reduitIci = coverMode && wNow < 100;
+        if (!coverMode || reduitIci) {
           var lNow = parseFloat(active.style.left);
           var tNow = parseFloat(active.style.top);
           if (isNaN(lNow)) lNow = zX0;
@@ -879,6 +999,20 @@
       } else {
         // Sauvegarder la taille/position pour la retrouver après un rechargement
         const zone = LOGO_ZONE[active.id];
+
+        /* LE MARQUEUR EST POSÉ SUR LE DOM, PAS SEULEMENT EN SESSION.
+
+           Il n'était écrit que par `applyUploadGeo`, sur le chemin de
+           RESTAURATION. Pendant une session vivante il n'existait donc jamais :
+           `syncFlagCrop` concluait à un héritage et repoussait toute largeur
+           sous 100 % — la réduction du drapeau était effacée aussitôt faite.
+
+           Le geste qui vient de s'achever EST l'intention. On la déclare ici,
+           au même endroit et au même instant qu'on l'enregistre. */
+        if (active.classList.contains('is-cover') || active.id === 'patch-logo') {
+          active.setAttribute('data-cover-geo', '1');
+        }
+
         if (zone && typeof window.saveUploadGeo === 'function') {
           window.saveUploadGeo(zone, {
             left: active.style.left,
@@ -887,7 +1021,22 @@
             /* Hauteur persistée uniquement en mode couverture : elle y porte
                le zoom au même titre que la largeur. Les logos ordinaires
                gardent `auto` — l'enregistrer figerait leur ratio. */
-            height: active.style.height || undefined
+            height: active.style.height || undefined,
+            /* ═══ MARQUEUR D'INTENTION ═══════════════════════════════════
+
+               `syncCoinCrop` et `syncFlagCrop` repoussent à 100 % toute
+               largeur inférieure, au motif — juste — qu'elle vient d'une
+               session ANTÉRIEURE au mode couverture, où le défaut valait 44 %.
+
+               Depuis que le client peut réduire son visuel sous 100 %, ce test
+               ne suffit plus : il ne distingue pas un 44 % hérité d'un 44 %
+               VOULU, et effacerait la réduction au premier redimensionnement.
+
+               Ce champ n'existe dans aucune session ancienne. Son absence
+               identifie donc l'héritage sans ambiguïté ; sa présence dit que la
+               géométrie a été posée par un geste, et doit être respectée. */
+            cover: (active.classList.contains('is-cover') ||
+                    active.id === 'patch-logo') ? true : undefined
           });
         }
       }

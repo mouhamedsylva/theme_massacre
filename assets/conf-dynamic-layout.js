@@ -192,13 +192,17 @@ class DynamicLayoutManager {
            client : reprenant un textile, il y resterait sans jamais avoir
            choisi ni su qu'une alternative existait.
 
-           Le drapeau était posé dans conf-sidebar-modern.js, sur un chemin que
-           le clic n'emprunte pas — les cartes appellent `selProd` directement,
-           jamais `selectProduct`. Il ne s'écrivait donc jamais. On le pose ici,
-           au point de passage réel.
+           Le drapeau est AUSSI posé dans conf-sidebar-modern.js, sur le clic
+           des cartes de la sidebar moderne (sidebar-modern.liquid, qui appelle
+           `modernSidebar.selectProduct`). Mais ce chemin ne couvre pas la
+           restauration au chargement (`restoreProductThenUploads → selProd`),
+           d'où ce second point de pose.
 
-           Deux lecteurs : la barre « Mode actuel », qui explique POURQUOI, et
-           le retour au textile juste en dessous. */
+           Un lecteur : le retour au textile juste en dessous, qui repose la
+           question du mode. La barre « Mode actuel » le lisait aussi pour
+           afficher un bandeau ambré ; celui-ci a été retiré (il redisait après
+           coup ce que le client venait de faire), mais le drapeau reste
+           nécessaire à ce retour. */
         try {
           sessionStorage.setItem("conf_mode_impose", productType);
         } catch (e) {}
@@ -272,6 +276,18 @@ class DynamicLayoutManager {
           window.updatePatchRecapThumb();
       }, 0);
     } else if (category === "textile") {
+      /* RETOUR AU TEXTILE : le canvas se montre tout de suite.
+
+         Le markup serveur affiche déjà un vêtement — il n'y a rien à
+         reconstruire, donc rien à attendre. Le bloc de révélation plus bas ne
+         s'exécute QUE pour les catégories non textiles (`if (category !==
+         "textile")`) : sans ce retrait, revenir d'un coin vers un sweatshirt
+         laisserait le canvas masqué jusqu'au filet temporel.
+
+         Idempotent : retirer un attribut absent est sans effet. */
+      var racineTx = document.querySelector(".conf-app-root");
+      if (racineTx) racineTx.removeAttribute("data-canvas-attente");
+
       this.loadTextileSidebar(productType);
       // Restaure le récap textile si un produit non-textile l'avait remplacé.
       var recap = document.querySelector(".recap");
@@ -331,6 +347,20 @@ class DynamicLayoutManager {
            Un événement dit ce qu'un délai ne peut que supposer : « le canvas
            est reconstruit ET restauré, à vous ». Sans auditeur, il est inerte :
            l'ancien chemin par setTimeout reste en place comme filet. */
+        /* LE CANVAS PEUT ENFIN SE MONTRER.
+
+           Il est masqué depuis le premier rendu quand la session porte un
+           produit non textile (voir `data-canvas-attente`,
+           conf-canvas-single.css) : le markup serveur y affiche un sweatshirt,
+           qui clignotait avant d'être remplacé.
+
+           On révèle ICI et pas plus tôt : la pièce est reconstruite ET ses
+           designs restaurés. Révéler dès la reconstruction montrerait la pièce
+           NUE, puis ses logos s'y poser — on aurait déplacé le clignotement au
+           lieu de le supprimer. */
+        var racineAtt = document.querySelector(".conf-app-root");
+        if (racineAtt) racineAtt.removeAttribute("data-canvas-attente");
+
         try {
           document.dispatchEvent(new CustomEvent("conf:layout-restored", {
             detail: { category: category }

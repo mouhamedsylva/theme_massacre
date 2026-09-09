@@ -234,10 +234,13 @@
       text-transform: uppercase; letter-spacing: .5px;
       margin-bottom: 2px; color: var(--black);
     }
-    /* ── Option tarifée (bascule) ──────────────────────────────────────────
+    /* ── Supplément tarifé (bandeau d'information) ─────────────────────────
        Présente un supplément comme un choix désirable, pas comme un
-       avertissement : intitulé, prix, interrupteur. Le corps de la section
-       ne se déplie qu'une fois l'option activée. */
+       avertissement : intitulé et prix. L'interrupteur a été retiré — les
+       manches sont toujours accessibles et facturées à la pose d'un logo —
+       et avec lui le `cursor: pointer`, qui promettrait un clic sans effet.
+       Les règles `.opt-card.on` plus bas ne s'appliquent donc plus ; elles
+       restent valables pour une future option réellement basculable. */
     .opt-card {
       border: 1px solid var(--border); border-radius: 8px;
       background: var(--white); overflow: hidden; transition: .15s;
@@ -245,7 +248,7 @@
     .opt-card.on { border-color: var(--black); background: #fafafa; }
     .opt-row {
       width: 100%; display: flex; align-items: center; gap: 10px;
-      padding: 10px; background: none; border: none; cursor: pointer;
+      padding: 10px; background: none; border: none;
       font-family: inherit; text-align: left;
     }
     .opt-txt { flex: 1; min-width: 0; }
@@ -2519,25 +2522,9 @@
   color: var(--muted);
   white-space: nowrap;
 }
-/* MODE IMPOSÉ PAR LE PRODUIT — la barre explique au lieu de constater.
-
-   Teinte ambrée, comme les autres messages de contrainte du projet : le client
-   n'a rien fait de mal, il lui manque une information. Le rouge reste réservé
-   aux erreurs qui compromettent la commande.
-
-   `white-space` levé : la phrase est plus longue qu'un simple nom de mode et
-   doit pouvoir passer à la ligne sur un écran étroit. */
-.mode-actuel.is-impose {
-  background: #fffbeb;
-  border-color: #fde68a;
-  color: #92400e;
-  white-space: normal;
-}
-.mode-actuel.is-impose .mode-actuel-lbl strong { color: #78350f; }
-.mode-actuel.is-impose .mode-actuel-btn {
-  background: #92400e;
-  border-color: #92400e;
-}
+/* L'état ambré `.is-impose` a été retiré : la barre nomme désormais le mode
+   courant dans tous les cas, sans expliquer après coup une bascule que la note
+   de la sidebar (.pc-note-libre) annonce déjà avant le clic. */
 
 .mode-actuel-lbl strong {
   font-weight: 700;
@@ -4080,4 +4067,28 @@
 @media (prefers-reduced-motion: reduce) {
   .cbv-spin { animation: none; opacity: .55; }
   .cart-busy-veil { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BULLE DE CHAT (Shopify Inbox) — MASQUÉE DANS LE CONFIGURATEUR
+
+   Elle flottait au-dessus du canvas et recouvrait les commandes. Elle avait
+   d'abord été DÉPLACÉE deux fois pour cesser de masquer les boutons du bas
+   (conf-mobile.css) ; le client préfère la retirer de cette page.
+
+   POURQUOI CELA MARCHE — et pourquoi un `z-index` n'aurait rien donné : le
+   widget vit dans un SHADOW DOM porté à `z-index: 2147483000`, la valeur
+   maximale d'un entier 32 bits signé. Rien ne peut passer devant, et le CSS du
+   thème n'entre pas dans son shadow root. Mais l'ÉLÉMENT HÔTE `<shopify-chat>`
+   est un élément ordinaire du document : on peut le masquer.
+
+   `!important` : l'application pose ses propres styles en ligne.
+
+   PORTÉE — le configurateur a son LAYOUT AUTONOME, qui charge cette feuille et
+   elle seule. La règle ne peut donc pas atteindre le reste de la boutique, où
+   le chat continue de servir. Aucune condition de page n'est nécessaire.
+
+   Le récapitulatif, lui, passe par `theme.liquid` : le chat y reste. */
+shopify-chat {
+  display: none !important;
 }
