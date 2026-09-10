@@ -3463,8 +3463,78 @@
   white-space: nowrap;
 }
 .gv-scene { background: var(--stage); padding: 14px; }
-/* La scène hérite du cadre de la carte : son propre cadre ferait doublon. */
-.gv-scene .ov-stage { border: none; background: transparent; }
+/* La scène hérite du cadre de la carte : son propre cadre ferait doublon.
+   Les miniatures des boutons, elles, gardent le leur — il porte l'état actif. */
+.gv-vue-zone .ov-stage { border: none; background: transparent; }
+
+/* ── CHOIX DE LA VUE — une colonne de miniatures À DROITE du vêtement ──────
+   Un logo posé au dos ou sur une manche n'apparaissait pas sur cet écran, le
+   dernier avant paiement.
+
+   Une bande de vignettes SOUS le vêtement avait d'abord été essayée : elle
+   allongeait la carte et repoussait le reste de la page. Ces boutons occupent
+   au contraire l'espace laissé libre à droite du vêtement — la carte ne grandit
+   pas, et la vue est REMPLACÉE plutôt qu'ajoutée.
+
+   Seules les vues réellement dessinées produisent un bouton, et une vue unique
+   n'en produit aucun (conf-group-verify.js). */
+.gv-scene {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Le vêtement prend la place restante ; `min-width:0` l'autorise à se réduire
+   plutôt qu'à pousser la colonne hors de la carte. */
+.gv-vue-zone { flex: 1 1 auto; min-width: 0; }
+
+.gv-vues {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 100%;
+}
+
+/* Un bouton = la vue en miniature, sous-titrée. */
+.gv-vue-btn {
+  display: block;
+  width: 58px;
+  padding: 3px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.gv-vue-btn:hover { border-color: var(--black); }
+/* La vue affichée : contour net, pour qu'on sache où l'on est sans compter. */
+.gv-vue-btn.on {
+  border-color: var(--black);
+  box-shadow: 0 0 0 2px rgba(26, 26, 26, .12);
+}
+.gv-vue-mini {
+  display: block;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--stage);
+}
+.gv-vue-mini img { display: block; width: 100%; height: auto; }
+/* Manche droite : le fond est retourné, comme dans la scène (et le canvas). */
+.gv-vue-mini.is-mirror img { transform: scaleX(-1); }
+.gv-vue-lbl {
+  display: block;
+  margin-top: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-align: center;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gv-vue-btn.on .gv-vue-lbl { color: var(--black); }
 .gv-vide {
   display: flex; align-items: center; justify-content: center;
   min-height: 150px;

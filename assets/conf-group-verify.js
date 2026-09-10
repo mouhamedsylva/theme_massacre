@@ -465,10 +465,23 @@
 
          On retourne donc `null`. `carteHTML` affiche alors « Aperçu
          indisponible », visible et sans ambiguïté. Une carte manquante se
-         remarque et se signale ; une carte fausse se commande. */
-      var libelle = (zone === 'b') ? 'DOS' : 'FACE';
-      var vues = views || [];
-      return vues.filter(function (v) { return v.label === libelle; })[0] || null;
+         remarque et se signale ; une carte fausse se commande.
+
+         TOUTES LES VUES SONT CONSERVÉES, PLUS SEULEMENT CELLE DU CÔTÉ.
+
+         On n'en gardait qu'une et on jetait les trois autres — alors que la
+         capture les avait toutes produites, au même coût. Un logo posé au dos
+         ou sur une manche restait donc invisible sur l'écran où le client
+         valide avant de payer.
+
+         `captureAllViews` n'a publié que les vues RÉELLEMENT personnalisées
+         (conf-main-inline.js : `if (!logos.length) continue`) : ce tableau ne
+         contient jamais de vêtement nu.
+
+         La garde ci-dessus n'en est pas affaiblie : c'est `carteHTML` qui exige
+         la vue du côté de la personne pour dessiner la carte, et les autres
+         vues n'y sont qu'un complément — jamais un substitut. */
+      return (views && views.length) ? views : null;
     }).catch(function () {
       restaurer();
       remasquer();
@@ -476,24 +489,39 @@
     });
   }
 
-  /** Construit le HTML d'une carte. */
-  function carteHTML(ligne, face) {
+  /** Construit le HTML d'une carte.
+   *
+   * @param {object} ligne  la personne (nom floqué, couleur, taille, quantité)
+   * @param {Array|null} vues  les vues capturées pour elle — toutes celles qui
+   *   portent réellement un design. La vue de SON côté fait la scène
+   *   principale ; les autres deviennent des vignettes sous elle.
+   */
+  function carteHTML(ligne, vues) {
     var nom = ligne.flock || ligne.name || '';
-
-    /* LA VUE VIENT DE LA CARTE CAPTURÉE, pas d'un nouvel appel à grpTextZone().
-
-       Le fond et les calques posés dessus proviennent ainsi FORCÉMENT de la
-       même vue : les désynchroniser est impossible. Réinterroger la zone
-       laisserait une fenêtre où elle répondrait autre chose. */
-    var vueNom = (face && face.label === 'DOS') ? 'dos' : 'face';
+    var toutes = (vues && vues.length) ? vues : [];
 
     /* Le CÔTÉ ANNONCÉ vient de la ligne, pas de la capture.
 
-       `vueNom` sert à choisir l'image ; il retombe sur 'face' quand la capture
-       manque, ce qui est le bon défaut pour une image mais un mensonge pour un
-       libellé : la carte de Marie dirait « Devant » alors que son nom est au
-       dos. La ligne, elle, sait toujours. */
+       La ligne sait toujours où le surnom est floqué ; la capture, elle, peut
+       manquer. Se fier à elle ferait dire « Devant » à la carte de Marie alors
+       que son nom est au dos. */
     var coteLigne = (zoneDeLigne(ligne) === 'b') ? 'dos' : 'face';
+
+    /* LA VUE PRINCIPALE EST CELLE DU CÔTÉ DE CETTE PERSONNE — SANS REPLI.
+
+       C'est la garde décrite plus haut (capturerPourNom) : afficher la face à
+       la place d'un dos manquant montrerait le nom de QUELQU'UN D'AUTRE, et le
+       client validerait une planche fausse. On cherche donc ce côté-là et rien
+       d'autre ; absent, la carte le dira.
+
+       Les autres vues ne sont qu'un complément : elles ne peuvent jamais
+       prendre cette place. */
+    var libellePrincipal = (coteLigne === 'dos') ? 'DOS' : 'FACE';
+    var face = toutes.filter(function (v) {
+      return v && v.label === libellePrincipal;
+    })[0] || null;
+
+    var vueNom = (coteLigne === 'dos') ? 'dos' : 'face';
 
     /* PAS DE CAPTURE, PAS DE CARTE.
 
@@ -511,40 +539,118 @@
       : '';
 
 
-    var calques = (face && face.logos ? face.logos : []).map(function (g) {
-      var w = g.w, x = g.x;
+    /* AUCUNE DÉFORMATION — le rendu est celui de la « Vue d'ensemble ».
 
-      /* AUCUNE DÉFORMATION — le rendu est celui de la « Vue d'ensemble ».
+       Les logos étaient agrandis de 50 % pour rester lisibles dans une carte
+       étroite. Deux écrans montraient alors le même design à deux échelles
+       différentes, sur un parcours où le client compare l'un et l'autre avant
+       de payer.
 
-         Les logos étaient agrandis de 50 % pour rester lisibles dans une
-         carte étroite. Deux écrans montraient alors le même design à deux
-         échelles différentes, sur un parcours où le client compare l'un et
-         l'autre avant de payer.
+       Les positions et largeurs viennent de la capture ; elles font foi. La
+       lisibilité passe par la TAILLE DES CARTES (conf-styles.css), pas par une
+       déformation du design. */
+    function calquesDe(vue) {
+      return (vue && vue.logos ? vue.logos : []).map(function (g) {
+        return '<img class="ov-layer" src="' + safeSrc(g.src) + '" alt="" ' +
+               'style="left:' + (g.x * 100) + '%;top:' + (g.y * 100) + '%;' +
+               'width:' + (g.w * 100) + '%">';
+      }).join('');
+    }
 
-         Les positions et largeurs viennent de la capture ; elles font foi. La
-         lisibilité passe désormais par la TAILLE DES CARTES (quatre par ligne,
-         sans largeur maximale — conf-styles.css), pas par une déformation du
-         design. */
-      return '<img class="ov-layer" src="' + safeSrc(g.src) + '" alt="" ' +
-             'style="left:' + (x * 100) + '%;top:' + (g.y * 100) + '%;' +
-             'width:' + (w * 100) + '%">';
-    }).join('');
+    /* Image produit correspondant à une vue. Les DEUX manches partagent le
+       visuel « cote » — elles ne diffèrent que par le miroir. */
+    function imageDe(v) {
+      if (!v) return 'face';
+      if (v.label === 'DOS') return 'dos';
+      if (v.label === 'FACE') return 'face';
+      return 'cote';
+    }
 
-    /* `max-width/height:none` : conf-styles.css impose max-height:60vh à toute
+    /* Le fond d'une vue, À LA COULEUR DE CETTE LIGNE.
+
+       La capture ne porte qu'une teinte — celle du canvas au moment où elle a
+       été prise. `fondPourCouleur` la remplace par celle de la personne, sans
+       recapturer. */
+    function fondDe(v) {
+      return fondPourCouleur(ligne.color, imageDe(v)) || (v && v.background) || '';
+    }
+
+    /* Une scène = un vêtement et ses calques.
+
+       `max-width/height:none` : conf-styles.css impose max-height:60vh à toute
        image du configurateur, ce qui rognerait le fond DANS la carte et
-       désaccorderait les % des calques. */
-    var scene = fond
-      ? '<div class="ov-stage">' +
-          '<img class="ov-bg" src="' + safeSrc(fond) + '" alt="" ' +
-               'style="max-width:none;max-height:none;">' +
-          '<div class="ov-layers">' + calques + '</div>' +
-        '</div>'
-      /* Le message NOMME la cause. « Aperçu indisponible » seul se lit comme un
-         défaut d'affichage passager, et le client valide en haussant les
-         épaules. Dire que c'est CE côté qui n'a pas pu être rendu le renvoie
-         vers l'étape Designer, seul endroit où il peut le corriger. */
-      : '<div class="gv-vide">Aperçu ' + (coteLigne === 'dos' ? 'du dos' : 'de la face') +
+       désaccorderait les % des calques.
+
+       MANCHE DROITE : le FOND est retourné, jamais les calques. Leurs
+       coordonnées sont DÉJÀ converties dans le repère miroir par la capture
+       (conf-main-inline.js) — sans cette classe, le logo se poserait du mauvais
+       côté de la manche. */
+    function sceneDe(v, actif) {
+      var bg = fondDe(v);
+      if (!bg) return '';
+      return '<div class="ov-stage gv-stage' + (v.mirror ? ' is-mirror' : '') + '"' +
+                  ' data-vue="' + esc(v.label || '') + '"' +
+                  (actif ? '' : ' hidden') + '>' +
+               '<img class="ov-bg" src="' + safeSrc(bg) + '" alt="" ' +
+                    'style="max-width:none;max-height:none;">' +
+               '<div class="ov-layers">' + calquesDe(v) + '</div>' +
+             '</div>';
+    }
+
+    /* LES VUES, DANS UN ORDRE FIXE.
+
+       On suit l'ordre du vêtement — face, dos, puis les manches — et non celui
+       de la capture : deux cartes voisines doivent présenter leurs boutons dans
+       le même ordre, sinon l'œil ne peut plus les comparer.
+
+       SEULES LES VUES DESSINÉES SONT LÀ : `captureAllViews` n'a publié que
+       celles qui portent une impression (conf-main-inline.js). Il n'y a donc
+       rien à deviner ici — la liste EST la réponse. */
+    var ORDRE = ['FACE', 'DOS', 'MANCHE GAUCHE', 'MANCHE DROITE'];
+    var ordonnees = ORDRE.map(function (lbl) {
+      return toutes.filter(function (v) { return v && v.label === lbl; })[0];
+    }).filter(function (v) { return v && fondDe(v); });
+
+    /* La FACE ouvre la carte : c'est elle qui porte le surnom à vérifier
+       (conf-group-textzone.js — les surnoms sont en face, et nulle part
+       ailleurs). Sans elle, pas de carte. */
+    var scenes = face
+      ? ordonnees.map(function (v) { return sceneDe(v, v === face); }).join('')
+      : '';
+
+    /* Les boutons : une miniature par vue, la vue affichée étant marquée.
+
+       AUCUN BOUTON POUR UNE VUE UNIQUE — une commande qui n'offre aucun choix
+       n'est pas une commande, et la carte retrouve exactement son allure
+       d'avant.
+
+       `data-vue` relie le bouton à sa scène ; l'écouteur délégué (posé sur la
+       grille) n'a rien d'autre à savoir. */
+    var boutons = (face && ordonnees.length > 1)
+      ? '<div class="gv-vues">' + ordonnees.map(function (v) {
+          var lbl = v.label || '';
+          return '<button type="button" class="gv-vue-btn' +
+                        (v === face ? ' on' : '') + '"' +
+                      ' data-vue="' + esc(lbl) + '"' +
+                      ' aria-pressed="' + (v === face ? 'true' : 'false') + '">' +
+                   '<span class="gv-vue-mini' + (v.mirror ? ' is-mirror' : '') + '">' +
+                     '<img src="' + safeSrc(fondDe(v)) + '" alt="" ' +
+                          'style="max-width:none;max-height:none;">' +
+                   '</span>' +
+                   '<span class="gv-vue-lbl">' + esc(lbl) + '</span>' +
+                 '</button>';
+        }).join('') + '</div>'
+      : '';
+
+    /* Le message NOMME la cause. « Aperçu indisponible » seul se lit comme un
+       défaut d'affichage passager, et le client valide en haussant les épaules.
+       Dire que c'est la face qui n'a pas pu être rendue le renvoie vers l'étape
+       Designer, seul endroit où il peut le corriger. */
+    var scene = scenes
+      ? '<div class="gv-vue-zone">' + scenes + '</div>' + boutons
+      : '<div class="gv-vide">Aperçu de la face' +
         ' indisponible<br><small>Vérifiez ce côté à l\'étape Designer.</small></div>';
+
 
     var qte = parseInt(ligne.qty, 10) || 1;
 
@@ -575,16 +681,30 @@
       '</article>';
   }
 
-  /** Libellé du produit courant, tel qu'affiché dans le récapitulatif. */
-  function nomProduit() {
-    var el = document.querySelector('.recap-prod-name, .rp-nom');
-    if (el && el.textContent.trim()) return el.textContent.trim();
-    var t = window.currentProductType || '';
+  /* Libellé affichable d'un type de produit — SOURCE UNIQUE du projet.
+
+     Le nom des lignes de panier était recopié du DOM (`#rc-prod`), dont le
+     markup porte « Sweatshirt » en dur. Quand sa mise à jour échouait, un
+     t-shirt polyester partait au panier sous le nom « Sweatshirt ».
+
+     Le type de produit, lui, est toujours juste : c'est de lui que le nom
+     dérive désormais. Exposée sur `window` pour que conf-main-inline.js s'en
+     serve plutôt que d'écrire une seconde table qui divergerait.
+
+     Les deux sélecteurs consultés ici auparavant — `.recap-prod-name`,
+     `.rp-nom` — n'existent NULLE PART dans le projet : la fonction retombait
+     de toute façon toujours sur cette liste. On ne lit donc plus le DOM. */
+  function nomProduit(type) {
+    var t = type || window.currentProductType || '';
     if (t === 'sweatshirt') return 'Sweatshirt';
     if (t === 'tshirt') return 'T-shirt coton';
     if (t === 'tshirt_polyester') return 'T-shirt polyester';
+    if (t === 'coins') return 'Coin métal';
+    if (t === 'drapeaux') return 'Drapeau personnalisé';
+    if (t === 'patches') return 'Patch personnalisé';
     return 'Article personnalisé';
   }
+  window.nomProduit = nomProduit;
 
   /** Barre de pagination. Rien à afficher en dessous d'une page. */
   function rendrePages(total) {
@@ -682,8 +802,11 @@
       suite = suite.then(function () {
         if (mien !== jeton) return;
         if (cacheCaptures.hasOwnProperty(cle)) return;
-        return capturerPourNom(l.flock || l.name || '', zoneDeLigne(l)).then(function (face) {
-          cacheCaptures[cle] = face;
+        /* Le cache porte TOUTES les vues personnalisées de cette personne, pas
+           seulement celle de son côté : `carteHTML` y choisit sa scène
+           principale et fait des autres des vignettes. */
+        return capturerPourNom(l.flock || l.name || '', zoneDeLigne(l)).then(function (vues) {
+          cacheCaptures[cle] = vues;
           /* On rend la main au navigateur entre deux rasterisations : douze
              captures d'affilée figeraient l'onglet près d'une seconde. */
           return respirer();
@@ -724,6 +847,36 @@
     if (v) v.scrollTop = 0;
   }
   window.grpVerifPage = grpVerifPage;
+
+  /* BASCULE DE VUE — UN SEUL ÉCOUTEUR, DÉLÉGUÉ SUR LE DOCUMENT.
+
+     Les cartes sont réécrites (`innerHTML`) à chaque page et à chaque retour
+     sur l'étape : un écouteur posé sur un bouton ne survivrait pas au premier
+     re-rendu, et la grille elle-même n'existe pas encore au chargement de ce
+     script. La délégation règle les deux — elle ne dépend d'aucun nœud.
+
+     Rien à mémoriser : re-rendre une carte la ramène sur la face, ce qui est
+     l'état voulu quand on revient sur cet écran. */
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('.gv-vue-btn');
+    if (!btn) return;
+
+    var carte = btn.closest('.gv-card');
+    if (!carte) return;
+
+    var vue = btn.getAttribute('data-vue');
+
+    /* Portée à LA CARTE cliquée : sans ce point d'ancrage, la bascule
+       s'appliquerait aux trois cartes de la ligne à la fois. */
+    carte.querySelectorAll('.gv-stage').forEach(function (s) {
+      s.hidden = (s.getAttribute('data-vue') !== vue);
+    });
+    carte.querySelectorAll('.gv-vue-btn').forEach(function (b) {
+      var actif = (b === btn);
+      b.classList.toggle('on', actif);
+      b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+    });
+  });
 
   /**
    * PRÉPARATION — appelée AVANT que l'étape ne masque le canvas.

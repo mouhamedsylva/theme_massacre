@@ -388,6 +388,48 @@
     margin: 0 auto;
   }
 
+  /* LA SCÈNE PATCH EST PILOTÉE PAR LA HAUTEUR, comme sur ordinateur.
+
+     La règle ci-dessus a été écrite quand « le patch est un carré » — son
+     commentaire le dit encore. Ce n'est plus vrai : updatePatchShapeImg()
+     (conf-main-inline.js) pose un aspect-ratio PAR FORME en style inline, donc
+     prioritaire sur celui d'ici. Le rectangle vaut ~1,56.
+
+     Piloter par la largeur devient alors fautif : `min()` retient 100 %, et un
+     ratio supérieur à 1 rend le canevas plus large que haut — le rectangle
+     prenait toute la largeur de l'écran et collait aux bords. Les autres formes
+     y échappaient : carré et rond valent 1, le blason 0,85.
+
+     On reprend donc le modèle du desktop (conf-coins.css) — hauteur bornée,
+     largeur déduite — en ajoutant le plafond de largeur qui manquait.
+
+     PORTÉE PAR `.patch-stage` À DESSEIN. La spécificité (0,2,0) est nécessaire
+     pour battre les `max-width` en pixels des classes `.coins-canvas-circle
+     .size-*` — c'est ce qui rendait le `max-width: 100 %` ci-dessus inopérant.
+     Elle évite aussi d'atteindre la miniature du récapitulatif, qui porte la
+     même classe `.coins-canvas-circle`.
+
+     La hauteur ne dépend PAS d'un `%` du parent : `.patch-stage` est centré
+     dans un conteneur flex, sa hauteur peut donc être intrinsèque et un
+     pourcentage y resterait indéfini. On borne par la hauteur d'écran
+     disponible, comme le faisait déjà la règle d'origine. */
+  .patch-stage .coins-canvas-circle {
+    height: min(
+      calc(100vh - var(--nav-h, 56px) - 150px),
+      var(--patch-max, 320px)
+    );
+    width: auto;
+    max-width: 100%;
+  }
+
+  /* Le rectangle est la seule forme plus LARGE que haute : sous une hauteur
+     calibrée pour un carré, sa largeur déduite déborde encore. On la réduit —
+     240px est la valeur que le CSS retient déjà pour les formats rectangulaires
+     (conf-coins.css, `size-8x6cm`). */
+  .patch-stage .coins-canvas-circle.shape-rectangle {
+    height: min(calc(100vh - var(--nav-h, 56px) - 150px), 240px);
+  }
+
   /* L'image du produit remplit la zone en gardant ses proportions.
      Les zones (logo-layer) sont en % de ce conteneur : elles suivent donc
      automatiquement, sans recalcul. */
@@ -2698,6 +2740,11 @@
   [data-etape-groupe="valider"] .grp-verif-total { text-align: left; }
   [data-etape-groupe="valider"] .grp-verif-title { font-size: 18px; }
   [data-etape-groupe="valider"] .grp-verif-grid { gap: 14px; }
+  /* Les boutons de vue restent une COLONNE à droite du vêtement, comme sur
+     ordinateur : la carte occupe ici toute la largeur de l'écran, la place ne
+     manque pas. Miniatures un peu plus petites, pour laisser le vêtement — ce
+     qu'on vient vérifier — occuper l'essentiel. */
+  .gv-vue-btn { width: 48px; }
   /* BARRE RESSERRÉE, BOUTONS CENTRÉS.
 
      Les deux boutons s'étiraient d'un bord à l'autre de l'écran, et leur

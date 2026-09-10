@@ -2818,7 +2818,18 @@
       if (rcProd) {
         const ptLabel = el.querySelector('.product-card-name') ||
                         el.querySelector('span:not(.pt-ck)');
-        if (ptLabel) rcProd.textContent = ptLabel.textContent.trim();
+        /* REPLI OBLIGATOIRE — ce `if` n'en avait pas.
+
+           Quand aucun des deux sélecteurs ne trouvait de libellé, `#rc-prod`
+           gardait le texte de son markup — « Sweatshirt » — et rien ne le
+           signalait. Le récapitulatif nommait alors le mauvais vêtement.
+
+           Le type de produit connaît la réponse : on l'utilise à défaut. */
+        if (ptLabel) {
+          rcProd.textContent = ptLabel.textContent.trim();
+        } else if (typeof window.nomProduit === 'function') {
+          rcProd.textContent = window.nomProduit(productType);
+        }
       }
 
       // ← AJOUT : sauvegarder les logos du produit actuellement actif
@@ -3236,6 +3247,21 @@
         }
       }
 
+      /* DERNIER RECOURS : L'IMAGE GÉNÉRIQUE DU PRODUIT.
+
+         Les replis ci-dessus lisent des `<img>` du DOM. Une image qui n'a
+         jamais chargé porte un `src` valant l'URL DE LA PAGE — `img.src` la
+         résout ainsi — et la vignette du panier affichait alors l'icône
+         « image brisée ». `safeImgSrc` rend '' pour tout ce qui n'est pas une
+         vraie source, ce qui laissait aussi la ligne sans image.
+
+         On vérifie donc ce qu'on a retenu, et à défaut on prend le visuel
+         générique du produit : celui-là existe toujours. */
+      if (!safeImgSrc(fallbackSrc) || fallbackSrc === window.location.href) {
+        const generique = (window.PRODUCT_FALLBACK_URLS || {})[PRODUCT_SLUGS[currentProductKey]];
+        fallbackSrc = (generique && generique.face) ? absUrl(generique.face) : '';
+      }
+
       const btnEl = document.getElementById('main-add-to-cart');
 
       /* La composition des aperçus a QUITTÉ CET ENDROIT.
@@ -3256,7 +3282,20 @@
       const logoAssets = collectDesignAssets();
       const textAssets = await collectTextAssets();
 
-      const productName = rcProd ? rcProd.textContent.trim() : 'Produit personnalisé';
+      /* LE NOM VIENT DU TYPE DE PRODUIT, PLUS DU DOM.
+
+         Il était recopié de `#rc-prod`, dont le markup porte « Sweatshirt » en
+         dur (configurateur.liquid). Ce texte est réécrit à chaque changement de
+         produit, mais l'écriture pouvait échouer sans bruit : un t-shirt
+         polyester partait alors au panier sous le nom « Sweatshirt », avec sa
+         vraie vignette à côté — l'image, elle, dérive de currentProductType.
+
+         C'est donc de ce type que le nom dérive à son tour. `nomProduit` est la
+         table partagée (conf-group-verify.js) ; le repli couvre le cas où ce
+         fichier n'aurait pas été chargé. */
+      const productName = (typeof window.nomProduit === 'function')
+        ? window.nomProduit(currentProductType)
+        : (rcProd && rcProd.textContent.trim()) || 'Produit personnalisé';
       const sleeves = (typeof sleeveCount === 'function') ? sleeveCount() : 0;
 
       /* LISTE DE GROUPE validée : le design est commun, mais chaque personne a
@@ -4714,6 +4753,37 @@
       }
     }
 
+    /* Champ de quantité des produits NON TEXTILES (coin, drapeau, patch).
+
+       LA PORTÉE NE PEUT PAS ÊTRE `.recap`. En mobile, `poserQuantiteSeule`
+       (conf-mobile.js) DÉPLACE ce champ dans une feuille montante `#mob-q-sheet`,
+       créée comme enfant de `.conf-app-root` — donc SŒUR de `.recap`, pas
+       descendante. Ce n'est pas un clone : le nœud original migre.
+
+       Chercher dans `.recap` y renvoyait donc null, et l'appelant retombait sur
+       son minimum : 100 patchs saisis partaient au panier à 10, au prix du
+       palier 10. La barre du bas affichait pourtant 100 — elle, elle regarde
+       dans la feuille.
+
+       On lit donc à portée DOCUMENT, comme le fait `textileQty()` pour le
+       textile : un identifiant unique est insensible au déplacement du nœud.
+
+       Le repli générique `input[type="number"]` reste CANTONNÉ à `.recap` :
+       promu au document, il attraperait le premier champ numérique venu (celui
+       du panier, un autre gabarit). Les trois identifiants sont uniques
+       (conf-dynamic-layout.js) et suffisent.
+
+       Nommage INVERSÉ, documenté ailleurs : `coin-qty-input` sert les PATCHS,
+       `coin-recap-qty-input` sert les COINS. */
+    function champQtePerso() {
+      return document.querySelector(
+        '#coin-recap-qty-input, #coin-qty-input, #flag-qty-input'
+      ) || (function () {
+        var r = document.querySelector('.recap');
+        return r ? r.querySelector('input[type="number"]') : null;
+      })();
+    }
+
     /* ── Ajout au panier depuis les récaps Drapeaux / Coins / Patchs ──
        Lit les infos directement dans le récap courant (colonne droite). */
     async function addCustomToCartInner(btnEl) {
@@ -4729,10 +4799,9 @@
         .map(p => p.textContent.trim())
         .join(' · ');
 
-      // Quantité : cibler l'input quantité du récap actif (coins/patchs/drapeaux)
-      const qtyInput = recap.querySelector(
-        '#coin-recap-qty-input, #coin-qty-input, #flag-qty-input, input[type="number"]'
-      );
+      // Quantité : le champ du produit actif (coins/patchs/drapeaux).
+      // Voir champQtePerso : en mobile il vit HORS de `.recap`.
+      const qtyInput = champQtePerso();
       /* Plancher au MINIMUM DE COMMANDE du produit, et non à 1 : l'attribut
          `min` du champ (50 pour les coins, 10 pour les patchs) ne contraint que
          la saisie au clavier — il est ignoré quand la valeur est vide ou
@@ -4915,7 +4984,8 @@
       const name = 'Coin métal personnalisé';
       const details = recap ? Array.from(recap.querySelectorAll('.rp-patch-details p'))
         .map(p => p.textContent.trim()) : [];
-      const qtyInput = recap ? recap.querySelector('#coin-recap-qty-input, input[type="number"]') : null;
+      // Portée document : en mobile le champ quitte `.recap` (champQtePerso).
+      const qtyInput = champQtePerso();
       const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 1;
 
       // Vérifie qu'une source d'image est réelle (pas vide, pas la page elle-même)
@@ -4972,8 +5042,11 @@
       details = details.filter(function (d) { return !/^Type\s*:/i.test(d); });
       details.push('Finition souhaitée : ' + style);
 
-      // Quantité (input du récap patch).
-      var qtyInput = recap ? recap.querySelector('#coins-recap-qty-input, #coin-recap-qty-input, input[type="number"]') : null;
+      /* Quantité du patch. Ce sélecteur visait `#coins-recap-qty-input`, un
+         identifiant qui N'EXISTE NULLE PART : le devis ne tenait que par le
+         repli générique, y compris en desktop. Et en mobile le champ quitte
+         `.recap` — voir champQtePerso. */
+      var qtyInput = champQtePerso();
       var qty = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 20;
 
       // Aperçu : le patch composé (cercle couleur + logo) si un logo est présent.
