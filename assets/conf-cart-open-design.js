@@ -608,6 +608,22 @@
          un drapeau portrait serait bâti puis recadré comme un paysage. */
       if (snap.flagOrientation) window.__flagOrientation = snap.flagOrientation;
 
+      /* NOTES : la valeur COMMANDÉE prime sur celle de l'instantané.
+
+         `item.notes` est ce qui part réellement à l'atelier ; `snap.notes` n'est
+         que l'état de l'écran au moment de la capture. Même règle que pour la
+         couleur, plus bas.
+
+         Différé : le panneau d'options du produit doit d'abord être affiché.
+         Le textarea, lui, vit dans le markup statique — il n'est jamais
+         reconstruit, contrairement au canvas. */
+      var notesLigne = (item && item.notes) || snap.notes || '';
+      if (typeof window.ecrireNotes === 'function' && snap.produit) {
+        setTimeout(function () {
+          window.ecrireNotes(snap.produit, notesLigne);
+        }, 400);
+      }
+
       /* Retenu pour l'application directe au canvas : elle ne dépend pas de
          la session, et c'est elle qui fait foi si le quota a refusé l'écriture. */
       window.__snapshotOuverture = snap;
@@ -728,6 +744,16 @@
 
      Code mort assumé et daté : à supprimer quand les paniers auront tourné. */
   function reposerEtatDesign(item) {
+    /* NOTES — aussi sur ce chemin, emprunté par les lignes SANS instantané
+       (créées avant SNAPSHOT_V, ou dont la capture a échoué). Sans cela, rouvrir
+       une telle ligne laisserait le textarea sur la note de l'article précédent.
+       Même différé que dans poserSnapshot : le panneau doit être en place. */
+    if (item && typeof window.ecrireNotes === 'function' && item.productType) {
+      setTimeout(function () {
+        window.ecrireNotes(item.productType, item.notes || '');
+      }, 400);
+    }
+
     /* PURGE de la ligne précédente : sans elle, un article dont le design ne
        peut être lu rouvrirait celui de l'article ouvert juste avant. */
     window.__uploadsAAppliquer = null;

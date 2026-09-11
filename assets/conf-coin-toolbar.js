@@ -42,10 +42,13 @@
     var loY = lo + offY;
     var hiY = hi + offY;
 
-    // Verso numéroté : le bas de la pièce est réservé au numéro gravé.
+    /* Verso numéroté : plus aucune réserve. Le numéro est gravé AU CENTRE
+       (conf-coins.css) et non plus en bas ; la constante vaut donc 0, repli
+       compris. Le calcul est conservé — il redeviendrait utile si le numéro
+       retournait un jour sur un bord. */
     var disc = logo.closest('.coin-disc');
     if (disc && disc.classList.contains('has-number')) {
-      var reserve = (window.COIN_NUMBER_RESERVE != null ? window.COIN_NUMBER_RESERVE : 22);
+      var reserve = (window.COIN_NUMBER_RESERVE != null ? window.COIN_NUMBER_RESERVE : 0);
       hiY = Math.min(hiY, 100 - reserve);
     }
     return { lo: lo, hi: hi, loY: loY, hiY: hiY, size: hi - lo };

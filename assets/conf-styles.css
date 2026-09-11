@@ -2389,9 +2389,9 @@
 
 /* VIGNETTE — le produit fini, plutôt qu'un pictogramme.
 
-   `contain` : ces images sont des photos de vêtement, aux proportions
-   propres. Les rogner couperait le motif, qui est précisément ce qu'elles
-   doivent montrer. */
+   La boîte porte le RATIO RÉEL des visuels : `cover` n'a donc rien à rogner,
+   et le motif — ce que ces images doivent précisément montrer — reste entier.
+   Le fond gris ne se voit plus, l'image le recouvrant entièrement. */
 .mode-card-visuel {
   width: 100%;
   margin-bottom: 18px;
@@ -2402,8 +2402,18 @@
 .mode-card-visuel img {
   display: block;
   width: 100%;
-  height: 150px;
-  object-fit: contain;
+  /* LA LARGEUR COMMANDE, LA HAUTEUR SUIT.
+
+     `height: 150px` + `contain` bridait l'image par sa HAUTEUR : à un ratio de
+     1,5, elle ne pouvait occuper que 225px de large dans une carte qui en fait
+     plus de 400 — d'où deux bandes grises sur les côtés, le fond du conteneur
+     apparaissant de part et d'autre.
+
+     Les deux visuels ayant le même ratio (1047x700 et 408x272, soit 1,50), la
+     hauteur reste identique d'une carte à l'autre : elles restent alignées. */
+  height: auto;
+  aspect-ratio: 1047 / 700;
+  object-fit: cover;
   /* Le survol agrandit le visuel. Le conteneur masque déjà le débordement
      (`overflow: hidden`, ci-dessus) : l'image grandit sans pousser le titre
      ni le bouton, la carte garde exactement sa hauteur. */

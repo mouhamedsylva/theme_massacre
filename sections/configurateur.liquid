@@ -812,7 +812,7 @@
                      loading="eager" width="600" height="440">
               </div>
               <h3 class="mode-card-title">Personnalisation libre</h3>
-              <p class="mode-card-desc">Personnalisez vos articles, ajoutez design sur la face et votre design au dos.</p>
+              <p class="mode-card-desc">Personnalisez vos textiles, patchs, coins et drapeaux.</p>
               <button type="button" class="mode-card-btn" onclick="choisirMode('individuelle')">
                 Sélectionner
               </button>
@@ -1487,6 +1487,28 @@
         <span>Supplément manches <b id="rp-sleeve-amount"></b></span>
       </div>
 
+      {%- comment -%}
+        DÉLAI DE PRODUCTION — entre le prix et le bouton d'ajout, le trajet
+        obligé du regard avant l'achat.
+
+        TEXTE SIMPLE EN NOIR, sans cadre ni fond : `.rp-delai` neutralise le
+        bandeau de `.rp-opt-flag` (conf-sidebar-modern.css). Le délai est une
+        information de commande, au même titre que le prix ou la quantité —
+        pas une alerte.
+
+        La valeur est écrite par majDelaiProduction() (conf-main-inline.js) :
+        pour un textile elle dépend de la quantité, qui change à l'écran.
+        Le markup porte la valeur du cas le plus courant pour éviter un vide
+        au premier rendu, avant le premier appel.
+      {%- endcomment -%}
+      <div class="rp-opt-flag rp-delai" id="rp-delai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b id="rp-delai-val">3 semaines</b></span>
+      </div>
+
       <div class="rp-acts">
         <!-- Rappel de la liste de groupe validée : l'ajout au panier créera
              une ligne par personne. Rempli par refreshGroupBadge(). -->
@@ -1739,6 +1761,20 @@
         <span class="cd-subtotal-val" id="cd-total">0,00 €</span>
       </div>
       <p class="cd-tax-note" id="cd-tax-note">Taxes incluses. Livraison calculée à l'étape suivante.</p>
+      {%- comment -%}
+        Délai de la commande : le PLUS LONG de ses articles, c'est lui qui
+        décide de l'expédition. Rempli par renderCartDrawer ; masqué tant que
+        le panier est vide. Reste affiché même sur un panier en devis, où les
+        montants disparaissent — c'est une information de production, pas un
+        prix.
+      {%- endcomment -%}
+      <div class="rp-opt-flag rp-delai cd-delai" id="cd-delai" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b id="cd-delai-val"></b></span>
+      </div>
       <button type="button" class="cd-checkout" id="cd-checkout-btn" onclick="goToRecap()">
         Continuer
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>

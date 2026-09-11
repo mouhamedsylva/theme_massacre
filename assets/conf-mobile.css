@@ -1387,6 +1387,37 @@
   }
   .mobile-price .rp-pvat { font-size: 8px; font-weight: 600; color: #888; }
 
+  /* ── DÉLAI DE PRODUCTION, DANS LES FEUILLES ──────────────────────────
+     Il occupait une pastille flottante au-dessus du prix : elle couvrait
+     l'aperçu du produit, sur un écran où la place manque déjà.
+
+     Il vit maintenant dans les feuilles « Taille & quantité » (textiles) et
+     « Quantité » (coins, drapeaux, patchs), déplacé depuis le récapitulatif
+     par conf-mobile.js. Pour un textile, il est ainsi juste sous le compteur
+     qui le fait basculer de 3 à 4 semaines.
+
+     Texte noir sur le fond blanc de la feuille, comme sur ordinateur — le
+     séparateur le détache du bloc d'aide qui le précède. */
+  .mob-tq-sheet .rp-delai,
+  .mob-q-sheet .rp-delai {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 16px 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border, #e5e5e5);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #1a1a1a;
+  }
+  .mob-tq-sheet .rp-delai svg,
+  .mob-q-sheet .rp-delai svg {
+    width: 15px; height: 15px; flex: none; color: #6b7280;
+  }
+  .mob-tq-sheet .rp-delai b,
+  .mob-q-sheet .rp-delai b { font-weight: 800; color: #1a1a1a; }
+
   /* ── TAILLE ET QUANTITÉ — bouton d'état + feuille ────────────────────
      `.recap` étant masqué (:1198), ces deux contrôles étaient inaccessibles
      en mobile. Ils sont sortis dans une feuille, et ce bouton en montre
@@ -2516,16 +2547,28 @@
      de l'origine du défilement : le titre était coupé, sans moyen de le
      remonter.
 
-     Aligné en haut, le contenu part du bord et défile normalement. */
+     Aligné en haut, le contenu part du bord et défile normalement.
+
+     `align-items` DOIT PARTIR AVEC `justify-content`, et c'est ce qui manquait :
+     `.mode-choice` est en `flex-direction: row` par défaut, donc c'est
+     `align-items: center` (conf-styles.css) qui gouverne l'axe VERTICAL ici.
+     Seul `justify-content` avait été corrigé — il n'agissait que sur
+     l'horizontale, et le contenu restait centré verticalement, donc toujours
+     débordant par le haut : la première carte apparaissait coupée, hors
+     d'atteinte du défilement.
+
+     `flex-start` sur les deux axes : le contenu part du bord haut et défile. */
   .mode-choice {
     padding: 20px 14px;
     justify-content: flex-start;
+    align-items: flex-start;
   }
   .mode-choice-title { font-size: 20px; line-height: 1.25; }
   .mode-choice-sub { margin-bottom: 22px; font-size: 13px; }
   .mode-cards { grid-template-columns: 1fr; gap: 16px; }
   .mode-card { padding: 20px 16px 16px; }
-  .mode-card-visuel img { height: 130px; }
+  /* Pas de hauteur fixe : elle rétablirait les bandes grises latérales que le
+     ratio supprime (conf-styles.css). La largeur commande, la hauteur suit. */
   .mode-card-title { font-size: 15px; }
   .mode-card-desc { font-size: 12.5px; }
   /* Le survol n'existe pas au doigt : l'agrandissement de l'image resterait
@@ -2553,7 +2596,22 @@
   [data-etape="choix"] .rp-price,
   /* Le conteneur part avec eux : vidé de son contenu, il laisserait une bande
      sombre en bas d'écran, sans rien à y montrer. */
-  [data-etape="choix"] .rp-acts,
+  [data-etape="choix"] .rp-acts {
+    /* CE BLOC MANQUAIT — la liste ci-dessus se terminait par une virgule, puis
+       venaient quarante lignes de commentaires et la règle du canvas de groupe.
+       Le navigateur n'y voyait donc qu'UNE SEULE règle : ces sept sélecteurs
+       étaient rattachés au bloc du canvas, plus bas.
+
+       Deux effets, et le second était le plus visible : rien n'était masqué, ET
+       le prix héritait de `position: absolute; top: 0` — il se retrouvait plaqué
+       en haut de l'écran de choix, par-dessus les cartes.
+
+       `!important` : `#mobile-price` et `.rp-acts` reçoivent leur affichage en
+       style INLINE depuis fillActionBar (conf-mobile.js), qui l'emporterait
+       sinon sur cette feuille. */
+    display: none !important;
+  }
+
   /* LA BARRE DU BAS RESTE À L'ÉCRAN DE CHOIX.
 
      Elle avait été masquée : elle ne porte qu'un onglet « Produits », les autres
@@ -2568,6 +2626,7 @@
 
      `--nav-h` n'est donc plus neutralisée : la barre occupe sa place, et les
      cartes s'arrêtent au-dessus d'elle au lieu de passer dessous. */
+
   /* ══════════════════════════════════════════════════════════════════════
      PARCOURS GROUPE — stepper et barre d'action sur petit écran
      ══════════════════════════════════════════════════════════════════════ */
@@ -2890,7 +2949,7 @@
   .mode-card { padding: 26px 18px 20px; }
   /* Vignette plus basse : à 150px, les deux cartes empilées repoussaient les
      boutons hors de l'écran sur un petit téléphone. */
-  .mode-card-visuel img { height: 120px; }
+  /* Idem : la hauteur reste déduite du ratio (voir plus haut). */
   /* Le survol n'existe pas au doigt : on retire le décalage, qui ne se
      déclencherait qu'au moment du toucher — un mouvement parasite. */
   .mode-card:hover { transform: none; }

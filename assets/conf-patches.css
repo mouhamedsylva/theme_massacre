@@ -658,17 +658,18 @@
   z-index: 5;   /* SOUS la doublure : la zone frappée reste nette */
 }
 
-/* ── Poignées : les 4 COINS en édition, rien sinon ── */
-.coin-logo.is-cover .logo-resize { display: none !important; }
+/* ── Poignées : JAMAIS, même en édition ──
+   Les quatre poignées d'angle ont été retirées du mode cadrage : elles
+   faisaient doublon avec le bouton bleu ⤢, qui redimensionne déjà l'image
+   (startManualResize, conf-logo-drag.js), et encombraient un disque déjà
+   chargé — cadre rouge, doublure de zone imprimée, numéro gravé. */
+.coin-logo .logo-resize { display: none !important; }
 
-.coin-disc.coin-editing .coin-logo .logo-resize.pos-nw,
-.coin-disc.coin-editing .coin-logo .logo-resize.pos-ne,
-.coin-disc.coin-editing .coin-logo .logo-resize.pos-sw,
-.coin-disc.coin-editing .coin-logo .logo-resize.pos-se {
-  display: block !important;
-  z-index: 8;
-}
-.coin-disc.coin-editing .coin-logo .logo-ctrl { display: none !important; }
+/* Croix ✕ et bouton ⤢ RESTENT pendant l'édition.
+   Ils étaient masqués ici pour ne pas chevaucher les poignées — celles-ci
+   ayant disparu, la raison n'existe plus. Ce sont désormais les deux seules
+   commandes de l'image : supprimer, et redimensionner. */
+.coin-disc.coin-editing .coin-logo .logo-ctrl { display: flex !important; }
 .coin-logo img {
   width: 100%;
   height: auto;

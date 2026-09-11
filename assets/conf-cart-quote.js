@@ -50,6 +50,27 @@
     return cart().some(function (i) { return /coin/i.test(i.name || ''); });
   }
 
+  /* Cette LIGNE est-elle sans prix public ?
+
+     Les coins sont chiffrés à la main : ils n'ont aucune grille tarifaire
+     (conf-pricing-tiers.js) et leur prix est forcé à 0 quoi que réponde le
+     backend (configurateur.liquid). Ce 0 est une absence de prix, pas une
+     gratuité — l'afficher « 0,00 € » contredisait le message de devis figurant
+     dans le même tiroir.
+
+     À ne pas confondre avec `cartNeedsQuote()`, qui décrit le PANIER : un
+     panier de 100 patchs part aussi en devis, mais ses patchs ont un vrai prix
+     (3,50 €) et doivent continuer de l'afficher. La question posée ici est
+     différente : cet article a-t-il un prix à montrer ?
+
+     Ciblé par NOM, comme les trois fonctions ci-dessus : `productType` vaut
+     'coins' pour les coins dans certains fichiers et pour les patchs dans
+     d'autres — le nom affiché, lui, est sans ambiguïté. */
+  function ligneSurDevis(item) {
+    return /coin/i.test((item && item.name) || '');
+  }
+  window.ligneSurDevis = ligneSurDevis;
+
   /* Le panier doit-il passer en devis plutôt qu'au paiement ? Devis si :
      - un COIN est présent (seul ou couplé à n'importe quel produit) ;
      - OU patchs ≥ 100 pièces ;

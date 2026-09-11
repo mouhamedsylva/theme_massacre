@@ -133,6 +133,16 @@
   }
   window.closePatchEdit = close;
 
+  /* Exposée pour la sélection au CLIC SIMPLE (conf-logo-drag.js), avec la même
+     signature que ses jumelles coin et drapeau : elle reçoit la cible cliquée
+     et sort d'elle-même si ce n'est pas le logo du patch. */
+  window.openPatchEditFrom = function (target) {
+    var logo = target && target.closest && target.closest('#patch-logo');
+    if (!logo) return false;
+    open();
+    return true;
+  };
+
   document.addEventListener('dblclick', function (e) {
     var logo = e.target.closest && e.target.closest('#patch-logo');
     if (logo) { open(); return; }

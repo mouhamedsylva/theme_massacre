@@ -472,6 +472,16 @@
       box.remove();
     }
 
+    /* LA PASTILLE DE DÉLAI FLOTTANTE A ÉTÉ RETIRÉE.
+
+       Elle vivait ici, dans le canvas, au-dessus du prix — donc PAR-DESSUS
+       l'aperçu du produit, sur un écran où la place manque déjà. Le délai est
+       désormais posé dans les feuilles « Taille & quantité » et « Quantité »
+       (poserTailleQte / poserQuantiteSeule, plus bas), à côté du compteur qui
+       le détermine pour les textiles. */
+    var pastilleObsolete = document.getElementById("mobile-delai");
+    if (pastilleObsolete) pastilleObsolete.remove();
+
     /* Bouton : produit courant d'abord, textile en dernier.
 
        Cherché dans `.recap` PUIS dans `.canvas`, exactement comme le prix
@@ -545,6 +555,28 @@
      (voir le commentaire du prix, :411). Une fonction qui déplace un nœud sans
      le retrouver ensuite le DÉTRUIT au deuxième appel. On cherche donc, comme
      le prix, dans `.recap` PUIS dans la feuille déjà posée. */
+  /* REND LE DÉLAI AU RÉCAP AVANT DE SUPPRIMER UNE FEUILLE.
+
+     Le nœud du délai est DÉPLACÉ dans la feuille, pas cloné : supprimer
+     celle-ci sans l'en sortir le détruirait, et le récapitulatif du bureau
+     resterait définitivement sans délai — un `display:none` ne le ramène pas.
+
+     C'est le défaut que ce fichier documente déjà pour les autres nœuds
+     déplacés (« un nœud déplacé puis introuvable est détruit »). On le prévient
+     partout où une feuille disparaît : changement de produit, mode groupe,
+     écran de choix. */
+  function rendreDelaiAuRecap(feuille) {
+    if (!feuille) return;
+    var delai = feuille.querySelector(".rp-delai");
+    if (!delai) return;
+    var recap = document.querySelector(".recap");
+    if (!recap) { delai.remove(); return; }
+    /* Devant les boutons d'action, comme dans les deux gabarits d'origine. */
+    var acts = recap.querySelector(".rp-acts, .rp-actions-coins");
+    if (acts) recap.insertBefore(delai, acts);
+    else recap.appendChild(delai);
+  }
+
   function poserTailleQte(canvas, recapNow) {
     if (!canvas) return;
 
@@ -596,7 +628,7 @@
     if (recapNow && !recapNow.querySelector("#rp-qty-textile")) {
       var bAncien = document.getElementById("mob-tq-btn");
       if (bAncien) bAncien.remove();
-      if (feuille) feuille.remove();
+      if (feuille) { rendreDelaiAuRecap(feuille); feuille.remove(); }
       return;
     }
 
@@ -619,7 +651,7 @@
     if (estGroupe || surEcranChoix) {
       var bGrp = document.getElementById("mob-tq-btn");
       if (bGrp) bGrp.remove();
-      if (feuille) feuille.remove();
+      if (feuille) { rendreDelaiAuRecap(feuille); feuille.remove(); }
       return;
     }
 
@@ -670,6 +702,19 @@
     var aide = (recapNow && recapNow.querySelector(".rp-tq-aide")) ||
                feuille.querySelector(".rp-tq-aide");
     if (aide && aide.parentNode !== feuille) feuille.appendChild(aide);
+
+    /* LE DÉLAI DE PRODUCTION SUIT LA QUANTITÉ QUI LE DÉTERMINE.
+
+       Pour un textile il dépend du nombre de pièces (3 semaines jusqu'à 10,
+       4 au-delà) : sa place est sous le compteur qui le fait basculer, pas
+       ailleurs. Le récapitulatif du bureau, lui, est masqué sur téléphone.
+
+       Déplacé comme les nœuds ci-dessus — même test de parent, pour la même
+       raison : `appendChild` sur un nœud déjà en place le démonte et le
+       remonte, et cette fonction tourne en boucle. */
+    var delai = (recapNow && recapNow.querySelector("#rp-delai")) ||
+                feuille.querySelector("#rp-delai");
+    if (delai && delai.parentNode !== feuille) feuille.appendChild(delai);
 
     /* La poignée de glissement vient du système de feuilles existant : voile,
        fermeture au toucher et glisser-pour-fermer sont déjà écrits (:88). */
@@ -792,7 +837,7 @@
     if (recapNow && recapNow.querySelector("#rp-qty-textile")) {
       var bTx = document.getElementById("mob-q-btn");
       if (bTx) bTx.remove();
-      if (feuille) feuille.remove();
+      if (feuille) { rendreDelaiAuRecap(feuille); feuille.remove(); }
       return;
     }
 
@@ -809,7 +854,7 @@
     if (!bloc) {
       var bAncien = document.getElementById("mob-q-btn");
       if (bAncien) bAncien.remove();
-      if (feuille) feuille.remove();
+      if (feuille) { rendreDelaiAuRecap(feuille); feuille.remove(); }
       return;
     }
 
@@ -822,7 +867,7 @@
     if (surEcranChoix || estGroupe) {
       var bChoix = document.getElementById("mob-q-btn");
       if (bChoix) bChoix.remove();
-      if (feuille) feuille.remove();
+      if (feuille) { rendreDelaiAuRecap(feuille); feuille.remove(); }
       return;
     }
 
@@ -869,6 +914,22 @@
     var anciens = feuille.querySelectorAll(".rp-qty-section");
     for (var i = 0; i < anciens.length; i++) {
       if (anciens[i] !== bloc) anciens[i].remove();
+    }
+
+    /* LE DÉLAI DE PRODUCTION REJOINT LA FEUILLE, comme pour les textiles.
+
+       Ces trois produits ont un délai fixe (4 à 6 semaines), écrit en dur dans
+       leur gabarit (conf-dynamic-layout.js). Ce gabarit étant réécrit à chaque
+       changement de produit, un exemplaire neuf arrive à chaque fois : on
+       purge les précédents ici aussi, sans quoi ils s'empileraient. */
+    var delai = (recapNow && recapNow.querySelector(".rp-delai")) ||
+                feuille.querySelector(".rp-delai");
+    if (delai) {
+      if (delai.parentNode !== feuille) feuille.appendChild(delai);
+      var vieux = feuille.querySelectorAll(".rp-delai");
+      for (var j = 0; j < vieux.length; j++) {
+        if (vieux[j] !== delai) vieux[j].remove();
+      }
     }
 
     if (typeof addHandle === "function") addHandle(feuille);
@@ -1233,6 +1294,16 @@
         if (repartirTQ) hoteTQ.appendChild(repartirTQ);
         if (aideTQ) hoteTQ.appendChild(aideTQ);
       }
+      /* Le délai retourne au RÉCAP, pas dans `.rp-qty-section` : sur ordinateur
+         sa place est entre le prix et le bouton d'ajout, là où le markup le
+         pose (configurateur.liquid). Rendu à la section quantité, il
+         remonterait au-dessus du prix. */
+      var delaiTQ = feuilleTQ.querySelector("#rp-delai");
+      if (delaiTQ) {
+        var actsTQ = recap.querySelector(".rp-acts");
+        if (actsTQ) recap.insertBefore(delaiTQ, actsTQ);
+        else recap.appendChild(delaiTQ);
+      }
       feuilleTQ.remove();
     }
     var btnTQ = document.getElementById("mob-tq-btn");
@@ -1258,6 +1329,14 @@
           hoteQ.appendChild(blocQ);
           hoteQ.removeAttribute("data-hote-qte");
         }
+      }
+      /* Le délai reprend sa place devant les boutons d'action, comme dans le
+         gabarit d'origine (conf-dynamic-layout.js). */
+      var delaiQ = feuilleQ.querySelector(".rp-delai");
+      if (delaiQ) {
+        var actsQ = recap.querySelector(".rp-actions-coins");
+        if (actsQ) recap.insertBefore(delaiQ, actsQ);
+        else recap.appendChild(delaiQ);
       }
       feuilleQ.remove();
     }

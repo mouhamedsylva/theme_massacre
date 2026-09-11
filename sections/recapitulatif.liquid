@@ -233,6 +233,20 @@
   .rcp-total-vat { font-size: 11px; color: var(--muted); font-weight: 400; }
   .rcp-note { font-size: 10px; color: var(--faint); margin-top: 4px; }
 
+  /* Délai de production — même encart bleu que le configurateur
+     (.rp-opt-flag.rp-delai, conf-sidebar-modern.css). Redéclaré ici : cette
+     page ne charge aucune feuille du configurateur, tous ses styles sont
+     internes. Garder les deux apparences identiques, le client passe de l'un
+     à l'autre. */
+  .rp-opt-flag.rp-delai {
+    display: flex; align-items: center; gap: 8px;
+    margin: 14px 0 0; padding: 0;
+    background: none; border: none;
+    font-size: 12px; font-weight: 600; color: var(--black); line-height: 1.35;
+  }
+  .rp-opt-flag.rp-delai svg { width: 15px; height: 15px; flex: none; color: #6b7280; }
+  .rp-opt-flag.rp-delai b { font-weight: 800; white-space: nowrap; color: var(--black); }
+
   /* Consentement (au-dessus du bouton Commander). */
   .rcp-consent {
     display: flex; align-items: flex-start; gap: 10px;
@@ -368,6 +382,20 @@
       </div>
       <p class="rcp-note">Taxes incluses. Livraison calculée à l'étape suivante.</p>
 
+      {%- comment -%}
+        Délai de production de la commande : le plus long de ses articles.
+        Dernière chance de l'annoncer avant le paiement. Rempli par le script
+        plus bas ; reste visible même sur un panier en devis, où les montants
+        sont masqués.
+      {%- endcomment -%}
+      <div class="rp-opt-flag rp-delai" id="rcp-delai" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b id="rcp-delai-val"></b></span>
+      </div>
+
       <!-- Consentement : le bouton Commander reste bloqué tant que la case
            n'est pas cochée. Article personnalisé = pas de retour possible,
            d'où l'acceptation explicite avant paiement. -->
@@ -410,6 +438,15 @@
      Cette page les utilisait SANS charger l'asset : elle retombait sur le
      repli « prix de la ligne » et ignorait donc les paliers. -->
 <script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
+<!-- Délais de production : cette page annonce le délai de la commande, le plus
+     long de ses articles. Même règle que le configurateur, même fichier. -->
+<script src="{{ 'conf-delais.js' | asset_url }}"></script>
+<!-- Règles de DEVIS (cartNeedsQuote, ligneSurDevis). Cette page les ignorait :
+     un coin métal, chiffré sur devis, s'y affichait donc « 0,00 € » avec un
+     « Total 0,00 € TTC » et la note « Taxes incluses » — plus trompeur encore
+     que le tiroir du panier, qui masque déjà son total dans ce cas.
+     Chargé ici plutôt que dupliqué : une seconde copie des règles divergerait. -->
+<script src="{{ 'conf-cart-quote.js' | asset_url }}"></script>
 <script>
   /* Même résolution d'URL que le configurateur : le réglage de thème prime,
      l'URL en dur ne sert que de repli. VPS OVH depuis le 11/08/2026.
@@ -934,6 +971,13 @@
       try { return JSON.parse(sessionStorage.getItem('conf_cart')) || []; }
       catch (e) { return []; }
     }
+    /* PASSERELLE VERS LES RÈGLES DE DEVIS.
+
+       conf-cart-quote.js lit le panier par `window.getCartItems()`, le nom
+       qu'expose le configurateur. Cette page-ci l'appelle `getCart` : sans ce
+       pont, `cartNeedsQuote()` y verrait un panier VIDE et conclurait « pas de
+       devis » — les montants à 0 des coins seraient restés affichés. */
+    window.getCartItems = getCart;
     function saveCart(items) {
       try { sessionStorage.setItem('conf_cart', JSON.stringify(items)); } catch (e) {}
     }
@@ -984,6 +1028,18 @@
         if (it.groupIndex) properties['Ligne'] = it.groupIndex;
         if (it.color) properties['Détails'] = it.color;
         if (it.size)  properties['Taille'] = it.size;
+
+        /* NOTES DU CLIENT — visible, comme « Emplacement ».
+
+           Sans préfixe « _ » : c'est le client qui a écrit ce texte, il doit le
+           relire au checkout, dernier moment où une erreur coûte encore zéro.
+           L'atelier la retrouve dans l'admin Shopify sur la ligne concernée.
+
+           Bornée à 500 comme à la saisie : une valeur de propriété trop longue
+           fait rejeter /cart/add.js par Shopify — tout le checkout échoue, pas
+           seulement cette ligne. Même précaution que pour les data-URL, juste
+           en dessous. */
+        if (it.notes) properties['Notes'] = String(it.notes).slice(0, 500);
 
         // 🆕 Résumé groupe par tailles (ex: "2×M, 3×L") pour l'admin
         if (it._sizeGroupSummary) properties['_sizeGroupSummary'] = it._sizeGroupSummary;
@@ -1248,6 +1304,11 @@
           </div>`;
         setMoney('rcp-subtotal', 0);
         setMoney('rcp-total', 0);
+        /* Panier vide : aucun délai à annoncer. Ce chemin sort par le `return`
+           ci-dessous, avant le code qui remplit l'encart — sans ce masquage,
+           un délai de la visite précédente y resterait affiché. */
+        var delVide = document.getElementById('rcp-delai');
+        if (delVide) delVide.style.display = 'none';
         contBtn.disabled = true;
         contBtn.style.opacity = '0.5';
         contBtn.style.pointerEvents = 'none';
@@ -1266,6 +1327,13 @@
         totalsByType[i.productType] = (totalsByType[i.productType] || 0) + (i.qty || 1);
       });
 
+      /* Article sans prix public (coin métal) : ni montant de ligne, ni
+         contribution au total. Repli `false` si l'asset n'a pas chargé — on
+         affiche alors comme avant plutôt qu'une ligne muette. */
+      const surDevisLigne = (it) => (typeof window.ligneSurDevis === 'function')
+        ? window.ligneSurDevis(it)
+        : false;
+
       let subtotal = 0;
       itemsEl.innerHTML = items.map((item, idx) => {
         const unit = effectiveUnitPrice(item, totalsByType);
@@ -1274,6 +1342,17 @@
 
         // Propriétés : textile = couleur + taille séparés ; custom = détails bruts
         let propsHtml = '';
+        /* DÉCLARÉE AVANT LES DEUX BRANCHES, pas dans celle des textiles : la
+           ligne « Notes » plus bas s'affiche pour TOUS les produits, et une
+           `const` de bloc n'y serait pas visible — un drapeau commenté aurait
+           levé une ReferenceError au lieu de s'afficher.
+
+           L'étiquette est en <strong> (gris léger via CSS) et la VALEUR en
+           .rcp-val (foncée, grasse) : c'est « Apricot » ou « S » qu'on cherche
+           du regard, pas le mot « Couleur ». Même rendu que le tiroir du panier
+           (conf-main-inline.js, cdLignesMeta). */
+        const ligneProp = (etiquette, valeur) =>
+          `<span><strong>${etiquette} :</strong> <span class="rcp-val">${esc(valeur)}</span></span>`;
         if (item.size) {
           const parts = [];
           /* Surnom floqué : présent uniquement sur les lignes issues d'une
@@ -1281,12 +1360,6 @@
              c'est lui qui distingue deux articles par ailleurs identiques.
              Le drawer du panier l'affiche déjà (conf-main-inline.js:3755) ;
              le récapitulatif était le seul écran à l'omettre. */
-          /* L'étiquette est en <strong> (gris léger via CSS) et la VALEUR en
-             .rcp-val (foncée, grasse) : c'est « Apricot » ou « S » qu'on
-             cherche du regard, pas le mot « Couleur ». Même rendu que le
-             tiroir du panier (conf-main-inline.js, cdLignesMeta). */
-          const ligneProp = (etiquette, valeur) =>
-            `<span><strong>${etiquette} :</strong> <span class="rcp-val">${esc(valeur)}</span></span>`;
           if (item.personName) parts.push(ligneProp('Nom floqué', item.personName));
           /* `item.color` arrive parfois PRÉFIXÉ ("Couleur : Atoll") : les lignes
              de groupe le stockent ainsi (conf-main-inline.js:2021) pour le
@@ -1306,6 +1379,13 @@
           propsHtml = `<span>${esc(item.color)}</span>`;
         }
 
+        /* NOTES DU CLIENT — hors des deux branches ci-dessus, donc affichées
+           quel que soit le produit. Dernier écran avant paiement : c'est ici
+           qu'une consigne mal comprise se rattrape encore. */
+        if (item.notes) {
+          propsHtml += ligneProp('Notes', item.notes);
+        }
+
         const img = item.img
           ? `<img class="rcp-item-img" src="${esc(item.img)}" alt="${esc(item.name)}">`
           : `<div class="rcp-item-img rcp-item-noimg">
@@ -1319,7 +1399,7 @@
               <div class="rcp-item-props">${propsHtml}</div>
             </div>
             <div class="rcp-item-right">
-              <div class="rcp-item-price">${money(lineTotal)}</div>
+              ${surDevisLigne(item) ? '' : `<div class="rcp-item-price">${money(lineTotal)}</div>`}
               <div class="rcp-item-qty">Qté : ${item.qty || 1}</div>
               <button type="button" class="rcp-item-remove" data-idx="${idx}">Retirer</button>
             </div>
@@ -1328,6 +1408,43 @@
 
       setMoney('rcp-subtotal', subtotal);
       setMoney('rcp-total', subtotal);
+
+      /* PANIER SUR DEVIS : les montants n'ont pas de sens ici.
+
+         Le tiroir du panier masque déjà son total dans ce cas
+         (conf-main-inline.js) ; cette page, elle, affichait « Sous-total
+         0,00 € / Total 0,00 € TTC » avec la note « Taxes incluses » — un prix
+         ferme et gratuit, là où il faut justement demander un chiffrage.
+
+         On masque les DEUX lignes de montant et on reprend mot pour mot la
+         note du tiroir, pour que les deux écrans disent la même chose. */
+      try {
+        var enDevis = (typeof window.cartNeedsQuote === 'function') && window.cartNeedsQuote();
+        /* On masque la LIGNE entière, pas le seul montant : un libellé
+           « Sous-total » resté seul se lirait comme un total manquant.
+           La ligne « Livraison » part avec elles — elle est calculée au
+           paiement, étape qu'un devis n'atteint pas. */
+        var resume = document.querySelector('.rcp-summary');
+        if (resume) {
+          resume.querySelectorAll('.rcp-line, .rcp-line-total').forEach(function (l) {
+            l.style.display = enDevis ? 'none' : '';
+          });
+        }
+        var noteEl = document.querySelector('.rcp-note');
+        if (noteEl) noteEl.textContent = enDevis
+          ? 'Le prix vous sera communiqué après étude de votre demande de devis.'
+          : 'Taxes incluses. Livraison calculée à l\'étape suivante.';
+
+        /* Délai de la commande : le plus long de ses articles. Affiché MÊME en
+           devis — le prix reste à chiffrer, la durée de production non. */
+        var delEl = document.getElementById('rcp-delai');
+        var delVal = document.getElementById('rcp-delai-val');
+        if (delEl && delVal && typeof window.delaiCommande === 'function') {
+          var d = window.delaiCommande(items);
+          delVal.textContent = d;
+          delEl.style.display = d ? '' : 'none';
+        }
+      } catch (e) {}
 
       // Boutons "Retirer"
       itemsEl.querySelectorAll('.rcp-item-remove').forEach(btn => {

@@ -872,6 +872,19 @@
       <div class="panel-section-title">Numérotation</div>
       <div class="panel-section-subtitle">Définissez la quantité et le numéro de départ</div>
 
+      {%- comment -%}
+        Le bouton d'upload du verso disparaît avec ce type (selectCoinType,
+        conf-patches.js) : sans un mot ici, le client cherche une commande qui
+        vient de s'évanouir sous ses yeux.
+      {%- endcomment -%}
+      <div class="rp-opt-flag rp-delai" style="margin: 0 0 12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 16v-5"/><path d="M12 8h.01"/>
+        </svg>
+        <span>Le <b>verso</b> est réservé au numéro : seul le recto reçoit un visuel.</span>
+      </div>
+
       <div class="coin-numbering-row">
         <div class="coin-num-field">
           <label>Quantité (min. 50)</label>
@@ -884,7 +897,20 @@
         </div>
         <div class="coin-num-field">
           <label>Numéro de départ</label>
-          <input type="text" id="coin-num-start" class="coin-num-start" value="001">
+          {%- comment -%}
+            CHIFFRES SEULEMENT — ce numéro est GRAVÉ sur chaque pièce. Une
+            saisie libre partait telle quelle à l'atelier : « IVdf. zd » a été
+            accepté et affiché sur le verso.
+
+            `type="text"` est conservé volontairement, PAS `number` : les zéros
+            de tête font le format (001, 002…) et un champ numérique les
+            supprime. `inputmode` ouvre malgré tout le pavé numérique sur
+            téléphone, et `pattern` documente la règle ; le filtrage réel est
+            fait en JS (conf-patches.js), seul moyen d'écarter un collage.
+          {%- endcomment -%}
+          <input type="text" id="coin-num-start" class="coin-num-start" value="001"
+                 inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                 autocomplete="off" aria-label="Numéro de départ, chiffres uniquement">
         </div>
       </div>
     </div>
@@ -988,6 +1014,22 @@
           </div>
         </div>
       </div>
+    </div>
+
+    {%- comment -%}
+      NOTES LIBRES — en dernier : on configure, puis on commente.
+
+      `maxlength` n'est pas cosmétique. Les coins partent en DEVIS
+      (POST /api/quotes) et non au checkout, mais patchs et drapeaux voyagent en
+      propriété de ligne Shopify, qui REJETTE /cart/add.js au-delà d'une
+      certaine longueur. Même borne partout, et re-bornée à la lecture : cet
+      attribut se contourne.
+    {%- endcomment -%}
+    <div class="panel-section">
+      <div class="panel-section-title">Notes supplémentaires</div>
+      <div class="panel-section-subtitle">Une précision à transmettre à l'atelier ? (facultatif)</div>
+      <textarea id="coin-notes" class="conf-notes" data-notes="patches" rows="3" maxlength="500"
+                placeholder="Ex. : gravure du logo plus profonde, teinte à valider avant production…"></textarea>
     </div>
 
   </div>
@@ -1179,6 +1221,14 @@
       </div>
     </div>
 
+    {%- comment -%} Notes libres — voir #panel-coin pour le pourquoi du maxlength. {%- endcomment -%}
+    <div class="panel-section">
+      <div class="panel-section-title">Notes supplémentaires</div>
+      <div class="panel-section-subtitle">Une précision à transmettre à l'atelier ? (facultatif)</div>
+      <textarea id="flag-notes" class="conf-notes" data-notes="drapeaux" rows="3" maxlength="500"
+                placeholder="Ex. : ourlet renforcé, sens de lecture au verso…"></textarea>
+    </div>
+
   </div>
 </aside>
 
@@ -1362,6 +1412,21 @@
           <p>Contactez-nous, nous sommes là pour vous accompagner.</p>
         </div>
       </div>
+    </div>
+
+    {%- comment -%}
+      Notes libres — voir #panel-coin pour le pourquoi du maxlength.
+
+      SECTION SŒUR des « Options de fabrication », pas imbriquée dedans : elle
+      l'était, et une `.panel-section` dans une `.panel-section` n'est pas
+      prévue par le CSS — le titre chevauchait le bouton « Contactez-nous » et
+      le champ débordait du panneau.
+    {%- endcomment -%}
+    <div class="panel-section">
+      <div class="panel-section-title">Notes supplémentaires</div>
+      <div class="panel-section-subtitle">Une précision à transmettre à l'atelier ? (facultatif)</div>
+      <textarea id="patch-notes" class="conf-notes" data-notes="coins" rows="3" maxlength="500"
+                placeholder="Ex. : bordure de la couleur du fond, découpe suivant le contour…"></textarea>
     </div>
 
   </div>

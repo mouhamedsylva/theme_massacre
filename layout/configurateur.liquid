@@ -196,6 +196,10 @@
     <!-- Prix dégressif par quantité (QTY_TIERS + helpers). Chargé en SYNCHRONE
          avant les scripts inline : ils utilisent window.QTY_TIERS dès le départ. -->
     <script src="{{ 'conf-pricing-tiers.js' | asset_url }}"></script>
+    <!-- Délais de production (delaiProduction, delaiCommande). SYNCHRONE et
+         avant les scripts inline, comme la grille de prix ci-dessus : le
+         récapitulatif annonce le délai dès le premier rendu. -->
+    <script src="{{ 'conf-delais.js' | asset_url }}"></script>
     <script>
       /* URL de base du backend NestJS (VPS OVH depuis le 11/08/2026 ; auparavant
          Railway).

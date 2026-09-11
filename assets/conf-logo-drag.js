@@ -139,10 +139,19 @@
      Garder égal au `top`/`bottom` de `.coin-safe-zone` (conf-patches.css). */
   const COIN_OFFSET_Y = 0;
   window.COIN_OFFSET_Y = COIN_OFFSET_Y;
-  /* Hauteur réservée au numéro en bas du verso, en % du disque. Le logo ne
-     descend pas plus bas quand la numérotation est active, sinon il le
-     recouvrirait. Doit couvrir le `bottom` de .coin-verso-number + sa hauteur. */
-  const COIN_NUMBER_RESERVE = 22;
+  /* Hauteur réservée au numéro du verso, en % du disque.
+
+     RAMENÉE À 0. Elle valait 22 quand le numéro était gravé EN BAS de la pièce :
+     le logo s'arrêtait au-dessus pour ne pas le recouvrir.
+
+     Le numéro est désormais AU CENTRE (conf-coins.css) — le bas n'a plus rien à
+     protéger, et réserver le centre reviendrait à interdire au logo la seule
+     zone vraiment utile d'une pièce de 30 mm. Le logo reprend donc tout le
+     disque et le numéro se superpose à lui, en restant au-dessus.
+
+     Conservée plutôt que supprimée : deux consommateurs la lisent
+     (conf-coin-toolbar.js et les bornes de glissement, plus bas). */
+  const COIN_NUMBER_RESERVE = 0;
   window.COIN_NUMBER_RESERVE = COIN_NUMBER_RESERVE;
   /* Marge de la zone imprimable des patchs, en % du canvas. L'image du patch
      porte déjà un padding de 13% (.patch-shape-img) : la zone doit donc
@@ -400,11 +409,29 @@
      copie faisait doublon et était de toute façon écrasée par le hoisting
      de la seconde. Les boutons ⤢ des logos comme des textes l'utilisent. */
 
+  /* LE CADRAGE S'OUVRE AU CLIC SIMPLE, PLUS AU DOUBLE-CLIC.
+
+     Il fallait double-cliquer pour voir la zone réellement imprimée — un geste
+     que rien n'annonçait, et que le doigt n'exprime pas naturellement. La
+     sélection au clic simple était déjà le geste courant : on y rattache le
+     cadrage, qui devient ainsi le mode normal dès qu'on touche une image.
+
+     Les trois modules (coin, drapeau, patch) exposent leur ouverture ; chacun
+     sort de lui-même si le logo cliqué ne le concerne pas, d'où l'appel en
+     cascade sans test de produit. Le double-clic reste écouté par ces mêmes
+     modules : il rouvre simplement un mode déjà ouvert, sans effet visible. */
+  function ouvrirCadrage(el) {
+    if (!el) return;
+    ['openCoinEditFrom', 'openFlagEditFrom', 'openPatchEditFrom'].forEach(function (nom) {
+      if (typeof window[nom] === 'function') window[nom](el);
+    });
+  }
+
   /* Sélection d'un logo */
   function selectDesignLogo(el) {
     document.querySelectorAll('.design-logo.is-selected')
       .forEach(function (l) { if (l !== el) l.classList.remove('is-selected'); });
-    if (el) { ensureLogoControls(el); el.classList.add('is-selected'); }
+    if (el) { ensureLogoControls(el); el.classList.add('is-selected'); ouvrirCadrage(el); }
   }
   window.selectDesignLogo = selectDesignLogo;
 
@@ -412,6 +439,12 @@
   window.clearDesignLogoSelection = function () {
     document.querySelectorAll('.design-logo.is-selected')
       .forEach(function (l) { l.classList.remove('is-selected'); });
+    /* Le cadrage part AVEC la sélection : les deux états ne doivent jamais
+       diverger, sinon la doublure de zone imprimée resterait affichée sur une
+       image qui n'est plus sélectionnée. */
+    ['closeCoinEdit', 'closeFlagEdit', 'closePatchEdit'].forEach(function (nom) {
+      if (typeof window[nom] === 'function') window[nom]();
+    });
   };
 
   function ensureTextControls(el) {
@@ -647,7 +680,7 @@
     const coinMax = 100 - COIN_INSET;
     // Bornes verticales décalées vers le bas (voir COIN_OFFSET_Y).
     const coinMinY = COIN_INSET + COIN_OFFSET_Y;
-    // Verso numéroté : le bas est réservé au numéro.
+    // Verso numéroté : réserve nulle depuis que le numéro est au centre.
     const coinHasNumber = isCoinLogo &&
       !!active.closest('.coin-disc.has-number');
     const coinMaxY = coinHasNumber

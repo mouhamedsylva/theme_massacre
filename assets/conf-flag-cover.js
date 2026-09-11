@@ -281,6 +281,9 @@
     openEdit(face);
     return true;
   }
+  /* Exposée pour la sélection au CLIC SIMPLE (conf-logo-drag.js). Sort d'elle
+     même si la cible n'est pas un logo de drapeau. */
+  window.openFlagEditFrom = openEditFrom;
 
   document.addEventListener('dblclick', function (e) {
     openEditFrom(e.target);

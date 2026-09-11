@@ -4523,10 +4523,16 @@
            • groupIndex — « 2/5 », unique par ligne de liste, indispensable
              quand le nom floqué est laissé vide.
          Sans eux, une liste de cinq personnes s'effondrerait en une ligne. */
+      /* `notes` FAIT PARTIE DE LA CLÉ : deux pièces identiques accompagnées de
+         consignes différentes sont deux demandes différentes pour l'atelier.
+         Les fusionner en perdrait une — silencieusement. Shopify applique
+         d'ailleurs la même règle en aval, regroupant par variante ET
+         propriétés. */
       const existing = cartItems.find(i => i.productType === item.productType &&
                                            i.name === item.name &&
                                            valOption(i.color) === valOption(item.color) &&
                                            valOption(i.size) === valOption(item.size) &&
+                                           (i.notes || '') === (item.notes || '') &&
                                            (i.personName || '') === (item.personName || '') &&
                                            (i.groupIndex || '') === (item.groupIndex || ''));
       if (existing) {
@@ -4552,6 +4558,11 @@
         existing.sheet = item.sheet;
         existing.assets = item.assets;
         existing.sleeveCount = item.sleeveCount;
+        /* Redondant — `notes` fait partie de la clé de fusion, donc la ligne
+           trouvée porte déjà la même valeur. Réaffecté quand même : si cette
+           clé venait à changer, l'oubli laisserait ici la note du PREMIER
+           ajout, exactement le défaut décrit ci-dessous pour `design`. */
+        existing.notes = item.notes;
         /* `design` est l'instantané rouvert par la vignette du tiroir. Omis de
            cette liste, il gardait celui du PREMIER ajout : la ligne montrait la
            nouvelle image mais rouvrait l'ancien design. */
@@ -4784,6 +4795,94 @@
       })();
     }
 
+    /* ── NOTES SUPPLÉMENTAIRES (coins, drapeaux, patchs) ──────────────────
+
+       Commentaire libre saisi en bas du panneau d'options. Il suit le produit
+       jusqu'à la commande : propriété de ligne Shopify « Notes » pour les
+       patchs et les drapeaux (recapitulatif.liquid), détails du devis pour les
+       coins — qui n'ont volontairement pas de variant et ne passent donc jamais
+       par le checkout.
+
+       Un textarea par produit, repéré par `data-notes` = le type INTERNE. Le
+       nommage est inversé dans tout le projet : `coins` désigne les PATCHS,
+       `patches` les COINS. Les valeurs de `data-notes` suivent cette
+       convention, pas les libellés affichés. */
+    var NOTES_MAX = 500;
+
+    /** Le textarea de notes d'un type de produit, ou null. */
+    function champNotes(type) {
+      return document.querySelector('.conf-notes[data-notes="' + type + '"]');
+    }
+
+    /* La note d'un produit, bornée.
+
+       BORNÉE ICI AUSSI, pas seulement par `maxlength` : cet attribut ne
+       contraint que la frappe, il laisse passer un collage programmatique ou
+       une valeur restaurée. Or une propriété trop longue fait REJETER
+       /cart/add.js par Shopify, et le checkout échoue en bloc. */
+    function lireNotes(type) {
+      var el = champNotes(type);
+      var v = el ? String(el.value || '').trim() : '';
+      return v.slice(0, NOTES_MAX);
+    }
+    window.lireNotes = lireNotes;
+
+    /** Réécrit la note d'un produit (réouverture depuis le panier). */
+    function ecrireNotes(type, valeur) {
+      var el = champNotes(type);
+      if (el) el.value = String(valeur || '').slice(0, NOTES_MAX);
+      sauverNotes();
+    }
+    window.ecrireNotes = ecrireNotes;
+
+    /* PERSISTANCE — un seul objet `conf_notes`, indexé par type de produit.
+
+       Le textarea vit dans le markup statique : sa valeur survit d'elle-même à
+       un changement de produit. Mais pas à un RECHARGEMENT, ni à un changement
+       de mode — d'où cette clé, membre de CLES_DESIGN pour que les modes libre
+       et groupe ne se passent pas leurs consignes. */
+    var NOTES_KEY = 'conf_notes';
+
+    function sauverNotes() {
+      try {
+        var tout = {};
+        document.querySelectorAll('.conf-notes[data-notes]').forEach(function (el) {
+          var v = String(el.value || '').trim().slice(0, NOTES_MAX);
+          if (v) tout[el.getAttribute('data-notes')] = v;
+        });
+        sessionStorage.setItem(NOTES_KEY, JSON.stringify(tout));
+      } catch (e) {}
+    }
+
+    /** Repose les notes mémorisées dans leurs champs. */
+    function restaurerNotes() {
+      var tout = null;
+      try { tout = JSON.parse(sessionStorage.getItem(NOTES_KEY) || 'null'); } catch (e) {}
+      if (!tout) return;
+      document.querySelectorAll('.conf-notes[data-notes]').forEach(function (el) {
+        var v = tout[el.getAttribute('data-notes')];
+        if (v) el.value = String(v).slice(0, NOTES_MAX);
+      });
+    }
+    window.restaurerNotes = restaurerNotes;
+
+    /* Écoute DÉLÉGUÉE : les panneaux existent dès le chargement, mais un
+       écouteur par champ se perdrait si l'un d'eux était un jour reconstruit. */
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.classList &&
+          e.target.classList.contains('conf-notes')) {
+        sauverNotes();
+      }
+    });
+    /* `readyState` testé : ce fichier est chargé en `defer` et peut s'exécuter
+       APRÈS DOMContentLoaded — l'écouteur seul ne se déclencherait alors
+       jamais, et les notes ne reviendraient pas après un F5. */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', restaurerNotes);
+    } else {
+      restaurerNotes();
+    }
+
     /* ── Ajout au panier depuis les récaps Drapeaux / Coins / Patchs ──
        Lit les infos directement dans le récap courant (colonne droite). */
     async function addCustomToCartInner(btnEl) {
@@ -4949,6 +5048,12 @@
         price: price,   // déjà UNITAIRE (voir le calcul plus haut, RV6/A2)
         qty: qty,
         img: imgSrc,
+        /* Commentaire libre du client. CHAMP PROPRE, surtout pas concaténé
+           dans `color` : celui-ci sert à choisir le variant Shopify par une
+           regex qui s'arrête au « · » (recapitulatif.liquid), et à fusionner
+           les lignes identiques. Une note contenant ce séparateur ou le mot
+           « couleur » fausserait le variant commandé. */
+        notes: lireNotes(currentProductType),
         sheet: sheetSrc,   // planche recto/verso pour l'_Aperçu de la commande
         assets: collectCustomAssets(),   // logos utilisés -> visibles dans la commande
         /* ÉTAT COMPLET du design, pour pouvoir rouvrir cette ligne plus tard.
@@ -4984,6 +5089,19 @@
       const name = 'Coin métal personnalisé';
       const details = recap ? Array.from(recap.querySelectorAll('.rp-patch-details p'))
         .map(p => p.textContent.trim()) : [];
+
+      /* LES NOTES PARTENT AVEC LE DEVIS, PAS AVEC LA COMMANDE.
+
+         Les coins n'ont volontairement aucun variant Shopify (recapitulatif
+         .liquid) : ils ne passent jamais par le checkout, donc aucune propriété
+         de ligne ne les accompagne. Le devis est leur seul chemin vers le
+         dashboard.
+
+         Ajoutée à `details`, un tableau de chaînes que le backend accepte déjà
+         tel quel — un champ dédié serait ignoré en silence par le DTO NestJS,
+         qui ne retient que les clés qu'il déclare. */
+      const notesCoin = (typeof lireNotes === 'function') ? lireNotes('patches') : '';
+      if (notesCoin) details.push('Notes : ' + notesCoin);
       // Portée document : en mobile le champ quitte `.recap` (champQtePerso).
       const qtyInput = champQtePerso();
       const qty = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 1;
@@ -5041,6 +5159,13 @@
       // On force le style demandé dans les détails.
       details = details.filter(function (d) { return !/^Type\s*:/i.test(d); });
       details.push('Finition souhaitée : ' + style);
+
+      /* Notes du client — même chemin que le devis coins : un patch PVC ou
+         tissé ne passe pas au checkout, ses notes ne peuvent donc pas voyager
+         en propriété de ligne. `data-notes="coins"` est bien le patch (nommage
+         inversé du projet). */
+      var notesPatch = (typeof lireNotes === 'function') ? lireNotes('coins') : '';
+      if (notesPatch) details.push('Notes : ' + notesPatch);
 
       /* Quantité du patch. Ce sélecteur visait `#coins-recap-qty-input`, un
          identifiant qui N'EXISTE NULLE PART : le devis ne tenait que par le
@@ -5425,6 +5550,9 @@
         sessionStorage.removeItem('conf_coin_finish');
         sessionStorage.removeItem('conf_flag_color');      // couleur de fond drapeau
         sessionStorage.removeItem('conf_flag_color_name');
+        /* Les notes partent avec le design qu'elles commentent : une consigne
+           laissée en place décrirait une pièce qui n'existe plus. */
+        sessionStorage.removeItem('conf_notes');
         sessionStorage.removeItem('conf_active_panel');    // onglet ouvert du sidebar
         /* Mode de personnalisation : « Réinitialiser » doit ramener au tout
            début du parcours, donc à l'écran de choix. Le conserver aurait
@@ -6870,6 +6998,9 @@
         couleur: null,
         patchColor: null, coinFinish: null,
         flagColor: null, flagColorName: null, flagOrientation: null,
+        /* Commentaire libre du panneau d'options. Lu au DOM et non en session :
+           c'est le champ lui-même qui fait foi au moment de l'ajout. */
+        notes: (typeof lireNotes === 'function') ? lireNotes(produit) : '',
         zones: {}, textes: null, personName: null
       };
 
@@ -7226,6 +7357,10 @@
           : '<span>' + grpEsc(item.color) + '</span>');
       }
       if (item.size) lignes.push(ligne('Taille', sansPrefixe(item.size, 'Taille')));
+      /* La note en DERNIER : c'est un commentaire, pas une spécification. Elle
+         s'affiche pour que le client relise avant de payer ce qu'il a demandé à
+         l'atelier. */
+      if (item.notes) lignes.push(ligne('Notes', item.notes));
       return lignes.join('');
     }
 
@@ -7348,6 +7483,17 @@
         totalsByType[i.productType] = (totalsByType[i.productType] || 0) + (i.qty || 0);
       });
 
+      /* Article sans prix public (coin métal, chiffré sur devis) : sa ligne
+         n'affiche aucun montant, un « 0,00 € » se lisant comme gratuit.
+
+         Passe par `window` avec un repli : conf-cart-quote.js est chargé APRÈS
+         ce fichier, et le tiroir peut être peint avant lui — c'est la même
+         précaution que prend déjà refreshDrawerCheckoutBtn, plus bas. Le repli
+         `false` affiche alors le prix comme avant, jamais une ligne vide. */
+      const surDevis = (it) => (typeof window.ligneSurDevis === 'function')
+        ? window.ligneSurDevis(it)
+        : false;
+
       let total = 0;
       partitionnerPanier(cartItems).forEach(bloc => {
        /* CHAQUE BLOC EST ISOLÉ. Sans ce filet, une exception sur l'un
@@ -7433,8 +7579,9 @@
               '<div class="cd-name">' + grpEsc(tete.name) + '</div>' +
               '<div class="cd-meta"><span class="cd-val">' +
                 grpEsc(couleurs.join(', ')) + '</span></div>' +
-              '<div class="cd-price">' + unitG.toFixed(2).replace('.', ',') +
-                ' € <span class="cd-tier">/u</span></div>' +
+              (surDevis(tete) ? '' :
+                '<div class="cd-price">' + unitG.toFixed(2).replace('.', ',') +
+                  ' € <span class="cd-tier">/u</span></div>') +
               '<div class="cd-grp-tailles">' + tailles + '</div>' +
               blocNoms +
             '</div>' +
@@ -7481,7 +7628,7 @@
           <div class="cd-info">
             <div class="cd-name">${grpEsc(item.name)}</div>
             <div class="cd-meta">${cdLignesMeta(item)}</div>
-            <div class="cd-price">${unit.toFixed(2).replace('.',',')} € <span class="cd-tier">/u</span></div>
+            ${surDevis(item) ? '' : `<div class="cd-price">${unit.toFixed(2).replace('.',',')} € <span class="cd-tier">/u</span></div>`}
             <div class="cd-qty">
               <button type="button" class="cd-qty-btn" onclick="changeCartQty(${cdId}, -1)"${
                 (Number(item.qty) || 0) <= minQtyPour(item.productType)
@@ -7511,6 +7658,17 @@
       const totalCount = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
       countEl.textContent = totalCount + ' article' + (totalCount > 1 ? 's' : '');
       totalEl.textContent = total.toFixed(2).replace('.',',') + ' €';
+
+      /* Délai de la commande : le PLUS LONG de ses articles — c'est lui qui
+         décide de l'expédition. `delaiCommande` rend '' sur un panier vide,
+         auquel cas l'encart se masque au lieu d'annoncer un délai pour rien. */
+      var delaiEl = document.getElementById('cd-delai');
+      var delaiVal = document.getElementById('cd-delai-val');
+      if (delaiEl && delaiVal && typeof window.delaiCommande === 'function') {
+        var d = window.delaiCommande(cartItems);
+        delaiVal.textContent = d;
+        delaiEl.style.display = d ? '' : 'none';
+      }
 
       // Bascule « Continuer » <-> « Faire une demande de devis » (coin présent,
       // patchs ≥100, ou ≥3 familles). Logique déportée dans conf-cart-quote.js.
@@ -9458,7 +9616,30 @@
       saveSizeQtyFor(currentProductType);
     }
 
+    /* Écrit le délai de production dans le récapitulatif.
+
+       Pour un textile il dépend de la QUANTITÉ, qui change sous les yeux du
+       client : le seuil est à 10 pièces (11 fait passer de 3 à 4 semaines). On
+       compte la quantité de l'article en cours SEULE — pas celle du panier,
+       contrairement au palier tarifaire juste au-dessus : le client doit
+       pouvoir relier le délai affiché à ce qu'il a devant lui.
+
+       Les autres produits ont un délai fixe, écrit en dur dans leur gabarit
+       (conf-dynamic-layout.js) ; cette fonction ne les concerne pas — leur
+       récapitulatif ne contient pas #rp-delai-val. */
+    function majDelaiProduction() {
+      var el = document.getElementById('rp-delai-val');
+      if (!el || typeof window.delaiProduction !== 'function') return;
+      el.textContent = window.delaiProduction(currentProductType, textileQty());
+    }
+    window.majDelaiProduction = majDelaiProduction;
+
     function updateTotalPrice() {
+      /* AVANT la garde ci-dessous : elle sort dès que #rp-price-val manque —
+         ce qui est le cas de tout écran non textile, dont le récapitulatif est
+         réécrit. Placé après, le délai ne serait jamais mis à jour. */
+      majDelaiProduction();
+
       var priceEl = document.getElementById('rp-price-val');
       if (!priceEl) return;
 
@@ -9972,7 +10153,11 @@
          magasins se retrouvent lus de travers.
 
          Chaque mode garde désormais le sien. */
-      'conf_current_product'
+      'conf_current_product',
+      /* Les notes libres suivent le design : une consigne écrite en commande
+         de groupe n'a pas à réapparaître dans une commande libre. Un seul
+         objet pour les trois produits, indexé par type. */
+      'conf_notes'
     ];
 
     /**

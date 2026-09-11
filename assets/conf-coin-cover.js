@@ -282,6 +282,10 @@
     openEdit(face);
     return true;
   }
+  /* Exposée pour la sélection au CLIC SIMPLE (conf-logo-drag.js) : le cadrage
+     n'attend plus un double-clic. Sort d'elle-même si la cible n'est pas un
+     logo de coin — l'appelant n'a donc pas à connaître le produit courant. */
+  window.openCoinEditFrom = openEditFrom;
 
   document.addEventListener('dblclick', function (e) {
     openEditFrom(e.target);

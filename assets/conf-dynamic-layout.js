@@ -543,6 +543,19 @@ class DynamicLayoutManager {
         <div class="rp-total-subtitle" id="coins-qty-display">Par unité</div>
       </div>
 
+      <!-- Délai de production : fixe pour les coins, drapeaux et patchs, donc
+           écrit en dur (aucune quantité ne le fait varier, contrairement aux
+           textiles — voir majDelaiProduction, conf-main-inline.js).
+           AVANT .rp-actions-coins et jamais dedans : fillActionBar y cherche le
+           bouton d'ajout pour le déplacer en mobile. -->
+      <div class="rp-opt-flag rp-delai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b>4 à 6 semaines</b></span>
+      </div>
+
       <div class="rp-actions-coins">
         <button type="button" class="rp-btn-primary" onclick="addCustomToCart(this)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/></svg>
@@ -1007,6 +1020,19 @@ class DynamicLayoutManager {
         <div class="rp-unit-price-big" id="flags-unit-price">${window.formatPrix && window.prixUnitaire ? window.formatPrix(window.prixUnitaire("drapeaux")) : "19,90 €"} <span class="rp-unit-ht">TTC</span></div>
       </div>
 
+      <!-- Délai de production : fixe pour les coins, drapeaux et patchs, donc
+           écrit en dur (aucune quantité ne le fait varier, contrairement aux
+           textiles — voir majDelaiProduction, conf-main-inline.js).
+           AVANT .rp-actions-coins et jamais dedans : fillActionBar y cherche le
+           bouton d'ajout pour le déplacer en mobile. -->
+      <div class="rp-opt-flag rp-delai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b>4 à 6 semaines</b></span>
+      </div>
+
       <div class="rp-actions-coins">
         <button type="button" class="rp-btn-primary" onclick="addCustomToCart(this)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/></svg>
@@ -1202,6 +1228,19 @@ class DynamicLayoutManager {
             <button type="button" class="rp-qty-btn" onclick="changeCoinRecapQty(10)">+</button>
           </div>
         </div>
+      </div>
+
+      <!-- Délai de production : fixe pour les coins, drapeaux et patchs, donc
+           écrit en dur (aucune quantité ne le fait varier, contrairement aux
+           textiles — voir majDelaiProduction, conf-main-inline.js).
+           AVANT .rp-actions-coins et jamais dedans : fillActionBar y cherche le
+           bouton d'ajout pour le déplacer en mobile. -->
+      <div class="rp-opt-flag rp-delai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 7v5l3 2"/>
+        </svg>
+        <span>Délai de production <b>4 à 6 semaines</b></span>
       </div>
 
       <div class="rp-actions-coins">

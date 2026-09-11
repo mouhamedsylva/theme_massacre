@@ -881,20 +881,14 @@
   z-index: 5;   /* SOUS la doublure : la zone imprimée reste nette */
 }
 
-/* ── Poignées ──
-   Masquées hors édition (le design couvre la zone). En édition : les 4
-   COINS seulement — les côtés déformeraient le cadrage. */
-.flag-logo.is-cover .logo-resize { display: none !important; }
+/* ── Poignées : JAMAIS, même en édition ──
+   Les quatre poignées d'angle ont été retirées : le bouton bleu ⤢
+   redimensionne déjà l'image (startManualResize, conf-logo-drag.js). */
+.flag-logo .logo-resize { display: none !important; }
 
-.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-nw,
-.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-ne,
-.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-sw,
-.flag-img-3d.flag-editing .flag-logo .logo-resize.pos-se {
-  display: block !important;
-  z-index: 8;
-}
-/* Rond de déplacement et croix encombreraient les coins pendant l'édition. */
-.flag-img-3d.flag-editing .flag-logo .logo-ctrl { display: none !important; }
+/* Croix ✕ et bouton ⤢ RESTENT pendant l'édition : ils ne chevauchent plus
+   rien, et sont désormais les deux seules commandes de l'image. */
+.flag-img-3d.flag-editing .flag-logo .logo-ctrl { display: flex !important; }
 
 /* Affichage : on utilise TOUJOURS l'image réelle (flag-recto.png…), en 3D comme
    en 2D. Le drapeau codé CSS (flag-mock-inner) n'est plus utilisé. */

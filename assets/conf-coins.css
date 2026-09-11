@@ -370,16 +370,25 @@
 }
 
 /* Numéro gravé sur le verso (type "recto verso numéroté") */
-/* Numérotation du verso : discrète, en bas de la pièce.
-   Auparavant centrée à 40px, elle occupait le champ réservé au design.
+/* Numérotation du verso : AU CENTRE DE LA PIÈCE.
+
+   Elle était ancrée en bas, au-dessus du listel, pour laisser le centre au
+   design — et une réserve de 22 % empêchait le logo d'y descendre
+   (COIN_NUMBER_RESERVE, conf-logo-drag.js). Le numéro est désormais au milieu,
+   cette réserve a été levée : le logo reprend tout le disque et le numéro se
+   superpose à lui.
+
+   Le `z-index` (plus bas) le garde AU-DESSUS du logo et de sa doublure
+   d'édition, sans quoi un design opaque le masquerait entièrement.
+
    Position et taille relatives au disque (%, em) pour rester justes quel que
    soit le diamètre choisi (25 à 50 mm) ou le zoom. */
 .coin-verso-number {
   position: absolute;
   left: 50%;
-  top: auto;
-  bottom: 12%;                   /* dans la frappe, au-dessus du listel */
-  transform: translateX(-50%);
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
   /* Courier New n'a que deux graisses (normale / bold) : au-delà de 700 le
      rendu n'évolue plus. On passe donc sur une pile sans-serif, qui offre de
      vraies graisses lourdes, et on épaissit le trait au-delà du bold. */
@@ -391,7 +400,17 @@
   -webkit-text-stroke: 0.4px currentColor;   /* densifie au-delà du 900 */
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
   pointer-events: none;
-  z-index: 3;
+  /* AU-DESSUS DE TOUTE LA PILE DU DISQUE.
+
+     Il valait 3 — à ÉGALITÉ avec `.coin-logo` et `.coin-crop`, et sous la
+     doublure d'édition `.coin-crop-preview` (6, conf-patches.css). À égalité,
+     c'est le dernier nœud du DOM qui gagne : le numéro étant écrit avant le
+     logo, un design uploadé au verso le recouvrait entièrement.
+
+     Le numéro est une GRAVURE : rien de ce qu'on pose sur la pièce ne passe
+     devant. D'où une valeur franchement au-dessus des six niveaux existants,
+     qui laisse la place à d'éventuels calques intermédiaires. */
+  z-index: 10;
   line-height: 1;
   white-space: nowrap;
   text-align: center;
@@ -1601,25 +1620,17 @@
   z-index: 5;   /* SOUS la doublure (6) : la zone imprimée reste nette */
 }
 
-/* ── Poignées ──
-   HORS édition : masquées (le design couvre la forme, rien à régler).
-   EN édition   : les 4 COINS de l'image, là où on attend une prise pour
-   l'agrandir. Les 4 côtés restent cachés — ils déformeraient le cadrage. */
+/* ── Poignées : JAMAIS, même en édition ──
+   Les quatre poignées d'angle ont été retirées : le bouton bleu ⤢
+   redimensionne déjà l'image (startManualResize, conf-logo-drag.js), et elles
+   encombraient la forme sans rien apporter de plus. */
 .patch-logo .logo-resize { display: none !important; }
 
-#coins-canvas.patch-editing .patch-logo .logo-resize.pos-nw,
-#coins-canvas.patch-editing .patch-logo .logo-resize.pos-ne,
-#coins-canvas.patch-editing .patch-logo .logo-resize.pos-sw,
-#coins-canvas.patch-editing .patch-logo .logo-resize.pos-se {
-  display: block !important;
-  z-index: 8;
-}
-
-/* Le rond de déplacement et la croix de suppression encombrent les coins
-   pendant l'édition — ils chevauchaient les poignées. Le glissement se fait
-   de toute façon en saisissant l'image elle-même. */
+/* Croix ✕ et bouton ⤢ RESTENT pendant l'édition — ils étaient masqués pour
+   ne pas chevaucher les poignées, qui n'existent plus. Le glissement de
+   l'image, lui, se fait toujours en la saisissant directement. */
 #coins-canvas.patch-editing .patch-logo .logo-ctrl {
-  display: none !important;
+  display: flex !important;
 }
 
 /* ── Zone imprimable : CONFONDUE avec le bord du patch ───────────────────

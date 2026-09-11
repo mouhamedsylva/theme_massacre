@@ -33,33 +33,65 @@ function selectCoinType(el) {
   const numSec = document.getElementById('coin-numbering-sec');
   if (numSec) numSec.style.display = (type === 'recto-verso-num') ? 'block' : 'none';
 
-  // Logo verso visible sauf en "recto simple".
+  /* DEUX TYPES REFUSENT UNE IMAGE AU VERSO, POUR DES RAISONS DIFFÉRENTES :
+
+       • `recto-simple`     : il n'y a pas de verso du tout ;
+       • `recto-verso-num`  : le verso est réservé au NUMÉRO gravé. Y poser une
+         image la superposerait au numéro — l'atelier recevrait deux consignes
+         contradictoires pour la même face.
+
+     Le bouton d'upload disparaît donc dans les deux cas… */
   const simple = (type === 'recto-simple');
+  const numerote = (type === 'recto-verso-num');
+  const sansImageVerso = simple || numerote;
 
   // Ancienne sidebar (zone complète avec son libellé).
   const versoUpload = document.getElementById('coin-upload-verso');
-  if (versoUpload) versoUpload.style.display = simple ? 'none' : 'flex';
+  if (versoUpload) versoUpload.style.display = sansImageVerso ? 'none' : 'flex';
 
   /* Sidebar moderne : la vue d'upload n'a qu'une rangée de deux boutons.
      On masque celui du verso, son libellé, et son bouton « Supprimer » ;
      la classe single-face fait passer la rangée sur une seule colonne. */
   const versoBtn = document.getElementById('coin-upload-btn-verso');
-  if (versoBtn) versoBtn.style.display = simple ? 'none' : '';
+  if (versoBtn) versoBtn.style.display = sansImageVerso ? 'none' : '';
   const versoLbl = document.getElementById('coin-upload-label-verso');
-  if (versoLbl) versoLbl.style.display = simple ? 'none' : '';
+  if (versoLbl) versoLbl.style.display = sansImageVerso ? 'none' : '';
   const coinView = document.getElementById('upload-view-coin');
-  if (coinView) coinView.classList.toggle('single-face', simple);
+  if (coinView) coinView.classList.toggle('single-face', sansImageVerso);
 
-  // En recto simple, un verso déjà chargé n'a plus lieu d'être : son aperçu
-  // disparaît avec la zone d'upload correspondante.
-  if (simple) {
+  // L'aperçu du panneau suit le bouton : le montrer sans pouvoir le remplacer
+  // ni le supprimer laisserait une commande qu'aucun geste ne défait.
+  if (sansImageVerso) {
     const versoPreview = document.getElementById('coin-preview-verso');
     if (versoPreview) versoPreview.style.display = 'none';
   }
 
-  // Vue verso/côté dans le canvas selon le type
+  /* LE LOGO VERSO EST MASQUÉ, PAS SUPPRIMÉ.
+
+     `display: none` en style INLINE, et rien d'autre : ni `conf_uploads`, ni
+     l'input fichier, ni la position ne sont touchés. Revenir sur « Recto
+     verso » réaffiche donc l'image telle que le client l'avait laissée.
+
+     C'est aussi ce qui la tient HORS DE LA COMMANDE : captureCoinDesign ne
+     lève jamais un `display:none` inline (conf-main-inline.js) — à la
+     différence du masquage CSS des faces sur mobile, qu'elle lève le temps de
+     mesurer. Le verso capturé ne portera donc que le numéro. */
+  const logoVerso = document.getElementById('coin-logo-verso');
+  if (logoVerso) {
+    if (sansImageVerso) {
+      logoVerso.style.display = 'none';
+    } else {
+      const img = logoVerso.querySelector('img');
+      // Réaffiché SEULEMENT s'il porte vraiment une image : sans cette garde,
+      // une face vide montrerait un cadre de logo sans contenu.
+      if (img && img.getAttribute('src')) logoVerso.style.display = '';
+    }
+  }
+
+  /* La FACE verso, elle, ne disparaît que pour le recto simple : le type
+     numéroté doit la montrer, c'est elle qui porte le numéro. */
   const versoView = document.querySelector('.coin-view[data-view="verso"]');
-  if (versoView) versoView.style.display = (type === 'recto-simple') ? 'none' : 'flex';
+  if (versoView) versoView.style.display = simple ? 'none' : 'flex';
 
   // Numéro sur le verso : visible uniquement en "recto verso numéroté"
   updateCoinNumber();
@@ -82,7 +114,11 @@ function updateCoinNumber() {
   if (!numEl) return;
   const type = window.__coinType || 'recto-verso';
   const input = document.getElementById('coin-num-start');
-  const val = input ? String(input.value || '').trim() : '';
+  /* CEINTURE ET BRETELLES : la valeur est renettoyée à la lecture, pas
+     seulement à la frappe. L'écouteur `input` ne voit ni une valeur posée par
+     du code (restauration de session, design rouvert depuis le panier) ni un
+     `value` laissé dans le markup. Ce qui est GRAVÉ passe forcément ici. */
+  const val = input ? String(input.value || '').replace(/\D/g, '') : '';
 
   const on = (type === 'recto-verso-num' && !!val);
   if (on) {
@@ -92,18 +128,53 @@ function updateCoinNumber() {
     numEl.style.display = 'none';
   }
 
-  // Marque le disque verso : la zone du logo y est raccourcie pour laisser la
-  // place au numéro (voir .coin-disc.has-number dans conf-patches.css), sinon
-  // un design descendant bas le recouvrirait.
+  /* Marque le disque verso comme numéroté.
+
+     Cette classe raccourcissait la zone du logo pour épargner le numéro, alors
+     gravé en bas. Le numéro étant passé AU CENTRE (conf-coins.css), la réserve
+     vaut 0 et la classe ne restreint plus rien — elle reste posée : c'est elle
+     que testent les trois calculs de bornes, prêts à re-servir si le numéro
+     revenait un jour sur un bord.
+
+     (Aucune règle CSS `.coin-disc.has-number` n'existe : le commentaire qui en
+     citait une était erroné.) */
   const versoDisc = document.getElementById('coin-disc-verso');
   if (versoDisc) versoDisc.classList.toggle('has-number', on);
   // Recontraint le logo verso à la nouvelle zone.
   if (typeof window.clampCoinLogo === 'function') window.clampCoinLogo('verso');
 }
 
-// Met à jour le numéro en temps réel quand on modifie le champ "Numéro de départ".
+/* Met à jour le numéro en temps réel quand on modifie le champ.
+
+   LE CHAMP N'ACCEPTE QUE DES CHIFFRES, et le filtrage se fait ICI plutôt que
+   par `type="number"` : celui-ci supprimerait les zéros de tête, or ce sont eux
+   qui donnent son format au numéro (001, 002…). L'attribut `pattern` du markup,
+   lui, ne bloque rien hors d'un formulaire soumis.
+
+   Ce numéro est GRAVÉ sur chaque pièce et part tel quel à l'atelier : une
+   saisie libre y était reproduite sans que rien ne l'arrête.
+
+   On retire tout caractère non numérique, y compris après un COLLER — d'où le
+   traitement sur `input` et non sur `keypress`, qui laisserait passer le
+   presse-papier. La position du curseur est préservée : la corriger évite que
+   le curseur saute en fin de champ à chaque frappe au milieu d'un numéro. */
 document.addEventListener('input', function (e) {
-  if (e.target && e.target.id === 'coin-num-start') updateCoinNumber();
+  if (!e.target || e.target.id !== 'coin-num-start') return;
+
+  var champ = e.target;
+  var avant = champ.value;
+  var propre = avant.replace(/\D/g, '');
+
+  if (propre !== avant) {
+    var pos = champ.selectionStart;
+    /* Combien de caractères refusés AVANT le curseur : le curseur recule
+       d'autant, sinon il se décale à droite du texte réellement inséré. */
+    var retires = (avant.slice(0, pos).match(/\D/g) || []).length;
+    champ.value = propre;
+    try { champ.setSelectionRange(pos - retires, pos - retires); } catch (err) {}
+  }
+
+  updateCoinNumber();
 });
 
 // Forme
@@ -593,13 +664,14 @@ function clampCoinLogo(face, fill) {
     var zone = hi - lo;
     // Bornes verticales décalées vers le bas (voir COIN_OFFSET_Y).
     var loY = lo + offY, hiY = hi + offY;
-    // Verso numéroté : on réserve le bas de la pièce au numéro, sinon un
-    // design descendant bas le recouvrirait.
+    /* Verso numéroté : plus aucune réserve. Le numéro est gravé AU CENTRE
+       (conf-coins.css), le bas n'a donc plus rien à protéger — la constante
+       vaut 0, repli compris. */
     if (disc.classList.contains('has-number')) {
       // window.* : la constante est déclarée dans l'IIFE de
       // conf-logo-drag.js ; y accéder directement levait une ReferenceError
       // qui interrompait tout le remplissage.
-      var reserve = (window.COIN_NUMBER_RESERVE != null ? window.COIN_NUMBER_RESERVE : 22);
+      var reserve = (window.COIN_NUMBER_RESERVE != null ? window.COIN_NUMBER_RESERVE : 0);
       hiY = Math.min(hiY, 100 - reserve);
     }
 

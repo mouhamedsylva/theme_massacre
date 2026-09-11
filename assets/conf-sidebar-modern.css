@@ -1702,6 +1702,31 @@ html:not([data-sidebar-ready]) #panel-product {
   color: #6b4711;
 }
 
+/* ── DÉLAI DE PRODUCTION ──────────────────────────────────────────────────
+   TEXTE SIMPLE, NOIR, SANS CADRE.
+
+   Il avait été posé dans un encart bleu pour se distinguer du bandeau ambré
+   du supplément manches. Résultat : deux cadres colorés se disputaient
+   l'attention dans une colonne qui n'en compte aucun autre — le délai
+   ressortait comme une alerte, alors que c'est une information de commande au
+   même titre que le prix ou la quantité.
+
+   Il reprend donc la sobriété de ses voisins (`.rp-unit-title`, `.rp-plbl`) :
+   noir sur fond blanc, l'horloge en gris discret. La valeur seule est en gras
+   — c'est elle qu'on cherche du regard. */
+.rp-opt-flag.rp-delai {
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--black, #1a1a1a);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.rp-opt-flag.rp-delai svg { color: #6b7280; width: 15px; height: 15px; }
+.rp-opt-flag.rp-delai b { color: var(--black, #1a1a1a); font-weight: 800; }
+
 /* Pastille sur l'onglet « Vue de côté ».
    L'onglet passe en position:relative pour l'ancrer — il ne l'était pas. */
 .vt {
@@ -1776,4 +1801,37 @@ html:not([data-sidebar-ready]) #panel-product {
 .upload-zone-btn.is-filled span {
   font-weight: 600;
   color: #6b7280;
+}
+
+/* ── NOTES SUPPLÉMENTAIRES (coins, drapeaux, patchs) ────────────────────────
+   Champ libre en bas des panneaux d'options : le client y précise ce que les
+   cartes de choix ne savent pas dire (« gravure plus profonde », « teinte à
+   valider »). La note suit ensuite le produit jusqu'à la commande — propriété
+   de ligne Shopify pour patchs et drapeaux, détails du devis pour les coins.
+
+   Style calqué sur `.coin-num-start` (conf-patches.css) : mêmes bordure, rayon
+   et focus que l'autre champ de saisie des panneaux. Deux champs voisins ne
+   doivent pas répondre par deux apparences. */
+.conf-notes {
+  width: 100%;
+  min-height: 76px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background: #fff;
+  /* Vertical seulement : `resize: both` laissait élargir le champ au-delà du
+     panneau, qui déborde alors sous la barre d'icônes. */
+  resize: vertical;
+  transition: border-color .15s ease;
+}
+.conf-notes::placeholder {
+  color: #9ca3af;
+}
+.conf-notes:focus {
+  outline: none;
+  border-color: #1a1a1a;
 }
