@@ -12,6 +12,25 @@
 
   let sizeQuantities = {};
 
+  /* Le client a-t-il touché aux compteurs depuis la dernière ouverture « à
+     neuf » ? Tant que c'est vrai, rouvrir la modale RETROUVE sa saisie au lieu
+     de la recalculer — fermer par la croix ou « Annuler » ne la perd plus.
+
+     Remis à false quand la répartition est confirmée (elle devient alors la
+     liste validée, que `initSizeQuantities` sait recharger) et quand le client
+     réinitialise lui-même. */
+  let saisieEnCours = false;
+
+  /* Quantité affichée dans le panneau AU MOMENT de la dernière confirmation.
+
+     Sert à savoir si le client a touché au champ « Qté » depuis : sans ce
+     repère, la répartition validée l'emportait toujours, et régler 20 dans le
+     panneau après avoir confirmé 18 pièces n'était jamais repris par la
+     modale — elle rouvrait sur son ancienne répartition, sourde au changement.
+
+     `null` = aucune confirmation dans cette session. */
+  let qteAuMomentDeLaConfirmation = null;
+
   /**
    * Récupère les tailles disponibles depuis la sidebar
    */
@@ -85,12 +104,53 @@
     const fromSizeModal = saved && saved.length &&
       saved.every(r => r && r._sizeGroupSummary);
 
+    /* LA RÉPARTITION VALIDÉE EST TOUJOURS RECHARGÉE — elle n'est jamais
+       écrasée.
+
+       Une version antérieure repartait du panneau seul dès que la quantité y
+       changeait : le client qui avait réparti 9 S + 5 L + 3 XXL, puis réglait
+       12 dans le panneau, rouvrait la modale et trouvait TOUT à zéro sauf sa
+       taille courante. Sa répartition était perdue.
+
+       La nouvelle quantité S'AJOUTE donc à l'existant, sur la taille
+       sélectionnée dans le panneau — c'est le sens du geste : « j'ajoute douze
+       XL à ce que j'ai déjà ». */
     if (fromSizeModal) {
       saved.forEach(r => {
         if (r.size && sizeQuantities.hasOwnProperty(r.size)) {
           sizeQuantities[r.size] += (parseInt(r.qty, 10) || 1);
         }
       });
+
+      /* La quantité du panneau a-t-elle changé depuis la confirmation ?
+         Si oui, le client vient de la régler : on la reporte sur sa taille
+         courante, EN PLUS de la répartition rechargée ci-dessus. */
+      if (qteAuMomentDeLaConfirmation !== null) {
+        const champ = document.getElementById('textile-qty-input');
+        const qteActuelle = champ ? (parseInt(champ.value, 10) || 0) : 0;
+
+        if (qteActuelle !== qteAuMomentDeLaConfirmation && qteActuelle > 0) {
+          const sgSrcMaj = document.querySelector('.sg:not(.cv-opt-clone)');
+          const btnMaj = (sgSrcMaj || document).querySelector('.sb.on:not(.sb-group)');
+          const tailleMaj = btnMaj ? btnMaj.textContent.trim() : '';
+          if (tailleMaj && sizeQuantities.hasOwnProperty(tailleMaj)) {
+            sizeQuantities[tailleMaj] += qteActuelle;
+          }
+          /* Le repère avance : sans cela, la même quantité serait ré-ajoutée à
+             chaque ouverture de la modale, et le total gonflerait tout seul. */
+          qteAuMomentDeLaConfirmation = qteActuelle;
+
+          /* L'APPORT N'EST PAS ENCORE DANS LA LISTE VALIDÉE — il ne le sera
+             qu'à la confirmation. Sans ce drapeau, la réouverture SUIVANTE
+             recalculerait tout depuis cette liste et les pièces ajoutées
+             disparaîtraient : le client les voyait, fermait, rouvrait, et
+             elles n'étaient plus là.
+
+             `saisieEnCours` fige l'état en mémoire, exactement comme une
+             saisie manuelle aux compteurs. */
+          saisieEnCours = true;
+        }
+      }
       return;
     }
 
@@ -179,6 +239,7 @@
        de changeSizeQuantity. */
     var n = Math.max(0, parseInt(valeur, 10) || 0);
     sizeQuantities[sizeName] = n;
+    saisieEnCours = true;   // la répartition survivra à une fermeture sans confirmer
     /* Re-rendu complet : il rafraîchit aussi l'état désactivé du bouton −, le
        total et le résumé — exactement ce que fait le chemin des boutons. */
     renderSizeList();
@@ -187,8 +248,53 @@
   window.changeSizeQuantity = function(sizeName, delta) {
     const currentQty = sizeQuantities[sizeName] || 0;
     const newQty = Math.max(0, currentQty + delta);
-    
+
     sizeQuantities[sizeName] = newQty;
+    saisieEnCours = true;   // idem : voir saisirSizeQuantity
+    renderSizeList();
+  };
+
+  /**
+   * Remet toutes les tailles à zéro.
+   *
+   * Appelée par le bouton « Réinitialiser » de l'en-tête. On repart d'une
+   * ardoise vraiment vierge — pas de `initSizeQuantities()`, qui reprendrait la
+   * taille et la quantité affichées et laisserait donc une ligne garnie.
+   */
+  window.resetSizeQuantities = function() {
+    Object.keys(sizeQuantities).forEach(function (size) {
+      sizeQuantities[size] = 0;
+    });
+
+    /* RETOUR À L'ÉTAT DE DÉPART, PAS À UNE GRILLE VIDE.
+
+       Tout à zéro n'est pas un état que le configurateur sait produire : une
+       commande porte toujours au moins une pièce, et « Confirmer » refuse une
+       répartition vide. Le client se retrouvait donc dans une impasse, obligé
+       de recliquer un « + » pour sortir.
+
+       On revient à ce qu'affiche le configurateur au premier chargement — la
+       taille par défaut à 1 pièce. `M` est cette taille (configurateur.liquid,
+       et le repli de `applySizeQtyFor`) ; le repli sur la première taille
+       disponible couvre un produit dont la grille ne la proposerait pas. */
+    var tailleDefaut = sizeQuantities.hasOwnProperty('M')
+      ? 'M'
+      : Object.keys(sizeQuantities)[0];
+    if (tailleDefaut) sizeQuantities[tailleDefaut] = 1;
+    /* La modale redevient « à neuf » : si le client ferme maintenant sans
+       confirmer, la prochaine ouverture repartira de sa sélection courante,
+       comme au premier jour. */
+    /* `saisieEnCours` reste VRAI — c'est ce qui fait tenir la remise à zéro.
+
+       Le passer à false laissait la répartition VALIDÉE reprendre la main à la
+       réouverture : le client réinitialisait, fermait, rouvrait, et retrouvait
+       ses huit tailles. Une ardoise vierge est un état voulu, au même titre
+       qu'une saisie — elle doit survivre à la fermeture.
+
+       Le repère de confirmation part, lui : la répartition validée n'a plus
+       cours. */
+    saisieEnCours = true;
+    qteAuMomentDeLaConfirmation = null;
     renderSizeList();
   };
 
@@ -229,7 +335,20 @@
       return;
     }
 
-    initSizeQuantities();
+    /* LA SAISIE EN COURS SURVIT À UNE FERMETURE SANS CONFIRMATION.
+
+       `initSizeQuantities` recalcule tout depuis la liste VALIDÉE, ou à défaut
+       depuis la taille et la quantité affichées. Appelée à chaque ouverture,
+       elle écrasait donc une répartition que le client venait de composer puis
+       de fermer par la croix ou « Annuler » — huit tailles à ressaisir.
+
+       On ne réinitialise que si rien n'a encore été saisi dans cette session de
+       modale. Une répartition CONFIRMÉE continue d'être rechargée par
+       `initSizeQuantities` : elle est alors devenue la liste validée, et
+       `saisieEnCours` a été remis à plat au même moment. */
+    if (!saisieEnCours) {
+      initSizeQuantities();
+    }
     renderSizeList();
 
     overlay.classList.add('open');
@@ -319,6 +438,21 @@
       console.warn('setGroupOrderRows indisponible : liste de tailles non enregistrée.');
     }
     
+    /* La répartition est VALIDÉE : elle vit désormais dans la liste de groupe,
+       que `initSizeQuantities` sait recharger. Le drapeau retombe donc — sans
+       quoi une modification ultérieure de la taille ou de la quantité à
+       l'écran ne serait plus jamais reprise. */
+    saisieEnCours = false;
+
+    /* On retient la quantité affichée dans le panneau à cet instant : c'est
+       elle qui servira de point de comparaison à la prochaine ouverture, pour
+       savoir si le client l'a modifiée entre-temps (voir
+       `initSizeQuantities`). */
+    var champQteApres = document.getElementById('textile-qty-input');
+    qteAuMomentDeLaConfirmation = champQteApres
+      ? (parseInt(champQteApres.value, 10) || 0)
+      : 0;
+
     // Fermer le modal
     closeSizeQuantityModal();
     

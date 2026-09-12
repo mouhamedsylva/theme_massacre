@@ -32,10 +32,36 @@
 }
 
 /* Header avec bouton fermer */
+/* `space-between` depuis l'ajout de « Réinitialiser » : il se pose à gauche,
+   la croix reste à droite, là où l'œil la cherche. */
 .size-qty-head {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 8px 0;
+}
+
+/* Discret : c'est une action de repli, pas le geste principal de la modale —
+   celui-ci est « Confirmer », en bas. Il ne doit pas rivaliser avec lui. */
+.size-qty-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.size-qty-reset svg { width: 13px; height: 13px; }
+.size-qty-reset:hover {
+  background: #f6f6f6;
+  border-color: #bdbdbd;
+  color: #1a1a1a;
 }
 
 .size-qty-x {

@@ -9,6 +9,20 @@
     
     <!-- Header -->
     <div class="size-qty-head">
+      {%- comment -%}
+        Remet toutes les tailles à zéro d'un geste. Sans lui, revenir d'une
+        répartition de huit tailles à une seule demandait autant de clics qu'il
+        y avait de lignes garnies.
+      {%- endcomment -%}
+      <button class="size-qty-reset" onclick="resetSizeQuantities()"
+              title="Tout remettre à zéro" aria-label="Tout remettre à zéro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        Réinitialiser
+      </button>
       <button class="size-qty-x" onclick="closeSizeQuantityModal()" title="Fermer" aria-label="Fermer">✕</button>
     </div>
 

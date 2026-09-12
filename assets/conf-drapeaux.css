@@ -704,10 +704,35 @@
 /* PORTRAIT : l'image du drapeau est verticale (plus haute que large). On la
    contraint par la HAUTEUR pour qu'elle rentre entièrement dans la scène, au
    lieu de déborder/être coupée en bas. */
+/* LE CONTENEUR ÉPOUSE L'IMAGE — c'est le cœur du correctif.
+
+   Il gardait sa largeur paysage (`width: clamp(200px, 24vw, 330px)`, plus haut)
+   pendant que l'image, elle, passait en `width:auto; height:100%`. L'image
+   devenait donc plus étroite que sa boîte et s'y centrait, laissant du vide de
+   chaque côté.
+
+   Or le logo est en `position:absolute` DANS ce conteneur, et ses coordonnées
+   sont des POURCENTAGES DU CONTENEUR. Un design à 100 % de large couvrait donc
+   la largeur paysage — bien au-delà de la toile portrait, d'où le débordement
+   au-dessus du drapeau et la toile restée vide.
+
+   En portrait, c'est donc la HAUTEUR qui pilote : la largeur s'en déduit par le
+   ratio de l'image (`width: auto`), et la boîte colle au drapeau. Les
+   pourcentages du logo retrouvent alors un sens.
+
+   `height` plutôt que `max-height` : une hauteur RÉELLE est nécessaire pour que
+   `width: auto` ait une base de calcul — avec `max-height` seul, la boîte
+   retombait sur sa largeur fixe. */
 .flag-stage.orientation-portrait .flag-img-3d {
   display: flex;
   justify-content: center;
+  width: auto;
+  height: clamp(340px, 62vh, 620px);
   max-height: clamp(340px, 62vh, 620px);
+  /* `.flag-stage` est un conteneur flex : sans cette base, l'élément
+     retomberait sur une largeur calculée par le flex plutôt que sur celle
+     déduite de sa hauteur. */
+  flex: 0 0 auto;
 }
 .flag-stage.orientation-portrait .flag-base-img {
   width: auto;

@@ -80,8 +80,30 @@ function selectFlagOrientation(element) {
   window.__flagOrientation = orientation;
   changeFlagOrientation(orientation);
 
-  // Échange les images du drapeau (paysage <-> portrait).
-  refreshFlagImages();
+  /* Échange les images du drapeau (paysage <-> portrait), PUIS recale le logo
+     dès que la nouvelle image est en place.
+
+     Le recalage différé ci-dessous (60 ms) mesurait encore l'ANCIENNE image —
+     `swapFlagImage` la précharge, et un aller-retour réseau dépasse ce délai.
+     Le logo restait donc borné sur la géométrie paysage, débordait du drapeau
+     portrait, et ne se remettait qu'au clic suivant. */
+  refreshFlagImages(function () {
+    if (window.syncFlagSafeZones) window.syncFlagSafeZones();
+    /* `syncFlagCrop` EST LA FONCTION QUI COMPTE ICI.
+
+       Tout design uploadé sur un drapeau est en COUVERTURE (`is-cover`, posé
+       par setFlagCover) — et `clampFlagLogo` sort immédiatement sur cette
+       classe, à dessein : elle protège un visuel volontairement agrandi. Elle
+       ne pouvait donc RIEN recaler, quel que soit le moment de l'appel.
+
+       Le cadre `.flag-crop`, lui, est positionné en PIXELS d'après l'image du
+       drapeau. En portrait celle-ci passe en `width:auto; height:100%`
+       (conf-drapeaux.css) : plus étroite, centrée. Sans ce rappel, le cadre
+       gardait les dimensions du paysage et le design débordait au-dessus de la
+       toile. */
+    if (window.syncFlagCrop) window.syncFlagCrop();
+    if (window.clampFlagLogo) window.clampFlagLogo();
+  });
 
   // Mettre à jour le récap
   const recapOri = document.getElementById('flag-recap-orientation');
@@ -148,7 +170,10 @@ function preloadFlagColors() {
    COULEUR + anneaux (2/4) + orientation (paysage/portrait).
    Chaque combinaison a sa propre image : flag-{2an|4an}-{couleur}-{face}-{orientation}.png
    Repli sur le drapeau blanc si l'image de la couleur n'existe pas encore. */
-function refreshFlagImages() {
+/* `quandPrete` : rappelé quand l'image du RECTO porte sa nouvelle source.
+   Les appelants qui changent la GÉOMÉTRIE du drapeau (orientation, anneaux)
+   s'en servent pour recaler le logo au bon moment — voir swapFlagImage. */
+function refreshFlagImages(quandPrete) {
   var A = window.ASSET_URLS || {};
   var URLS = window.FLAG_IMAGE_URLS || {};
 
@@ -194,7 +219,14 @@ function refreshFlagImages() {
 
   var baseRecto = document.getElementById('flag-base-recto');
   var baseVerso = document.getElementById('flag-base-verso');
-  if (baseRecto && recto) swapFlagImage(baseRecto, recto);
+  /* `quandPrete` remonte jusqu'aux appelants (orientation, anneaux) : c'est le
+     seul moment où la nouvelle géométrie du drapeau est mesurable, donc le seul
+     où `clampFlagLogo` peut borner juste.
+
+     Branché sur le RECTO : c'est la face affichée, celle dont les dimensions
+     servent au recalage. Le verso suit la même transformation. */
+  if (baseRecto && recto) swapFlagImage(baseRecto, recto, quandPrete);
+  else if (typeof quandPrete === 'function') quandPrete();   // rien à échanger
   if (baseVerso && verso) swapFlagImage(baseVerso, verso);
 
   // Réapplique le format (proportions) après le changement d'image.
@@ -352,8 +384,13 @@ function selectAnneaux(element) {
     wave.classList.toggle('grommets-0', anneaux === '0');
   });
 
-  // Échanger les images réelles selon anneaux + orientation courante.
-  refreshFlagImages();
+  /* Les anneaux changent aussi la géométrie (les PNG diffèrent) : même
+     recalage au bon moment que pour l'orientation, `syncFlagCrop` comprise. */
+  refreshFlagImages(function () {
+    if (window.syncFlagSafeZones) window.syncFlagSafeZones();
+    if (window.syncFlagCrop) window.syncFlagCrop();
+    if (window.clampFlagLogo) window.clampFlagLogo();
+  });
 
   // Mettre à jour le récap
   const recapAnneaux = document.getElementById('flag-recap-anneaux');
@@ -368,15 +405,30 @@ function selectAnneaux(element) {
    et s'efface pendant que la nouvelle apparaît par-dessus. Le changement de
    couleur devient imperceptible — aucun clignotement, aucun déplacement.
    La nouvelle image est préchargée avant tout affichage. */
-function swapFlagImage(imgEl, newSrc) {
+function swapFlagImage(imgEl, newSrc, quandPrete) {
+  /* `quandPrete` : rappelé dès que l'image RÉELLE porte sa nouvelle source,
+     donc dès qu'elle est mesurable.
+
+     Indispensable au recalage du logo : `clampFlagLogo` déduit ses bornes de
+     `img.offsetWidth/offsetHeight`. Appelé avant l'échange, il mesure l'ANCIENNE
+     image — c'est ce qui laissait un logo en géométrie paysage sur un drapeau
+     devenu portrait, jusqu'à ce qu'un clic ailleurs provoque un second calcul.
+
+     Le préchargement ci-dessous dure le temps d'un aller-retour réseau : aucun
+     délai fixe ne peut le couvrir de façon fiable. */
+  var signaler = function () {
+    if (typeof quandPrete === 'function') quandPrete();
+  };
+
   if (!imgEl || !newSrc) return;
 
   // Déjà la bonne image : ne rien faire.
-  if (imgEl.src && imgEl.src.indexOf(newSrc) !== -1) return;
+  if (imgEl.src && imgEl.src.indexOf(newSrc) !== -1) { signaler(); return; }
 
   // Première image (pas encore de src) : on l'affiche directement.
   if (!imgEl.getAttribute('src')) {
     imgEl.src = newSrc;
+    signaler();
     return;
   }
 
@@ -421,13 +473,23 @@ function swapFlagImage(imgEl, newSrc) {
       requestAnimationFrame(function () {
         if (ghost.parentElement) ghost.parentElement.removeChild(ghost);
       });
+      /* L'image réelle porte sa nouvelle source : elle est mesurable. On
+         signale APRÈS le rendu, pour que `offsetWidth/offsetHeight` reflètent
+         déjà la nouvelle géométrie. */
+      requestAnimationFrame(signaler);
     };
     ghost.addEventListener('transitionend', finish, { once: true });
     setTimeout(finish, 400);   // filet de sécurité si transitionend ne part pas
   };
 
   // Image indisponible : on bascule sans effet plutôt que de rester bloqué.
-  preload.onerror = function () { imgEl.src = newSrc; };
+  preload.onerror = function () {
+    imgEl.src = newSrc;
+    /* Signalé aussi en cas d'échec : l'élément a changé de source, la
+       géométrie a donc pu bouger. Ne pas le faire laisserait le logo sur ses
+       anciennes bornes. */
+    requestAnimationFrame(signaler);
+  };
   preload.src = newSrc;
 }
 

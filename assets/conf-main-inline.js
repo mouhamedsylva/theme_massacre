@@ -4528,7 +4528,31 @@
          Les fusionner en perdrait une — silencieusement. Shopify applique
          d'ailleurs la même règle en aval, regroupant par variante ET
          propriétés. */
-      const existing = cartItems.find(i => i.productType === item.productType &&
+      /* LIGNE ROUVERTE DEPUIS LE PANIER : ON LA REMPLACE, par son IDENTITÉ.
+
+         La recherche ci-dessous compare le CONTENU. Elle suffit pour un
+         ré-ajout à l'identique, mais pas ici : modifier la couleur ou la
+         numérotation change ce contenu, aucune ligne ne correspond plus, et
+         une SECONDE était créée — le client repartait avec deux commandes du
+         même article.
+
+         Trois conditions, toutes nécessaires :
+           • un marqueur posé par openCartItemDesign (conf-cart-open-design.js) ;
+           • la ligne existe TOUJOURS — elle a pu être supprimée entre-temps ;
+           • le produit n'a pas changé — rouvrir un coin puis ajouter un
+             sweatshirt crée une ligne neuve, le coin reste intact.
+
+         `differer` écarte le mode GROUPE : il pousse une ligne par personne en
+         boucle, et un marqueur unique viserait la mauvaise. */
+      var ligneRouverte = null;
+      var edition = window.__ligneEnEdition;
+      if (!differer && edition && edition.id != null &&
+          edition.productType === item.productType) {
+        ligneRouverte = cartItems.find(i => i && i.id === edition.id) || null;
+      }
+
+      const existing = ligneRouverte ||
+                       cartItems.find(i => i.productType === item.productType &&
                                            i.name === item.name &&
                                            valOption(i.color) === valOption(item.color) &&
                                            valOption(i.size) === valOption(item.size) &&
@@ -4551,6 +4575,11 @@
 
         /* Couleur, taille et design sont RAFRAÎCHIS : c'est tout l'objet de la
            fusion — la ligne reflète le dernier choix du client. */
+        /* Le NOM aussi, depuis que la ligne peut être ciblée par son ID
+           (ligne rouverte depuis le panier) : la fusion par contenu garantit
+           un nom identique, le ciblage par id non — une ligne gardait alors
+           l'ancien libellé. Même raisonnement que `notes` plus bas. */
+        existing.name = item.name;
         existing.color = item.color;
         existing.size = item.size;
         existing.price = item.price;      // le prix suit le produit et sa taille
@@ -4570,6 +4599,16 @@
       } else {
         cartItems.push(item);
       }
+
+      /* LE MARQUEUR D'ÉDITION S'ÉTEINT ICI, quel qu'ait été le chemin.
+
+         Une modification vaut pour UN ajout. Le laisser vivre ferait écraser
+         cette même ligne au prochain « Ajouter au panier » — un défaut plus
+         grave que le doublon qu'il corrige, parce que silencieux.
+
+         Hors du mode groupe, qui n'y a jamais touché (voir `differer`). */
+      if (!differer) window.__ligneEnEdition = null;
+
       /* RÉSERVE MÉMOIRE du design COMPLET — data-URL comprises.
 
          `item.design` ne porte que les images déjà hébergées : les data-URL en
@@ -5565,6 +5604,10 @@
            au client. Laissée en place après un reset, elle expliquait une
            contrainte qui n'existait plus. */
         sessionStorage.removeItem('conf_mode_impose');
+        /* La modification en cours part avec le reste : après une
+           réinitialisation, plus aucune ligne du panier n'est « en cours
+           d'édition ». */
+        window.__ligneEnEdition = null;
         sessionStorage.removeItem('conf_group_rows');      // liste de noms validée
         /* L'identité de la liste part AVEC elle : sans cela, la prochaine
            commande de groupe hériterait de celle-ci et écraserait au panier un
@@ -7982,6 +8025,15 @@
         cartCount -= cartItems[idx].qty;
         cartItems.splice(idx, 1);
       }
+      /* La ligne en cours de modification vient de disparaître : le marqueur
+         viserait une ligne absente, et l'ajout suivant retomberait sur la
+         fusion par contenu — ce qui est le bon comportement, mais autant ne
+         pas garder un repère mort. */
+      try {
+        if (window.__ligneEnEdition && window.__ligneEnEdition.id === id) {
+          window.__ligneEnEdition = null;
+        }
+      } catch (e) {}
       /* La réserve mémoire suit la ligne : sans cela, une session longue
          accumulerait les images des articles supprimés. */
       try { if (window.__designsPanier) delete window.__designsPanier[id]; } catch (e) {}
@@ -9967,6 +10019,54 @@
 
       // Recalcule l'image du patch (forme + couleur, repli teinté) + l'aspect-ratio.
       if (typeof updatePatchShapeImg === 'function') updatePatchShapeImg();
+
+      /* ── LES TAILLES PROPOSÉES SUIVENT LA FORME ────────────────────────────
+
+         Toutes étaient offertes quelle que soit la forme : un carré se voyait
+         proposer « 8 × 6 cm », un blason des diamètres ronds — des
+         combinaisons qui n'existent pas en production.
+
+           • rond ................ les cinq diamètres
+           • rectangle ........... les deux formats seuls
+           • carré, blason ....... aucune grille, 8 cm imposé
+
+         Les classes `circle` / `rect` du markup portent déjà cette distinction.
+
+         LA TAILLE COURANTE EST REVALIDÉE, et c'est le point à ne pas manquer :
+         passer de « 10 × 7,5 cm » à « Rond » laisserait une taille
+         rectangulaire active mais INVISIBLE, qui partirait telle quelle dans la
+         commande. On rebascule alors sur la taille par défaut de la famille —
+         `selectCoinSize` met à jour le récapitulatif au passage. */
+      var familleVisible = (shape === 'rectangle') ? 'rect'
+                         : (shape === 'rond')      ? 'circle'
+                         : null;   // carré, blason : aucune grille
+
+      document.querySelectorAll('#panel-patch .coins-size-card').forEach(function (c) {
+        var sienne = c.classList.contains('rect') ? 'rect' : 'circle';
+        c.style.display = (familleVisible && sienne === familleVisible) ? '' : 'none';
+      });
+
+      var blocFixe = document.getElementById('patch-taille-fixe');
+      if (blocFixe) blocFixe.style.display = familleVisible ? 'none' : '';
+      var noteTailles = document.querySelector('#panel-patch .coins-size-note');
+      if (noteTailles) noteTailles.style.display = familleVisible ? '' : 'none';
+
+      /* Taille par défaut de la nouvelle famille : 8 × 6 cm pour le rectangle,
+         8 cm partout ailleurs — y compris pour carré et blason, dont c'est la
+         seule taille. */
+      var tailleDefaut = (shape === 'rectangle') ? '8x6cm' : '8cm';
+      var carteActive = document.querySelector('#panel-patch .coins-size-card.active');
+      var resteValide = carteActive &&
+                        familleVisible &&
+                        (carteActive.classList.contains('rect') ? 'rect' : 'circle') === familleVisible;
+
+      if (!resteValide) {
+        var cible = document.querySelector(
+          '#panel-patch .coins-size-card[data-size="' + tailleDefaut + '"]');
+        if (cible && typeof window.selectCoinSize === 'function') {
+          window.selectCoinSize(cible);
+        }
+      }
 
       // Mettre à jour le récap
       const recapShape = document.getElementById('coins-recap-shape');

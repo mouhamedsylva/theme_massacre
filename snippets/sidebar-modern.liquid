@@ -572,8 +572,17 @@
         </svg>
         <p>Pour uploader un logo au dos, basculez vers la <strong>Vue de dos</strong> dans le canvas</p>
       </div>
+      {%- comment -%}
+        ORDRE INVERSÉ : « Droite (poitrine) » d'abord, « Gauche (cœur) » ensuite.
+
+        Les zones restent identifiées par `data-upzone` ('fr' et 'f') et par
+        leurs ids : aucun code ne les repère par leur POSITION (vérifié —
+        ni nth-child, ni children[i]). L'ordre du markup est donc purement
+        visuel, et les aperçus plus bas suivent le même ordre pour rester
+        sous leur colonne.
+      {%- endcomment -%}
       <div class="upload-zones-row">
-        <button class="upload-zone-btn" data-upzone="f" onclick="document.getElementById('uf').click()">
+        <button class="upload-zone-btn" data-upzone="fr" onclick="document.getElementById('ufr').click()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
@@ -582,7 +591,7 @@
           <span>Cliquer pour uploader</span>
         </button>
 
-        <button class="upload-zone-btn" data-upzone="fr" onclick="document.getElementById('ufr').click()">
+        <button class="upload-zone-btn" data-upzone="f" onclick="document.getElementById('uf').click()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
@@ -592,19 +601,24 @@
         </button>
       </div>
       <div class="upload-zone-labels">
-        <span>GAUCHE (CŒUR)</span>
         <span>DROITE (POITRINE)</span>
+        <span>GAUCHE (CŒUR)</span>
       </div>
 
       <!-- Aperçus des fichiers envoyés (une carte par zone de la vue).
            Affichés par applyUpload(), masqués par rmUp(). -->
-      <div class="up-preview" id="up-preview-f" style="display:none">
+      {%- comment -%}
+        Même ordre que les zones ci-dessus : droite d'abord. Ces cartes
+        s'affichent l'une sous l'autre, et leur ordre doit correspondre à celui
+        des colonnes pour que l'œil relie l'aperçu à sa zone.
+      {%- endcomment -%}
+      <div class="up-preview" id="up-preview-fr" style="display:none">
         <div class="up-preview-thumb">
-          <img id="up-preview-img-f" src="" alt="Aperçu du logo poitrine gauche">
+          <img id="up-preview-img-fr" src="" alt="Aperçu du logo poitrine droite">
         </div>
         <div class="up-preview-body">
-          <span class="up-preview-name">Poitrine gauche</span>
-          <button type="button" class="up-preview-del" onclick="rmUp('f')">
+          <span class="up-preview-name">Poitrine droite</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('fr')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
             </svg>
@@ -613,13 +627,13 @@
         </div>
       </div>
 
-      <div class="up-preview" id="up-preview-fr" style="display:none">
+      <div class="up-preview" id="up-preview-f" style="display:none">
         <div class="up-preview-thumb">
-          <img id="up-preview-img-fr" src="" alt="Aperçu du logo poitrine droite">
+          <img id="up-preview-img-f" src="" alt="Aperçu du logo poitrine gauche">
         </div>
         <div class="up-preview-body">
-          <span class="up-preview-name">Poitrine droite</span>
-          <button type="button" class="up-preview-del" onclick="rmUp('fr')">
+          <span class="up-preview-name">Poitrine gauche</span>
+          <button type="button" class="up-preview-del" onclick="rmUp('f')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
               <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
             </svg>
@@ -1291,14 +1305,27 @@
       <div class="panel-section-title">Taille</div>
       <div class="panel-section-subtitle">Sélectionnez la taille de votre patch</div>
 
+      {%- comment -%}
+        LA COCHE ✓ EST SUR CHAQUE CARTE.
+
+        Elle ne figurait que sur « 8 cm » : le CSS la révèle sur
+        `.coins-size-card.active` (conf-coins.css), mais les six autres cartes
+        n'avaient rien à révéler. Cliquer une taille semblait donc sans effet.
+
+        Les classes `circle` et `rect` distinguent les deux familles : c'est
+        elles que `selectShape` (conf-main-inline.js) affiche ou masque selon
+        la forme retenue.
+      {%- endcomment -%}
       <div class="coins-size-grid">
         <div class="coins-size-card circle" data-size="6cm" onclick="selectCoinSize(this)">
           <div class="coins-size-shape"></div>
           <p>6 cm</p>
+          <div class="coins-size-check">✓</div>
         </div>
         <div class="coins-size-card circle" data-size="7cm" onclick="selectCoinSize(this)">
           <div class="coins-size-shape"></div>
           <p>7 cm</p>
+          <div class="coins-size-check">✓</div>
         </div>
         <div class="coins-size-card circle active" data-size="8cm" onclick="selectCoinSize(this)">
           <div class="coins-size-shape"></div>
@@ -1308,19 +1335,32 @@
         <div class="coins-size-card circle" data-size="9cm" onclick="selectCoinSize(this)">
           <div class="coins-size-shape"></div>
           <p>9 cm</p>
+          <div class="coins-size-check">✓</div>
         </div>
         <div class="coins-size-card circle" data-size="10cm" onclick="selectCoinSize(this)">
           <div class="coins-size-shape"></div>
           <p>10 cm</p>
+          <div class="coins-size-check">✓</div>
         </div>
         <div class="coins-size-card rect" data-size="8x6cm" onclick="selectCoinSize(this)">
           <p>8 x 6 cm</p>
           <div class="coins-size-shape"></div>
+          <div class="coins-size-check">✓</div>
         </div>
         <div class="coins-size-card rect" data-size="10x7.5cm" onclick="selectCoinSize(this)">
           <p>10 x 7.5 cm</p>
           <div class="coins-size-shape"></div>
+          <div class="coins-size-check">✓</div>
         </div>
+      </div>
+      {%- comment -%}
+        CARRÉ et BLASON n'ont qu'une taille : 8 cm. La grille disparaît alors au
+        profit de cette ligne — le client doit savoir ce qu'il commande, même
+        sans choix à faire. Révélée par selectShape.
+      {%- endcomment -%}
+      <div class="coins-size-fixe" id="patch-taille-fixe" style="display:none">
+        <span class="coins-size-fixe-val">Taille : 8 cm</span>
+        <span class="coins-size-fixe-note">Dimension unique pour cette forme</span>
       </div>
       <p class="coins-size-note">Les dimensions indiquées sont approximatives</p>
     </div>

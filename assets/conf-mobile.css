@@ -859,6 +859,29 @@
     object-fit: contain;
   }
 
+  /* PORTRAIT : la boîte épouse l'image, comme sur ordinateur.
+
+     Les deux règles ci-dessus imposent une largeur au conteneur ET à l'image.
+     En portrait, l'image devient plus haute que large : sa boîte gardait une
+     largeur de 94 %, l'image s'y centrait, et le logo — positionné en
+     pourcentage du CONTENEUR — débordait de la toile.
+
+     La hauteur pilote donc ici aussi, bornée pour que les deux faces tiennent
+     côte à côte sans sortir de l'écran. */
+  .flag-stage.orientation-portrait .flag-img-3d {
+    width: auto;
+    max-width: 46%;
+    height: clamp(220px, 46vh, 420px);
+    flex: 0 0 auto;
+  }
+  /* SEULE l'image du DRAPEAU est visée — pas `.flag-img-3d img`, qui
+     engloberait aussi le design du client (`.flag-design-img`) : celui-ci doit
+     garder la largeur en pourcentage que lui donne le mode couverture. */
+  .flag-stage.orientation-portrait .flag-base-img {
+    width: auto;
+    height: 100%;
+  }
+
   /* ── La boîte de bascule, en haut de l'aperçu ──
      Calée à GAUCHE (et non centrée) : « Vue d'ensemble » occupe le coin
      droit, et une bascule centrée venait mordre dessus. */

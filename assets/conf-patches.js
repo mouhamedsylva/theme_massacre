@@ -117,7 +117,13 @@ function updateCoinNumber() {
   /* CEINTURE ET BRETELLES : la valeur est renettoyée à la lecture, pas
      seulement à la frappe. L'écouteur `input` ne voit ni une valeur posée par
      du code (restauration de session, design rouvert depuis le panier) ni un
-     `value` laissé dans le markup. Ce qui est GRAVÉ passe forcément ici. */
+     `value` laissé dans le markup. Ce qui est GRAVÉ passe forcément ici.
+
+     Le champ VIDE ne remonte pas jusqu'ici : le repli à 001 se fait au `blur`
+     (plus bas), pour laisser le client effacer et retaper. Si l'appel arrive
+     malgré tout sur un champ vide — ajout au panier sans quitter le champ —
+     `val` reste vide, le numéro est masqué, et la capture ne grave rien
+     plutôt qu'un numéro inventé. */
   const val = input ? String(input.value || '').replace(/\D/g, '') : '';
 
   const on = (type === 'recto-verso-num' && !!val);
@@ -175,6 +181,38 @@ document.addEventListener('input', function (e) {
   }
 
   updateCoinNumber();
+});
+
+/* CHAMP VIDE = RETOUR À 001.
+
+   Le numéro est GRAVÉ sur chaque pièce : le laisser vide n'a pas de sens, et
+   l'atelier recevrait une consigne incomplète. `updateCoinNumber` masque alors
+   le numéro du verso, qui paraît simplement absent.
+
+   AU `blur`, JAMAIS PENDANT LA FRAPPE. Remettre 001 dans l'écouteur `input`
+   rendrait le champ impossible à corriger : effacer « 001 » pour taper « 025 »
+   le repeuplerait à la première suppression, et le client se battrait contre
+   son propre champ. On attend donc qu'il ait fini — sortie du champ, ou
+   validation au clavier.
+
+   Le `replace` couvre le cas d'un reste non numérique : `blur` peut survenir
+   après une valeur posée par du code, que l'écouteur `input` n'a jamais vue. */
+document.addEventListener('blur', function (e) {
+  if (!e.target || e.target.id !== 'coin-num-start') return;
+  var champ = e.target;
+  if (String(champ.value || '').replace(/\D/g, '') === '') {
+    champ.value = '001';
+    updateCoinNumber();
+  }
+}, true);   // capture : `blur` ne remonte pas dans l'arbre
+
+/* Entrée vaut validation : le champ rend la main, et le repli ci-dessus
+   s'applique sans que le client ait à cliquer ailleurs. */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && e.target && e.target.id === 'coin-num-start') {
+    e.preventDefault();
+    e.target.blur();
+  }
 });
 
 // Forme

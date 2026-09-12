@@ -494,6 +494,14 @@ class DynamicLayoutManager {
     confLog("✅ Canvas Coins chargé");
   }
 
+  /* Le bouton « CONTACTEZ-NOUS » de ce récap (et de loadDrapeauxRecap) n'avait
+     AUCUNE action : le clic ne faisait rien. Il ouvre désormais /pages/contact
+     dans un NOUVEL onglet — le configurateur reste ainsi ouvert derrière, et le
+     design en cours, qui vit en session, est retrouvé intact au retour.
+     `noopener` empêche la page ouverte d'accéder à celle-ci.
+
+     (Commentaire ici et non dans le markup : celui-ci est un littéral à
+     gabarit, où une apostrophe française fermerait la chaîne.) */
   loadCoinsRecap() {
     // Modifier le contenu du récap complètement
     const recap = document.querySelector(".recap");
@@ -561,7 +569,8 @@ class DynamicLayoutManager {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/></svg>
           AJOUTER AU PANIER
         </button>
-        <button type="button" class="rp-btn-secondary">
+        <button type="button" class="rp-btn-secondary"
+                onclick="window.open('/pages/contact', '_blank', 'noopener')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
           CONTACTEZ-NOUS
         </button>
@@ -1038,7 +1047,8 @@ class DynamicLayoutManager {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM2.73 5.15L4 12h12.55c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 21 3H5.21l-.94-2H1v2h2l3.6 7.59z"/></svg>
           AJOUTER AU PANIER
         </button>
-        <button type="button" class="rp-btn-secondary">
+        <button type="button" class="rp-btn-secondary"
+                onclick="window.open('/pages/contact', '_blank', 'noopener')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
           CONTACTEZ-NOUS
         </button>

@@ -994,6 +994,29 @@
   display: flex;
 }
 
+/* ── TAILLE IMPOSÉE (carré, blason) ──────────────────────────────────────
+   Ces deux formes n'existent qu'en 8 cm : la grille n'a rien à proposer, mais
+   le client doit savoir ce qu'il commande. Une ligne de texte remplace donc
+   les cartes — révélée par selectShape (conf-main-inline.js). */
+.coins-size-fixe {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+}
+.coins-size-fixe-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+.coins-size-fixe-note {
+  font-size: 10px;
+  color: #666;
+}
+
 .coins-size-note {
   font-size: 10px;
   color: #999;

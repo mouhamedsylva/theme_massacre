@@ -1054,6 +1054,24 @@
        ressort de la fin de restauration, déjà indépendante de cette carte. */
     window.__ouvertureDepuisPanier = true;
 
+    /* ═══ LA LIGNE MODIFIÉE EST RETENUE ═══════════════════════════════════
+
+       Sans cela, « Ajouter au panier » créait une SECONDE ligne au lieu de
+       remplacer celle qu'on vient d'ouvrir : le client se retrouvait avec deux
+       commandes du même article, à des quantités différentes.
+
+       `pushToCart` ne pouvait pas le deviner seule — elle fusionne les lignes
+       par leur CONTENU, et modifier la couleur ou la numérotation change
+       justement ce contenu. Il lui faut l'identité de la ligne.
+
+       `__ouvertureDepuisPanier` ne pouvait pas servir : booléen sans id, et
+       éteint ~1,5 s après l'ouverture, bien avant que le client ait fini.
+
+       Le TYPE est mémorisé avec l'id : changer de produit en cours de
+       modification annule le remplacement (un coin ne devient pas un
+       sweatshirt par surprise). Extinction dans conf-main-inline.js. */
+    window.__ligneEnEdition = { id: item.id, productType: item.productType || '' };
+
     /* ═══ VOILE D'ATTENTE PENDANT TOUTE LA RESTAURATION ═══════════════════
 
        Le canvas se recompose sous les yeux du client : produit qui bascule,
