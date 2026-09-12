@@ -584,14 +584,62 @@
       var curW = parseFloat(active.style.width) || 100;
       var over = Math.max(0, curW - 100);      // ce qui dépasse de la forme
       if (curW < 100) {
-        /* Réduit : plus rien à recadrer, le motif reste dans la forme.
-           Voir le commentaire détaillé du coin, même cause. */
-        pX0 = 0; pX1 = 100; pY0 = 0; pY1 = 100;
+        /* Réduit : plus rien à recadrer EN LARGEUR, le motif tient dans la
+           forme. Voir le commentaire détaillé du coin, même cause. */
+        pX0 = 0; pX1 = 100;
+
+        /* MAIS LA HAUTEUR PEUT ENCORE DÉBORDER — et c'est le cas du RECTANGLE.
+
+           Cette branche posait aussi `pY0 = 0; pY1 = 100`, en supposant que
+           « réduit » vaut sur les deux axes. C'est vrai d'une boîte carrée dans
+           un canvas carré (rond, carré, blason).
+
+           Le canvas du rectangle a un ratio de ~1,56, alors que la boîte du
+           design reste carrée (`min-height: 100%`, conf-patch-edit.js). Mesuré
+           dans le navigateur : à 85,6 % de large, la boîte occupe encore
+           133,8 % de la hauteur. La borne devenait `[0, 100 − 133,8]`, soit un
+           intervalle VIDE — tout déplacement vertical était refusé, alors même
+           qu'il restait de la matière à recadrer.
+
+           On mesure donc le débordement vertical réel, comme dans la branche
+           « couverture » juste en dessous. Les formes carrées gardent `hPct`
+           à 100, donc des bornes `0..100` inchangées. */
+        var boiteHr = active.getBoundingClientRect().height;
+        var refHr = bounds ? bounds.height : 0;
+        var hPctR = (refHr && boiteHr) ? (boiteHr / refHr) * 100 : 100;
+        var overYr = Math.max(0, hPctR - 100);
+
+        pY0 = -overYr;
+        pY1 = 100 + overYr + overYr;   // +overYr compense maxPosY()
       } else {
         pX0 = -PATCH_PAN - over;
         pX1 = 100 + PATCH_PAN + over + over;   // +over compense maxPos()
-        pY0 = pX0;
-        pY1 = pX1;
+
+        /* CHAQUE AXE A SON PROPRE DÉBORDEMENT.
+
+           Les bornes verticales RECOPIAIENT les horizontales (`pY0 = pX0`),
+           donc un débordement mesuré sur la seule LARGEUR. Or la boîte du
+           design est carrée — 100 % de large, `min-height: 100%`
+           (conf-patch-edit.js) — et le canvas du RECTANGLE est nettement plus
+           large que haut : la boîte y dépasse d'environ 56 % en hauteur, que
+           `over` croyait nul.
+
+           Conséquence mesurée sur un rectangle à 100 % : borne basse −20,
+           borne haute (pY1 − hPct) = −36. L'intervalle était VIDE, `Math.min`
+           rendait une valeur sous le minimum, et tout déplacement vertical
+           était refusé — seul l'horizontal répondait, `wPct` valant bien 100.
+
+           On mesure donc la hauteur réelle de la boîte, rapportée au canvas,
+           exactement comme le fait `logoSizePct` juste avant l'application des
+           bornes. Rond et carré gardent leur plage inchangée (leur hauteur
+           vaut 100 %) ; seules les formes non carrées en bénéficient. */
+        var boiteH = active.getBoundingClientRect().height;
+        var refH = bounds ? bounds.height : 0;
+        var hPctBorne = (refH && boiteH) ? (boiteH / refH) * 100 : curW;
+        var overY = Math.max(0, hPctBorne - 100);
+
+        pY0 = -PATCH_PAN - overY;
+        pY1 = 100 + PATCH_PAN + overY + overY;   // +overY compense maxPosY()
       }
     }
 

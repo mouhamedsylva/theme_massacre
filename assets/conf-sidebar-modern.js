@@ -1039,6 +1039,38 @@
       openPanel("panel-product");
     }
 
+    /* QUITTER LA FACE AVEC « AJOUT TEXTE » OUVERT → « UPLOAD IMAGE ».
+
+       Sur un textile, le client qui travaille son texte devant puis bascule au
+       dos ou sur une manche vient presque toujours y poser une IMAGE. Le
+       panneau Texte restait pourtant ouvert : un clic de plus à chaque
+       bascule.
+
+       TROIS CONDITIONS, toutes nécessaires :
+         • un TEXTILE — un coin ou un patch n'a ni dos ni manche ;
+         • une vue AUTRE que la face — c'est le geste qui déclenche la règle ;
+         • le panneau Texte OUVERT — « seulement si », comme demandé : un
+           panneau Upload ou Produit déjà ouvert n'est pas touché.
+
+       DANS UN SEUL SENS. Revenir en face ne rouvre pas « Ajout Texte » : une
+       règle qui jouerait dans les deux sens ferait changer le panneau sans que
+       le client l'ait demandé. Il reste à un clic.
+
+       Placée APRÈS les deux règles du mode groupe : celles-ci ramènent sur
+       « Type de Produit » quand l'onglet Texte disparaît, et gardent la main —
+       leur `currentPanel` vaut alors « panel-product », pas « panel-text ». */
+    /* `currentProduct` et non `productType` : l'argument est FACULTATIF — la
+       première ligne de cette fonction retombe sur la valeur mémorisée quand
+       il manque, et l'appel venu de selView peut très bien le laisser vide. */
+    const horsFace = vueCourante && vueCourante !== "face";
+    const estTextileIci = (typeof window.estTextile === "function")
+      ? window.estTextile(currentProduct)
+      : ["sweatshirt", "tshirt", "tshirt_polyester"].indexOf(currentProduct) !== -1;
+
+    if (estTextileIci && horsFace && currentPanel === "panel-text") {
+      openPanel("panel-upload");
+    }
+
     // Sous-titre du panneau Upload : « la vue » n'a de sens qu'en textile.
     const uploadSub = document.querySelector(
       "#panel-upload .side-panel-subtitle",

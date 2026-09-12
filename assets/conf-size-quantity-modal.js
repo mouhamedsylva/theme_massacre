@@ -420,7 +420,11 @@
         rows.push({
           name: '',  // Pas de nom floqué pour les commandes par tailles
           size: size,
-          color: currentColor.name || 'Black',
+          /* Repli « Noir » et non « Black » : c'est le nom de la palette du
+             configurateur, celui que les images de produit attendent. Un nom
+             anglais ici ne correspondrait à aucune teinte et la vignette
+             retomberait sur une couleur générique. */
+          color: currentColor.name || 'Noir',
           qty: 1, // Toujours 1 par ligne
           _sizeGroupSummary: sizeGroupSummary  // 🆕 Résumé pour l'admin
         });
@@ -473,15 +477,37 @@
   /**
    * Récupère la couleur actuellement sélectionnée
    */
+  /**
+   * Couleur actuellement choisie par le client.
+   *
+   * ═══ LE SÉLECTEUR PRÉCÉDENT N'EXISTAIT PAS ═══════════════════════════════
+   *
+   * Cette fonction cherchait `.cb.on` — une classe absente de tout le projet.
+   * `querySelector` rendait donc toujours `null`, et la fonction retombait
+   * SYSTÉMATIQUEMENT sur son repli « Black ».
+   *
+   * Le défaut ne s'arrêtait pas à l'affichage : cette couleur est écrite dans
+   * chaque ligne de la répartition, et `r.color` sert ensuite à composer la
+   * vignette du panier ET LA PLANCHE ENVOYÉE À L'ATELIER (conf-main-inline.js).
+   * Dix-sept sweatshirts corail partaient en production sous la consigne
+   * « noir ».
+   *
+   * On lit désormais la même source que le mode groupe : `currentColorName`,
+   * tenue à jour par `selColor` à chaque changement de teinte, exposée via
+   * `grpCurrentColor`. Une seule vérité pour les deux chemins de commande.
+   */
   function getCurrentColor() {
-    const selectedBtn = document.querySelector('.cb.on');
-    if (selectedBtn) {
-      return {
-        name: selectedBtn.getAttribute('data-color') || selectedBtn.getAttribute('title') || 'Black',
-        hex: selectedBtn.style.background || '#000000'
-      };
-    }
-    return { name: 'Black', hex: '#000000' };
+    var nom = (typeof window.grpCurrentColor === 'function')
+      ? window.grpCurrentColor()
+      : null;
+
+    /* Seul `name` est consommé (voir la création des lignes plus haut) : le
+       `hex` retourné auparavant n'était lu nulle part. On ne le fabrique donc
+       plus — une valeur inutilisée et fausse ne sert qu'à égarer la lecture.
+
+       Repli sur « Noir », la valeur par défaut du configurateur lui-même
+       (conf-main-inline.js), et non sur une couleur arbitraire. */
+    return { name: nom || 'Noir' };
   }
 
   // Initialisation

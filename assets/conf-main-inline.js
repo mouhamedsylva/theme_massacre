@@ -79,6 +79,12 @@
     function grpCurrentColor() {
       return (typeof currentColorName !== 'undefined' && currentColorName) || 'Black';
     }
+    /* Exposées : la modale « Répartir par tailles » (conf-size-quantity-modal.js)
+       lisait la couleur via un sélecteur `.cb.on` QUI N'EXISTE PAS, et retombait
+       donc toujours sur « Black » — un sweatshirt corail partait au panier, et à
+       l'atelier, en noir. Elles sont la source unique de ces deux valeurs. */
+    window.grpCurrentColor = grpCurrentColor;
+    window.grpCurrentSize = grpCurrentSize;
 
     var grpRowSeq = 0;
 
