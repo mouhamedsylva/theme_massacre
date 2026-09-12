@@ -238,10 +238,17 @@
      page ne charge aucune feuille du configurateur, tous ses styles sont
      internes. Garder les deux apparences identiques, le client passe de l'un
      à l'autre. */
+  /* Séparateurs haut et bas, comme dans le configurateur. PAS de padding
+     horizontal ici : cet encart vit à l'intérieur de `.rcp-summary`, une carte
+     qui porte déjà le sien — les traits doivent s'aligner sur les lignes de
+     montant voisines, pas courir plus large qu'elles. */
   .rp-opt-flag.rp-delai {
     display: flex; align-items: center; gap: 8px;
-    margin: 14px 0 0; padding: 0;
-    background: none; border: none;
+    margin: 14px 0 0; padding: 12px 0;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     font-size: 12px; font-weight: 600; color: var(--black); line-height: 1.35;
   }
   .rp-opt-flag.rp-delai svg { width: 15px; height: 15px; flex: none; color: #6b7280; }

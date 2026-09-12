@@ -1427,8 +1427,12 @@
     align-items: center;
     gap: 8px;
     margin: 4px 16px 16px;
-    padding-top: 14px;
+    padding: 14px 0 0;
     border-top: 1px solid var(--border, #e5e5e5);
+    /* Le bureau encadre le délai de DEUX traits ; dans une feuille montante, le
+       délai est le dernier élément — un trait sous lui flotterait au-dessus du
+       vide. On ne garde que le séparateur du haut. */
+    border-bottom: none;
     font-size: 12px;
     font-weight: 600;
     line-height: 1.35;

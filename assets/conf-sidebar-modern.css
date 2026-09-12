@@ -1721,11 +1721,28 @@ html:not([data-sidebar-ready]) #panel-product {
   color: var(--black, #1a1a1a);
   font-size: 12px;
   font-weight: 600;
-  padding: 0;
-  margin: 12px 0 0;
+
+  /* SÉPARATEURS HAUT ET BAS, comme le bloc prix (`.rp-price`,
+     conf-styles.css), dont il reprend le padding horizontal de 16px pour
+     s'aligner sur la même colonne. Les traits courent d'un bord à l'autre du
+     récapitulatif : les marges latérales sont donc remplacées par du padding,
+     sinon les bordures s'arrêteraient avant les bords. */
+  border-top: 1px solid var(--border, #e5e5e5);
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  padding: 12px 16px;
+  margin: 0;
 }
 .rp-opt-flag.rp-delai svg { color: #6b7280; width: 15px; height: 15px; }
 .rp-opt-flag.rp-delai b { color: var(--black, #1a1a1a); font-weight: 800; }
+
+/* TIROIR DU PANIER : pas de padding horizontal.
+   `.cd-footer` porte déjà le sien (20px) ; le répéter décalerait le texte vers
+   l'intérieur et les traits s'arrêteraient avant les bords du pied. */
+.rp-opt-flag.rp-delai.cd-delai {
+  padding-left: 0;
+  padding-right: 0;
+  margin-top: 10px;
+}
 
 /* Pastille sur l'onglet « Vue de côté ».
    L'onglet passe en position:relative pour l'ancrer — il ne l'était pas. */
