@@ -1457,6 +1457,26 @@
           </button>
 
           {%- comment -%}
+            RÉSUMÉ DE LA RÉPARTITION VALIDÉE.
+
+            Confirmer « XS × 1, M × 5, XL × 3 » ne laissait aucune trace à
+            l'écran : la modale se fermait et le panneau affichait toujours une
+            seule pièce. Le badge de liste (#grp-badge, plus bas) aurait pu
+            servir, mais il est masqué hors du mode groupe — donc invisible en
+            commande libre, justement le cas le plus courant.
+
+            Sa place est SOUS le bouton qui produit cette répartition : on lit
+            l'action, puis son résultat.
+
+            Masqué par défaut, rempli par majResumeRepartition()
+            (conf-size-quantity-modal.js). Absent des gabarits coins, drapeaux
+            et patchs, qui n'ont pas de tailles : leur récapitulatif est réécrit
+            en entier par DynamicLayoutManager, et la fonction sort sur place
+            quand l'élément n'existe pas.
+          {%- endcomment -%}
+          <div class="rp-repartition" id="rp-repartition" style="display:none"></div>
+
+          {%- comment -%}
             Texte RACCOURCI : dans une colonne de 252px, la version longue
             occupait cinq lignes et repoussait le prix hors de vue. L'exemple
             suffit à faire comprendre — la précision sur la personnalisation

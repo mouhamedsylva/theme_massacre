@@ -965,6 +965,23 @@
     document.addEventListener('DOMContentLoaded', function () { refreshGroupBadge(); });
 
     function refreshGroupBadge() {
+      /* LE RÉSUMÉ DU PANNEAU SE GREFFE ICI, POINT DE PASSAGE UNIQUE.
+
+         Toute fonction qui touche à la liste finit par appeler ce badge :
+         validation, suppression, restauration de session, changement de
+         produit. Y brancher le résumé « XS × 1, M × 5… » garantit qu'il ne peut
+         pas se désynchroniser — l'alternative était de rappeler chacun de ces
+         appelants un par un, et d'en oublier au prochain ajout.
+
+         EN TÊTE, avant la garde de sortie ci-dessous : le résumé doit AUSSI se
+         mettre à jour quand la liste devient vide, c'est-à-dire disparaître.
+
+         Appel gardé : la modale des tailles vit dans un autre fichier, et ce
+         badge sert aussi aux listes de surnoms, qui se passent d'elle. */
+      if (typeof window.majResumeRepartition === 'function') {
+        window.majResumeRepartition();
+      }
+
       var el = document.getElementById('grp-badge');
       if (!el) return;
       if (!groupOrderRows || !groupOrderRows.length) { el.style.display = 'none'; return; }
@@ -2602,16 +2619,29 @@
       }
 
       if (shape === 'blason') {
-        // Même écusson que le clip-path CSS du canvas.
-        var pts = [
-          [50, 0], [92, 12], [92, 45], [84, 68], [68, 86], [50, 100],
-          [32, 86], [16, 68], [8, 45], [8, 12]
-        ];
-        pts.forEach(function (p, i) {
-          var px = x + (p[0] / 100) * w;
-          var py = y + (p[1] / 100) * h;
-          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-        });
+        /* EXACTEMENT le masque SVG du canvas (conf-coins.css) :
+
+             M0 0 L100 0 L100 40 C100 63 83 84 50 100 C17 84 0 63 0 40 Z
+
+           Le tracé précédent était un POLYGONE de 10 points, avec des épaules
+           rentrées (92,12 et 8,12) et une pointe en segments droits. Il ne
+           correspondait pas à la silhouette affichée : la Vue d'ensemble, la
+           vignette du panier et la planche d'atelier montraient donc un écu
+           différent de celui que le client voyait.
+
+           Le commentaire du CSS l'avait anticipé : « Un polygone donnerait des
+           segments anguleux sur la courbe basse. » On reprend donc ses courbes
+           de Bézier, seule source de vérité de cette forme. */
+        var px = function (v) { return x + (v / 100) * w; };
+        var py = function (v) { return y + (v / 100) * h; };
+
+        ctx.moveTo(px(0), py(0));
+        ctx.lineTo(px(100), py(0));
+        ctx.lineTo(px(100), py(40));
+        // C100 63 83 84 50 100 — descente vers la pointe, côté droit.
+        ctx.bezierCurveTo(px(100), py(63), px(83), py(84), px(50), py(100));
+        // C17 84 0 63 0 40 — remontée, côté gauche.
+        ctx.bezierCurveTo(px(17), py(84), px(0), py(63), px(0), py(40));
         ctx.closePath();
         return;
       }
@@ -3311,6 +3341,61 @@
          préfixe, tout le monde retomberait sur le variant de repli. */
       if (groupOrderRows && groupOrderRows.length) {
         const rows = groupOrderRows;
+
+        /* ═══ LA COULEUR EST RELUE ICI, PAS CELLE FIGÉE À LA CONFIRMATION ═══
+
+           Les lignes d'une répartition par tailles reçoivent leur couleur UNE
+           SEULE FOIS, quand le client confirme la modale
+           (conf-size-quantity-modal.js). Changer de teinte ensuite met à jour
+           l'écran, mais rien ne revient corriger ces lignes.
+
+           Le client passait donc son sweat de Noir à Taupe, réajoutait, et
+           retrouvait du Noir au panier : libellé, vignette — et PLANCHE
+           D'ATELIER. La commande serait partie en production dans la mauvaise
+           couleur.
+
+           Tout ce qui suit dérive de `r.color` : la clé de composition des
+           vignettes, celle des planches, et le libellé de la ligne. On remet
+           donc les lignes à la couleur affichée AVANT ces usages.
+
+           ⚠️ SEULEMENT POUR UNE RÉPARTITION PAR TAILLES — d'où le test sur
+           `_sizeGroupSummary`, présent sur toutes ses lignes et sur aucune
+           autre. Une liste de SURNOMS porte une couleur PAR PERSONNE, choisie
+           dans sa colonne du tableau (grpCollect) : y appliquer une teinte
+           globale ferait repartir monochrome un groupe commandé en cinq
+           coloris.
+
+           Une répartition, elle, est un design unique décliné en tailles :
+           toutes ses pièces partagent forcément la couleur de l'écran.
+
+           `grpCurrentColor()` est la source que la modale consultait déjà —
+           une seule vérité pour les deux chemins. */
+        try {
+          const estRepartitionTailles = rows.every(function (r) {
+            return r && r._sizeGroupSummary;
+          });
+          if (estRepartitionTailles) {
+            /* `currentColorName` directement, et non `grpCurrentColor()` : son
+               repli vaut « Black », un nom ANGLAIS absent de la palette du
+               configurateur. Écrit dans les lignes, il ne correspondrait à
+               aucune teinte et la vignette retomberait sur une image générique.
+
+               Quand la couleur courante est inconnue, mieux vaut donc garder
+               celle figée à la confirmation : elle, au moins, a été choisie. */
+            const couleurEcran = (typeof currentColorName !== 'undefined')
+              ? currentColorName : null;
+            if (couleurEcran) {
+              rows.forEach(function (r) { if (r) r.color = couleurEcran; });
+
+              /* La correction est persistée : `rows` EST `groupOrderRows`, et
+                 la session porte encore l'ancienne teinte. Sans cet appel, un
+                 rechargement de page ramènerait la couleur d'origine et le
+                 client repartirait avec le même défaut. */
+              if (typeof saveGroupRows === 'function') saveGroupRows();
+            }
+          }
+        } catch (e) {}
+
         /* IDENTITÉ STABLE, créée au premier ajout puis conservée.
 
            C'est elle qui permet de RETROUVER ce groupe au panier lors d'un
@@ -6604,10 +6689,25 @@
          tenu à jour par selectPatchColor et restauré au rechargement. */
       var patchHex = window.currentPatchHex || '#1a1a1a';
 
-      /* 2) Canvas au ratio de la FORME AFFICHÉE. */
+      /* 2) Canvas au ratio de la FORME AFFICHÉE.
+
+         ATTENTION — le canvas n'est PAS la silhouette. Pour le rectangle, le
+         CSS pose `.patch-body { inset: 18% 0 }` (conf-coins.css) : la forme
+         visible est une BANDE CENTRALE, amputée de 18 % en haut et 18 % en bas.
+         Le rectangle réellement vu fait donc 1,563 / 0,64 ≈ 2,44 de rapport,
+         alors qu'on remplissait ici tout le canvas à 1,563.
+
+         D'où l'aperçu trop haut et pas assez long signalé sur la Vue
+         d'ensemble : la capture montrait le CADRE, pas le PATCH.
+
+         On garde le canvas complet comme repère (les % du logo y sont
+         relatifs, exactement comme à l'écran) et on recadre à la toute fin sur
+         la bande. */
       var ratio = (window.PATCH_SHAPE_RATIO || {})[shape] || 1;
       var W = 1000;
       var H = Math.round(W / ratio);
+      // Part de hauteur rognée en haut ET en bas (miroir du `inset` CSS).
+      var INSET_Y = (shape === 'rectangle') ? 0.18 : 0;
       var c = document.createElement('canvas');
       c.width = W; c.height = H;
       var ctx = c.getContext('2d');
@@ -6617,7 +6717,7 @@
          tracePatchShape() connaît déjà les quatre formes et reproduit le rendu
          de .patch-body (border-radius / masque SVG). */
       ctx.save();
-      tracePatchShape(ctx, shape, 0, 0, W, H);
+      tracePatchShape(ctx, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
       ctx.fillStyle = patchHex;
       ctx.fill();
       ctx.restore();
@@ -6636,7 +6736,8 @@
       var logoImgEl = await loadImagePromise(logoSrc);
       if (logoImgEl) {
         ctx.save();
-        tracePatchShape(ctx, shape, 0, 0, W, H);
+        // Même bande que le fond : le design ne déborde pas de la silhouette.
+        tracePatchShape(ctx, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
         ctx.clip();
         /* LE PLANCHER DE HAUTEUR NE VAUT QUE POUR UN DESIGN QUI COUVRE.
 
@@ -6649,21 +6750,56 @@
            diminue. Le panier montrerait un patch couvert alors que le client
            voit une vignette. Le CSS lève d'ailleurs `min-height` dans ce cas
            (`.patch-logo.is-reduced`, conf-coins.css). */
-        var bw = (lw >= 1) ? Math.max(lw * W, H) : lw * W;
-        var bx = lx * W, by = ly * H;
+        /* ⚠️ DEUX AXES, PAS UN CARRÉ.
+
+           Une seule variable servait de largeur ET de hauteur. Sur un canevas
+           RECTANGLE (ratio ~1,56), un design en couverture recevait donc une
+           boîte carrée de côté `max(largeur, H)` : elle recouvrait tout le
+           fond, et le patch paraissait carré — dans la Vue d'ensemble, la
+           vignette du panier ET la planche d'atelier.
+
+           Le carré venait du CSS d'origine (`.patch-logo` est carré, avec
+           `min-height: 100%`), transcrit ici sans distinguer les axes. On
+           applique donc le plancher de couverture à CHAQUE axe : la boîte
+           épouse la silhouette, quelle que soit sa forme. */
+        /* Le plancher vise la SILHOUETTE, pas le cadre : sur un rectangle,
+           borner à `H` (canvas entier) gonflerait la boîte de 36 % et le design
+           sortirait plus zoomé qu'à l'écran. */
+        var hForme = H * (1 - 2 * INSET_Y);
+        var bw = (lw >= 1) ? Math.max(lw * W, W) : lw * W;
+        var bh = (lw >= 1) ? Math.max(lw * W, hForme) : lw * W;
+        /* `top` est relatif à .patch-body (le logo en est enfant), donc à la
+           bande — décalée de INSET_Y dans le canvas. */
+        var bx = lx * W, by = H * INSET_Y + ly * hForme;
         var nw2 = logoImgEl.naturalWidth || 1;
         var nh2 = logoImgEl.naturalHeight || 1;
         /* `max` = couvrir, `min` = contenir — même bascule qu'à l'écran. */
         var scale = (lw >= 1)
-          ? Math.max(bw / nw2, bw / nh2)
-          : Math.min(bw / nw2, bw / nh2);
+          ? Math.max(bw / nw2, bh / nh2)
+          : Math.min(bw / nw2, bh / nh2);
         var dw = nw2 * scale, dh = nh2 * scale;
-        ctx.drawImage(logoImgEl, bx + (bw - dw) / 2, by + (bw - dh) / 2, dw, dh);
+        ctx.drawImage(logoImgEl, bx + (bw - dw) / 2, by + (bh - dh) / 2, dw, dh);
         ctx.restore();
       }
 
+      /* 6) RECADRAGE SUR LA SILHOUETTE.
+
+         Le canvas garde les bandes vides laissées par le `inset` : exportées
+         telles quelles, elles rendent le patch trop haut et pas assez long.
+         On ne renvoie donc que la bande utile — l'image résultante a le rapport
+         RÉELLEMENT vu à l'écran (≈ 2,44 pour le rectangle, inchangé ailleurs). */
+      function recadrer(src) {
+        if (!INSET_Y) return src;
+        var hUtile = Math.round(H * (1 - 2 * INSET_Y));
+        var cc = document.createElement('canvas');
+        cc.width = W; cc.height = hUtile;
+        cc.getContext('2d').drawImage(src, 0, Math.round(H * INSET_Y), W, hUtile,
+                                           0, 0, W, hUtile);
+        return cc;
+      }
+
       var bgDataUrl;
-      try { bgDataUrl = c.toDataURL('image/png'); }
+      try { bgDataUrl = recadrer(c).toDataURL('image/png'); }
       catch (e) {
         /* Canvas taint (CORS) : impossible d'exporter. Seul le LOGO peut
            contaminer le canvas — le fond n'est plus qu'un remplissage de
@@ -6673,11 +6809,11 @@
         var cf = document.createElement('canvas');
         cf.width = W; cf.height = H;
         var ctxf = cf.getContext('2d');
-        tracePatchShape(ctxf, shape, 0, 0, W, H);
+        tracePatchShape(ctxf, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
         ctxf.fillStyle = patchHex;
         ctxf.fill();
         return {
-          background: cf.toDataURL('image/png'),
+          background: recadrer(cf).toDataURL('image/png'),
           logos: logoSrc ? [{ src: logoSrc, x: lx, y: ly, w: lw }] : []
         };
       }
@@ -8203,6 +8339,21 @@
       } catch (e) {}
     }
 
+    /* Persistance déclenchée DE L'EXTÉRIEUR (conf-size-quantity-modal.js).
+
+       Jusqu'ici, seuls les deux gestionnaires du champ « Qté » appelaient
+       `saveSizeQtyFor`. Or la confirmation de la répartition par tailles y
+       écrit désormais le total de pièces par script : elle court-circuite ces
+       gestionnaires, et sans cet appel le rechargement restaurait « 1 » face à
+       une répartition de douze pièces toujours en session.
+
+       Wrapper SANS ARGUMENT plutôt que la fonction nue : `currentProductType`
+       est une variable interne, réassignée à plusieurs endroits. Un appelant
+       extérieur qui devrait la deviner risquerait de persister sous le mauvais
+       produit — la demande légitime depuis dehors est « persiste l'état
+       courant », pas « persiste pour tel produit ». */
+    window.persisterTailleQte = function () { saveSizeQtyFor(currentProductType); };
+
     function applySizeQtyFor(productType) {
       var sel = document.getElementById('rp-taille-select');
       var qte = document.getElementById('textile-qty-input');
@@ -9649,8 +9800,37 @@
 
     /* Met à jour le prix total affiché dans le récapitulatif.
        Inclut le prix de base + supplément manches. */
-    /* Quantité choisie pour le textile courant (champ du récap). */
+    /* Quantité de PIÈCES du textile courant.
+
+       Deux cas, et c'est la répartition par tailles qui les sépare :
+
+       — Répartition validée : le champ « Qté » du panneau n'affiche que la
+         quantité de la TAILLE sélectionnée (« M · 3 »), puisqu'il forme un
+         couple avec le menu posé à sa gauche. Le lire donnerait trois pièces
+         là où le client en commande dix : le prix et le délai seraient faux,
+         et le client découvrirait la vraie somme au panier.
+         On compte donc les lignes de la liste, qui valent une pièce chacune —
+         la même source que l'ajout au panier.
+
+       — Sans répartition : le champ EST la quantité. Comportement d'origine,
+         inchangé.
+
+       `_sizeGroupSummary` sur toutes les lignes distingue une répartition par
+       tailles d'une liste de surnoms (mode groupe), dont les quantités se
+       gèrent ailleurs. Même test que `refreshGroupBadge`. */
     function textileQty() {
+      /* `groupOrderRows` directement : c'est la variable de ce module, et non
+         `window.getGroupOrderRows` qui n'est qu'une façade pour l'extérieur. */
+      try {
+        if (groupOrderRows && groupOrderRows.length &&
+            groupOrderRows.every(function (r) { return r && r._sizeGroupSummary; })) {
+          var n = groupOrderRows.reduce(function (s, r) {
+            return s + (parseInt(r.qty, 10) || 1);
+          }, 0);
+          if (n > 0) return n;
+        }
+      } catch (e) {}
+
       var el = document.getElementById('textile-qty-input');
       return Math.max(1, parseInt(el && el.value, 10) || 1);
     }
@@ -10043,32 +10223,59 @@
          rectangulaire active mais INVISIBLE, qui partirait telle quelle dans la
          commande. On rebascule alors sur la taille par défaut de la famille —
          `selectCoinSize` met à jour le récapitulatif au passage. */
-      var familleVisible = (shape === 'rectangle') ? 'rect'
-                         : (shape === 'rond')      ? 'circle'
-                         : null;   // carré, blason : aucune grille
+      /* CHAQUE FORME A SES PROPRES TAILLES.
+
+         Le filtre raisonnait par « famille » — ronde ou rectangulaire — et les
+         deux autres formes n'avaient aucune grille. Le carré ayant désormais
+         ses trois formats et le blason le sien, chaque forme désigne la classe
+         de cartes qui lui appartient. */
+      var FAMILLE_PAR_FORME = {
+        rond: 'circle',
+        carre: 'square',
+        rectangle: 'rect',
+        blason: 'blason'
+      };
+      /* Taille par défaut, celle sur laquelle la forme retombe quand la taille
+         courante ne lui appartient pas. */
+      var DEFAUT_PAR_FORME = {
+        rond: '8cm',
+        carre: '8x8cm',
+        rectangle: '8x6cm',
+        blason: '8x6cm-blason'
+      };
+
+      var familleVisible = FAMILLE_PAR_FORME[shape] || 'circle';
+
+      /* La famille d'une carte, lue sur ses classes. L'ordre compte : `blason`
+         et `square` d'abord, car une carte ne porte qu'une de ces classes et le
+         repli `circle` doit rester le dernier recours. */
+      var familleDe = function (c) {
+        if (c.classList.contains('blason')) return 'blason';
+        if (c.classList.contains('square')) return 'square';
+        if (c.classList.contains('rect')) return 'rect';
+        return 'circle';
+      };
 
       document.querySelectorAll('#panel-patch .coins-size-card').forEach(function (c) {
-        var sienne = c.classList.contains('rect') ? 'rect' : 'circle';
-        c.style.display = (familleVisible && sienne === familleVisible) ? '' : 'none';
+        c.style.display = (familleDe(c) === familleVisible) ? '' : 'none';
       });
 
-      var blocFixe = document.getElementById('patch-taille-fixe');
-      if (blocFixe) blocFixe.style.display = familleVisible ? 'none' : '';
+      /* Le bloc « taille imposée » en lecture seule a disparu du markup : le
+         blason a maintenant sa carte, comme les autres formes. */
       var noteTailles = document.querySelector('#panel-patch .coins-size-note');
-      if (noteTailles) noteTailles.style.display = familleVisible ? '' : 'none';
+      if (noteTailles) noteTailles.style.display = '';
 
-      /* Taille par défaut de la nouvelle famille : 8 × 6 cm pour le rectangle,
-         8 cm partout ailleurs — y compris pour carré et blason, dont c'est la
-         seule taille. */
-      var tailleDefaut = (shape === 'rectangle') ? '8x6cm' : '8cm';
+      /* LA TAILLE COURANTE EST REVALIDÉE.
+
+         Sans cela, passer de « 10 × 7,5 cm » (rectangle) au carré laisserait ce
+         format actif mais INVISIBLE — il partirait tel quel dans la commande. */
       var carteActive = document.querySelector('#panel-patch .coins-size-card.active');
-      var resteValide = carteActive &&
-                        familleVisible &&
-                        (carteActive.classList.contains('rect') ? 'rect' : 'circle') === familleVisible;
+      var resteValide = carteActive && familleDe(carteActive) === familleVisible;
 
       if (!resteValide) {
         var cible = document.querySelector(
-          '#panel-patch .coins-size-card[data-size="' + tailleDefaut + '"]');
+          '#panel-patch .coins-size-card[data-size="' +
+          (DEFAUT_PAR_FORME[shape] || '8cm') + '"]');
         if (cible && typeof window.selectCoinSize === 'function') {
           window.selectCoinSize(cible);
         }

@@ -1588,6 +1588,15 @@
   .mob-tq-sheet .rp-qty-input { min-width: 0; flex: 1; }
   .mob-tq-sheet .rp-multi-btn { width: 100%; min-height: 48px; }
 
+  /* Résumé de la répartition : sur téléphone la feuille occupe toute la
+     largeur, la contrainte des 252 px du panneau ne s'applique plus et 11 px
+     y serait inutilement petit. */
+  .mob-tq-sheet .rp-repartition {
+    font-size: 13px;
+    padding: 9px 11px;
+    margin-top: 8px;
+  }
+
   /* ── FEUILLE « QUANTITÉ » — coins, drapeaux, patchs ──────────────────
      Ces produits n'ont pas de taille : leur champ de quantité, resté dans le
      récapitulatif masqué, était inaccessible en mobile. Il est sorti dans sa

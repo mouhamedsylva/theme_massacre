@@ -323,6 +323,87 @@
     }
   }
 
+  /* Ordre du VÊTEMENT, pas ordre alphabétique ni ordre de rencontre.
+     Le regroupement ci-dessous rend les tailles dans l'ordre où les lignes
+     arrivent : correct à la validation, mais rien ne le garantit après une
+     restauration de session. On retrie, pour que « XS × 1, M × 5 » ne devienne
+     jamais « M × 5, XS × 1 ». */
+  const ORDRE_TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+
+  /**
+   * Écrit sous le bouton « Répartir par tailles » le détail de la répartition
+   * VALIDÉE, suivi du total de pièces.
+   *
+   * On lit la liste validée (`getGroupOrderRows`) et NON `sizeQuantities` :
+   * ce dernier porte la saisie en cours, y compris celle que le client vient
+   * d'abandonner par « Annuler ». Le panneau ne doit annoncer que ce qui part
+   * réellement au panier.
+   *
+   * Une liste de SURNOMS (mode groupe) n'a pas de `_sizeGroupSummary` : elle
+   * est ignorée ici, elle a déjà son propre badge.
+   */
+  function majResumeRepartition() {
+    var hote = document.getElementById('rp-repartition');
+    if (!hote) return;   // gabarit sans tailles : coin, drapeau, patch
+
+    var lignes = (typeof window.getGroupOrderRows === 'function')
+      ? window.getGroupOrderRows()
+      : null;
+
+    var vientDesTailles = lignes && lignes.length &&
+      lignes.every(function (r) { return r && r._sizeGroupSummary; });
+
+    if (!vientDesTailles) {
+      hote.style.display = 'none';
+      hote.textContent = '';
+      return;
+    }
+
+    /* Chaque ligne vaut UNE pièce (voir confirmSizeQuantities) : on les
+       recompte par taille plutôt que de relire `_sizeGroupSummary`, dont le
+       format « 5×M » est destiné à l'atelier et non au client. */
+    var parTaille = {};
+    var total = 0;
+    lignes.forEach(function (r) {
+      if (!r.size) return;
+      var n = parseInt(r.qty, 10) || 1;
+      parTaille[r.size] = (parTaille[r.size] || 0) + n;
+      total += n;
+    });
+
+    var tailles = Object.keys(parTaille).sort(function (a, b) {
+      var ia = ORDRE_TAILLES.indexOf(a), ib = ORDRE_TAILLES.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    if (!tailles.length) { hote.style.display = 'none'; return; }
+
+    /* « M × 5 » — la taille d'abord, comme le client la lit, et non « 5×M »
+       qui est la convention de l'étiquette atelier. Espaces insécables : dans
+       une colonne de 252 px, « M × 5 » ne doit pas se couper en fin de ligne.
+
+       textContent sur deux nœuds plutôt qu'innerHTML : les noms de tailles
+       viennent de la liste validée, mais rien ne justifie d'interpréter du
+       HTML là où seul du texte est attendu. */
+    var detail = tailles.map(function (t) {
+      return t + ' × ' + parTaille[t];
+    }).join(', ');
+
+    hote.textContent = '';
+    var ligneDetail = document.createElement('div');
+    ligneDetail.className = 'rp-repartition-detail';
+    ligneDetail.textContent = detail;
+    var ligneTotal = document.createElement('div');
+    ligneTotal.className = 'rp-repartition-total';
+    ligneTotal.textContent = 'Total : ' + total + ' pièce' + (total > 1 ? 's' : '');
+    hote.appendChild(ligneDetail);
+    hote.appendChild(ligneTotal);
+    hote.style.display = '';
+  }
+  window.majResumeRepartition = majResumeRepartition;
+
   /**
    * Ouvre le modal
    */
@@ -448,6 +529,74 @@
        l'écran ne serait plus jamais reprise. */
     saisieEnCours = false;
 
+    /* ═══ LE PANNEAU REFLÈTE ENFIN LA RÉPARTITION ═══════════════════════════
+
+       La confirmation enregistrait la liste, puis se taisait : le bloc
+       QUANTITÉ affichait toujours « 1 » et le PRIX TOTAL le tarif d'une seule
+       pièce, alors que dix partaient au panier. Le client voyait 60,00 € pour
+       une commande qui en valait dix fois plus, sans aucun moyen de vérifier
+       sa saisie autrement qu'en rouvrant cette modale.
+
+       CE CHAMP EST LA QUANTITÉ DE LA TAILLE CHOISIE, PAS LE TOTAL.
+
+       Il forme un couple avec le menu « Taille » posé juste à sa gauche :
+       « M · 3 » se lit comme un tout. Y écrire le total (10) le mettait en
+       contradiction avec son propre libellé — le client lisait « Taille M,
+       Qté 10 » alors qu'il n'avait commandé que trois M.
+
+       Le total, lui, a désormais sa place : le résumé juste sous le bouton,
+       et le PRIX TOTAL, qui somme bien les dix pièces (voir `textileQty`
+       dans conf-main-inline.js, qui lit la répartition quand elle existe).
+
+       ⚠️ AVANT le relevé de `qteAuMomentDeLaConfirmation` ci-dessous, et c'est
+       essentiel : ce repère sert à détecter que LE CLIENT a changé la quantité
+       depuis. S'il retenait l'ancienne valeur, la réouverture prendrait notre
+       propre écriture pour un geste du client et RÉ-AJOUTERAIT ces pièces une
+       seconde fois (voir `initSizeQuantities`). */
+    var champQte = document.getElementById('textile-qty-input');
+    if (champQte) {
+      /* Quantité de la taille ACTUELLEMENT sélectionnée dans le panneau. Si
+         elle n'a rien reçu dans la répartition (0 pièce), on retombe sur la
+         première taille servie : un « Qté 0 » sous un menu « Taille L »
+         donnerait l'impression d'une commande vide. */
+      var tailleCourante = '';
+      var sgSel = document.querySelector('.sg:not(.cv-opt-clone)');
+      var btnSel = (sgSel || document).querySelector('.sb.on:not(.sb-group)');
+      if (btnSel) tailleCourante = btnSel.textContent.trim();
+
+      var qteTaille = quantities[tailleCourante] || 0;
+      if (!qteTaille) qteTaille = selectedSizes[0][1];
+
+      champQte.value = qteTaille;
+
+      /* Le prix suit, et le délai avec lui : `updateTotalPrice` appelle
+         `majDelaiProduction` en première instruction. Tous deux comptent les
+         pièces RÉELLES de la répartition, pas ce champ. */
+      if (typeof window.updateTotalPrice === 'function') {
+        window.updateTotalPrice();
+      }
+
+      /* La pastille « Taille & quantité » du téléphone se rafraîchit sur les
+         événements `input` / `change` du champ. Une écriture par script n'en
+         déclenche AUCUN : sans cet appel, elle annoncerait encore « M · 1 »
+         sous une répartition de douze pièces.
+
+         On appelle la fonction plutôt que de simuler un événement — un
+         `dispatchEvent` réveillerait aussi tous les autres abonnés du
+         document, effets de bord compris. */
+      if (typeof window.majBoutonTailleQte === 'function') {
+        window.majBoutonTailleQte();
+      }
+
+      /* Persistance explicite : les deux seuls chemins qui la déclenchaient
+         sont les gestionnaires du champ, que cette écriture court-circuite.
+         Sans cela, le rechargement restaurait « 1 » face à une répartition de
+         douze pièces toujours mémorisée en session. */
+      if (typeof window.persisterTailleQte === 'function') {
+        window.persisterTailleQte();
+      }
+    }
+
     /* On retient la quantité affichée dans le panneau à cet instant : c'est
        elle qui servira de point de comparaison à la prochaine ouverture, pour
        savoir si le client l'a modifiée entre-temps (voir
@@ -509,6 +658,15 @@
        (conf-main-inline.js), et non sur une couleur arbitraire. */
     return { name: nom || 'Noir' };
   }
+
+  /* Liste restaurée depuis la session au chargement : le résumé doit
+     reparaître, sinon une répartition mémorisée resterait invisible dans le
+     panneau — elle serait pourtant bien commandée.
+
+     `refreshGroupBadge` couvre déjà ce cas, mais l'ordre de chargement des
+     deux fichiers n'est garanti par rien. Cet appel est idempotent et ne coûte
+     qu'une lecture. */
+  document.addEventListener('DOMContentLoaded', majResumeRepartition);
 
   // Initialisation
   confLog('✅ Modal Quantités par Taille initialisé');

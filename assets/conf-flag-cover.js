@@ -128,38 +128,54 @@
       // zone imprimable, ce qui rend le recadrage prévisible.
       if (logo.parentElement !== crop) crop.appendChild(logo);
 
-      /* Restauration : la géométrie sauvegardée est déjà posée, mais la
-         classe qui fait basculer l'image en « cover » ne l'est pas — sans
-         elle, le design reviendrait en « contain » après un rechargement. */
-      if (logo.style.display !== 'none') {
-        logo.classList.add('is-cover');
-        /* Largeur sous 100 % = session antérieure au mode couverture (44 %
-           par défaut) : le design ne couvrirait pas la zone. On repose le
-           cadrage plein, minimum garanti par le mode.
+      /* ═══ CETTE FONCTION NE CONVERTIT PLUS UN DESIGN EN COUVERTURE ═══════
 
-           SAUF SI LE CLIENT L'A VOULUE — même raison et même mécanisme que pour
-           les coins (voir conf-coin-cover.js) : il peut désormais réduire son
-           visuel pour laisser voir le tissu autour, et cette fonction est
-           rappelée trop souvent pour qu'une réduction y survive sans marqueur. */
+         Elle posait `is-cover` sur TOUT design visible. Or elle est rappelée à
+         la SÉLECTION — le clic simple ouvre le cadrage, qui passe par
+         `closeEdit()`, laquelle rappelle `syncFlagCrop()`.
+
+         Un logo large et plat, affiché entier à l'upload, était donc converti
+         au premier clic. Deux effets se cumulaient :
+           • `is-cover` bascule l'image en `object-fit: cover` : elle remplit sa
+             boîte au lieu de s'y contenir, donc se recadre ;
+           • `height = width` rend la boîte CARRÉE, et le recadrage coupe tout
+             ce qui dépasse — « SimplifyStack » devenait « nplify ».
+
+         Son rôle est de poser le CADRE de rognage, pas de changer le mode
+         d'affichage d'un visuel que le client n'a pas touché.
+
+         La conversion ne subsiste donc que là où elle a un sens :
+
+           • design DÉJÀ couvrant — le client l'a agrandi lui-même, ou une
+             session enregistrée le restitue (`data-cover-geo`, posé par
+             applyUploadGeo). Sans ce maintien, un design couvrant reviendrait
+             en « contain » après un rechargement : c'est la raison d'être
+             historique de ce bloc, et elle reste valable ;
+
+           • géométrie ABSENTE — sans largeur, le design n'aurait aucune
+             dimension : la couverture pleine est alors le seul défaut sensé. */
+      if (logo.style.display !== 'none') {
         var w = parseFloat(logo.style.width);
-        var geoVoulue = logo.getAttribute('data-cover-geo') === '1';
-        if (!w || (w < 100 && !geoVoulue)) {
+        var dejaCouvrant = logo.classList.contains('is-cover') ||
+                           logo.getAttribute('data-cover-geo') === '1';
+
+        if (!w) {
+          // Aucune géométrie : on pose la couverture pleine.
+          logo.classList.add('is-cover');
           logo.style.left = '0%';
           logo.style.top = '0%';
           logo.style.width = '100%';
+          logo.style.height = '100%';
+        } else if (dejaCouvrant) {
+          /* Déjà couvrant : on entretient son état. La hauteur suit la largeur
+             — sans quoi `cover` étalerait le design dans une boîte aplatie
+             (100 % de large sur 40 % de haut). Le coin fait le même alignement
+             (conf-coin-cover.js). */
+          logo.classList.add('is-cover');
+          logo.style.height = logo.style.width;
         }
-        /* applyUploadGeo() ne restaure pas la hauteur (elle vaut `auto` pour
-           les logos ordinaires) : sans elle, le design ne remplit que sa
-           largeur et redevient une vignette au retour sur le drapeau.
-
-           LA HAUTEUR SUIT LA LARGEUR, TOUJOURS. Ce test ne couvrait que
-           l'absence de hauteur : quand le repli ci-dessus remettait la largeur à
-           100 %, la hauteur gardait sa valeur réduite — 100 % de large sur 40 %
-           de haut, et `cover` étalait le design en bande écrasée.
-
-           Le coin fait déjà cet alignement (conf-coin-cover.js) ; il manquait
-           ici. */
-        logo.style.height = logo.style.width || '100%';
+        /* Sinon : design posé à sa taille d'origine. On n'y touche pas — ni
+           classe, ni hauteur. C'est le cas du logo plat affiché entier. */
 
         /* Sous 100 %, l'image se contient au lieu de couvrir. */
         if (typeof window.majReduction === 'function') window.majReduction(logo);
@@ -170,12 +186,21 @@
   }
   window.syncFlagCrop = syncFlagCrop;
 
-  /** Passe le design d'une face en couverture (appelé à l'upload). */
+  /** Passe le design d'une face en COUVERTURE, explicitement.
+   *
+   * AUCUN APPELANT AUJOURD'HUI. Elle était appelée à chaque upload de drapeau
+   * (conf-share.js) et y imposait 100 % sur les deux axes : un logo large et
+   * plat s'y trouvait recadré dans une boîte carrée dès son arrivée. Cet appel
+   * a été retiré — un design garde désormais la taille à laquelle il s'affiche.
+   *
+   * Conservée et exposée : c'est une commande explicite et sans ambiguïté, à
+   * rebrancher si un bouton « Couvrir toute la toile » voit le jour. Elle ne
+   * doit PAS revenir sur un chemin automatique.
+   */
   function setFlagCover(face) {
     var logo = logoOf(face);
     if (!logo) return;
     logo.classList.add('is-cover');
-    // Couvre la zone imprimable : origine en haut à gauche, pleine taille.
     logo.style.left = '0%';
     logo.style.top = '0%';
     logo.style.width = '100%';
@@ -191,7 +216,15 @@
     return !!(w && w.classList.contains('flag-editing'));
   }
 
-  /** Doublure rognée : restitue la zone imprimée en pleine opacité. */
+  /** Doublure rognée : restitue la zone imprimée en pleine opacité.
+   *
+   * Pendant l'édition, l'image entière passe à 35 % d'opacité et le rognage
+   * est levé (conf-drapeaux.css). Cette doublure redonne sa netteté à la
+   * partie qui sera réellement imprimée : le contraste vient de l'écart
+   * d'opacité, sans superposition trompeuse.
+   *
+   * Mécanisme jumeau de celui des coins (conf-coin-cover.js).
+   */
   function buildPreview(face) {
     var wrap = wrapOf(face);
     var crop = wrap && wrap.querySelector('.flag-crop[data-face="' + face + '"]');

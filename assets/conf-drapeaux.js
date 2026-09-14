@@ -359,11 +359,18 @@ function applyFlagSizeToImages() {
   });
 }
 
-// Bouton contact taille personnalisée
+/* Bouton « Contactez-nous » du bloc TAILLE PERSONNALISÉE.
+
+   Il affichait une adresse de DÉMONSTRATION — `contact@exemple.com` et un
+   numéro en XX — restée du gabarit d'origine : un client qui écrivait là
+   n'atteignait personne.
+
+   Il ouvre désormais la page contact, dans un nouvel onglet, exactement comme
+   le bouton du récapitulatif (conf-dynamic-layout.js) : les deux mènent au
+   même endroit et se comportent pareil. Le configurateur reste ouvert
+   derrière, le design en cours vit en session et se retrouve au retour. */
 function contactForCustomSize() {
-  var msg = 'Email : contact@exemple.com\nTél : 01 XX XX XX XX';
-  if (window.confAlert) window.confAlert(msg, { icon: 'info', title: 'Taille personnalisée' });
-  else alert('Contactez-nous pour une taille personnalisée.\n' + msg);
+  window.open('/pages/contact', '_blank', 'noopener');
 }
 
 // Sélection des anneaux

@@ -308,6 +308,18 @@
 
   /* Barre de zoom conservée (souris et trackpad y sont courants). */
 
+  /* En PORTRAIT, la barre passe à la verticale sur le bord droit
+     (conf-drapeaux.css). La largeur est plus comptée ici qu'en desktop : on la
+     colle au bord et on réserve son couloir en décalant la scène, pour qu'elle
+     ne recouvre pas le drapeau verso. */
+  .flag-canvas-container .flag-stage.orientation-portrait ~ .coins-canvas-controls {
+    right: 6px;
+    padding: 12px 8px;
+  }
+  .flag-canvas-container .flag-stage.orientation-portrait {
+    padding-right: 60px;
+  }
+
   /* ─────────────────────────────────────────────────────────────────
      6. EMPILEMENT
      ───────────────────────────────────────────────────────────────── */

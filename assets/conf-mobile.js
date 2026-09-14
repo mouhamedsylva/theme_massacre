@@ -696,6 +696,19 @@
     if (grille.parentNode !== feuille) feuille.appendChild(grille);
     if (repartir && repartir.parentNode !== feuille) feuille.appendChild(repartir);
 
+    /* Le résumé de la répartition suit son bouton, comme le texte d'aide juste
+       après : laissé dans le récap — masqué sur téléphone — il décrirait la
+       commande en cours à un endroit que personne ne voit.
+
+       Placé AVANT l'aide, comme sur grand écran : le résultat d'abord,
+       l'explication ensuite. L'ordre des `appendChild` fait l'ordre visuel.
+
+       Même test de parent que ses voisins : `appendChild` sur un nœud déjà en
+       place le démonte et le remonte, et cette fonction tourne en boucle. */
+    var resume = (recapNow && recapNow.querySelector("#rp-repartition")) ||
+                 feuille.querySelector("#rp-repartition");
+    if (resume && resume.parentNode !== feuille) feuille.appendChild(resume);
+
     /* Le texte d'aide suit le bouton : il explique la répartition par tailles
        et n'a de sens qu'à côté d'elle. Laissé dans le récap, il resterait sous
        un titre « QUANTITÉ » vidé de ses contrôles. */
@@ -1289,9 +1302,15 @@
       var hoteTQ = recap.querySelector("#rp-qty-textile .rp-qty-section") ||
                    recap.querySelector(".rp-qty-section");
       var aideTQ = feuilleTQ.querySelector(".rp-tq-aide");
+      /* Le résumé de la répartition fait le chemin inverse lui aussi : oublié
+         ici, il resterait prisonnier de la feuille mobile après un retour sur
+         grand écran, et le panneau n'annoncerait plus la commande composée. */
+      var resumeTQ = feuilleTQ.querySelector("#rp-repartition");
       if (hoteTQ) {
         if (grilleTQ) hoteTQ.appendChild(grilleTQ);
         if (repartirTQ) hoteTQ.appendChild(repartirTQ);
+        /* Même ordre qu'au départ : le résultat, puis l'explication. */
+        if (resumeTQ) hoteTQ.appendChild(resumeTQ);
         if (aideTQ) hoteTQ.appendChild(aideTQ);
       }
       /* Le délai retourne au RÉCAP, pas dans `.rp-qty-section` : sur ordinateur

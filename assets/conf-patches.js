@@ -59,11 +59,32 @@ function selectCoinType(el) {
   const coinView = document.getElementById('upload-view-coin');
   if (coinView) coinView.classList.toggle('single-face', sansImageVerso);
 
-  // L'aperçu du panneau suit le bouton : le montrer sans pouvoir le remplacer
-  // ni le supprimer laisserait une commande qu'aucun geste ne défait.
-  if (sansImageVerso) {
-    const versoPreview = document.getElementById('coin-preview-verso');
-    if (versoPreview) versoPreview.style.display = 'none';
+  /* L'APERÇU DU PANNEAU SUIT LE BOUTON — DANS LES DEUX SENS.
+
+     Le montrer sans pouvoir le remplacer ni le supprimer laisserait une
+     commande qu'aucun geste ne défait : il part donc avec le bouton.
+
+     MAIS IL DOIT REVENIR. Ce masquage n'avait pas de réciproque : après un
+     aller-retour par « Recto verso numéroté », l'image reparaissait sur la
+     pièce (son logo, lui, est bien restauré plus bas) alors que sa carte
+     restait invisible — plus aucun moyen de la remplacer ou de la retirer.
+
+     Le masquage n'écrit que `display`, jamais `hideUpPreview` : la vignette
+     garde donc sa source, et il suffit de la relire pour la rétablir. */
+  const versoPreview = document.getElementById('coin-preview-verso');
+  if (versoPreview) {
+    if (sansImageVerso) {
+      versoPreview.style.display = 'none';
+    } else {
+      /* Réaffiché SEULEMENT s'il porte vraiment une image — même garde que le
+         logo ci-dessous : sans elle, une face jamais garnie montrerait une
+         carte d'aperçu vide. */
+      const imgPrev = document.getElementById('coin-preview-img-verso');
+      const srcPrev = imgPrev ? imgPrev.getAttribute('src') : '';
+      if (srcPrev && typeof window.showUpPreview === 'function') {
+        window.showUpPreview('coin-preview-verso', 'coin-preview-img-verso', srcPrev);
+      }
+    }
   }
 
   /* LE LOGO VERSO EST MASQUÉ, PAS SUPPRIMÉ.
@@ -357,10 +378,19 @@ function selectCoinSize(el) {
 
      Rien d'autre à ajouter donc : la donnée circulait déjà. */
 
-  // PATCH : taille en cm (ex. "6cm", "8x6cm").
-  if (/cm$/.test(size)) {
+  /* PATCH : taille en cm (ex. « 6cm », « 8x6cm », « 8x8cm », « 8x6cm-blason »).
+
+     Le suffixe `-blason` distingue la taille du BLASON de celle du rectangle,
+     qui porte les mêmes chiffres : deux formes différentes, deux cartes
+     distinctes. D'où le `cm` cherché n'importe où et non en fin de chaîne. */
+  if (/cm/.test(size)) {
     var recapPatch = document.getElementById('coins-recap-size');
-    if (recapPatch) recapPatch.textContent = label || size.replace('cm', ' cm');
+    /* Le libellé de la carte fait foi (« 8 x 6 cm ») ; le repli nettoie le
+       suffixe technique, qui n'a pas à s'afficher au client. */
+    if (recapPatch) {
+      recapPatch.textContent = label ||
+        size.replace('-blason', '').replace('cm', ' cm');
+    }
 
     /* La classe de taille est FIGÉE sur une référence, pas retirée.
 
@@ -372,12 +402,23 @@ function selectCoinSize(el) {
        Les formats RECTANGULAIRES gardent la leur : leur classe ne porte pas
        seulement une taille mais aussi un `max-width` distinct (420 px contre
        320), sans lequel la forme déborderait en largeur. Le rapport
-       largeur/hauteur doit rester juste. */
+       largeur/hauteur doit rester juste.
+
+       ⚠️ UN « x » NE SIGNIFIE PAS « RECTANGULAIRE ».
+
+       Le test portait sur la seule présence d'un « x » dans le libellé. Les
+       formats carrés (« 8x8cm », « 9x9cm », « 10x10cm ») en contiennent un :
+       ils auraient hérité du `max-width` allongé et se seraient affichés
+       déformés. Le blason (« 8x6cm-blason ») aurait pris celui du rectangle.
+
+       Seuls les DEUX formats rectangulaires réels ont leur classe propre ; tout
+       le reste — ronds, carrés, blason — partage `size-8cm`, l'aperçu ne
+       changeant pas de taille d'un format à l'autre (choix produit). */
     var canvas = document.getElementById('coins-canvas');
     if (canvas) {
       canvas.classList.remove('size-6cm','size-7cm','size-8cm','size-9cm','size-10cm','size-8x6cm','size-10x7-5cm');
-      var rectangulaire = /x/.test(size);
-      canvas.classList.add(rectangulaire ? 'size-' + size.replace(/\./g, '-') : 'size-8cm');
+      var RECTANGULAIRES = { '8x6cm': 'size-8x6cm', '10x7.5cm': 'size-10x7-5cm' };
+      canvas.classList.add(RECTANGULAIRES[size] || 'size-8cm');
     }
     return;
   }

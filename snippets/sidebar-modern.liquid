@@ -903,9 +903,15 @@
         <div class="coin-num-field">
           <label>Quantité (min. 50)</label>
           <div class="coin-num-qty">
-            <button class="coin-num-btn" onclick="changeCoinQty(-10)">−</button>
+            {%- comment -%}
+              Pas de 1, comme le champ jumeau du récapitulatif : les deux sont
+              synchronisés en temps réel (conf-patches.js) et doivent donc
+              avancer du même pas. Le plancher de 50 reste appliqué par
+              clampQtyPatch.
+            {%- endcomment -%}
+            <button class="coin-num-btn" onclick="changeCoinQty(-1)">−</button>
             <input type="number" id="coin-num-qty-input" value="50" min="50" onchange="handleCoinQtyInput()">
-            <button class="coin-num-btn" onclick="changeCoinQty(10)">+</button>
+            <button class="coin-num-btn" onclick="changeCoinQty(1)">+</button>
           </div>
           <span class="coin-num-note">Minimum 50 unités</span>
         </div>
@@ -1352,15 +1358,39 @@
           <div class="coins-size-shape"></div>
           <div class="coins-size-check">✓</div>
         </div>
-      </div>
-      {%- comment -%}
-        CARRÉ et BLASON n'ont qu'une taille : 8 cm. La grille disparaît alors au
-        profit de cette ligne — le client doit savoir ce qu'il commande, même
-        sans choix à faire. Révélée par selectShape.
-      {%- endcomment -%}
-      <div class="coins-size-fixe" id="patch-taille-fixe" style="display:none">
-        <span class="coins-size-fixe-val">Taille : 8 cm</span>
-        <span class="coins-size-fixe-note">Dimension unique pour cette forme</span>
+
+        {%- comment -%}
+          CARRÉ : trois formats, classe `square`. Les libellés portent un « x »
+          mais ce sont des CARRÉS (8×8, 9×9, 10×10) : la traduction en classe
+          CSS ne doit pas les prendre pour des rectangles — voir conf-patches.js.
+        {%- endcomment -%}
+        <div class="coins-size-card square" data-size="8x8cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>8 x 8 cm</p>
+          <div class="coins-size-check">✓</div>
+        </div>
+        <div class="coins-size-card square" data-size="9x9cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>9 x 9 cm</p>
+          <div class="coins-size-check">✓</div>
+        </div>
+        <div class="coins-size-card square" data-size="10x10cm" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>10 x 10 cm</p>
+          <div class="coins-size-check">✓</div>
+        </div>
+
+        {%- comment -%}
+          BLASON : taille unique, mais une CARTE — plus de bloc en lecture seule
+          à part. Une seule voie de code gouverne ainsi l'affichage des tailles.
+          Classe distincte de `rect` : le blason n'est pas un rectangle et ne
+          doit pas apparaître dans sa grille.
+        {%- endcomment -%}
+        <div class="coins-size-card blason" data-size="8x6cm-blason" onclick="selectCoinSize(this)">
+          <div class="coins-size-shape"></div>
+          <p>8 x 6 cm</p>
+          <div class="coins-size-check">✓</div>
+        </div>
       </div>
       <p class="coins-size-note">Les dimensions indiquées sont approximatives</p>
     </div>

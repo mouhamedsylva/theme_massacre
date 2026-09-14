@@ -617,10 +617,24 @@
              double-clic. Différé : la boîte de l'image doit être connue.
              À la RESTAURATION, on ne repose pas le cadrage plein — la
              géométrie sauvegardée vient d'être appliquée. */
+          /* Le design REMPLIT la zone imprimable et déborde (le surplus est
+             rogné), comme sur les coins et les patchs : plus de vide autour
+             d'un visuel posé en « contain ». Le client recadre en glissant,
+             redimensionne au bouton ⤢.
+
+             LA COUVERTURE EST AUSSI CE QUI CONTRAINT L'IMAGE À SA BOÎTE.
+             `.flag-logo.is-cover .flag-design-img` impose `height: 100%` et
+             `object-fit: cover` (conf-drapeaux.css), là où le défaut hors
+             couverture est `height: auto` — la hauteur NATURELLE de l'image.
+             Sans elle, un logo large déborde massivement dès que le mode
+             recadrage lève le rognage. Le coin repose sur exactement le même
+             mécanisme (setCoinCover).
+
+             À la RESTAURATION, on ne repose pas le cadrage plein — la
+             géométrie sauvegardée vient d'être appliquée. */
           const freshFlag = !window.__restoringUploads;
           const applyCover = function () {
-            if (typeof window.setFlagCover !== 'function') return;
-            if (freshFlag) window.setFlagCover(face);
+            if (freshFlag && typeof window.setFlagCover === 'function') window.setFlagCover(face);
             else if (typeof window.syncFlagCrop === 'function') window.syncFlagCrop(face);
 
             /* La vignette se repeint une fois le cadrage posé — même raison

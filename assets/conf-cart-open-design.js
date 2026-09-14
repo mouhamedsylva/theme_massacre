@@ -1225,7 +1225,39 @@
          PLACE INCHANGÉE, avant `card.click()` : en mode groupe,
          `data-etape-groupe` change la grille CSS, et mesurer les zones avant
          ce changement les calerait sur une mise en page périmée. */
-      var estGroupe = !!(item.groupIndex || item.groupLabel);
+      /* ⚠️ `groupIndex` / `groupLabel` NE SUFFISENT PAS À DIRE « MODE GROUPE ».
+
+         La répartition par tailles et les surnoms partagent la même liste
+         (`groupOrderRows`). À l'ajout au panier, une répartition emprunte donc
+         la branche de groupe et ses lignes reçoivent elles aussi un
+         `groupLabel` et un `groupIndex` (conf-main-inline.js).
+
+         Résultat : un client qui avait composé son sweat en PERSONNALISATION
+         LIBRE, puis réparti ses pièces par tailles, rouvrait sa vignette sur
+         l'écran « Mon Équipe » avec le panneau des SURNOMS — un mode qu'il
+         n'avait jamais demandé.
+
+         Le discriminant existe déjà et voyage jusqu'au panier :
+         `_sizeGroupSummary`, posé sur chaque ligne d'une répartition par
+         tailles, absent des surnoms. C'est le même test que `reopenGroupList`,
+         `refreshGroupBadge` et `textileQty` (conf-main-inline.js) — une seule
+         convention pour distinguer les deux listes.
+
+         Deux sources, car la seconde couvre les lignes créées avant que le
+         champ ne soit posé sur l'article lui-même : le champ de la ligne, puis
+         l'instantané, lu par la fonction dédiée du module. */
+      var estRepartitionTailles = !!item._sizeGroupSummary;
+      if (!estRepartitionTailles) {
+        try {
+          var snapMode = lireSnapshot(item);
+          var rowsMode = snapMode && snapMode.groupRows;
+          estRepartitionTailles = !!(rowsMode && rowsMode.length &&
+            rowsMode.every(function (r) { return r && r._sizeGroupSummary; }));
+        } catch (e) {}
+      }
+
+      var estGroupe = !estRepartitionTailles &&
+                      !!(item.groupIndex || item.groupLabel);
 
       if (typeof window.choisirMode === 'function') {
         window.choisirMode(estGroupe ? 'groupe' : 'individuelle', true);

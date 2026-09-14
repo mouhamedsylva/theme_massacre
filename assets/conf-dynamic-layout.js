@@ -1233,9 +1233,9 @@ class DynamicLayoutManager {
           <div class="rp-qty-title">QUANTITÉ</div>
           <div class="rp-qty-subtitle">Minimum de commande : 50 unités</div>
           <div class="rp-qty-controls">
-            <button type="button" class="rp-qty-btn" onclick="changeCoinRecapQty(-10)">−</button>
+            <button type="button" class="rp-qty-btn" onclick="changeCoinRecapQty(-1)">−</button>
             <input type="number" id="coin-recap-qty-input" class="rp-qty-input" value="50" min="50" max="50000" onchange="handleCoinRecapQtyInput()">
-            <button type="button" class="rp-qty-btn" onclick="changeCoinRecapQty(10)">+</button>
+            <button type="button" class="rp-qty-btn" onclick="changeCoinRecapQty(1)">+</button>
           </div>
         </div>
       </div>
