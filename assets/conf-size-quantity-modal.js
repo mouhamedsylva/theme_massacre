@@ -31,6 +31,17 @@
      `null` = aucune confirmation dans cette session. */
   let qteAuMomentDeLaConfirmation = null;
 
+  /* Taille sélectionnée dans le panneau AU MOMENT de la dernière confirmation.
+
+     Le repère de quantité seul ne suffisait pas : changer de TAILLE sans
+     toucher au nombre — passer « M · 4 » à « XL · 4 » — laissait la quantité
+     identique, donc aucun changement détecté. La modale rouvrait sur sa liste
+     validée et ignorait le XL que le client venait de désigner.
+
+     Avec les deux repères, le panneau reste lu comme un couple : « telle
+     quantité, sur telle taille ». */
+  let tailleAuMomentDeLaConfirmation = null;
+
   /**
    * Récupère les tailles disponibles depuis la sidebar
    */
@@ -112,9 +123,10 @@
        12 dans le panneau, rouvrait la modale et trouvait TOUT à zéro sauf sa
        taille courante. Sa répartition était perdue.
 
-       La nouvelle quantité S'AJOUTE donc à l'existant, sur la taille
-       sélectionnée dans le panneau — c'est le sens du geste : « j'ajoute douze
-       XL à ce que j'ai déjà ». */
+       On repart donc toujours de la liste validée. Une quantité réglée dans le
+       panneau depuis la confirmation vient ensuite REMPLACER celle de sa seule
+       taille (voir plus bas) : le champ porte désormais la quantité de la
+       taille sélectionnée, pas un apport à cumuler. */
     if (fromSizeModal) {
       saved.forEach(r => {
         if (r.size && sizeQuantities.hasOwnProperty(r.size)) {
@@ -123,22 +135,51 @@
       });
 
       /* La quantité du panneau a-t-elle changé depuis la confirmation ?
-         Si oui, le client vient de la régler : on la reporte sur sa taille
-         courante, EN PLUS de la répartition rechargée ci-dessus. */
+         Si oui, le client vient de la régler : elle REMPLACE celle de sa
+         taille courante.
+
+         ⚠️ REMPLACER, ET NON AJOUTER.
+
+         Ce champ additionnait autrefois, et c'était juste : il portait alors
+         une quantité NEUVE, sans rapport avec la répartition — « j'ajoute
+         douze XL à ce que j'ai déjà ».
+
+         Il a changé de sens depuis : la confirmation y écrit la quantité DE LA
+         TAILLE SÉLECTIONNÉE, puisqu'il forme un couple avec le menu « Taille »
+         posé à sa gauche. Le client qui avait 5 M et tapait 8 dans ce champ
+         désignait donc huit M — et en retrouvait treize, 5 + 8. Sa correction
+         était traitée comme un ajout.
+
+         Le geste est le même des deux côtés : régler la quantité de cette
+         taille. Les deux affichages doivent donc dire la même chose. */
       if (qteAuMomentDeLaConfirmation !== null) {
         const champ = document.getElementById('textile-qty-input');
         const qteActuelle = champ ? (parseInt(champ.value, 10) || 0) : 0;
 
-        if (qteActuelle !== qteAuMomentDeLaConfirmation && qteActuelle > 0) {
-          const sgSrcMaj = document.querySelector('.sg:not(.cv-opt-clone)');
-          const btnMaj = (sgSrcMaj || document).querySelector('.sb.on:not(.sb-group)');
-          const tailleMaj = btnMaj ? btnMaj.textContent.trim() : '';
+        const sgSrcMaj = document.querySelector('.sg:not(.cv-opt-clone)');
+        const btnMaj = (sgSrcMaj || document).querySelector('.sb.on:not(.sb-group)');
+        const tailleMaj = btnMaj ? btnMaj.textContent.trim() : '';
+
+        /* LE PANNEAU EST UN COUPLE : une quantité SUR une taille.
+
+           On ne regardait que la quantité. Passer « M · 4 » à « XL · 4 » ne
+           changeait donc rien à ses yeux, et la modale rouvrait sur sa liste
+           validée en ignorant le XL que le client venait de désigner — alors
+           que le même geste, avant toute confirmation, était bien repris.
+
+           Les deux repères rendent au panneau le comportement qu'il a avant
+           confirmation : ce qui y est affiché vaut toujours consigne. */
+        const tailleChangee = tailleMaj && tailleMaj !== tailleAuMomentDeLaConfirmation;
+        const qteChangee = qteActuelle !== qteAuMomentDeLaConfirmation;
+
+        if ((qteChangee || tailleChangee) && qteActuelle > 0) {
           if (tailleMaj && sizeQuantities.hasOwnProperty(tailleMaj)) {
-            sizeQuantities[tailleMaj] += qteActuelle;
+            sizeQuantities[tailleMaj] = qteActuelle;
           }
-          /* Le repère avance : sans cela, la même quantité serait ré-ajoutée à
-             chaque ouverture de la modale, et le total gonflerait tout seul. */
+          /* Les repères avancent : sans cela, la même consigne serait
+             réappliquée à chaque ouverture de la modale. */
           qteAuMomentDeLaConfirmation = qteActuelle;
+          tailleAuMomentDeLaConfirmation = tailleMaj || tailleAuMomentDeLaConfirmation;
 
           /* L'APPORT N'EST PAS ENCORE DANS LA LISTE VALIDÉE — il ne le sera
              qu'à la confirmation. Sans ce drapeau, la réouverture SUIVANTE
@@ -291,10 +332,12 @@
        ses huit tailles. Une ardoise vierge est un état voulu, au même titre
        qu'une saisie — elle doit survivre à la fermeture.
 
-       Le repère de confirmation part, lui : la répartition validée n'a plus
-       cours. */
+       Les repères de confirmation partent, eux : la répartition validée n'a
+       plus cours. Les DEUX, sinon la taille mémorisée survivrait seule et
+       fausserait la prochaine comparaison. */
     saisieEnCours = true;
     qteAuMomentDeLaConfirmation = null;
+    tailleAuMomentDeLaConfirmation = null;
     renderSizeList();
   };
 
@@ -597,14 +640,21 @@
       }
     }
 
-    /* On retient la quantité affichée dans le panneau à cet instant : c'est
-       elle qui servira de point de comparaison à la prochaine ouverture, pour
-       savoir si le client l'a modifiée entre-temps (voir
-       `initSizeQuantities`). */
+    /* On retient le COUPLE affiché dans le panneau à cet instant — quantité ET
+       taille : ce sont eux qui serviront de points de comparaison à la
+       prochaine ouverture, pour savoir si le client y a touché entre-temps
+       (voir `initSizeQuantities`).
+
+       La taille compte autant que le nombre : passer de « M · 4 » à « XL · 4 »
+       est un changement, même si la quantité ne bouge pas. */
     var champQteApres = document.getElementById('textile-qty-input');
     qteAuMomentDeLaConfirmation = champQteApres
       ? (parseInt(champQteApres.value, 10) || 0)
       : 0;
+
+    var sgApres = document.querySelector('.sg:not(.cv-opt-clone)');
+    var btnApres = (sgApres || document).querySelector('.sb.on:not(.sb-group)');
+    tailleAuMomentDeLaConfirmation = btnApres ? btnApres.textContent.trim() : null;
 
     // Fermer le modal
     closeSizeQuantityModal();

@@ -229,9 +229,38 @@ function refreshFlagImages(quandPrete) {
   else if (typeof quandPrete === 'function') quandPrete();   // rien à échanger
   if (baseVerso && verso) swapFlagImage(baseVerso, verso);
 
-  // Réapplique le format (proportions) après le changement d'image.
+  /* Réapplique le format (proportions) après le changement d'image, PUIS
+     recale la zone imprimable.
+
+     `applyFlagSizeToImages` pose un `scale()` que `syncFlagSafeZones` doit
+     mesurer : les recalages déclenchés par les appelants (orientation,
+     anneaux) tournent AVANT ce délai de 60 ms, sur la géométrie d'avant mise à
+     l'échelle. Le pointillé sortait alors de la toile — de façon
+     intermittente, au gré de l'ordre d'arrivée.
+
+     Le recalage suit donc la mise à l'échelle dans le même temps, plutôt que
+     de courir contre elle. */
   if (typeof applyFlagSizeToImages === 'function') {
-    setTimeout(applyFlagSizeToImages, 60);
+    setTimeout(function () {
+      applyFlagSizeToImages();
+      if (window.syncFlagSafeZones) window.syncFlagSafeZones();
+      if (window.syncFlagCrop) window.syncFlagCrop();
+
+      /* SECOND PASSAGE À LA FIN DE L'ANIMATION.
+
+         Le `scale()` est animé sur 250 ms : la mesure ci-dessus le saisit en
+         COURS DE ROUTE, à une échelle intermédiaire. Sans ce rappel, la zone
+         se figeait sur une taille de passage — visiblement trop grande ou trop
+         petite selon l'instant.
+
+         300 ms laisse la transition finir. Le premier appel n'est pas inutile
+         pour autant : il évite de voir le pointillé rester en place pendant
+         toute l'animation. */
+      setTimeout(function () {
+        if (window.syncFlagSafeZones) window.syncFlagSafeZones();
+        if (window.syncFlagCrop) window.syncFlagCrop();
+      }, 300);
+    }, 60);
   }
   // Met à jour la vignette du récap (fond recto + logo).
   if (typeof window.updateFlagRecapThumb === 'function') {
@@ -627,12 +656,41 @@ function syncFlagSafeZones() {
       : (window.FLAG_INSET_Y != null ? window.FLAG_INSET_Y : 9);
     insetX = insetX / 100;
     insetYp = insetYp / 100;
-    var mx = img.offsetWidth * insetX;
-    var my = img.offsetHeight * insetYp;
-    zone.style.left = (img.offsetLeft + mx) + 'px';
-    zone.style.top = (img.offsetTop + my) + 'px';
-    zone.style.width = (img.offsetWidth - 2 * mx) + 'px';
-    zone.style.height = (img.offsetHeight - 2 * my) + 'px';
+
+    /* ON MESURE LA GÉOMÉTRIE RÉELLEMENT AFFICHÉE, PAS LA MISE EN PAGE.
+
+       `offsetWidth` / `offsetLeft` IGNORENT les transformations CSS. Or
+       `applyFlagSizeToImages` pose un `transform: scale()` sur l'image, ancré
+       en `top left`, avec une transition de 250 ms.
+
+       La zone, elle, est SŒUR de l'image et non son enfant : elle ne subit pas
+       ce scale. Calculée sur les dimensions d'avant mise à l'échelle, elle se
+       retrouvait décalée vers le haut à droite et débordait de la toile —
+       surtout en portrait, où les marges diffèrent (7 % contre 4 %).
+
+       `getBoundingClientRect` rend la boîte APRÈS transformation. Les deux
+       rectangles sont pris dans le même repère, puis ramenés en coordonnées
+       locales du parent : la zone se pose alors exactement sur l'image telle
+       que le client la voit. */
+    var rImg = img.getBoundingClientRect();
+    var rWrap = wrap.getBoundingClientRect();
+
+    /* Repli sur l'ancienne mesure si la boîte est vide — un élément masqué
+       (`display:none`) rend un rectangle à zéro, et poser une zone de taille
+       nulle la ferait disparaître au lieu de la laisser en place. */
+    var largeur = rImg.width || img.offsetWidth;
+    var hauteur = rImg.height || img.offsetHeight;
+    if (!largeur || !hauteur) return;
+
+    var gauche = rImg.width ? (rImg.left - rWrap.left) : img.offsetLeft;
+    var haut = rImg.height ? (rImg.top - rWrap.top) : img.offsetTop;
+
+    var mx = largeur * insetX;
+    var my = hauteur * insetYp;
+    zone.style.left = (gauche + mx) + 'px';
+    zone.style.top = (haut + my) + 'px';
+    zone.style.width = (largeur - 2 * mx) + 'px';
+    zone.style.height = (hauteur - 2 * my) + 'px';
   });
 }
 window.syncFlagSafeZones = syncFlagSafeZones;
