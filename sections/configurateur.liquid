@@ -298,6 +298,19 @@
         cours. Ici, il disait ce qu'on peut faire sans jamais dire où l'on est.
       {%- endcomment -%}
 
+      {%- comment -%}
+        L'AIDE A QUITTÉ L'EN-TÊTE.
+
+        Elle y disputait la place à « Réinitialiser » et au panier, dans une
+        barre déjà dense — et surtout, elle n'a pas la même nature : ce n'est
+        pas une action sur la commande en cours, c'est un recours, disponible à
+        tout moment sans jamais réclamer l'attention.
+
+        Sa place est donc en pastille flottante, en bas à gauche, hors du flux
+        des commandes. Elle est créée par conf-tour.js : le bouton et la visite
+        vivent ainsi dans le même fichier, et le jour où l'un disparaît l'autre
+        le suit.
+      {%- endcomment -%}
       <button type="button" class="obtn" onclick="confirmReset()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
         Réinitialiser
@@ -1798,6 +1811,30 @@
       <button type="button" class="cd-checkout" id="cd-checkout-btn" onclick="goToRecap()">
         Continuer
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
+      {%- comment -%}
+        RETOUR AU CONFIGURATEUR, sur téléphone seulement.
+
+        Sur grand écran le configurateur reste visible derrière le tiroir : la
+        croix ou un clic à côté suffisent à y revenir. Sur téléphone le tiroir
+        occupe tout l'écran, et la seule issue visible menait à la commande —
+        un client qui voulait ajouter un second article devait deviner la
+        croix, en haut.
+
+        Même geste que cette croix (closeCartDrawer) : le panier est conservé,
+        on rend simplement la main au design en cours.
+
+        Masqué par défaut, révélé par la requête média (conf-mobile.css) :
+        l'inverse laisserait le bouton apparaître sur ordinateur le temps que
+        la feuille de style charge.
+      {%- endcomment -%}
+      <button type="button" class="cd-continue-shopping" id="cd-continue-shopping"
+              onclick="closeCartDrawer()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Continuer mes achats
       </button>
     </div>
   </div>

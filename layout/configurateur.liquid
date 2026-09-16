@@ -221,6 +221,165 @@
         window.API_BASE = {{ api_setting | json }};
       {%- endif -%}
 
+      /* ── MODE MAINTENANCE DU CONFIGURATEUR ─────────────────────────────────
+
+         L'admin peut fermer le configurateur depuis son dashboard, sans
+         toucher au reste de la boutique : catalogue, panier et commandes déjà
+         composées continuent de fonctionner.
+
+         LA DÉCISION EST FORCÉMENT CÔTÉ CLIENT. Liquid est rendu par les
+         serveurs de Shopify, qui ne peuvent pas interroger une API externe
+         pendant le rendu : l'état ne peut donc être connu qu'après un `fetch`,
+         une fois la page servie.
+
+         D'où le VOILE : sans lui, le configurateur s'afficherait une fraction
+         de seconde avant d'être remplacé — le client verrait l'atelier
+         « clignoter » puis disparaître, ce qui ressemble à une panne. Le voile
+         est posé ici, dans le <head>, avant que quoi que ce soit ne soit
+         peint, et retiré dès la réponse.
+
+         EN CAS D'ÉCHEC, ON OUVRE. Un serveur injoignable, une coupure réseau
+         chez le visiteur, un délai dépassé : le configurateur s'affiche. Il
+         sait fonctionner sans le backend — les prix ont leur repli codé en dur
+         quelques lignes plus bas. Fermer sur un doute reviendrait à laisser une
+         panne réseau côté client couper la boutique. */
+      (function () {
+        var CLE_APERCU = 'conf_apercu_maintenance';
+        var DELAI_MAX = 2500;   // au-delà, on sert : le voile ne piège personne
+
+        /* APERÇU ADMIN — `?apercu=1` passe outre la maintenance.
+
+           Mémorisé en session : sans cela, il faudrait remettre le paramètre à
+           chaque page, et la navigation interne du configurateur le perdrait au
+           premier clic. Il s'efface à la fermeture de l'onglet, ce qui suffit :
+           c'est un outil de travail, pas un droit permanent. */
+        var apercu = false;
+        try {
+          var p = new URLSearchParams(window.location.search).get('apercu');
+          if (p === '1') { sessionStorage.setItem(CLE_APERCU, '1'); apercu = true; }
+          else if (p === '0') { sessionStorage.removeItem(CLE_APERCU); }
+          else { apercu = sessionStorage.getItem(CLE_APERCU) === '1'; }
+        } catch (e) { /* stockage indisponible : pas d'aperçu, on continue */ }
+
+        window.__apercuMaintenance = apercu;
+        if (apercu) return;   // aucun voile, aucun appel : on sert directement
+
+        /* Le voile est posé en STYLE, pas en élément : le <body> n'existe pas
+           encore à ce stade du <head>, et attendre sa création pour y greffer
+           un nœud laisserait justement passer le clignotement qu'on évite. */
+        var style = document.createElement('style');
+        style.id = 'conf-voile-maintenance';
+        style.textContent =
+          'html.conf-verif-maintenance body{visibility:hidden !important;}' +
+          'html.conf-verif-maintenance::before{content:"";position:fixed;' +
+          'inset:0;background:#fff;z-index:2147483647;}';
+        document.head.appendChild(style);
+        document.documentElement.classList.add('conf-verif-maintenance');
+
+        function lever() {
+          document.documentElement.classList.remove('conf-verif-maintenance');
+        }
+
+        /* Filet de sécurité : si la réponse tarde, on lève le voile et on sert.
+           Mieux vaut un configurateur ouvert à tort pendant une panne qu'un
+           écran blanc dont le client ne peut rien faire. */
+        var minuteur = setTimeout(lever, DELAI_MAX);
+
+        fetch(window.API_BASE + '/maintenance', { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            clearTimeout(minuteur);
+            if (d && d.ok && d.maintenance === true) {
+              /* On ne lève PAS le voile : la page de maintenance le remplace,
+                 et le configurateur n'apparaît jamais. */
+              window.afficherMaintenance();
+              return;
+            }
+            lever();
+          })
+          .catch(function () { clearTimeout(minuteur); lever(); });
+      })();
+
+      /* Remplace la page entière par l'écran de maintenance.
+
+         Exposée : elle sert au chargement (ci-dessus) ET au sondage périodique
+         (plus bas), qui fait basculer un onglet déjà ouvert sans rechargement.
+
+         Le document est REMPLACÉ, pas masqué : le configurateur continuerait
+         sinon de tourner derrière — minuteurs, appels réseau, sauvegardes en
+         session — pendant une fermeture censée le mettre à l'arrêt. */
+      window.afficherMaintenance = function () {
+        if (window.__maintenanceAffichee) return;
+        window.__maintenanceAffichee = true;
+
+        document.title = 'Maintenance — Massacre Officiel';
+
+        var css =
+          'html.conf-maintenance,html.conf-maintenance body{margin:0;padding:0;' +
+          'height:100%;background:#f7f7f8;visibility:visible !important;}' +
+          '.mt-wrap{min-height:100vh;display:flex;align-items:center;' +
+          'justify-content:center;padding:24px;box-sizing:border-box;' +
+          'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}' +
+          '.mt-box{max-width:520px;width:100%;background:#fff;border-radius:18px;' +
+          'padding:44px 38px 36px;text-align:center;' +
+          'box-shadow:0 20px 56px rgba(0,0,0,.10),0 0 0 1px rgba(0,0,0,.05);}' +
+          '.mt-ico{width:62px;height:62px;border-radius:50%;background:#f1f1f3;' +
+          'display:flex;align-items:center;justify-content:center;margin:0 auto 22px;' +
+          'color:#1a1a1a;}' +
+          '.mt-ico svg{width:30px;height:30px;}' +
+          '.mt-titre{font-size:22px;font-weight:800;color:#111;margin:0 0 12px;' +
+          'letter-spacing:-.01em;line-height:1.3;}' +
+          '.mt-txt{font-size:14.5px;color:#5a5a5a;line-height:1.62;margin:0 0 10px;}' +
+          '.mt-sign{font-size:14.5px;color:#5a5a5a;line-height:1.62;margin:18px 0 0;}' +
+          '.mt-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;' +
+          'margin-top:28px;}' +
+          '.mt-btn{display:inline-flex;align-items:center;justify-content:center;' +
+          'padding:12px 22px;border-radius:10px;font-size:13.5px;font-weight:700;' +
+          'text-decoration:none;transition:background .15s,border-color .15s;}' +
+          '.mt-primaire{background:#1a1a1a;color:#fff;}' +
+          '.mt-primaire:hover{background:#000;}' +
+          '.mt-sec{background:#fff;color:#1a1a1a;border:1.5px solid #e2e2e5;}' +
+          '.mt-sec:hover{border-color:#1a1a1a;}' +
+          '@media (max-width:520px){.mt-box{padding:34px 22px 28px;}' +
+          '.mt-titre{font-size:19px;}.mt-btn{width:100%;}}';
+
+        var html =
+          '<div class="mt-wrap"><div class="mt-box">' +
+            '<div class="mt-ico">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+              'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
+            '</div>' +
+            '<h1 class="mt-titre">Le configurateur est en maintenance</h1>' +
+            '<p class="mt-txt">Nous apportons quelques améliorations à votre ' +
+            'atelier de personnalisation. Il sera de nouveau accessible très ' +
+            'prochainement.</p>' +
+            '<p class="mt-txt">Le reste de la boutique reste ouvert, et votre ' +
+            'panier est conservé.</p>' +
+            '<p class="mt-sign">Merci de votre patience — et à très vite.</p>' +
+            '<div class="mt-actions">' +
+              '<a class="mt-btn mt-primaire" href="/">Retour à la boutique</a>' +
+              '<a class="mt-btn mt-sec" href="/pages/contact">Nous contacter</a>' +
+            '</div>' +
+          '</div></div>';
+
+        function poser() {
+          /* La classe remplace le voile : `visibility:visible !important` la
+             lève, sans quoi l'écran de maintenance hériterait du masquage posé
+             pendant la vérification. */
+          document.documentElement.classList.remove('conf-verif-maintenance');
+          document.documentElement.classList.add('conf-maintenance');
+
+          var s = document.createElement('style');
+          s.textContent = css;
+          document.head.appendChild(s);
+          document.body.innerHTML = html;
+        }
+
+        if (document.body) poser();
+        else document.addEventListener('DOMContentLoaded', poser);
+      };
+
       /* ── PRIX UNITAIRES (définis par l'admin) ──────────────────────────────
          Source de vérité : GET /api/pricing (dashboard admin -> BDD).
          Les valeurs ci-dessous ne sont qu'un REPLI, utilisé si le backend est
@@ -340,6 +499,28 @@
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) { window.appliquerPricing(d, false); })
             .catch(function () { /* réseau coupé : on retentera au tour suivant */ });
+
+          /* LE MODE MAINTENANCE SUIT LE MÊME RYTHME.
+
+             Greffé sur ce minuteur plutôt que sur un second : il tourne déjà,
+             il se suspend déjà quand l'onglet est caché, et un seul rythme est
+             plus simple à suivre que deux. Un client en pleine personnalisation
+             voit donc l'atelier fermer sous une minute, sans recharger.
+
+             L'aperçu admin est exempté, comme au chargement : celui qui
+             travaille sur le configurateur pendant la fermeture ne doit pas
+             s'en voir éjecté au bout d'une minute.
+
+             En cas d'échec, on ne fait rien : la session se poursuit. Fermer
+             sur une réponse manquante couperait le travail d'un client pour une
+             simple coupure réseau. */
+          if (window.__apercuMaintenance) return;
+          fetch(window.API_BASE + '/maintenance', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+              if (d && d.ok && d.maintenance === true) window.afficherMaintenance();
+            })
+            .catch(function () { /* on retentera au tour suivant */ });
         }
 
         function demarrer() {
@@ -942,6 +1123,14 @@
          que .conf-app-root retranche de sa hauteur (conf-styles.css). Sans
          cela le configurateur occupe 100vh et pousse le menu hors écran. -->
     <script src="{{ 'conf-shop-header.js' | asset_url }}" defer></script>
+    <!-- Visite guidée : bulles d'explication ancrées aux commandes.
+         EN TOUT DERNIER, pour la même raison que conf-a11y.js — elle mesure un
+         DOM déjà bâti. Elle attend de toute façon que l'interface se stabilise
+         avant de placer quoi que ce soit : conf-main-inline.js est chargé plus
+         tard encore, depuis la section, et c'est lui qui pose le mode.
+         Bureau seulement : sur téléphone, conf-mobile.js déplace les nœuds que
+         la visite désigne. -->
+    <script src="{{ 'conf-tour.js' | asset_url }}" defer></script>
   </head>
   {% comment %} Contenu de la page : `{% section 'configurateur' %}`, via le template. {% endcomment %}
   <body>

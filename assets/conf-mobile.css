@@ -1589,13 +1589,19 @@
   .mob-tq-sheet .rp-multi-btn { width: 100%; min-height: 48px; }
 
   /* Résumé de la répartition : sur téléphone la feuille occupe toute la
-     largeur, la contrainte des 252 px du panneau ne s'applique plus et 11 px
-     y serait inutilement petit. */
+     largeur, la contrainte des 252 px du panneau ne s'applique plus et le
+     corps du bureau y serait inutilement petit.
+
+     Pas de `padding` latéral : le bloc n'est plus un encadré mais une liste,
+     alignée sur les contrôles au-dessus d'elle. */
   .mob-tq-sheet .rp-repartition {
-    font-size: 13px;
-    padding: 9px 11px;
-    margin-top: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
   }
+  .mob-tq-sheet .rp-rep-taille,
+  .mob-tq-sheet .rp-rep-qte,
+  .mob-tq-sheet .rp-rep-total { font-size: 14px; }
+  .mob-tq-sheet .rp-rep-ligne { padding: 5px 0; }
 
   /* ── FEUILLE « QUANTITÉ » — coins, drapeaux, patchs ──────────────────
      Ces produits n'ont pas de taille : leur champ de quantité, resté dans le
@@ -2943,6 +2949,30 @@
     opacity: .38;
     pointer-events: none;
   }
+
+  /* ═════════════════════ TIROIR PANIER SUR TÉLÉPHONE ═════════════════════ */
+
+  /* RETOUR AU CONFIGURATEUR — révélé ici seulement.
+
+     Sur grand écran, le configurateur reste visible derrière le tiroir : la
+     croix ou un clic à côté suffisent. Sur téléphone, le tiroir occupe tout
+     l'écran et la seule issue visible menait à la commande — pour ajouter un
+     second article, il fallait deviner la croix, en haut.
+
+     `flex` et non `block` : le bouton aligne une flèche et son libellé
+     (conf-styles.css les centre déjà en flex). */
+  .cd-continue-shopping { display: flex; }
+
+  /* LE DÉLAI DE PRODUCTION SORT DU TIROIR.
+
+     Il reste affiché sur ordinateur, et surtout dans le récapitulatif, où le
+     client le lit au moment de composer sa commande. Dans un tiroir de
+     téléphone, il repoussait les deux boutons d'action vers le bas d'un écran
+     déjà court, pour une information que le client a déjà vue.
+
+     Masqué, non supprimé : `renderCartDrawer` continue de le remplir, et il
+     reparaît tel quel dès que la fenêtre s'élargit. */
+  #cd-delai { display: none !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

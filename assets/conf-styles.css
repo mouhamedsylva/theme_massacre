@@ -1815,14 +1815,41 @@
     transition: background .2s;
   }
   .cd-checkout:hover { background: #333; }
-  .cd-continue {
-    width: 100%; padding: 10px;
-    background: #fff; color: var(--black);
-    border: 1.5px solid var(--border); border-radius: 8px;
-    font-size: 12px; font-weight: 600; cursor: pointer;
-    margin-top: 8px; transition: border-color .15s;
+  /* « Continuer mes achats » — retour au configurateur depuis le tiroir.
+
+     MASQUÉ PAR DÉFAUT, révélé sur téléphone (conf-mobile.css) : sur grand
+     écran le configurateur reste visible derrière le tiroir, la croix suffit.
+
+     Ce sens (masquer puis révéler) et non l'inverse : le bouton ne doit pas
+     apparaître sur ordinateur le temps que la feuille mobile charge.
+
+     Style SECONDAIRE — contour, pas de fond plein : il ne doit pas concurrencer
+     « Continuer », qui mène à la commande. La hiérarchie se lit d'un coup
+     d'œil.
+
+     Reprend le bloc de l'ancienne classe `.cd-continue`, qui n'était utilisée
+     nulle part : un style orphelin de plus n'aurait servi personne. */
+  .cd-continue-shopping {
+    display: none;
+    width: 100%;
+    padding: 12px;
+    background: #fff;
+    color: var(--black);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: border-color .15s, background .15s;
   }
-  .cd-continue:hover { border-color: var(--black); }
+  .cd-continue-shopping:hover {
+    border-color: var(--black);
+    background: var(--bg-light);
+  }
 
 
   /* ══════════════════════════ MOBILE (≤ 768px) ══════════════════════════
@@ -3831,28 +3858,59 @@
 
    `tabular-nums` : les chiffres gardent la même chasse, donc la ligne ne danse
    pas quand le client passe de « M × 5 » à « M × 12 ». */
+/* Resume de la repartition validee, sous le bouton qui la produit.
+
+   MEME PRESENTATION QUE LE TIROIR DU PANIER (.cd-grp-taille) : une ligne par
+   taille, le nom a gauche, la quantite a droite. Le client verifie la meme
+   chose aux deux endroits, les deux doivent se lire pareil.
+
+   L encadre vert d origine entassait tout sur une seule ligne : sur huit
+   tailles, un pave illisible qui ne ressemblait a rien d autre dans
+   l interface. On garde ici la sobriete du tiroir, avec un simple filet en
+   haut pour rattacher le bloc au bouton.
+
+   max-width + box-sizing : imperatif dans cette colonne de 252 px, sans quoi
+   une ligne longue elargit son conteneur et pousse le prix hors de vue. */
 .rp-repartition {
   max-width: 100%;
   box-sizing: border-box;
-  margin: 6px 0 0;
-  padding: 7px 9px;
-  border: 1px solid #bbf7d0;
-  border-radius: 7px;
-  background: #f0fdf4;
-  color: #166534;
-  font-size: 11px;
-  line-height: 1.45;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
-  /* Une taille au nom inhabituel ne doit pas déborder. */
+}
+.rp-rep-ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.rp-rep-taille {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--black);
+  /* Largeur fixe : les tailles s alignent en colonne, les quantites aussi. */
+  min-width: 38px;
   overflow-wrap: anywhere;
 }
-.rp-repartition-detail { font-weight: 600; }
-/* Le total se lit d'un coup d'œil : c'est le chiffre que le client vérifie. */
-.rp-repartition-total {
-  margin-top: 3px;
-  padding-top: 3px;
-  border-top: 1px solid #bbf7d0;
+.rp-rep-qte {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Le total se lit d un coup d oeil : c est le chiffre que le client verifie. */
+.rp-rep-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
   font-weight: 700;
+  color: var(--black);
 }
 
 /* ── RÉPARTITION PAR TAILLES — confinée à la barre latérale ──

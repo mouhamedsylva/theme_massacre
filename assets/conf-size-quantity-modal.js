@@ -97,6 +97,55 @@
   /**
    * Initialise les quantités à 0
    */
+  /**
+   * Reporte sur la répartition ce que le client a réglé dans le PANNEAU depuis
+   * la dernière confirmation.
+   *
+   * LE PANNEAU EST UN COUPLE : une quantité SUR une taille. Les deux comptent —
+   * passer « M · 4 » à « XL · 4 » est un changement, même à quantité égale.
+   *
+   * ⚠️ APPELÉE À CHAQUE OUVERTURE, y compris quand une saisie est en cours.
+   *
+   * Elle vivait auparavant dans `initSizeQuantities`, qui ne tourne QUE si
+   * `saisieEnCours` est faux. Un premier geste au panneau levant ce drapeau, le
+   * second n'était plus jamais détecté : le client passait XXL de 4 à 6 (repris,
+   * car le drapeau était encore bas), puis changeait XXL en XS — et rien ne
+   * bougeait.
+   *
+   * Sortie de cette fonction, elle s'applique quel que soit l'état de la
+   * saisie : le panneau vaut toujours consigne, comme avant toute confirmation.
+   */
+  function appliquerConsigneDuPanneau() {
+    if (qteAuMomentDeLaConfirmation === null) return;
+
+    const champ = document.getElementById('textile-qty-input');
+    const qteActuelle = champ ? (parseInt(champ.value, 10) || 0) : 0;
+    if (qteActuelle <= 0) return;
+
+    const sgSrc = document.querySelector('.sg:not(.cv-opt-clone)');
+    const btn = (sgSrc || document).querySelector('.sb.on:not(.sb-group)');
+    const taille = btn ? btn.textContent.trim() : '';
+
+    const tailleChangee = taille && taille !== tailleAuMomentDeLaConfirmation;
+    const qteChangee = qteActuelle !== qteAuMomentDeLaConfirmation;
+    if (!qteChangee && !tailleChangee) return;
+
+    if (taille && sizeQuantities.hasOwnProperty(taille)) {
+      sizeQuantities[taille] = qteActuelle;
+    }
+
+    /* Les repères avancent : sans cela, la même consigne serait réappliquée à
+       chaque ouverture de la modale. */
+    qteAuMomentDeLaConfirmation = qteActuelle;
+    tailleAuMomentDeLaConfirmation = taille || tailleAuMomentDeLaConfirmation;
+
+    /* L'APPORT N'EST PAS ENCORE DANS LA LISTE VALIDÉE — il ne le sera qu'à la
+       confirmation. Sans ce drapeau, la réouverture SUIVANTE recalculerait tout
+       depuis cette liste et les pièces ajoutées disparaîtraient : le client les
+       voyait, fermait, rouvrait, et elles n'étaient plus là. */
+    saisieEnCours = true;
+  }
+
   function initSizeQuantities() {
     const sizes = getAvailableSizes();
     sizeQuantities = {};
@@ -152,46 +201,7 @@
 
          Le geste est le même des deux côtés : régler la quantité de cette
          taille. Les deux affichages doivent donc dire la même chose. */
-      if (qteAuMomentDeLaConfirmation !== null) {
-        const champ = document.getElementById('textile-qty-input');
-        const qteActuelle = champ ? (parseInt(champ.value, 10) || 0) : 0;
-
-        const sgSrcMaj = document.querySelector('.sg:not(.cv-opt-clone)');
-        const btnMaj = (sgSrcMaj || document).querySelector('.sb.on:not(.sb-group)');
-        const tailleMaj = btnMaj ? btnMaj.textContent.trim() : '';
-
-        /* LE PANNEAU EST UN COUPLE : une quantité SUR une taille.
-
-           On ne regardait que la quantité. Passer « M · 4 » à « XL · 4 » ne
-           changeait donc rien à ses yeux, et la modale rouvrait sur sa liste
-           validée en ignorant le XL que le client venait de désigner — alors
-           que le même geste, avant toute confirmation, était bien repris.
-
-           Les deux repères rendent au panneau le comportement qu'il a avant
-           confirmation : ce qui y est affiché vaut toujours consigne. */
-        const tailleChangee = tailleMaj && tailleMaj !== tailleAuMomentDeLaConfirmation;
-        const qteChangee = qteActuelle !== qteAuMomentDeLaConfirmation;
-
-        if ((qteChangee || tailleChangee) && qteActuelle > 0) {
-          if (tailleMaj && sizeQuantities.hasOwnProperty(tailleMaj)) {
-            sizeQuantities[tailleMaj] = qteActuelle;
-          }
-          /* Les repères avancent : sans cela, la même consigne serait
-             réappliquée à chaque ouverture de la modale. */
-          qteAuMomentDeLaConfirmation = qteActuelle;
-          tailleAuMomentDeLaConfirmation = tailleMaj || tailleAuMomentDeLaConfirmation;
-
-          /* L'APPORT N'EST PAS ENCORE DANS LA LISTE VALIDÉE — il ne le sera
-             qu'à la confirmation. Sans ce drapeau, la réouverture SUIVANTE
-             recalculerait tout depuis cette liste et les pièces ajoutées
-             disparaîtraient : le client les voyait, fermait, rouvrait, et
-             elles n'étaient plus là.
-
-             `saisieEnCours` fige l'état en mémoire, exactement comme une
-             saisie manuelle aux compteurs. */
-          saisieEnCours = true;
-        }
-      }
+      appliquerConsigneDuPanneau();
       return;
     }
 
@@ -423,25 +433,44 @@
     });
     if (!tailles.length) { hote.style.display = 'none'; return; }
 
-    /* « M × 5 » — la taille d'abord, comme le client la lit, et non « 5×M »
-       qui est la convention de l'étiquette atelier. Espaces insécables : dans
-       une colonne de 252 px, « M × 5 » ne doit pas se couper en fin de ligne.
+    /* createElement plutot qu innerHTML : les noms de tailles viennent de la
+       liste validee, mais rien ne justifie d interpreter du HTML la ou seul
+       du texte est attendu. */
+    /* UNE LIGNE PAR TAILLE, comme le tiroir du panier : le nom à gauche, la
+       quantité à droite (.cd-grp-taille, conf-main-inline.js).
 
-       textContent sur deux nœuds plutôt qu'innerHTML : les noms de tailles
-       viennent de la liste validée, mais rien ne justifie d'interpréter du
-       HTML là où seul du texte est attendu. */
-    var detail = tailles.map(function (t) {
-      return t + ' × ' + parTaille[t];
-    }).join(', ');
-
+       La version précédente entassait tout sur une seule ligne dans un encadré
+       vert. Sur huit tailles, elle se repliait en un pavé difficile à
+       parcourir, et ne ressemblait à rien d'autre dans l'interface. Le client
+       vérifie la même chose aux deux endroits : les deux doivent se lire
+       pareil. */
     hote.textContent = '';
-    var ligneDetail = document.createElement('div');
-    ligneDetail.className = 'rp-repartition-detail';
-    ligneDetail.textContent = detail;
+
+    tailles.forEach(function (t) {
+      var ligne = document.createElement('div');
+      ligne.className = 'rp-rep-ligne';
+
+      var nom = document.createElement('span');
+      nom.className = 'rp-rep-taille';
+      nom.textContent = t;
+
+      var qte = document.createElement('span');
+      qte.className = 'rp-rep-qte';
+      qte.textContent = '×' + parTaille[t];
+
+      ligne.appendChild(nom);
+      ligne.appendChild(qte);
+      hote.appendChild(ligne);
+    });
+
     var ligneTotal = document.createElement('div');
-    ligneTotal.className = 'rp-repartition-total';
-    ligneTotal.textContent = 'Total : ' + total + ' pièce' + (total > 1 ? 's' : '');
-    hote.appendChild(ligneDetail);
+    ligneTotal.className = 'rp-rep-total';
+    var totalLbl = document.createElement('span');
+    totalLbl.textContent = 'Total';
+    var totalVal = document.createElement('span');
+    totalVal.textContent = total + ' pièce' + (total > 1 ? 's' : '');
+    ligneTotal.appendChild(totalLbl);
+    ligneTotal.appendChild(totalVal);
     hote.appendChild(ligneTotal);
     hote.style.display = '';
   }
@@ -472,6 +501,12 @@
        `saisieEnCours` a été remis à plat au même moment. */
     if (!saisieEnCours) {
       initSizeQuantities();
+    } else {
+      /* SAISIE EN COURS : on ne recalcule pas, mais on écoute quand même le
+         panneau. Sans cet appel, un second réglage y était perdu — le premier
+         ayant levé `saisieEnCours`, plus rien ne lisait la taille ni la
+         quantité affichées. */
+      appliquerConsigneDuPanneau();
     }
     renderSizeList();
 
