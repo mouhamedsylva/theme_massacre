@@ -16,6 +16,7 @@
 
   var CLS = 'patch-editing';
 
+
   function canvasEl() { return document.getElementById('coins-canvas'); }
   function logoEl() { return document.getElementById('patch-logo'); }
 
@@ -90,6 +91,16 @@
   function appliquerAjustement(boite, image, largeur) {
     var w = parseFloat(largeur);
     var reduit = !!w && w < 100;
+
+    /* La doublure suit l'état du design, qu'elle recopie.
+
+       UNE SEULE CAUSE DE RÉDUCTION : une largeur descendue sous 100 %. Le cas
+       du visuel très allongé, qui se traitait autrefois ici en mesurant le
+       bitmap, n'existe plus — il est normalisé au format de la zone dès l'upload
+       (`normaliserVisuelPourZone`, conf-main-inline.js). Ce qui arrive jusqu'ici
+       a donc des proportions raisonnables, et la largeur suffit à décider. */
+    var logo = logoEl();
+    if (logo && logo.classList.contains('is-reduced')) reduit = true;
 
     /* `min-height: 100%` fait couvrir la forme, y compris le blason qui est
        plus haut que large. Réduit, il empêcherait la boîte de descendre. */

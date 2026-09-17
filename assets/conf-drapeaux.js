@@ -173,6 +173,11 @@ function preloadFlagColors() {
 /* `quandPrete` : rappelé quand l'image du RECTO porte sa nouvelle source.
    Les appelants qui changent la GÉOMÉTRIE du drapeau (orientation, anneaux)
    s'en servent pour recaler le logo au bon moment — voir swapFlagImage. */
+/* Jeton du dernier échange lancé — voir `quandToutesPretes` plus bas. Porté par
+   la fonction elle-même : un seul drapeau est édité à la fois, et une variable
+   de module de plus n'apporterait rien. */
+refreshFlagImages._jeton = 0;
+
 function refreshFlagImages(quandPrete) {
   var A = window.ASSET_URLS || {};
   var URLS = window.FLAG_IMAGE_URLS || {};
@@ -223,11 +228,51 @@ function refreshFlagImages(quandPrete) {
      seul moment où la nouvelle géométrie du drapeau est mesurable, donc le seul
      où `clampFlagLogo` peut borner juste.
 
-     Branché sur le RECTO : c'est la face affichée, celle dont les dimensions
-     servent au recalage. Le verso suit la même transformation. */
-  if (baseRecto && recto) swapFlagImage(baseRecto, recto, quandPrete);
-  else if (typeof quandPrete === 'function') quandPrete();   // rien à échanger
-  if (baseVerso && verso) swapFlagImage(baseVerso, verso);
+     ON ATTEND LES DEUX FACES, PAS SEULEMENT LE RECTO.
+
+     Le rappel n'était branché que sur le recto, au motif que « le verso suit
+     la même transformation ». C'était faux : les deux images sont deux
+     fichiers distincts, préchargés en parallèle, et rien ne garantit qu'ils
+     arrivent ensemble. Le verso est souvent le second.
+
+     Le recalage partait donc dès le recto prêt, et mesurait un verso encore à
+     l'ancienne image — ou en cours de remplacement. Sa zone imprimable restait
+     figée sur une géométrie périmée : en basculant plusieurs fois entre
+     paysage et portrait, le client voyait le cadre du verso décalé vers le
+     haut et trop court, alors que le recto était juste.
+
+     On compte donc les faces réellement échangées et on ne signale qu'à la
+     dernière. Le compteur part à zéro et chaque échange l'incrémente : que le
+     verso réponde avant ou après le recto ne change rien. */
+  var attendues = 0;
+  if (baseRecto && recto) attendues++;
+  if (baseVerso && verso) attendues++;
+
+  /* CHAQUE APPEL ANNULE LE PRÉCÉDENT.
+
+     Basculer plusieurs fois entre paysage et portrait lance plusieurs échanges
+     qui se chevauchent : le préchargement dure un aller-retour réseau, et rien
+     n'oblige les réponses à revenir dans l'ordre. Une réponse tardive d'un
+     échange périmé recalculait alors la zone sur une orientation que le client
+     avait déjà quittée.
+
+     Le jeton retient le dernier appel. Les rappels d'un échange dépassé
+     trouvent un jeton différent et se taisent. */
+  var jeton = ++refreshFlagImages._jeton;
+
+  var restantes = attendues;
+  var quandToutesPretes = function () {
+    if (jeton !== refreshFlagImages._jeton) return;   // échange dépassé
+    restantes--;
+    if (restantes <= 0 && typeof quandPrete === 'function') quandPrete();
+  };
+
+  if (!attendues) {
+    if (typeof quandPrete === 'function') quandPrete();   // rien à échanger
+  } else {
+    if (baseRecto && recto) swapFlagImage(baseRecto, recto, quandToutesPretes);
+    if (baseVerso && verso) swapFlagImage(baseVerso, verso, quandToutesPretes);
+  }
 
   /* Réapplique le format (proportions) après le changement d'image, PUIS
      recale la zone imprimable.
@@ -473,7 +518,17 @@ function swapFlagImage(imgEl, newSrc, quandPrete) {
 
   preload.onload = function () {
     var parent = imgEl.parentElement;
-    if (!parent) { imgEl.src = newSrc; return; }
+    if (!parent) {
+      /* Pas de parent — l'élément a été détaché entre-temps (changement de
+         produit pendant le préchargement). On bascule sans fondu.
+
+         ET ON SIGNALE : ce chemin sortait en silence. L'appelant attend un
+         rappel par face échangée ; l'oublier ici laissait son compteur
+         suspendu, et le recalage de la zone imprimable n'avait jamais lieu. */
+      imgEl.src = newSrc;
+      requestAnimationFrame(signaler);
+      return;
+    }
 
     // Calque de transition : copie exacte de l'image, superposée à l'originale.
     var ghost = imgEl.cloneNode(false);

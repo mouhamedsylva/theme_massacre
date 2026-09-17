@@ -85,12 +85,19 @@
    * C'est ce qui rend l'aller-retour sous et au-dessus de 100 % réversible par
    * construction : rien à reconstruire, rien qui puisse rester à moitié posé.
    *
+   * Une version antérieure y avait greffé une seconde cause — un visuel trop
+   * allongé pour couvrir — portée par un attribut. C'était traiter en aval un
+   * problème de source : ces visuels sont désormais normalisés en carré dès
+   * l'upload (`normaliserVisuelPourZone`, conf-main-inline.js), et cette fonction
+   * retrouve son entrée unique.
+   *
    * Exposée : `syncCoinCrop` et `syncFlagCrop` la rappellent, la largeur pouvant
    * aussi changer par leur chemin.
    */
   function majReduction(el) {
     if (!el) return;
     var w = parseFloat(el.style.width);
+
     el.classList.toggle('is-reduced', !!w && w < 100);
   }
   window.majReduction = majReduction;

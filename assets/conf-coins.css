@@ -1576,12 +1576,49 @@
   background: transparent;
 }
 
+/* LE BLASON EST DÉCOUPÉ PAR UN MASQUE, QU'`overflow` NE LÈVE PAS.
+
+   Les trois autres formes doivent leur silhouette à un `border-radius` :
+   `overflow: visible` suffit à laisser reparaître ce qui déborde. Le blason,
+   lui, tient à un masque SVG — et un masque ignore `overflow`. L'image restait
+   donc enfermée dans l'écu.
+
+   Concrètement, le client voyait son visuel bouger DANS la forme sans jamais
+   voir ce qu'il coupait, là où le carré lui montre l'image entière en
+   transparence. Recadrer à l'aveugle est précisément ce que ce mode d'édition
+   existe pour éviter.
+
+   On retire donc le masque le temps de l'édition. La découpe reste visible :
+   c'est la doublure (.patch-crop-preview, plus bas) qui la porte, elle, avec
+   son propre masque. */
+#coins-canvas.patch-editing.shape-blason .patch-body {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 /* L'image ENTIÈRE est estompée : le hors-champ devient un simple repère,
    discret, pendant que la silhouette (voir .patch-safe-zone ci-dessous)
    marque ce qui sera réellement imprimé. */
 #coins-canvas.patch-editing .patch-logo img {
   opacity: .35;
 }
+
+/* LE MODE D'AJUSTEMENT NE CHANGE PLUS À L'ÉDITION.
+
+   Une version de ce fichier forçait ici `contain` pour que le repère estompé
+   montre bien l'image entière. L'intention était juste, le remède mal placé :
+   le design changeait d'aspect au moment même où le client le sélectionnait,
+   et ce qu'il recadrait n'était plus ce qu'il voyait au repos.
+
+   La cause tenait bien plus en amont — un visuel très allongé était couvert de
+   force, donc agrandi hors de toute proportion. Elle est traitée à la SOURCE :
+   un tel visuel est recomposé en image CARRÉE dès l'upload, le logo centré sur
+   du transparent (`normaliserVisuelPourZone`, conf-main-inline.js). Ce qui arrive
+   jusqu'ici a donc des proportions raisonnables, et couvrir redevient le bon
+   comportement — du repos jusqu'à l'édition.
+
+   L'édition ne touche donc plus qu'à ce qui la regarde : l'opacité, le rognage
+   et la doublure. */
 
 /* Doublure rognée à la forme : elle restitue la partie imprimée, nette.
    Le contraste vient de l'écart d'opacité (0,35 contre 1) — la zone
@@ -1611,11 +1648,49 @@
 .shape-carre .patch-crop-preview { border-radius: 6%; }
 .shape-rectangle .patch-crop-preview { border-radius: 4%; }
 
+/* LE BLASON N'A PAS DE RAYON : il est découpé par un MASQUE SVG.
+
+   Les trois formes ci-dessus se décrivent par un `border-radius`, que la
+   doublure pouvait donc recopier. Le blason, lui, tient à un masque
+   (.shape-blason .patch-body, plus haut) — la doublure n'en héritait pas et
+   restait rectangulaire.
+
+   Conséquence à l'écran : en sélectionnant l'image sur un blason, le client ne
+   voyait ni la découpe ni son contour. Là où le rectangle montre nettement ce
+   qui sera imprimé, le blason ne montrait rien — il semblait que la sélection
+   n'avait pas pris.
+
+   Le tracé est RECOPIÉ à l'identique de .patch-body : deux expressions de la
+   même silhouette, qui doivent être modifiées ensemble. */
+.shape-blason .patch-crop-preview {
+  border-radius: 0;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0 L100 0 L100 40 C100 63 83 84 50 100 C17 84 0 63 0 40 Z' fill='black'/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='M0 0 L100 0 L100 40 C100 63 83 84 50 100 C17 84 0 63 0 40 Z' fill='black'/></svg>");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
 /* Contour de la découpe : trait net sur la silhouette, pour voir SANS
    ambiguïté où l'image sera coupée. */
 #coins-canvas.patch-editing .patch-crop-preview {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .9),
               0 0 0 3px rgba(26, 26, 26, .55);
+}
+
+/* SUR LE BLASON, LE CONTOUR RENTRE À L'INTÉRIEUR.
+
+   Le trait ci-dessus est une ombre portée, donc peinte HORS de la boîte. Le
+   masque du blason rogne tout ce qui dépasse : appliqué tel quel, le contour
+   aurait purement disparu, et la doublure aurait flotté sans bord visible.
+
+   Un `inset` est peint DANS la boîte, il survit donc au masque et suit la
+   courbe de l'écu. Le blanc passe devant le sombre — l'ordre inverse de
+   l'ombre extérieure, puisqu'on dessine cette fois vers l'intérieur. */
+#coins-canvas.patch-editing.shape-blason .patch-crop-preview {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .9),
+              inset 0 0 0 4px rgba(26, 26, 26, .45);
 }
 
 /* Cadre de l'image en cours d'édition : il matérialise ses bords réels,
@@ -1625,6 +1700,7 @@
   outline-offset: 0;
   z-index: 5;   /* SOUS la doublure (6) : la zone imprimée reste nette */
 }
+
 
 /* ── Poignées : JAMAIS, même en édition ──
    Les quatre poignées d'angle ont été retirées : le bouton bleu ⤢

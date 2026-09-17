@@ -8861,6 +8861,44 @@
                          'ses bords transparents.', e);
             return choix;
           });
+        }).then(function (choix) {
+          /* ═══ NORMALISATION — PATCHS, COINS ET DRAPEAUX ═════════════════
+
+             Ces trois produits ont en commun que le design COUVRE leur zone :
+             il est agrandi jusqu'à la remplir, le surplus étant rogné. Un
+             visuel très allongé y devient illisible — voir
+             `normaliserVisuelPourZone`.
+
+             On a d'abord cru que seul le patch souffrait, sa forme étant
+             fermée et carrée. C'était faux : sur un drapeau paysage, un logo
+             en 6,5:1 n'est visible qu'à 23 %, et à 9 % en portrait. La zone
+             allongée atténue le défaut, elle ne le supprime pas.
+
+             CHACUN VISE LE FORMAT DE SA ZONE, pas un carré uniforme : le patch
+             et le coin sont des formes à proportions égales, le drapeau un
+             rectangle qui change d'orientation. Normaliser un drapeau en carré
+             y laisserait de larges bandes vides — on corrigerait un excès par
+             un gâchis.
+
+             LES TEXTILES SONT EXCLUS, et c'est la seule exclusion : ils posent
+             le design à 70 % de la zone en « contenir », donc toujours entier.
+             Le défaut n'y existe pas, et la transformation coûterait un
+             réencodage pour rien.
+
+             LA DÉCISION EST ICI, PAS DANS LA FONCTION : celle-ci reste une
+             transformation d'image, ignorante des produits. Quelle zone a quel
+             format appartient à l'appelant.
+
+             MÊME RÈGLE QUE LE RECADRAGE CI-DESSUS EN CAS D'ÉCHEC : c'est un
+             confort, jamais le travail du client. */
+          var zonesCouvrantes = ['c', 'coin-recto', 'coin-verso',
+                                 'flag-recto', 'flag-verso'];
+          if (zonesCouvrantes.indexOf(zone) === -1) return choix;
+          return normaliserVisuelPourZone(choix, ratioZone(zone)).catch(function (e) {
+            console.warn('Normalisation échouée : le visuel garde ses ' +
+                         'proportions d\'origine.', e);
+            return choix;
+          });
         }).then(function (src) {
           /* Applique l'image dans l'interface EN PREMIER, en pleine résolution :
              l'aperçu reste instantané et net.
@@ -9098,6 +9136,205 @@
               ? out.toDataURL('image/png')
               : out.toDataURL('image/jpeg', 0.92));
           } catch (e) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = function () { resolve(dataUrl); };
+        img.src = dataUrl;
+      });
+    }
+
+    /* ═══ NORMALISATION D'UN VISUEL TRÈS ALLONGÉ ═══════════════════
+
+       Un patch est une forme FERMÉE — carré, rond, blason — et son design la
+       COUVRE : l'image est agrandie jusqu'à remplir les deux axes, le surplus
+       étant rogné par la silhouette. C'est le bon comportement pour l'immense
+       majorité des visuels.
+
+       Il devient absurde sur un bandeau. Un lettrage 4308×666 — une signature,
+       un nom d'association — doit grandir six fois et demie pour couvrir la
+       hauteur d'un carré : il n'en reste que trois lettres. Le client voyait
+       son logo correct à l'upload, puis « zoomé » dès qu'il le sélectionnait.
+
+       CINQ CORRECTIFS ONT ÉCHOUÉ À TRAITER CELA EN AVAL, et pour une raison de
+       fond : le mode d'ajustement est recalculé par une demi-douzaine de
+       chemins — `majReduction` depuis cinq appelants, la doublure d'édition qui
+       écrit en style inline, `capturePatchDesign` qui rebascule sur la largeur.
+       Toute exception posée quelque part était effacée ailleurs.
+
+       ON SUPPRIME DONC L'EXCEPTION AU LIEU DE LA PROPAGER. Le visuel est
+       recomposé ICI, une fois, en une image CARRÉE : le bandeau centré sur du
+       transparent. Tout ce qui suit reçoit un ratio de 1,0 — couvrir et contenir
+       y donnent le MÊME résultat, et il n'y a plus rien à décider.
+
+       CELA RÉPARE AUSSI UNE DIVERGENCE SILENCIEUSE. `capturePatchDesign`, qui
+       produit la PLANCHE D'ATELIER, bascule sur la largeur inline tandis que
+       l'écran basculait sur `is-reduced` : un visuel très allongé était donc
+       affiché entier au client et ZOOMÉ sur la planche qui part en production.
+       Avec une source carrée, les deux convergent par construction.
+
+       FOND TRANSPARENT, JAMAIS LA COULEUR DU PATCH. `selectPatchColor` ne
+       retouche jamais le logo : cuire une couleur ici laisserait un rectangle
+       de l'ancienne teinte dès que le client en changerait, définitivement.
+       La couleur reste au patch, le logo reste au logo.
+
+       LE CLIENT N'EST PAS ENFERMÉ : le carré obtenu se déplace et s'agrandit
+       comme n'importe quel design.
+
+       @param {string} dataUrl - image d'entrée
+       @returns {Promise<string>} le PNG carré, ou LA MÊME RÉFÉRENCE si rien
+                n'a été transformé. Cette identité est un CONTRAT : `doUpload`
+                teste `src === original` pour décider s'il peut envoyer le
+                fichier d'origine plutôt qu'un réencodage. */
+
+    /* Au-delà de ce rapport, couvrir une forme fermée agrandit le visuel hors
+       de toute proportion.
+
+       2,2 et non un chiffre rond : un visuel 2:1 — le plus large des formats
+       courants — couvre encore un carré en n'en perdant que la moitié, ce qui
+       reste lisible. Au-delà, la part rognée dépasse ce que le client peut
+       vouloir.
+
+       NE PAS LE BAISSER : la transformation n'est pas réversible. Le bitmap est
+       recomposé, et les pixels utiles ne représentent plus que `1/r` de
+       l'image. Un seuil trop bas dégraderait des visuels qui n'avaient aucun
+       problème.
+
+       Le seuil vaut DANS LES DEUX SENS : une bannière verticale pose le même
+       problème, à 90 degrés près. */
+    var RATIO_MAX_VISUEL = 2.2;
+
+    /* Grand côté de l'image produite, en pixels — BORNÉ, et pour une raison vécue.
+
+       Un canvas est alloué en RGBA, quatre octets par pixel. Reprendre le grand
+       côté d'un 4308×666 donnerait un carré de 4308, soit 74 Mo de buffer. Or
+       Safari iOS refuse déjà `getImageData` sur 48 Mo — l'incident est
+       documenté dans `rognerBordsTransparents` ci-dessus.
+
+       1400 parce que c'est la borne que `compressForStorage` applique ensuite
+       de toute façon : produire plus grand serait défait au maillon suivant.
+       C'est aussi 40 % de plus que les 1000 px sur lesquels
+       `capturePatchDesign` compose la planche d'atelier — la marge suffit à ne
+       pas dégrader le rendu imprimé.
+
+       Un carré de 1400 coûte 7,5 Mo, sans commune mesure avec l'incident, et
+       sans `getImageData` sur ce chemin : on ne fait que dessiner. */
+    var COTE_MAX = 1400;
+
+    /* Format de la zone de chaque produit, en largeur/hauteur.
+
+       LA CIBLE N'EST PAS TOUJOURS UN CARRÉ. Le patch et le coin sont des formes
+       fermées à proportions égales — carré, rond, disque. Le drapeau, lui, est
+       franchement rectangulaire, et son orientation change sous les doigts du
+       client.
+
+       Normaliser un drapeau en carré laisserait de larges bandes vides de
+       chaque côté : on corrigerait un agrandissement excessif par un gâchis de
+       surface. On vise donc le format RÉEL de la zone — le logo occupe alors
+       toute la largeur utile, sans vide inutile.
+
+       Le drapeau est lu à l'exécution : `window.__flagOrientation` bascule
+       entre paysage et portrait, et les ratios reprennent ceux du canvas
+       (`.flag-wave`, conf-drapeaux.css). */
+    function ratioZone(zone) {
+      if (zone === 'flag-recto' || zone === 'flag-verso') {
+        var portrait = (window.__flagOrientation === 'portrait');
+        var taille = window.__flagSize || '90x150';
+        if (taille === '100x100') return 1;
+        if (taille === 'custom') return portrait ? (1 / 1.6) : 1.9;
+        return portrait ? (1 / 1.55) : 1.55;
+      }
+      /* Patch et coin : formes fermées à proportions égales. */
+      return 1;
+    }
+
+    function normaliserVisuelPourZone(dataUrl, ratioCible) {
+      return new Promise(function (resolve) {
+        if (typeof dataUrl !== 'string' || !/^data:image\//i.test(dataUrl)) {
+          resolve(dataUrl);
+          return;
+        }
+
+        /* Défaut carré : c'était la seule cible à l'origine, et elle reste
+           celle du patch et du coin. */
+        var rz = (typeof ratioCible === 'number' && ratioCible > 0) ? ratioCible : 1;
+
+        /* SVG : on sort. Il est VECTORIEL — il s'adapte déjà à n'importe quelle
+           boîte sans perte, et le rastériser à 1400 px le dégraderait.
+
+           Surtout, ses dimensions ne sont pas mesurables de façon fiable : un
+           SVG n'ayant qu'un `viewBox` rend `naturalWidth` à 0 sur certains
+           navigateurs et 300×150 sur d'autres. On déciderait sur une valeur
+           inventée. `compressForStorage` et `reduireFort` sortent déjà par
+           anticipation pour ce format. */
+        if (/^data:image\/svg\+xml/i.test(dataUrl)) {
+          resolve(dataUrl);
+          return;
+        }
+
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth, h = img.naturalHeight;
+            /* Dimensions inconnues : on ne décide rien sur une mesure absente.
+               Couvrir reste le comportement attendu du plus grand nombre. */
+            if (!w || !h) { resolve(dataUrl); return; }
+
+            /* ON COMPARE À LA ZONE, PAS AU CARRÉ.
+
+               Ce qui compte n'est pas que le visuel soit allongé dans l'absolu,
+               mais qu'il le soit PAR RAPPORT À LA ZONE qui doit l'accueillir.
+               Un bandeau 1,5:1 couvre parfaitement un drapeau paysage — le
+               normaliser serait absurde. Le même bandeau sur un patch carré
+               demande déjà un agrandissement d'une fois et demie.
+
+               L'écart mesuré est donc `r / rz` : de combien le visuel doit être
+               agrandi pour couvrir sa zone. Au-delà du seuil, dans un sens ou
+               dans l'autre, on normalise. */
+            var r = w / h;
+            var ecart = r / rz;
+
+            /* Écart raisonnable : on rend l'ORIGINAL SANS LE RÉENCODER.
+               Repasser par le canvas regonflerait un JPEG propre et romprait
+               l'identité de référence dont `doUpload` dépend. */
+            if (ecart <= RATIO_MAX_VISUEL && ecart >= (1 / RATIO_MAX_VISUEL)) {
+              resolve(dataUrl);
+              return;
+            }
+
+            /* La cible ne peut pas être plus grande que le visuel : sur un
+               petit bandeau de 800×120, l'étirer n'inventerait que du flou. */
+            var grand = Math.min(COTE_MAX, Math.max(w, h));
+            var cw = (rz >= 1) ? grand : Math.round(grand * rz);
+            var ch = (rz >= 1) ? Math.round(grand / rz) : grand;
+
+            var cv = document.createElement('canvas');
+            cv.width = cw; cv.height = ch;
+            var ctx = cv.getContext('2d');
+            /* AUCUN remplissage : le canvas naît transparent, et c'est
+               exactement ce qu'on veut — voir l'en-tête. */
+
+            /* Centrage « contenir », même calcul qu'ailleurs dans le projet
+               (conf-flag-cover.js) : le visuel entier tient dans la zone,
+               centré sur les deux axes. */
+            var sc = Math.min(cw / w, ch / h);
+            var iw = Math.max(1, Math.round(w * sc));
+            var ih = Math.max(1, Math.round(h * sc));
+            ctx.drawImage(img, Math.round((cw - iw) / 2),
+                               Math.round((ch - ih) / 2), iw, ih);
+
+            /* PNG IMPÉRATIF : seul format de sortie du canvas qui conserve le
+               canal alpha. En JPEG, le fond transparent sortirait NOIR et le
+               patch porterait un carré noir. */
+            resolve(cv.toDataURL('image/png'));
+          } catch (e) {
+            /* La normalisation est un CONFORT, pas le travail du client. Si le
+               canvas échoue — mémoire, contexte indisponible sur un mobile
+               chargé — on garde le visuel d'origine plutôt que d'emporter tout
+               l'upload : un logo mal cadré se voit et se rattrape, une image
+               perdue non. */
+            console.warn('Normalisation carrée échouée : le visuel garde ses ' +
+                         'proportions d\'origine.', e);
             resolve(dataUrl);
           }
         };
@@ -10178,6 +10415,7 @@
       logo.style.left = '0%';
       logo.style.top = '0%';
       logo.style.width = '100%';
+
       /* LA CLASSE SUIT LA LARGEUR QU'ON VIENT DE REMETTRE.
 
          Cette fonction ramène le design à la couverture pleine — au changement

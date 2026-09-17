@@ -290,8 +290,9 @@
           .then(function (d) {
             clearTimeout(minuteur);
             if (d && d.ok && d.maintenance === true) {
-              /* On ne lève PAS le voile : la page de maintenance le remplace,
-                 et le configurateur n'apparaît jamais. */
+              /* On ne lève PAS le voile : la redirection est en route, et le
+                 configurateur ne doit pas apparaître le temps qu'elle
+                 aboutisse — même une fraction de seconde. */
               window.afficherMaintenance();
               return;
             }
@@ -300,84 +301,50 @@
           .catch(function () { clearTimeout(minuteur); lever(); });
       })();
 
-      /* Remplace la page entière par l'écran de maintenance.
+      /* Envoie le client vers la page de présentation.
 
-         Exposée : elle sert au chargement (ci-dessus) ET au sondage périodique
-         (plus bas), qui fait basculer un onglet déjà ouvert sans rechargement.
+         Exposée : elle sert au chargement (ci-dessus) ET au sondage
+         périodique (plus bas), qui fait basculer un onglet déjà ouvert.
 
-         Le document est REMPLACÉ, pas masqué : le configurateur continuerait
-         sinon de tourner derrière — minuteurs, appels réseau, sauvegardes en
-         session — pendant une fermeture censée le mettre à l'arrêt. */
+         UNE VRAIE PAGE DE LA BOUTIQUE, PAS UN ÉCRAN DESSINÉ. Cette fonction
+         composait auparavant un écran de maintenance — logo, message, deux
+         boutons — et remplaçait le document avec. C'était un écran technique,
+         étranger au reste du site.
+
+         `/pages/personnalisation` présente les produits personnalisables : le
+         client y trouve de quoi continuer sa visite au lieu d'une impasse, et
+         la page vit dans l'admin Shopify, donc modifiable sans toucher au
+         thème.
+
+         ⚠️ CETTE PAGE DOIT EXISTER. Supprimée ou renommée dans l'admin, la
+         redirection mènerait à une 404 — pire que l'écran qu'elle remplace.
+         L'adresse est écrite ICI, en un seul endroit, pour être corrigée
+         d'un seul geste le jour où elle changerait.
+
+         `replace` ET NON `href` : la redirection ne doit pas s'inscrire dans
+         l'historique. Sinon le bouton « Retour » du navigateur ramènerait le
+         client sur le configurateur, qui le redirigerait aussitôt — il serait
+         piégé dans une boucle dont seul un nouvel onglet le sortirait. */
+      var PAGE_MAINTENANCE = '/pages/personnalisation';
+
       window.afficherMaintenance = function () {
+        /* Une seule redirection : le sondage périodique pourrait rappeler
+           cette fonction pendant que la navigation est déjà engagée. */
         if (window.__maintenanceAffichee) return;
         window.__maintenanceAffichee = true;
 
-        document.title = 'Maintenance — Massacre Officiel';
+        /* DÉJÀ SUR LA PAGE CIBLE : on ne redirige pas vers soi-même.
 
-        var css =
-          'html.conf-maintenance,html.conf-maintenance body{margin:0;padding:0;' +
-          'height:100%;background:#f7f7f8;visibility:visible !important;}' +
-          '.mt-wrap{min-height:100vh;display:flex;align-items:center;' +
-          'justify-content:center;padding:24px;box-sizing:border-box;' +
-          'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}' +
-          '.mt-box{max-width:520px;width:100%;background:#fff;border-radius:18px;' +
-          'padding:44px 38px 36px;text-align:center;' +
-          'box-shadow:0 20px 56px rgba(0,0,0,.10),0 0 0 1px rgba(0,0,0,.05);}' +
-          '.mt-ico{width:62px;height:62px;border-radius:50%;background:#f1f1f3;' +
-          'display:flex;align-items:center;justify-content:center;margin:0 auto 22px;' +
-          'color:#1a1a1a;}' +
-          '.mt-ico svg{width:30px;height:30px;}' +
-          '.mt-titre{font-size:22px;font-weight:800;color:#111;margin:0 0 12px;' +
-          'letter-spacing:-.01em;line-height:1.3;}' +
-          '.mt-txt{font-size:14.5px;color:#5a5a5a;line-height:1.62;margin:0 0 10px;}' +
-          '.mt-sign{font-size:14.5px;color:#5a5a5a;line-height:1.62;margin:18px 0 0;}' +
-          '.mt-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;' +
-          'margin-top:28px;}' +
-          '.mt-btn{display:inline-flex;align-items:center;justify-content:center;' +
-          'padding:12px 22px;border-radius:10px;font-size:13.5px;font-weight:700;' +
-          'text-decoration:none;transition:background .15s,border-color .15s;}' +
-          '.mt-primaire{background:#1a1a1a;color:#fff;}' +
-          '.mt-primaire:hover{background:#000;}' +
-          '.mt-sec{background:#fff;color:#1a1a1a;border:1.5px solid #e2e2e5;}' +
-          '.mt-sec:hover{border-color:#1a1a1a;}' +
-          '@media (max-width:520px){.mt-box{padding:34px 22px 28px;}' +
-          '.mt-titre{font-size:19px;}.mt-btn{width:100%;}}';
-
-        var html =
-          '<div class="mt-wrap"><div class="mt-box">' +
-            '<div class="mt-ico">' +
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-              'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-              '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' +
-            '</div>' +
-            '<h1 class="mt-titre">Le configurateur est en maintenance</h1>' +
-            '<p class="mt-txt">Nous apportons quelques améliorations à votre ' +
-            'atelier de personnalisation. Il sera de nouveau accessible très ' +
-            'prochainement.</p>' +
-            '<p class="mt-txt">Le reste de la boutique reste ouvert, et votre ' +
-            'panier est conservé.</p>' +
-            '<p class="mt-sign">Merci de votre patience — et à très vite.</p>' +
-            '<div class="mt-actions">' +
-              '<a class="mt-btn mt-primaire" href="/">Retour à la boutique</a>' +
-              '<a class="mt-btn mt-sec" href="/pages/contact">Nous contacter</a>' +
-            '</div>' +
-          '</div></div>';
-
-        function poser() {
-          /* La classe remplace le voile : `visibility:visible !important` la
-             lève, sans quoi l'écran de maintenance hériterait du masquage posé
-             pendant la vérification. */
+           Le cas ne devrait pas se produire — cette page n'utilise pas le
+           layout du configurateur — mais si elle venait un jour à le faire,
+           la redirection se rejouerait à l'infini. Le voile est alors levé
+           pour ne pas laisser un écran blanc. */
+        if (window.location.pathname.indexOf(PAGE_MAINTENANCE) === 0) {
           document.documentElement.classList.remove('conf-verif-maintenance');
-          document.documentElement.classList.add('conf-maintenance');
-
-          var s = document.createElement('style');
-          s.textContent = css;
-          document.head.appendChild(s);
-          document.body.innerHTML = html;
+          return;
         }
 
-        if (document.body) poser();
-        else document.addEventListener('DOMContentLoaded', poser);
+        window.location.replace(PAGE_MAINTENANCE);
       };
 
       /* ── PRIX UNITAIRES (définis par l'admin) ──────────────────────────────
