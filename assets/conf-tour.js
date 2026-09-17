@@ -247,9 +247,25 @@
      ──────────────────────────────────────────────────────────────────────── */
   function contexte() {
     var racine = document.querySelector('.conf-app-root');
+
+    /* LA SOURCE VIVANTE D'ABORD, LA SESSION EN REPLI.
+
+       On ne lisait que `sessionStorage`. Or cette clé n'est écrite qu'au
+       CHANGEMENT de produit : un client arrivé directement sur les coins, ou
+       dont la session a été vidée, y trouvait « sweatshirt » — et toutes les
+       étapes d'options étaient écartées au filtrage, sans que rien ne le
+       signale.
+
+       `window.currentProductType` est la variable que le configurateur tient à
+       jour en permanence (conf-main-inline.js). La session reste en repli : elle
+       survit à un rechargement, là où la variable repart de zéro. */
     var produit = '';
-    try { produit = sessionStorage.getItem('conf_current_product') || 'sweatshirt'; }
-    catch (e) { produit = 'sweatshirt'; }
+    if (typeof window.currentProductType === 'string' && window.currentProductType) {
+      produit = window.currentProductType;
+    } else {
+      try { produit = sessionStorage.getItem('conf_current_product') || 'sweatshirt'; }
+      catch (e) { produit = 'sweatshirt'; }
+    }
 
     return {
       produit: produit,
@@ -328,6 +344,93 @@
       texte: 'Chaque face se personnalise séparément. Un point orange signale ' +
              'les faces qui portent déjà un design.',
       si: function (c) { return c.textile; }
+    },
+    /* ── OPTIONS PROPRES À CHAQUE PRODUIT ──────────────────────────────────
+
+       Ce sont les réglages qui ne se devinent pas — la finition d'un coin, les
+       anneaux d'un drapeau, le type de fabrication d'un patch — et ils vivent
+       dans un panneau que le client n'ouvre pas forcément de lui-même. D'où
+       `avant`, qui l'ouvre pour lui.
+
+       Chaque étape est liée à SON produit : les autres sont écartées au
+       filtrage, sans laisser de trou dans la visite. */
+    {
+      id: 'coin-type',
+      cible: '[data-tour="coin-type"]',
+      cote: 'droite',
+      titre: 'Une face ou deux ?',
+      texte: 'Un coin peut être personnalisé au recto seul, ou sur ses deux ' +
+             'faces. Vous pouvez aussi numéroter chaque pièce.',
+      si: function (c) { return c.produit === 'coins'; },
+      avant: function () { return cliquerRail('panel-coin'); }
+    },
+    {
+      id: 'coin-finition',
+      cible: '[data-tour="coin-finition"]',
+      cote: 'droite',
+      titre: 'La finition du métal',
+      texte: 'Or, argent, bronze ou noir : c’est elle qui donne son caractère ' +
+             'au coin. L’aperçu se met à jour à chaque choix.',
+      si: function (c) { return c.produit === 'coins'; },
+      /* Même panneau que l'étape précédente : ouvrir n'a d'effet que s'il
+         est fermé, et le filtrage juge chaque étape isolément. */
+      avant: function () { return cliquerRail('panel-coin'); }
+    },
+    {
+      id: 'flag-impression',
+      cible: '[data-tour="flag-impression"]',
+      cote: 'droite',
+      titre: 'Recto seul ou recto verso',
+      texte: 'En recto verso, le design du dos est imprimé séparément — vous ' +
+             'pouvez y mettre un visuel différent.',
+      si: function (c) { return c.produit === 'drapeaux'; },
+      avant: function () { return cliquerRail('panel-flag'); }
+    },
+    {
+      id: 'flag-orientation',
+      cible: '[data-tour="flag-orientation"]',
+      cote: 'droite',
+      titre: 'Paysage ou portrait',
+      texte: 'L’orientation change la forme du drapeau et la zone imprimable. ' +
+             'Choisissez-la avant d’importer votre visuel.',
+      si: function (c) { return c.produit === 'drapeaux'; },
+      /* Même panneau que l'étape précédente : ouvrir n'a d'effet que s'il
+         est fermé, et le filtrage juge chaque étape isolément. */
+      avant: function () { return cliquerRail('panel-flag'); }
+    },
+    {
+      id: 'flag-anneaux',
+      cible: '[data-tour="flag-anneaux"]',
+      cote: 'droite',
+      titre: 'La finition des bords',
+      texte: 'Les anneaux servent à accrocher le drapeau. Sans eux, le bord ' +
+             'reste simplement ourlé.',
+      si: function (c) { return c.produit === 'drapeaux'; },
+      /* Même panneau que l'étape précédente : ouvrir n'a d'effet que s'il
+         est fermé, et le filtrage juge chaque étape isolément. */
+      avant: function () { return cliquerRail('panel-flag'); }
+    },
+    {
+      id: 'patch-forme',
+      cible: '[data-tour="patch-forme"]',
+      cote: 'droite',
+      titre: 'La forme du patch',
+      texte: 'Rond, carré, rectangle ou blason. Les tailles proposées suivent ' +
+             'la forme choisie.',
+      si: function (c) { return c.produit === 'patches'; },
+      avant: function () { return cliquerRail('panel-patch'); }
+    },
+    {
+      id: 'patch-fabrication',
+      cible: '[data-tour="patch-fabrication"]',
+      cote: 'droite',
+      titre: 'Comment il est fabriqué',
+      texte: 'Sublimé ou brodé, avec ou sans velcro : ces options décident du ' +
+             'rendu final et du prix.',
+      si: function (c) { return c.produit === 'patches'; },
+      /* Même panneau que l'étape précédente : ouvrir n'a d'effet que s'il
+         est fermé, et le filtrage juge chaque étape isolément. */
+      avant: function () { return cliquerRail('panel-patch'); }
     },
     {
       id: 'apercu',
@@ -830,7 +933,26 @@
     var retenues = ETAPES.filter(function (etape) {
       if (typeof etape.si === 'function' && !etape.si(ctx)) return false;
       if (!etape.cible) return true;                  // accueil / clôture
-      return cibleUtilisable(document.querySelector(etape.cible));
+
+      /* UNE ÉTAPE QUI SAIT S'OUVRIR SON ÉCRAN N'EST PAS JUGÉE SUR L'INSTANT.
+
+         Le filtrage vérifie que la cible est visible. C'est juste pour une
+         commande posée à demeure — le rail, les onglets de vue — mais faux
+         pour une section qui vit dans un panneau latéral fermé : elle était
+         écartée AVANT que `avant` ait pu l'ouvrir.
+
+         Toutes les étapes d'options tombaient ainsi, et la visite ne parlait
+         jamais des réglages propres au coin, au drapeau ou au patch — ceux-là
+         mêmes qui ne se devinent pas.
+
+         Leur présence dans le DOM suffit donc ici. La garde de visibilité
+         reste appliquée au moment de l'affichage (`aller`), une fois le
+         panneau ouvert : une étape dont la cible manque vraiment est alors
+         sautée sans laisser de trou. */
+      var el = document.querySelector(etape.cible);
+      if (typeof etape.avant === 'function') return !!el;
+
+      return cibleUtilisable(el);
     });
 
     /* Une visite de deux bulles n'apprend rien et donne l'impression d'un
