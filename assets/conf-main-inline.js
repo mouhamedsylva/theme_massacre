@@ -3872,6 +3872,7 @@
 
         /**
          * Capture les vues du vêtement avec UN surnom substitué dans SA zone.
+         * MAINTIENT aussi les propriétés typographiques complètes pour chaque personne.
          *
          * Reprend la méthode de `capturerPourNom` (conf-group-verify.js), qui
          * résout ce problème depuis toujours : sauvegarde du texte, de
@@ -3884,9 +3885,10 @@
          *
          * @param {string} nom  - surnom à incruster
          * @param {string} zone - 'f' ou 'b'
+         * @param {object} lignePerson - ligne de la personne pour stocker ses propriétés texte
          * @returns {Promise<Array|null>} les vues, ou null
          */
-        const capturerVuesPourNom = async function (nom, zone) {
+        const capturerVuesPourNom = async function (nom, zone, lignePerson) {
           const el = document.getElementById('text-' + zone);
           const contenu = el ? el.querySelector('.dt-content') : null;
 
@@ -3900,6 +3902,39 @@
 
           const ATTRS = ['data-w', 'data-wanted-size', 'data-max-fit'];
           let ancien = null, styleAncien = null, donneesAnciennes = null;
+
+          // 🆕 CAPTURE DES PROPRIÉTÉS TYPOGRAPHIQUES COMPLÈTES
+          if (substituable && lignePerson) {
+            const cs = window.getComputedStyle(el);
+            const cssContenu = window.getComputedStyle(contenu);
+            
+            // Capturer toutes les propriétés typographiques de la zone de texte
+            lignePerson.textProperties = {
+              fontFamily: cs.fontFamily || 'sans-serif',
+              fontSize: cs.fontSize || '16px',
+              fontWeight: cs.fontWeight || '400',
+              fontStyle: cs.fontStyle || 'normal',
+              color: cs.color || '#000000',
+              textDecorationLine: cs.textDecorationLine || cs.textDecoration || 'none',
+              textAlign: cs.textAlign || 'left',
+              lineHeight: cs.lineHeight || 'normal',
+              letterSpacing: cs.letterSpacing || 'normal',
+              textTransform: cs.textTransform || 'none',
+              // Position et dimensions de la zone
+              left: el.style.left || '0%',
+              top: el.style.top || '0%',
+              width: el.style.width || el.style.maxWidth || '100%',
+              height: el.style.height || 'auto',
+              maxWidth: el.style.maxWidth || 'none',
+              // Données techniques pour le repositionnement
+              dataW: el.getAttribute('data-w') || '',
+              dataWantedSize: el.getAttribute('data-wanted-size') || '',
+              dataMaxFit: el.getAttribute('data-max-fit') || '',
+              // Zone et côté
+              zone: zone,
+              curved: el.classList.contains('is-shaped')
+            };
+          }
 
           if (substituable) {
             ancien = contenu.textContent;
@@ -3939,9 +3974,16 @@
         try {
           /* ═══ PHASE A — CAPTURES, UNE PERSONNE À LA FOIS ═════════════════ */
           const clesPlanche = [];
+          // 🆕 MAP pour associer chaque clé planche à sa première personne (pour les propriétés texte)
+          const personneParCle = new Map();
+          
           for (const r of rows) {
             const cp = clePlanche(r);
-            if (clesPlanche.indexOf(cp) === -1) clesPlanche.push(cp);
+            if (clesPlanche.indexOf(cp) === -1) {
+              clesPlanche.push(cp);
+              // Associer la première personne avec cette clé (pour capturer ses propriétés texte)
+              personneParCle.set(cp, r);
+            }
           }
 
           for (let iP = 0; iP < clesPlanche.length; iP++) {
@@ -3949,10 +3991,12 @@
             const sep = cp.lastIndexOf('|');
             const nomP = cp.slice(0, sep);
             const coteP = (cp.slice(sep + 1) === 'dos') ? 'dos' : 'face';
+            // 🆕 Récupérer la personne pour capturer ses propriétés typographiques
+            const personnePourCle = personneParCle.get(cp);
 
             majVoile('Préparation des visuels… ' + (iP + 1) + '/' + clesPlanche.length);
 
-            const vues = await capturerVuesPourNom(nomP, coteP === 'dos' ? 'b' : 'f');
+            const vues = await capturerVuesPourNom(nomP, coteP === 'dos' ? 'b' : 'f', personnePourCle);
             if (vues) vuesParCle.set(cp, vues);
 
             /* On rend la main au navigateur : trente rasterisations d'affilée
@@ -4132,6 +4176,8 @@
                l'information : la liste reconstruite mettrait tout le monde en
                face, et le client devrait refaire la répartition. */
             personZone: (typeof coteDe === 'function' && coteDe(r) === 'dos') ? 'b' : 'f',
+            // 🆕 PROPRIÉTÉS TYPOGRAPHIQUES PERSONNALISÉES
+            textProperties: r.textProperties || null,
             groupLabel: groupLabel,
             /* L'identité du groupe voyage sur CHAQUE ligne : c'est elle qui
                les rassemble au panier (cleGroupeCd) et qui permet de les

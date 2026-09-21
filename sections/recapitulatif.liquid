@@ -1051,6 +1051,35 @@
         // 🆕 Résumé groupe par tailles (ex: "2×M, 3×L") pour l'admin
         if (it._sizeGroupSummary) properties['_sizeGroupSummary'] = it._sizeGroupSummary;
 
+        // 🆕 PROPRIÉTÉS TYPOGRAPHIQUES PERSONNALISÉES pour chaque personne
+        if (it.textProperties) {
+          const tp = it.textProperties;
+          // Stocker les propriétés de texte personnalisé (préfixe "_" = caché au checkout)
+          if (tp.fontFamily) properties['_TexteFontFamily'] = String(tp.fontFamily).slice(0, 100);
+          if (tp.fontSize) properties['_TexteFontSize'] = String(tp.fontSize).slice(0, 20);
+          if (tp.fontWeight) properties['_TexteFontWeight'] = String(tp.fontWeight).slice(0, 20);
+          if (tp.fontStyle) properties['_TexteFontStyle'] = String(tp.fontStyle).slice(0, 20);
+          if (tp.color) properties['_TexteColor'] = String(tp.color).slice(0, 30);
+          if (tp.textDecorationLine) properties['_TexteDecoration'] = String(tp.textDecorationLine).slice(0, 30);
+          if (tp.textAlign) properties['_TexteAlign'] = String(tp.textAlign).slice(0, 20);
+          if (tp.lineHeight) properties['_TexteLineHeight'] = String(tp.lineHeight).slice(0, 20);
+          if (tp.letterSpacing) properties['_TexteLetterSpacing'] = String(tp.letterSpacing).slice(0, 20);
+          if (tp.textTransform) properties['_TexteTransform'] = String(tp.textTransform).slice(0, 20);
+          // Position et dimensions
+          if (tp.left) properties['_TexteLeft'] = String(tp.left).slice(0, 20);
+          if (tp.top) properties['_TexteTop'] = String(tp.top).slice(0, 20);
+          if (tp.width) properties['_TexteWidth'] = String(tp.width).slice(0, 20);
+          if (tp.height) properties['_TexteHeight'] = String(tp.height).slice(0, 20);
+          if (tp.maxWidth) properties['_TexteMaxWidth'] = String(tp.maxWidth).slice(0, 20);
+          // Données techniques
+          if (tp.dataW) properties['_TexteDataW'] = String(tp.dataW).slice(0, 30);
+          if (tp.dataWantedSize) properties['_TexteDataWantedSize'] = String(tp.dataWantedSize).slice(0, 20);
+          if (tp.dataMaxFit) properties['_TexteDataMaxFit'] = String(tp.dataMaxFit).slice(0, 20);
+          // Zone et type
+          if (tp.zone) properties['_TexteZone'] = String(tp.zone).slice(0, 10);
+          if (tp.curved !== undefined) properties['_TexteCurved'] = tp.curved ? 'true' : 'false';
+        }
+
         // N'accepte QUE des URLs http(s) hébergées comme valeur de propriété.
         // Une data-URL (base64) ferait des milliers de caractères -> Shopify
         // REJETTE /cart/add.js (propriété trop longue) et le checkout échoue.

@@ -92,18 +92,15 @@
      * Rasterise un texte du vêtement en PNG transparent, fidèle au rendu écran
      * (police, taille, couleur, gras, italique, souligné, forme courbée).
      *
+     * AMÉLIORATION : Utilise SVG côté serveur si disponible pour qualité optimale,
+     * sinon fallback sur canvas 2D existant.
+     *
      * SOURCE UNIQUE pour les deux consommateurs :
      *   - textZoneImage (ci-dessous)  -> planche envoyée à l'ATELIER
      *   - window.textAssetDataUrl     -> vignettes du panier / récapitulatif
      *
-     * Ces deux fonctions portaient une copie ligne à ligne du même code (mêmes
-     * fontSize=160, mêmes padX/padY, même souligné tracé à la main). Toute
-     * évolution devait donc être faite DEUX fois ; l'oublier une fois produisait
-     * le pire défaut possible — une vignette conforme à l'écran et un fichier
-     * imprimé différent, visible seulement une fois le vêtement produit.
-     *
      * @param {HTMLElement} el - l'élément .design-text à rasteriser
-     * @returns {Promise<string>} data-URL PNG, ou '' si rien à rendre
+     * @returns {Promise<string>} data-URL PNG ou URL Cloudinary, ou '' si rien à rendre
      */
     function rasteriserTexte(el) {
       return new Promise(function (resolve) {
@@ -113,6 +110,117 @@
         var raw = (content.textContent || '').trim();
         if (!raw) { resolve(''); return; }
 
+        // Tentative génération SVG serveur si activée
+        if (window.TEXT_SVG_ENABLED) {
+          rasteriserTexteViaSvgServer(el)
+            .then(resolve)
+            .catch(function(error) {
+              console.warn('SVG serveur échoué, fallback canvas:', error.message || error);
+              rasteriserTexteCanvas(el).then(resolve);
+            });
+          return;
+        }
+
+        // Fallback canvas (logique existante)
+        rasteriserTexteCanvas(el).then(resolve);
+      });
+    }
+
+    /**
+     * Génération SVG côté serveur (nouvelle méthode haute résolution).
+     */
+    function rasteriserTexteViaSvgServer(el) {
+      return new Promise(async function (resolve, reject) {
+        try {
+          // Extraction métadonnées (même logique que canvas mais pour API)
+          var metadata = extractTextMetadataForApi(el);
+          if (!metadata || !metadata.segments.length) {
+            throw new Error('Impossible d\'extraire métadonnées texte');
+          }
+
+          // Appel API backend
+          var response = await fetch('/api/uploads/text-svg', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(metadata)
+          });
+
+          if (!response.ok) {
+            var errorText = await response.text();
+            throw new Error(`API Error ${response.status}: ${errorText}`);
+          }
+
+          var result = await response.json();
+          if (!result.url) {
+            throw new Error('URL manquante dans réponse API');
+          }
+
+          console.log('Texte SVG généré:', result.url, `${result.width}x${result.height}`);
+          resolve(result.url);
+          
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+
+    /**
+     * Extraction métadonnées texte pour API SVG serveur.
+     */
+    function extractTextMetadataForApi(el) {
+      var content = el.querySelector('.dt-content');
+      var cs = window.getComputedStyle(el);
+      var segments = [];
+
+      // Même logique extraction segments que canvas existant
+      var noeuds = content.querySelectorAll('.dt-seg');
+      if (noeuds.length) {
+        for (var n = 0; n < noeuds.length; n++) {
+          var t = noeuds[n].textContent || '';
+          if (!t) continue;
+          var sc = window.getComputedStyle(noeuds[n]);
+          var sdeco = sc.textDecorationLine || sc.textDecoration || '';
+          segments.push({
+            text: t,
+            fontFamily: cleanFontFamily(sc.fontFamily || cs.fontFamily || 'sans-serif'),
+            fontSize: parseFloat(sc.fontSize) || 16,
+            fontWeight: sc.fontWeight || '400',
+            fontStyle: sc.fontStyle === 'italic' ? 'italic' : 'normal',
+            color: sc.color || cs.color || '#000000',
+            underline: sdeco.indexOf('underline') !== -1
+          });
+        }
+      } else {
+        var deco = cs.textDecorationLine || cs.textDecoration || '';
+        segments.push({
+          text: content.textContent.trim(),
+          fontFamily: cleanFontFamily(cs.fontFamily || 'sans-serif'),
+          fontSize: parseFloat(cs.fontSize) || 16,
+          fontWeight: cs.fontWeight || '400',
+          fontStyle: cs.fontStyle === 'italic' ? 'italic' : 'normal',
+          color: cs.color || '#000000',
+          underline: deco.indexOf('underline') !== -1
+        });
+      }
+
+      return {
+        segments: segments,
+        productType: getCurrentProductType(),
+        placement: mapZoneToPlacement((el.id || '').replace(/^text-/, '')),
+        renderOptions: {
+          scale: 4, // 4x pour qualité maximale
+          padding: 32
+        }
+      };
+    }
+
+    /**
+     * Logique canvas originale (fallback en cas d'erreur SVG serveur).
+     */
+    function rasteriserTexteCanvas(el) {
+      return new Promise(function (resolve) {
+        var content = el.querySelector('.dt-content');
+        var raw = (content.textContent || '').trim();
         var cs = window.getComputedStyle(el);
         var color = cs.color || '#111';
         var fontFamily = cs.fontFamily || 'sans-serif';
@@ -140,21 +248,12 @@
 
         // Texte SIMPLE : dessin canvas 2D haute résolution.
         var fontSize = 160;
-
-        /* Gras / italique / souligné LUS sur l'élément, jamais codés en dur.
-           La police valait « 700 <taille>px <famille> » : le gras était donc
-           toujours appliqué, l'italique jamais et le souligné absent — ce que
-           le client mettait en forme n'apparaissait ni dans la vue d'ensemble
-           ni sur la planche envoyée à l'atelier. */
         var weight = cs.fontWeight || '400';
         var italic = cs.fontStyle === 'italic' ? 'italic ' : '';
         var deco = cs.textDecorationLine || cs.textDecoration || '';
         var souligne = deco.indexOf('underline') !== -1;
 
-        /* SEGMENTS : le texte peut porter une mise en forme PAR CARACTÈRE (le
-           « N » de « Nike » en rouge et gras). Chaque .dt-seg est lu avec SON
-           style calculé ; sans segment, le texte entier forme un segment unique
-           portant le style de la zone — le chemin d'origine, à l'identique. */
+        /* SEGMENTS : le texte peut porter une mise en forme PAR CARACTÈRE */
         var segs = [];
         var noeuds = content.querySelectorAll('.dt-seg');
         if (noeuds.length) {
@@ -181,9 +280,7 @@
           }];
         }
 
-        /* Largeur mesurée SEGMENT PAR SEGMENT, avec la police propre à chacun :
-           le gras est plus large que le normal, donc une mesure globale
-           sous-dimensionnerait le canvas et couperait les dernières lettres. */
+        /* Largeur mesurée SEGMENT PAR SEGMENT */
         var meas = document.createElement('canvas').getContext('2d');
         var total = 0;
         for (var m = 0; m < segs.length; m++) {
@@ -198,9 +295,6 @@
         cv.width = Math.ceil(total + padX * 2);
         cv.height = Math.ceil(fontSize + padY * 2);
         var ctx = cv.getContext('2d');
-        /* Alignement à GAUCHE et curseur explicite : avec 'center', chaque
-           segment serait centré sur lui-même et ils se superposeraient tous au
-           milieu. On part donc du bord gauche du texte centré. */
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         var x = (cv.width - total) / 2;
@@ -213,9 +307,6 @@
           ctx.font = s.font;
           ctx.fillStyle = s.color;
           ctx.fillText(s.text, x, yTexte);
-          /* Le canvas 2D ne connaît pas text-decoration : le trait est tracé à
-             la main, sur la plage du segment et dans SA couleur — souligner une
-             seule lettre reste donc possible. */
           if (s.underline) {
             ctx.strokeStyle = s.color;
             ctx.lineWidth = epaisseur;
@@ -229,6 +320,36 @@
         try { resolve(cv.toDataURL('image/png')); } catch (e) { resolve(''); }
       });
     }
+
+    // Utilitaires
+    function cleanFontFamily(fontFamily) {
+      if (!fontFamily) return 'sans-serif';
+      return fontFamily.replace(/['"]/g, '').split(',')[0].trim() || 'sans-serif';
+    }
+
+    function getCurrentProductType() {
+      if (document.querySelector('.coin-canvas-container')) return 'coin';
+      if (document.querySelector('.flag-canvas')) return 'flag';
+      if (document.querySelector('.patch-canvas')) return 'patch';
+      if (document.querySelector('[data-product*="sweatshirt"]')) return 'sweatshirt';
+      return 'tshirt';
+    }
+
+    function mapZoneToPlacement(zoneId) {
+      var map = { 
+        'f': 'front', 
+        'b': 'back', 
+        'fr': 'chest-right', 
+        'sl': 'sleeve-left', 
+        'sr': 'sleeve-right',
+        'c': 'generic'
+      };
+      return map[zoneId] || 'generic';
+    }
+
+    // Feature flag (à définir dans template Shopify)
+    window.TEXT_SVG_ENABLED = window.TEXT_SVG_ENABLED || false;
+    
     window.rasteriserTexte = rasteriserTexte;   // lu par conf-main-inline.js
 
     function textZoneImage(zoneId, imgBox, layerBox, canReproject) {

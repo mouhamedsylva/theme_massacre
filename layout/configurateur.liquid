@@ -221,6 +221,9 @@
         window.API_BASE = {{ api_setting | json }};
       {%- endif -%}
 
+      // Feature flag pour génération SVG côté serveur (texte haute résolution)
+      window.TEXT_SVG_ENABLED = true;
+
       /* ── MODE MAINTENANCE DU CONFIGURATEUR ─────────────────────────────────
 
          L'admin peut fermer le configurateur depuis son dashboard, sans
