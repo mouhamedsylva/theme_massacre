@@ -3815,6 +3815,13 @@
         /* Vues capturées, en attente de composition. Clé -> views. */
         const vuesParCle = new Map();
 
+        /* Visuel du texte de chaque personne. Clé -> data-URL d'abord, puis
+           URL hébergée après la passe d'envoi. Même clé que les planches :
+           deux personnes de même surnom et même côté ont le même visuel, donc
+           un seul envoi — et une répartition par tailles (surnoms vides) garde
+           la clé unique « |f », exactement le coût d'avant. */
+        const textesParCle = new Map();
+
         /* Progression dans le VOILE, pas dans le bouton : le voile couvre
            l'écran, le bouton est derrière lui — et `resolveDesignImage` y écrit
            déjà « Préparation du design… ». Deux libellés concurrents sur le
@@ -3885,10 +3892,14 @@
          *
          * @param {string} nom  - surnom à incruster
          * @param {string} zone - 'f' ou 'b'
-         * @param {object} lignePerson - ligne de la personne pour stocker ses propriétés texte
-         * @returns {Promise<Array|null>} les vues, ou null
+         * @param {Array<object>} lignesPerson - TOUTES les lignes partageant
+         *   cette clé. Elles ont le même surnom et le même côté, donc la même
+         *   typographie : on la recopie sur chacune. N'en servir qu'une (ce
+         *   qui était fait) laissait les autres sans aucune propriété.
+         * @returns {Promise<{views:Array,texte:string}|null>} les vues et le
+         *   visuel du texte de CETTE personne, ou null
          */
-        const capturerVuesPourNom = async function (nom, zone, lignePerson) {
+        const capturerVuesPourNom = async function (nom, zone, lignesPerson) {
           const el = document.getElementById('text-' + zone);
           const contenu = el ? el.querySelector('.dt-content') : null;
 
@@ -3903,23 +3914,42 @@
           const ATTRS = ['data-w', 'data-wanted-size', 'data-max-fit'];
           let ancien = null, styleAncien = null, donneesAnciennes = null;
 
-          // 🆕 CAPTURE DES PROPRIÉTÉS TYPOGRAPHIQUES COMPLÈTES
-          if (substituable && lignePerson) {
+          /* PROPRIÉTÉS TYPOGRAPHIQUES.
+
+             Capturées même quand la substitution est impossible (surnom vide,
+             texte courbé) : la police et la couleur sont celles du canvas, donc
+             valables dans tous les cas. Les exclure privait la répartition par
+             tailles de toute information typographique. */
+          const lignes = Array.isArray(lignesPerson)
+            ? lignesPerson
+            : (lignesPerson ? [lignesPerson] : []);
+
+          if (lignes.length && el && contenu) {
             const cs = window.getComputedStyle(el);
+            /* Les styles de texte vivent sur `.dt-content`, pas sur le
+               conteneur : c'est lui qui porte la police choisie. Ils étaient
+               lus sur `el`, d'où des valeurs génériques (sans-serif, noir)
+               quand la mise en forme était posée sur le contenu. */
             const cssContenu = window.getComputedStyle(contenu);
             
-            // Capturer toutes les propriétés typographiques de la zone de texte
-            lignePerson.textProperties = {
-              fontFamily: cs.fontFamily || 'sans-serif',
-              fontSize: cs.fontSize || '16px',
-              fontWeight: cs.fontWeight || '400',
-              fontStyle: cs.fontStyle || 'normal',
-              color: cs.color || '#000000',
-              textDecorationLine: cs.textDecorationLine || cs.textDecoration || 'none',
-              textAlign: cs.textAlign || 'left',
-              lineHeight: cs.lineHeight || 'normal',
-              letterSpacing: cs.letterSpacing || 'normal',
-              textTransform: cs.textTransform || 'none',
+            /* La mise en forme peut être posée sur l'un ou l'autre : on lit le
+               contenu en priorité, le conteneur en repli. */
+            const style = function (nomProp) {
+              return cssContenu[nomProp] || cs[nomProp] || '';
+            };
+
+            const proprietes = {
+              fontFamily: style('fontFamily') || 'sans-serif',
+              fontSize: style('fontSize') || '16px',
+              fontWeight: style('fontWeight') || '400',
+              fontStyle: style('fontStyle') || 'normal',
+              color: style('color') || '#000000',
+              textDecorationLine:
+                style('textDecorationLine') || style('textDecoration') || 'none',
+              textAlign: style('textAlign') || 'left',
+              lineHeight: style('lineHeight') || 'normal',
+              letterSpacing: style('letterSpacing') || 'normal',
+              textTransform: style('textTransform') || 'none',
               // Position et dimensions de la zone
               left: el.style.left || '0%',
               top: el.style.top || '0%',
@@ -3934,6 +3964,15 @@
               zone: zone,
               curved: el.classList.contains('is-shaped')
             };
+
+            /* Sur TOUTES les lignes de cette clé. Une copie par ligne : un
+               objet partagé se retrouverait modifié pour tout le monde si une
+               ligne était éditée plus tard. */
+            for (let iL = 0; iL < lignes.length; iL++) {
+              if (lignes[iL]) {
+                lignes[iL].textProperties = Object.assign({}, proprietes);
+              }
+            }
           }
 
           if (substituable) {
@@ -3951,7 +3990,33 @@
           }
 
           try {
-            return await captureAllViews();
+            const views = await captureAllViews();
+
+            /* LE VISUEL DU TEXTE DE CETTE PERSONNE.
+
+               Produit ICI, et nulle part ailleurs : c'est le seul instant où le
+               DOM porte SON surnom, à la taille recalée pour lui. Une fois le
+               `finally` passé, le texte commun est revenu.
+
+               Auparavant les assets étaient rasterisés une seule fois, avant la
+               boucle (collectTextAssets), puis recopiés sur chaque ligne :
+               quatorze personnes recevaient le visuel de la première. L'atelier
+               floquait le même surnom pour tout le monde, sans que rien ne le
+               signale.
+
+               Un échec n'annule pas la planche : le texte manquera, le reste
+               partira. */
+            let texte = '';
+            try {
+              if (typeof textAssetDataUrl === 'function') {
+                texte = await Promise.resolve(textAssetDataUrl(zone));
+              }
+            } catch (eTexte) {
+              console.warn('Visuel du texte non produit pour « ' + nom + ' ».',
+                           eTexte);
+            }
+
+            return { views: views, texte: texte || '' };
           } catch (e) {
             console.warn('Capture des vues échouée pour « ' + nom + ' » : ' +
                          'cette ligne partira sans planche.', e);
@@ -3974,16 +4039,23 @@
         try {
           /* ═══ PHASE A — CAPTURES, UNE PERSONNE À LA FOIS ═════════════════ */
           const clesPlanche = [];
-          // 🆕 MAP pour associer chaque clé planche à sa première personne (pour les propriétés texte)
-          const personneParCle = new Map();
-          
+          /* TOUTES les lignes de chaque clé, pas seulement la première.
+
+             Une Map clé -> première ligne ne donnait ses propriétés
+             typographiques qu'à une personne par clé ; les suivantes restaient
+             à null, et le bloc qui pose les _Texte* (recapitulatif.liquid)
+             était alors entièrement sauté pour elles. Les lignes d'une même
+             clé partagent surnom et côté, donc la même typographie : il n'y a
+             rien à recalculer, seulement à propager. */
+          const lignesParCle = new Map();
+
           for (const r of rows) {
             const cp = clePlanche(r);
             if (clesPlanche.indexOf(cp) === -1) {
               clesPlanche.push(cp);
-              // Associer la première personne avec cette clé (pour capturer ses propriétés texte)
-              personneParCle.set(cp, r);
+              lignesParCle.set(cp, []);
             }
+            lignesParCle.get(cp).push(r);
           }
 
           for (let iP = 0; iP < clesPlanche.length; iP++) {
@@ -3991,18 +4063,83 @@
             const sep = cp.lastIndexOf('|');
             const nomP = cp.slice(0, sep);
             const coteP = (cp.slice(sep + 1) === 'dos') ? 'dos' : 'face';
-            // 🆕 Récupérer la personne pour capturer ses propriétés typographiques
-            const personnePourCle = personneParCle.get(cp);
+            const lignesPourCle = lignesParCle.get(cp) || [];
 
             majVoile('Préparation des visuels… ' + (iP + 1) + '/' + clesPlanche.length);
 
-            const vues = await capturerVuesPourNom(nomP, coteP === 'dos' ? 'b' : 'f', personnePourCle);
-            if (vues) vuesParCle.set(cp, vues);
+            const capture = await capturerVuesPourNom(
+              nomP, coteP === 'dos' ? 'b' : 'f', lignesPourCle,
+            );
+            if (capture) {
+              vuesParCle.set(cp, capture.views);
+              /* Le visuel du texte de CETTE personne, encore en data-URL. Il
+                 sera hébergé après la boucle, en une passe groupée. */
+              if (capture.texte) textesParCle.set(cp, capture.texte);
+            }
 
             /* On rend la main au navigateur : trente rasterisations d'affilée
                figeraient l'onglet. Même précaution que la capture des cartes
                de vérification. */
             await new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
+          }
+
+          /* ═══ HÉBERGEMENT DES VISUELS DE TEXTE ═══════════════════════════
+
+             Les captures ci-dessus ont produit une image par surnom, encore en
+             data-URL. Shopify refuse une data-URL en propriété de ligne (trop
+             longue) : il faut une adresse. On les envoie ici, en une passe
+             groupée, plutôt qu'au fil des captures — l'envoi est du réseau, la
+             capture du DOM, et les mélanger allongeait le temps pendant lequel
+             le canvas porte le nom d'un autre.
+
+             Rien à faire si le texte serveur a déjà rendu une URL : le repli
+             canvas donne une data-URL, le chemin serveur une adresse. */
+          if (textesParCle.size) {
+            const aHeberger = [];
+            textesParCle.forEach(function (src, cle) {
+              if (/^https?:\/\//i.test(src)) return;   // déjà hébergé
+              aHeberger.push({ cle: cle, src: src });
+            });
+
+            if (aHeberger.length && window.ConfAPI &&
+                typeof window.ConfAPI.uploadLogo === 'function') {
+              majVoile('Envoi des visuels de texte… 0/' + aHeberger.length);
+
+              /* Même plafond que les compositions : quatre requêtes en vol
+                 suffisent à masquer la latence sans noyer le serveur. */
+              const EN_VOL_TEXTE = 4;
+              let curseurTexte = 0;
+              let faits = 0;
+
+              const envoyer = async function () {
+                while (curseurTexte < aHeberger.length) {
+                  const item = aHeberger[curseurTexte++];
+                  try {
+                    const fichier = dataUrlToFile(item.src, 'texte.png');
+                    const res = await window.ConfAPI.uploadLogo(fichier);
+                    const url = res && (res.url || res.secure_url);
+                    if (url) textesParCle.set(item.cle, url);
+                    else textesParCle.delete(item.cle);
+                  } catch (e) {
+                    /* Un envoi raté ne doit pas bloquer la commande : la ligne
+                       partira sans son visuel de texte, mais garde sa planche
+                       atelier, qui porte déjà le bon surnom. */
+                    console.warn('Visuel de texte non hébergé (' + item.cle +
+                                 ') : cette ligne partira sans.', e);
+                    textesParCle.delete(item.cle);
+                  }
+                  faits++;
+                  majVoile('Envoi des visuels de texte… ' + faits + '/' +
+                           aHeberger.length);
+                }
+              };
+
+              const porteurs = [];
+              for (let k = 0; k < Math.min(EN_VOL_TEXTE, aHeberger.length); k++) {
+                porteurs.push(envoyer());
+              }
+              await Promise.all(porteurs);
+            }
           }
 
           /* CONCURRENCE PLAFONNÉE À 4. Une liste très bariolée lancerait sinon
@@ -4125,6 +4262,28 @@
         const reserveCommune = (typeof capturerEtatDesign === 'function')
           ? capturerEtatDesign(true) : null;
 
+        /**
+         * Les assets texte d'UNE ligne — son surnom, pas celui d'un autre.
+         *
+         * Le libellé suit le côté de la ligne, comme `collectTextAssets` :
+         * « Texte face » ou « Texte dos ». C'est lui qui devient la propriété
+         * `_Texte face` de la commande (recapitulatif.liquid).
+         *
+         * @param {object} r ligne de personne
+         * @returns {Array<{label:string,url:string}>}
+         */
+        const assetsTextePour = function (r) {
+          const url = textesParCle.get(clePlanche(r));
+          if (url && /^https?:\/\//i.test(url)) {
+            const cote = (typeof coteDe === 'function' && coteDe(r) === 'dos')
+              ? 'dos' : 'face';
+            return [{ label: 'Texte ' + cote, url: url }];
+          }
+          /* Capture ou envoi manqué : on retombe sur le visuel commun. Moins
+             juste, mais la planche `_Aperçu` de la ligne porte le bon nom. */
+          return textAssets;
+        };
+
         rows.forEach(function (r, idx) {
           /* Plus de repli sur une composition d'avance : elle coûtait deux
              requêtes à chaque ajout pour ne servir qu'en cas d'échec serveur.
@@ -4187,7 +4346,17 @@
             price: price,
             img: dz.thumb,        // vignette à LA couleur de cette ligne
             sheet: planchePerso,  // planche atelier portant SON nom
-            assets: logoAssets.concat(textAssets),
+            /* LE VISUEL DU TEXTE DE CETTE PERSONNE.
+
+               `textAssets`, calculé une seule fois avant la boucle, donnait à
+               tout le monde le surnom de la première personne : l'atelier
+               floquait quatorze fois le même nom. On prend désormais le visuel
+               capturé pour SA clé (surnom + côté).
+
+               Repli sur `textAssets` si la capture par personne a échoué :
+               mieux vaut un visuel commun que rien — la planche `_Aperçu`,
+               elle, porte de toute façon le bon nom. */
+            assets: logoAssets.concat(assetsTextePour(r)),
             /* Même état complet que pour un ajout unitaire, capturé une seule
                fois au-dessus : les lignes de groupe partagent un design commun,
                chacune doit pouvoir le rouvrir. */
