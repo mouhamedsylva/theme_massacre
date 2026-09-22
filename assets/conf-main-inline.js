@@ -8703,6 +8703,31 @@
     }
     window.cloudUrlDe = cloudUrlDe;
 
+    /**
+     * Déclare une image DÉJÀ hébergée comme visuel d'une zone.
+     *
+     * `doUpload` fait ces deux écritures après son envoi à Cloudinary : le
+     * registre mémoire, que lit `collectDesignAssets` au moment de commander,
+     * et la session, qui le reconstruit après un F5. Une image qui saute cette
+     * étape s'affiche correctement mais part en commande SANS son adresse —
+     * l'atelier reçoit alors un article sans visuel.
+     *
+     * C'était le cas du drapeau FR (conf-flag-fr.js) : son URL vient du CDN
+     * Shopify, il n'y a donc rien à téléverser, mais il faut quand même
+     * l'inscrire au registre. D'où ce point d'entrée, pour les visuels dont
+     * l'adresse est connue d'avance.
+     *
+     * @param {string} zone  'f', 'b', 'sl', 'sr'…
+     * @param {string} url   adresse http(s) déjà hébergée
+     * @param {string} [owner] produit propriétaire (défaut : produit courant)
+     */
+    function declarerVisuelHeberge(zone, url, owner) {
+      if (!zone || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return;
+      window.CLOUDINARY_URLS[zone] = url;
+      memoriserCloudUrl(zone, url, owner);
+    }
+    window.declarerVisuelHeberge = declarerVisuelHeberge;
+
     /* REPEUPLEMENT AU DÉMARRAGE : le registre mémoire est reconstruit depuis la
        session. Sans lui, `window.CLOUDINARY_URLS` resterait vide après un F5 et
        les images partiraient en commande sans leur adresse. */

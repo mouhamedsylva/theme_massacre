@@ -81,6 +81,22 @@
       window.saveUpload(zone, src);   // repli : ancien contrat
     }
 
+    /* REGISTRE DES VISUELS HÉBERGÉS. Deuxième écart avec `doUpload`, et celui
+       qui se voyait le moins : le drapeau s'affichait, survivait au F5, était
+       facturé — mais n'apparaissait dans AUCUNE commande.
+
+       `collectDesignAssets` (conf-main-inline.js) ne joint à la commande que
+       les zones présentes dans `CLOUDINARY_URLS`. Faute d'y être inscrit, le
+       drapeau n'y figurait pas : l'atelier recevait une manche à floquer sans
+       voir de quoi il s'agissait.
+
+       Aucun téléversement ici — `src` est déjà une URL du CDN Shopify, hôte
+       que le backend accepte (IMG_HOSTS, admin.view.ts). Il suffit de la
+       déclarer. */
+    if (typeof window.declarerVisuelHeberge === 'function') {
+      window.declarerVisuelHeberge(zone, src);
+    }
+
     /* Le supplément « manches » (+4 €/manche) est facturé dès qu'un logo est
        posé — c'est le cas ici. Il n'y a plus rien à activer : la bascule a
        été retirée, et le prix se calcule sur les logos réellement présents

@@ -1113,13 +1113,30 @@
            unique sinon (voir sleeveVariantForItem). */
         var sleeveVariant = sleeveVariantForItem(it);
         if (sleeves > 0 && sleeveVariant) {
+          var propsManche = {
+            'Article': (it.name || 'Textile') + (it.size ? ' — ' + it.size : ''),
+            'Manches': sleeves > 1 ? 'Gauche + droite' : 'Une manche'
+          };
+
+          /* APERÇU. Sans lui, cette ligne affichait toujours « Sans aperçu »
+             dans le dashboard : le backend ne cherche une vignette que parmi
+             les propriétés (admin.view.ts, itemRow), et celles-ci n'en
+             portaient aucune. L'atelier voyait donc une manche à floquer sans
+             savoir quoi y mettre.
+
+             On reprend la MÊME planche que l'article textile parent : elle est
+             déjà composée, déjà hébergée, et montre les manches (captureAllViews
+             inclut MANCHE GAUCHE et MANCHE DROITE). Aucune capture ni upload
+             supplémentaire — c'est une URL déjà calculée qu'on recopie.
+
+             Même repli que ci-dessus : la planche peut être nulle si sa
+             composition a échoué, la vignette de face prend alors le relais. */
+          if (apercu) propsManche['_Aperçu'] = apercu;
+
           items.push({
             id: sleeveVariant,
             quantity: sleeves * qty,
-            properties: {
-              'Article': (it.name || 'Textile') + (it.size ? ' — ' + it.size : ''),
-              'Manches': sleeves > 1 ? 'Gauche + droite' : 'Une manche'
-            }
+            properties: propsManche
           });
         } else if (sleeves > 0) {
           /* L'ID du produit add-on manque : le supplément ne peut pas être
@@ -1237,10 +1254,15 @@
            garde la même clé. Ne retenir que les clés faisait donc supprimer, à
            l'étape 2, une ligne qu'on venait d'ajouter.
 
-           C'est ce qui effaçait le supplément manche : ses propriétés sont
-           stables (`Article`, `Manches`), donc sa clé ne change jamais. Le
-           textile, lui, survivait — ses propriétés varient à chaque design
-           (`_Aperçu`, URLs des logos), d'où une clé neuve à chaque ajout. */
+           C'est ce qui effaçait le supplément manche : ses propriétés étaient
+           alors stables (`Article`, `Manches` seuls), donc sa clé ne changeait
+           jamais. Le textile, lui, survivait — ses propriétés varient à chaque
+           design (`_Aperçu`, URLs des logos), d'où une clé neuve à chaque ajout.
+
+           Le supplément manche porte désormais lui aussi un `_Aperçu` (pour
+           que l'atelier voie ce qu'il doit floquer), donc sa clé varie de la
+           même façon. Ce comptage par quantité reste néanmoins la bonne
+           approche : il ne suppose rien sur la stabilité des clés. */
         var before = null;
         try {
           var cur = await fetch('/cart.js', { headers: { 'Accept': 'application/json' } });
