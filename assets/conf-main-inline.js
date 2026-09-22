@@ -4370,10 +4370,40 @@
       var zones = [{ z: 'f', label: 'Texte face' }, { z: 'b', label: 'Texte dos' }];
       var out = [];
       for (var i = 0; i < zones.length; i++) {
-        var dataUrl = await Promise.resolve(textAssetDataUrl(zones[i].z));
-        if (!dataUrl) continue;
+        var src = await Promise.resolve(textAssetDataUrl(zones[i].z));
+        if (!src) continue;
+
+        /* DEUX FORMES POSSIBLES, et c'est tout l'enjeu de ce bloc.
+
+           `rasteriserTexte` renvoie soit une data-URL (rendu canvas local),
+           soit une URL déjà hébergée (rendu serveur). La suivante la passait
+           systématiquement à `dataUrlToFile`, qui fait un `atob` sur la partie
+           base64 : sur une URL https, cette partie n'existe pas, l'exception
+           était avalée par le catch ci-dessous, et LE TEXTE DISPARAISSAIT DE
+           LA COMMANDE sans le moindre signe. L'atelier recevait un vêtement
+           sans son visuel de texte.
+
+           Déjà hébergée : rien à faire, on la prend telle quelle. La
+           re-téléverser reviendrait à payer et attendre deux fois pour le
+           même fichier. */
+        if (/^https?:\/\//i.test(src)) {
+          out.push({ label: zones[i].label, url: src });
+
+          /* Le SVG VECTORIEL qui accompagne ce texte, quand le serveur a pu le
+             produire. C'est le fichier que l'atelier découpe : les lettres y
+             sont des tracés, pas des pixels — un plotter suit des contours, et
+             un PNG l'oblige à vectoriser approximativement.
+
+             Propriété distincte, en supplément : le PNG reste l'aperçu affiché
+             dans le dashboard, qui refuse les SVG par sécurité. */
+          var svg = window.__textSvgUrls && window.__textSvgUrls[zones[i].z];
+          if (svg) out.push({ label: zones[i].label + ' (SVG)', url: svg });
+          continue;
+        }
+
+        // data-URL : chemin canvas, téléversement comme avant.
         try {
-          var file = dataUrlToFile(dataUrl, 'texte-' + zones[i].z + '.png');
+          var file = dataUrlToFile(src, 'texte-' + zones[i].z + '.png');
           var res = await window.ConfAPI.uploadLogo(file);
           var url = res && (res.url || res.secure_url);
           if (url) out.push({ label: zones[i].label, url: url });

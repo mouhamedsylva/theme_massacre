@@ -138,8 +138,18 @@
             throw new Error('Impossible d\'extraire métadonnées texte');
           }
 
-          // Appel API backend
-          var response = await fetch('/api/uploads/text-svg', {
+          /* URL ABSOLUE, via la base du backend.
+
+             Ce `fetch` utilisait un chemin relatif : depuis la boutique
+             Shopify, il partait donc vers massacre-officiel.com/api/... où
+             cette route n'existe pas. Chaque appel finissait en 404, le catch
+             en bas repassait au rendu canvas, et la génération serveur ne
+             s'exécutait jamais — le client recevait toujours le PNG pixélisé.
+
+             window.API_BASE est posé par configurateur.liquid ; ConfAPI s'en
+             sert partout ailleurs (conf-api.js). */
+          var base = (window.API_BASE || '').replace(/\/$/, '');
+          var response = await fetch(base + '/uploads/text-svg', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(metadata)
@@ -155,7 +165,25 @@
             throw new Error('URL manquante dans réponse API');
           }
 
-          console.log('Texte SVG généré:', result.url, `${result.width}x${result.height}`);
+          /* MÉMORISATION DU SVG VECTORIEL.
+
+             Le serveur renvoie deux fichiers : le PNG (`url`, l'aperçu montré
+             dans le dashboard) et le SVG en tracés (`svgUrl`, ce que l'atelier
+             découpe). Cette fonction ne peut en retourner qu'un — tous ses
+             appelants attendent une source d'image affichable — d'où ce
+             registre, que `collectTextAssets` (conf-main-inline.js) relit au
+             moment de composer la commande.
+
+             Indexé par zone ('f', 'b') : l'ordre des rendus n'est pas garanti,
+             une simple variable serait écrasée par le texte suivant. */
+          if (result.svgUrl) {
+            var zone = (el.id || '').replace(/^text-/, '');
+            window.__textSvgUrls = window.__textSvgUrls || {};
+            window.__textSvgUrls[zone] = result.svgUrl;
+          }
+
+          console.log('Texte SVG généré:', result.url, `${result.width}x${result.height}`,
+                      result.svgUrl ? '(+ SVG vectoriel)' : '(PNG seul)');
           resolve(result.url);
           
         } catch (error) {
