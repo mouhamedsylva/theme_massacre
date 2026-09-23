@@ -17,6 +17,41 @@
   'use strict';
 
   /**
+   * Repose la forme et l'orientation d'un patch restauré depuis le panier.
+   *
+   * Ni l'une ni l'autre n'étaient retenues : un patch rouvert revenait TOUJOURS
+   * en Rond. Le défaut précède l'ajout du rectangle vertical, mais celui-ci le
+   * rendrait plus visible — un patch portrait reviendrait couché.
+   *
+   * On rejoue le CLIC sur la carte de forme plutôt que de poser la classe à la
+   * main : `selectShape` met à jour d'un seul geste le canevas, les tailles
+   * proposées, la vignette du récapitulatif et la ligne « Orientation ».
+   * Reproduire tout cela ici le ferait diverger au premier changement.
+   *
+   * Différé : le panneau du produit n'est pas encore monté quand cette
+   * restauration est appelée — la carte n'existe pas dans le DOM.
+   *
+   * @param {string|null} forme       'rond' | 'carre' | 'rectangle' | 'blason'
+   * @param {string|null} orientation 'paysage' | 'portrait'
+   */
+  function restaurerFormePatch(forme, orientation) {
+    if (!forme) return;
+
+    /* L'orientation est posée AVANT le clic : `selectShape` la lit pour
+       décider du ratio, et la remet à « paysage » si la forme n'est pas un
+       rectangle. */
+    window.__patchOrientation = (orientation === 'portrait') ? 'portrait' : 'paysage';
+
+    setTimeout(function () {
+      var carte = document.querySelector(
+        '#panel-patch .coins-shape-card[data-shape="' + forme + '"]');
+      if (carte && typeof window.selectShape === 'function') {
+        window.selectShape(carte);
+      }
+    }, 0);
+  }
+
+  /**
    * @returns {object|null} l'article du panier portant cet id.
    *
    * La source est `window.getCartItems()` — le tableau VIVANT du template.
@@ -608,6 +643,9 @@
          un drapeau portrait serait bâti puis recadré comme un paysage. */
       if (snap.flagOrientation) window.__flagOrientation = snap.flagOrientation;
 
+      // PATCH : même raison, la forme doit être posée avant le rendu du canevas.
+      restaurerFormePatch(snap.patchShape, snap.patchOrientation);
+
       /* NOTES : la valeur COMMANDÉE prime sur celle de l'instantané.
 
          `item.notes` est ce qui part réellement à l'atelier ; `snap.notes` n'est
@@ -896,6 +934,12 @@
       if (d.flagColor) sessionStorage.setItem('conf_flag_color', d.flagColor);
       if (d.flagColorName) sessionStorage.setItem('conf_flag_color_name', d.flagColorName);
       if (d.flagOrientation) window.__flagOrientation = d.flagOrientation;
+
+      /* PATCH : forme et orientation, posées AVANT le rendu.
+         `restaurerFormePatch` rejoue le clic sur la carte correspondante, ce
+         qui met à jour d'un seul geste le canevas, les tailles proposées, la
+         vignette et le récapitulatif. */
+      restaurerFormePatch(d.patchShape, d.patchOrientation);
 
       /* CONTENU RÉEL exigé — un magasin VIDE ne doit rien écraser.
 

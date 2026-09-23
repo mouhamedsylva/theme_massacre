@@ -524,6 +524,11 @@ class DynamicLayoutManager {
               <p>Face : Une seule face (sublimé)</p>
               <p>Taille : <span id="coins-recap-size">8 cm</span></p>
               <p>Format : <span id="coins-recap-shape">Rond</span></p>
+              <!-- Rectangle uniquement (masquée ailleurs par
+                   majRecapOrientationPatch). Ces lignes sont concaténées dans
+                   la propriété « Détails » de la commande : la mention remonte
+                   donc jusqu'à la fiche d'atelier sans autre plomberie. -->
+              <p id="coins-recap-orientation-line" style="display:none">Orientation : <span id="coins-recap-orientation">Paysage</span></p>
               <p>Type : <span id="coins-recap-type">Sublimé</span></p>
             </div>
           </div>

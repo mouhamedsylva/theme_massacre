@@ -1306,6 +1306,42 @@
       </div>
     </div>
 
+    <!-- 1 bis. Orientation — RECTANGLE UNIQUEMENT.
+
+         Les autres formes sont symétriques (rond, carré) ou définies par leur
+         silhouette (blason) : une orientation n'y aurait aucun sens. La section
+         est donc masquée par défaut, et `selectShape` la révèle quand le
+         rectangle est choisi.
+
+         Structure reprise du sélecteur d'orientation des drapeaux (plus haut
+         dans ce fichier) : le client retrouve un geste qu'il connaît. -->
+    <div class="panel-section" id="patch-orientation-section" style="display:none">
+      <div class="panel-section-title">Orientation</div>
+      <div class="panel-section-subtitle">Choisissez le sens de votre patch</div>
+
+      <div class="flag-orientation-row">
+        <div class="flag-orientation-card active" data-orientation="paysage"
+             onclick="selectPatchOrientation(this)">
+          <svg width="64" height="48" viewBox="0 0 64 48" fill="none" aria-hidden="true">
+            <rect x="8" y="14" width="48" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Paysage</span>
+          <span class="flag-ori-sub">(horizontal)</span>
+          <div class="flag-orientation-check">✓</div>
+        </div>
+
+        <div class="flag-orientation-card" data-orientation="portrait"
+             onclick="selectPatchOrientation(this)">
+          <svg width="48" height="56" viewBox="0 0 48 56" fill="none" aria-hidden="true">
+            <rect x="14" y="4" width="20" height="48" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span>Portrait</span>
+          <span class="flag-ori-sub">(vertical)</span>
+          <div class="flag-orientation-check">✓</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 2. Taille -->
     <div class="panel-section">
       <div class="panel-section-title">Taille</div>

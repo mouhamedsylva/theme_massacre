@@ -331,17 +331,38 @@
   max-width: 400px;
 }
 
-/* Tailles rectangulaires : --patch-max borne la HAUTEUR (le canvas reste piloté
-   par la hauteur). Valeurs plus basses car la forme est plus large que haute
-   (aspect-ratio ~1.56 appliqué en JS), pour ne pas déborder en largeur. */
+/* Tailles rectangulaires. `--patch-max` borne toujours la HAUTEUR : le canevas
+   est piloté par elle, la largeur suit l'aspect-ratio posé en JS.
+
+   LE GRAND CÔTÉ EST LE MÊME DANS LES DEUX SENS. C'est ce qui donne l'impression
+   d'un même patch simplement pivoté — sans cela, le paysage paraissait plus
+   imposant que le portrait.
+
+     8×6 cm    : grand côté 480px    10×7,5 cm : grand côté 560px
+
+   En paysage, ce grand côté est la LARGEUR : la hauteur vaut donc 480/1,6 = 300.
+   En portrait, c'est la HAUTEUR : --patch-max vaut directement 480. */
 .coins-canvas-circle.size-8x6cm {
-  --patch-max: 240px;
-  max-width: 420px;
+  --patch-max: 300px;   /* 300 × 1,6 = 480 de large */
+  max-width: 480px;
 }
 
 .coins-canvas-circle.size-10x7-5cm {
-  --patch-max: 300px;
-  max-width: 500px;
+  --patch-max: 350px;   /* 350 × 1,6 = 560 de large */
+  max-width: 560px;
+}
+
+/* PORTRAIT : les deux bornes échangent leur rôle. La forme est plus haute que
+   large, donc c'est la LARGEUR qu'il faut contenir. La hauteur reprend le
+   grand côté du paysage, pour que les deux se correspondent. */
+.coins-canvas-circle.size-8x6cm.orientation-portrait {
+  --patch-max: 480px;   /* 480 × 0,75 = 360 de large */
+  max-width: 360px;
+}
+
+.coins-canvas-circle.size-10x7-5cm.orientation-portrait {
+  --patch-max: 560px;   /* 560 × 0,75 = 420 de large */
+  max-width: 420px;
 }
 
 /* (Ancien blason CSS + bordure ::before supprimés : la forme vient de l'image PNG.) */
@@ -1073,7 +1094,13 @@
 
 .rp-patch-thumb {
   width: 60px;
-  height: 60px;
+  /* La HAUTEUR suit la forme (aspect-ratio posé par updatePatchRecapThumb).
+     Elle était fixée à 60px comme la largeur : la vignette restait carrée quelle
+     que soit la forme, et un rectangle y paraissait rogné.
+     `max-height` borne le portrait, qui serait sinon deux fois plus haut que
+     large et déséquilibrerait la ligne du récapitulatif. */
+  height: auto;
+  max-height: 76px;
   border-radius: 0;
   background: transparent;
   border: none;
@@ -1475,9 +1502,18 @@
 /* — Carré : angles légèrement adoucis, comme un patch cousu — */
 .coins-canvas-circle.shape-carre .patch-body { border-radius: 6%; }
 
-/* — Rectangle : le canevas est carré, la forme occupe une bande centrale — */
+/* — Rectangle : la forme REMPLIT le canevas.
+ *
+ *   Elle occupait auparavant une bande centrale (`inset: 18% 0`) à l'intérieur
+ *   d'un cadre au rapport 1,56 : la forme vue faisait donc 2,44, presque deux
+ *   fois trop allongée pour un 8×6 cm (qui vaut 4/3).
+ *
+ *   Le cadre porte désormais le vrai rapport (PATCH_SHAPE_RATIO, 4/3), et la
+ *   forme l'occupe entièrement. Un seul endroit décide de la géométrie au lieu
+ *   de deux qui se compensaient mal — et l'orientation se règle alors
+ *   uniquement par l'inversion du ratio, sans bande à faire pivoter. — */
 .coins-canvas-circle.shape-rectangle .patch-body {
-  inset: 18% 0;
+  inset: 0;
   border-radius: 5%;
 }
 
@@ -1744,9 +1780,13 @@
 }
 .coins-canvas-circle.shape-rond .patch-safe-zone { border-radius: 50%; }
 .coins-canvas-circle.shape-carre .patch-safe-zone { border-radius: 6%; }
-/* Rectangle : même bande centrale que .patch-body. */
+/* Rectangle : même géométrie que .patch-body, qui remplit désormais le cadre.
+   Le repère suit donc l'orientation sans règle dédiée — en portrait il devient
+   vertical de lui-même. Il indiquait auparavant une limite horizontale sur un
+   patch vertical : le client croyait pouvoir déborder sur les côtés et manquer
+   de place en hauteur. */
 .coins-canvas-circle.shape-rectangle .patch-safe-zone {
-  inset: 18% 0;
+  inset: 0;
   border-radius: 5%;
 }
 /* Blason : contour tracé en SVG (une bordure CSS ne suit pas cette forme).
@@ -1767,6 +1807,15 @@
   width: 60px !important;
   max-width: 60px !important;
   margin: 0 !important;
+}
+/* PORTRAIT : c'est la hauteur qui sert de référence, la largeur suit.
+   Garder 60px de large donnerait 80px de haut — au-delà de la borne, et la
+   forme serait rognée au lieu d'être simplement plus petite. */
+.rp-patch-thumb.coins-canvas-circle.orientation-portrait {
+  width: auto !important;
+  max-width: none !important;
+  height: 72px;
+  max-height: 72px;
 }
 /* Le design remplit la forme dans la miniature comme dans le canevas. */
 .rp-patch-thumb .patch-body img {

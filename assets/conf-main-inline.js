@@ -1673,9 +1673,59 @@
     };
     window.PATCH_COLOR_SLUGS = PATCH_COLOR_SLUGS;
 
-    // Aspect-ratio (largeur/hauteur) de chaque forme, pour ne pas déformer l'image.
-    var PATCH_SHAPE_RATIO = { rond: 1, carre: 1, rectangle: 1346 / 861, blason: 829 / 972 };
+    /* Aspect-ratio (largeur/hauteur) de chaque forme, pour ne pas déformer
+     * l'image.
+     *
+     * LE RECTANGLE SUIT SES DIMENSIONS RÉELLES : 8×6 et 10×7,5 cm valent tous
+     * deux 4/3. Il portait 1346/861 ≈ 1,56 — la proportion d'un ancien fichier
+     * PNG — et le CSS l'amputait encore de 18 % en haut et en bas, si bien que
+     * la forme VUE faisait 2,44 de rapport. Presque deux fois trop allongée
+     * pour un patch censé être un 8×6.
+     *
+     * Le cadre porte désormais directement le rapport visible : plus de bande
+     * centrale à compenser (voir .patch-body dans conf-coins.css). */
+    var PATCH_SHAPE_RATIO = { rond: 1, carre: 1, rectangle: 4 / 3, blason: 829 / 972 };
     window.PATCH_SHAPE_RATIO = PATCH_SHAPE_RATIO;
+
+    /* ORIENTATION DU RECTANGLE.
+     *
+     * Seul le rectangle en a une : les autres formes sont symétriques ou
+     * définies par leur silhouette (blason). Le modèle est celui des drapeaux
+     * (window.__flagOrientation), à une différence près — le patch n'échange
+     * aucune image, il est dessiné en CSS et en canevas. Inverser le ratio
+     * suffit. */
+    window.__patchOrientation = window.__patchOrientation || 'paysage';
+
+    /** Le rectangle est-il en portrait ? */
+    function patchEstPortrait() {
+      return window.__patchOrientation === 'portrait';
+    }
+    window.patchEstPortrait = patchEstPortrait;
+
+    /* Le rectangle PAYSAGE est volontairement plus allongé que le portrait.
+     *
+     * Les deux ne sont donc pas strictement inverses : 1,6 couché contre 0,75
+     * debout. C'est un choix d'affichage, demandé après essai — l'horizontal
+     * paraissait trop court à l'écran une fois ramené au 4/3 du produit réel.
+     *
+     * La hauteur ne bouge pas : seule la largeur augmente (300×480 au lieu de
+     * 300×400). Le portrait, lui, garde le rapport du produit. */
+    var PATCH_RECT_RATIO_PAYSAGE = 1.6;
+
+    /**
+     * Ratio d'une forme, orientation comprise.
+     *
+     * Point de passage UNIQUE : la table brute est lue à plusieurs endroits
+     * (canevas, vignette du récap, capture). Les laisser lire PATCH_SHAPE_RATIO
+     * directement ferait diverger l'aperçu et le fichier envoyé à l'atelier au
+     * premier oubli.
+     */
+    function patchRatio(shape) {
+      var base = PATCH_SHAPE_RATIO[shape] || 1;
+      if (shape !== 'rectangle') return base;
+      return patchEstPortrait() ? (1 / base) : PATCH_RECT_RATIO_PAYSAGE;
+    }
+    window.patchRatio = patchRatio;
 
     // Couleur de patch courante (hex + slug), suivie pour le récap et la capture.
     window.currentPatchHex = '#1a1a1a';
@@ -1714,7 +1764,12 @@
       var canvas = document.getElementById('coins-canvas');
       if (!canvas) return;
       var shape = patchShapeName();
-      canvas.style.aspectRatio = PATCH_SHAPE_RATIO[shape] || 1;
+      canvas.style.aspectRatio = patchRatio(shape);
+      /* La classe porte l'orientation : c'est elle que lit le CSS pour inverser
+         la bande visible (.patch-body). Sans elle, le canevas serait au bon
+         ratio mais la forme resterait couchée. */
+      canvas.classList.toggle('orientation-portrait',
+        shape === 'rectangle' && patchEstPortrait());
     }
     window.updatePatchShapeImg = updatePatchShapeImg;
 
@@ -2559,11 +2614,14 @@
       // On ne remplace PAS tout le style : .rp-patch-thumb porte width/height
       // (60px). Un cssText complet les effacait -> conteneur de hauteur nulle,
       // donc miniature vide. On n'ajuste que le ratio et le débordement.
-      thumb.style.aspectRatio = PATCH_SHAPE_RATIO[shape] || 1;
+      thumb.style.aspectRatio = patchRatio(shape);
       thumb.style.overflow = 'visible';
       thumb.style.position = 'relative';
       ['rond', 'carre', 'rectangle', 'blason'].forEach(function (s) { thumb.classList.remove('shape-' + s); });
       thumb.classList.add('coins-canvas-circle', 'shape-' + shape);
+      // Même orientation que le canevas, sans quoi la miniature divergerait.
+      thumb.classList.toggle('orientation-portrait',
+        shape === 'rectangle' && patchEstPortrait());
 
       /* L'IMAGE EST POSÉE EN PROPRIÉTÉ, JAMAIS DANS DU BALISAGE.
 
@@ -5524,7 +5582,7 @@
     /* Demande de devis pour un PATCH en PVC ou Tissé. Collecte les specs du patch
        (taille, forme, couleur) + le style demandé, et un aperçu (cercle + logo).
        Réutilise le même modal/flux que le devis coins. */
-    function requestPatchQuote(style) {
+    async function requestPatchQuote(style) {
       var recap = document.querySelector('.recap');
       var name = 'Patch personnalisé (' + style + ')';
 
@@ -5549,26 +5607,40 @@
       var qtyInput = champQtePerso();
       var qty = qtyInput ? Math.max(1, parseInt(qtyInput.value) || 1) : 20;
 
-      // Aperçu : le patch composé (cercle couleur + logo) si un logo est présent.
+      /* APERÇU : la MÊME composition que le panier et la vue d'ensemble.
+       *
+       * On dessinait ici un simple disque de couleur unie, puis on joignait le
+       * logo à part. Deux défauts en découlaient, visibles sur le dashboard :
+       *
+       *   - la vignette « fond » était un cercle VIDE, le logo n'y étant pas
+       *     incrusté — l'atelier voyait un rond blanc à côté du logo ;
+       *   - la couleur était lue sur `canvasEl.style.backgroundColor`, que rien
+       *     ne pose : la forme est peinte par `.patch-body` (conf-coins.css).
+       *     Elle retombait donc toujours sur du blanc, même pour un patch noir.
+       *
+       * Et le disque ignorait la forme : un rectangle ou un blason partait en
+       * rond.
+       *
+       * `capturePatchDesign()` compose déjà forme, couleur, orientation et logo
+       * — c'est elle qui alimente le panier. La réutiliser garantit que le
+       * devis montre exactement ce que le client a vu. */
       var previews = [];
-      var logoEl = document.getElementById('patch-logo');
-      var logoImg = logoEl ? logoEl.querySelector('img') : null;
-      var logoSrc = (logoImg && logoEl.style.display !== 'none') ? logoImg.getAttribute('src') : '';
-      var canvasEl = document.getElementById('coins-canvas');
-      var bgColor = (canvasEl && canvasEl.style.backgroundColor) ? canvasEl.style.backgroundColor : '#ffffff';
-      if (logoSrc) {
-        // Génère un cercle coloré (fond) en data-URL pour l'aperçu.
-        try {
-          var c = document.createElement('canvas'); c.width = 400; c.height = 400;
-          var ctx = c.getContext('2d');
-          ctx.beginPath(); ctx.arc(200, 200, 200, 0, Math.PI * 2); ctx.fillStyle = bgColor; ctx.fill();
-          previews.push({ label: 'PATCH', base: c.toDataURL('image/png'), logo: logoSrc });
-        } catch (e) {
-          /* Le devis part quand même, mais sans vignette : l'atelier reçoit
-             alors une demande sans visuel. À tracer — ce n'est pas un échec
-             de stockage anodin (canvas « tainted », mémoire insuffisante). */
-          console.warn('Vignette du patch non générée pour le devis :', e);
+      try {
+        var design = (typeof capturePatchDesign === 'function')
+          ? await capturePatchDesign() : null;
+        if (design && design.background) {
+          /* `background` porte DÉJÀ le logo incrusté et recadré : la vignette
+             se suffit à elle-même. `logo` reste joint quand il existe — c'est
+             le fichier source, utile à l'atelier pour la production. */
+          var logoDuDesign = (design.logos && design.logos[0] && design.logos[0].src)
+            ? design.logos[0].src : undefined;
+          previews.push({ label: 'PATCH', base: design.background, logo: logoDuDesign });
         }
+      } catch (e) {
+        /* Le devis part quand même, mais sans vignette : l'atelier reçoit
+           alors une demande sans visuel. À tracer — ce n'est pas un échec
+           de stockage anodin (canvas « tainted », mémoire insuffisante). */
+        console.warn('Vignette du patch non générée pour le devis :', e);
       }
 
       openQuoteModal({ name: name, details: details, qty: qty, previews: previews,
@@ -5588,7 +5660,17 @@
         cancelText: 'Tissé'
       }).then(function (isPvc) {
         // confConfirm renvoie true (Confirmer=PVC) ou false (Annuler=Tissé).
-        requestPatchQuote(isPvc ? 'PVC' : 'Tissé');
+        /* `requestPatchQuote` est asynchrone depuis qu'elle compose la vignette
+           par capturePatchDesign : sans ce catch, un échec resterait muet et le
+           client verrait le bouton ne rien faire. */
+        Promise.resolve(requestPatchQuote(isPvc ? 'PVC' : 'Tissé'))
+          .catch(function (e) {
+            console.error('Demande de devis patch impossible :', e);
+            if (typeof window.confAlert === 'function') {
+              window.confAlert('La demande n\'a pas pu être préparée. Réessayez.',
+                               { icon: 'error', title: 'Erreur' });
+            }
+          });
       });
     }
 
@@ -6948,11 +7030,33 @@
          On garde le canvas complet comme repère (les % du logo y sont
          relatifs, exactement comme à l'écran) et on recadre à la toute fin sur
          la bande. */
-      var ratio = (window.PATCH_SHAPE_RATIO || {})[shape] || 1;
+      var ratio = (typeof patchRatio === 'function')
+        ? patchRatio(shape)
+        : ((window.PATCH_SHAPE_RATIO || {})[shape] || 1);
       var W = 1000;
       var H = Math.round(W / ratio);
-      // Part de hauteur rognée en haut ET en bas (miroir du `inset` CSS).
-      var INSET_Y = (shape === 'rectangle') ? 0.18 : 0;
+
+      /* Parts rognées, miroir du `inset` CSS de .patch-body.
+       *
+       * Toutes NULLES aujourd'hui : chaque forme remplit désormais son cadre,
+       * dont le ratio porte directement la proportion visible. Le rectangle
+       * faisait exception — une bande centrale de 18 % dans un cadre plus
+       * allongé — ce qui donnait une forme vue à 2,44 au lieu de 4/3.
+       *
+       * Les variables sont conservées, et dérivées une seule fois en
+       * (bx0, by0, bW, bH) : les cinq usages en aval — fond, découpe, boîte du
+       * logo, recadrage, repli sans CORS — partagent ainsi la même géométrie.
+       * Réintroduire une silhouette en retrait (une forme cousue avec marge,
+       * par exemple) ne demanderait que de renseigner ces deux valeurs. */
+      var INSET_Y = 0;
+      var INSET_X = 0;
+
+      // La bande réellement occupée par la silhouette, dans le canevas.
+      var bx0 = W * INSET_X;
+      var by0 = H * INSET_Y;
+      var bW = W * (1 - 2 * INSET_X);
+      var bH = H * (1 - 2 * INSET_Y);
+
       var c = document.createElement('canvas');
       c.width = W; c.height = H;
       var ctx = c.getContext('2d');
@@ -6962,7 +7066,7 @@
          tracePatchShape() connaît déjà les quatre formes et reproduit le rendu
          de .patch-body (border-radius / masque SVG). */
       ctx.save();
-      tracePatchShape(ctx, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
+      tracePatchShape(ctx, shape, bx0, by0, bW, bH);
       ctx.fillStyle = patchHex;
       ctx.fill();
       ctx.restore();
@@ -6982,7 +7086,7 @@
       if (logoImgEl) {
         ctx.save();
         // Même bande que le fond : le design ne déborde pas de la silhouette.
-        tracePatchShape(ctx, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
+        tracePatchShape(ctx, shape, bx0, by0, bW, bH);
         ctx.clip();
         /* LE PLANCHER DE HAUTEUR NE VAUT QUE POUR UN DESIGN QUI COUVRE.
 
@@ -7010,12 +7114,14 @@
         /* Le plancher vise la SILHOUETTE, pas le cadre : sur un rectangle,
            borner à `H` (canvas entier) gonflerait la boîte de 36 % et le design
            sortirait plus zoomé qu'à l'écran. */
-        var hForme = H * (1 - 2 * INSET_Y);
-        var bw = (lw >= 1) ? Math.max(lw * W, W) : lw * W;
-        var bh = (lw >= 1) ? Math.max(lw * W, hForme) : lw * W;
-        /* `top` est relatif à .patch-body (le logo en est enfant), donc à la
-           bande — décalée de INSET_Y dans le canvas. */
-        var bx = lx * W, by = H * INSET_Y + ly * hForme;
+        /* Les deux côtés de la SILHOUETTE (bW, bH), pas ceux du cadre : en
+           portrait c'est la largeur qui est amputée, en paysage la hauteur. */
+        var bw = (lw >= 1) ? Math.max(lw * W, bW) : lw * W;
+        var bh = (lw >= 1) ? Math.max(lw * W, bH) : lw * W;
+        /* left/top sont relatifs à .patch-body (le logo en est enfant), donc à
+           la bande — décalée de (bx0, by0) dans le canevas et dimensionnée
+           par (bW, bH). */
+        var bx = bx0 + lx * bW, by = by0 + ly * bH;
         var nw2 = logoImgEl.naturalWidth || 1;
         var nh2 = logoImgEl.naturalHeight || 1;
         /* `max` = couvrir, `min` = contenir — même bascule qu'à l'écran. */
@@ -7034,12 +7140,15 @@
          On ne renvoie donc que la bande utile — l'image résultante a le rapport
          RÉELLEMENT vu à l'écran (≈ 2,44 pour le rectangle, inchangé ailleurs). */
       function recadrer(src) {
-        if (!INSET_Y) return src;
-        var hUtile = Math.round(H * (1 - 2 * INSET_Y));
+        if (!INSET_X && !INSET_Y) return src;
+        /* On découpe sur les DEUX axes : un seul est actif à la fois, mais
+           l'écrire ainsi évite deux branches qui divergeraient. */
+        var xUtile = Math.round(bx0), yUtile = Math.round(by0);
+        var wUtile = Math.round(bW), hUtile = Math.round(bH);
         var cc = document.createElement('canvas');
-        cc.width = W; cc.height = hUtile;
-        cc.getContext('2d').drawImage(src, 0, Math.round(H * INSET_Y), W, hUtile,
-                                           0, 0, W, hUtile);
+        cc.width = wUtile; cc.height = hUtile;
+        cc.getContext('2d').drawImage(src, xUtile, yUtile, wUtile, hUtile,
+                                           0, 0, wUtile, hUtile);
         return cc;
       }
 
@@ -7054,7 +7163,7 @@
         var cf = document.createElement('canvas');
         cf.width = W; cf.height = H;
         var ctxf = cf.getContext('2d');
-        tracePatchShape(ctxf, shape, 0, H * INSET_Y, W, H * (1 - 2 * INSET_Y));
+        tracePatchShape(ctxf, shape, bx0, by0, bW, bH);
         ctxf.fillStyle = patchHex;
         ctxf.fill();
         return {
@@ -7261,6 +7370,7 @@
     function capturerEtatDesign(complet) {
       var state = {
         product: null, color: null, patchColor: null, coinFinish: null,
+        patchShape: null, patchOrientation: null,
         flagColor: null, flagColorName: null, flagOrientation: null,
         uploads: null, texts: null
       };
@@ -7268,6 +7378,20 @@
       try { state.color = JSON.parse(sessionStorage.getItem('conf_current_color') || 'null'); } catch (e) {}
       try { state.patchColor = JSON.parse(sessionStorage.getItem('conf_patch_color') || 'null'); } catch (e) {}
       try { state.coinFinish = sessionStorage.getItem('conf_coin_finish') || null; } catch (e) {}
+
+      /* FORME ET ORIENTATION DU PATCH.
+         Ni l'une ni l'autre n'étaient retenues : un patch rouvert depuis le
+         panier revenait TOUJOURS en Rond, quelle que soit la forme commandée.
+         Le défaut précède l'ajout du portrait, mais celui-ci le rendrait plus
+         visible encore — un rectangle vertical reviendrait couché.
+
+         Comme l'orientation du drapeau, elles ne vivent qu'en mémoire : la
+         forme est portée par une classe CSS du canevas, d'où la lecture par
+         patchShapeName(). */
+      try {
+        state.patchShape = (typeof patchShapeName === 'function') ? patchShapeName() : null;
+      } catch (e) {}
+      state.patchOrientation = window.__patchOrientation || null;
 
       /* RÉGLAGES DU DRAPEAU — fond et orientation.
 
@@ -10711,6 +10835,15 @@
         canvas.classList.add('shape-' + shape);
       }
 
+      /* L'ORIENTATION NE VAUT QUE POUR LE RECTANGLE.
+         Les autres formes sont symétriques (rond, carré) ou définies par leur
+         silhouette (blason). On masque la section, et on remet le paysage :
+         sans cela, revenir au rectangle depuis une autre forme le retrouverait
+         en portrait alors que la section était invisible entre-temps. */
+      var sectionOri = document.getElementById('patch-orientation-section');
+      if (sectionOri) sectionOri.style.display = (shape === 'rectangle') ? '' : 'none';
+      if (shape !== 'rectangle') window.__patchOrientation = 'paysage';
+
       // Recalcule l'image du patch (forme + couleur, repli teinté) + l'aspect-ratio.
       if (typeof updatePatchShapeImg === 'function') updatePatchShapeImg();
 
@@ -10813,7 +10946,85 @@
       setTimeout(function () {
         if (typeof window.clampPatchLogo === 'function') window.clampPatchLogo(true);
       }, 60);
+
+      /* Les cartes d'orientation reflètent l'état, qui a pu être remis à
+         « paysage » ci-dessus en quittant le rectangle. */
+      if (typeof majCartesOrientationPatch === 'function') majCartesOrientationPatch();
+      /* La ligne « Orientation » du récap n'existe que pour le rectangle :
+         elle doit apparaître ou disparaître avec la forme. */
+      if (typeof majRecapOrientationPatch === 'function') majRecapOrientationPatch();
     }
+
+    /* EXPOSITION EXPLICITE — à ne pas retirer.
+     *
+     * `window.selectShape` était assigné par conf-dynamic-layout.js:1586, qui
+     * porte une version PLUS ANCIENNE de cette fonction. La déclaration globale
+     * ci-dessus écrase bien l'autre pour les appels directs (ce fichier est
+     * chargé après), mais PAS la propriété de window, déjà assignée.
+     *
+     * Les appelants passant par `window.selectShape` — dont la restauration
+     * d'un design depuis le panier — auraient donc obtenu l'ancienne version,
+     * sans l'orientation ni la revalidation des tailles. */
+    window.selectShape = selectShape;
+
+    /** Aligne les cartes Paysage/Portrait sur window.__patchOrientation. */
+    function majCartesOrientationPatch() {
+      var courante = window.__patchOrientation || 'paysage';
+      document.querySelectorAll('#patch-orientation-section .flag-orientation-card')
+        .forEach(function (carte) {
+          carte.classList.toggle('active',
+            carte.getAttribute('data-orientation') === courante);
+        });
+    }
+    window.majCartesOrientationPatch = majCartesOrientationPatch;
+
+    /**
+     * Bascule l'orientation du patch rectangulaire.
+     *
+     * Calquée sur `selectFlagOrientation` (conf-drapeaux.js), à une différence
+     * près : aucun fichier image à recharger. Le patch est dessiné en CSS et en
+     * canevas, donc inverser le ratio et la bande visible suffit — d'où
+     * l'absence de rappel asynchrone.
+     */
+    function selectPatchOrientation(el) {
+      if (!el) return;
+      var orientation = el.getAttribute('data-orientation') === 'portrait'
+        ? 'portrait' : 'paysage';
+      window.__patchOrientation = orientation;
+
+      majCartesOrientationPatch();
+
+      // Ratio du canevas + classe lue par le CSS pour la bande visible.
+      if (typeof updatePatchShapeImg === 'function') updatePatchShapeImg();
+      if (typeof updatePatchRecapThumb === 'function') updatePatchRecapThumb();
+      majRecapOrientationPatch();
+
+      /* Même délai que pour un changement de forme : le logo doit être
+         recontraint APRÈS que le navigateur a appliqué le nouveau ratio, sinon
+         clampPatchLogo mesure encore l'ancienne silhouette et laisse le design
+         déborder. */
+      setTimeout(function () {
+        if (typeof window.clampPatchLogo === 'function') window.clampPatchLogo(true);
+      }, 60);
+    }
+    window.selectPatchOrientation = selectPatchOrientation;
+
+    /** Écrit l'orientation dans le récapitulatif (et donc dans la commande). */
+    function majRecapOrientationPatch() {
+      var ligne = document.getElementById('coins-recap-orientation-line');
+      var valeur = document.getElementById('coins-recap-orientation');
+      if (!ligne || !valeur) return;
+
+      /* La ligne n'apparaît que pour le rectangle : mentionner « Paysage » sur
+         un patch rond n'aurait aucun sens, et cette ligne part telle quelle
+         dans la commande puis sur la fiche d'atelier. */
+      var estRect = (typeof patchShapeName === 'function')
+        && patchShapeName() === 'rectangle';
+      ligne.style.display = estRect ? '' : 'none';
+      valeur.textContent = (window.__patchOrientation === 'portrait')
+        ? 'Portrait' : 'Paysage';
+    }
+    window.majRecapOrientationPatch = majRecapOrientationPatch;
 
     // Couleur de fond du patch
     function selectPatchColor(el, hex, name) {
