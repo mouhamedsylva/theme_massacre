@@ -5972,7 +5972,12 @@
             name: d.name || 'Coin métal personnalisé',
             details: d.details || [],
             qty: d.qty || (d.group ? d.group.pieces : 1) || 1,
-            previews: previews
+            previews: previews,
+            /* Panier multi-produits : une entrée par famille, avec sa quantité.
+               Absent des autres devis (patch seul, coin seul), qui n'ont qu'un
+               type d'article — le serveur retombe alors sur une ligne unique. */
+            familles: (Array.isArray(d.familles) && d.familles.length)
+              ? d.familles : undefined
           }
         };
 

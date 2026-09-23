@@ -37,6 +37,59 @@
   }
   window.countCartFamilies = countCartFamilies;
 
+  /* Libellés client des familles. Le nom d'un article porte sa couleur et sa
+     taille (« Textile - Sweatshirt · Kaki foncé ») : inutilisable comme
+     intitulé de ligne de facture. */
+  var LIBELLE_FAMILLE = {
+    patch: 'Patchs personnalisés',
+    coin: 'Coins métal personnalisés',
+    sweatshirt: 'Sweatshirts personnalisés',
+    tshirt: 'T-shirts personnalisés',
+    drapeau: 'Drapeaux personnalisés'
+  };
+
+  /**
+   * Le panier AGRÉGÉ PAR FAMILLE, pour le chiffrage.
+   *
+   * `details` (plus bas) aplatit chaque article en une phrase : la quantité et
+   * la nature du produit n'y sont plus exploitables. L'admin recevait donc un
+   * devis de 164 unités avec UN seul champ de prix — un patch à 2 € et un
+   * sweatshirt à 40 € partageant le même prix unitaire.
+   *
+   * Cette liste part EN PLUS de `details`, qui reste tel quel : il sert
+   * toujours à l'affichage, et les devis déjà en base n'ont que lui.
+   *
+   * @returns {Array<{cle:string, libelle:string, qty:number, lignes:string[]}>}
+   */
+  function cartFamilies() {
+    var parCle = {};
+    var ordre = [];
+
+    cart().forEach(function (i) {
+      var cle = cartFamily(i);
+      if (!parCle[cle]) {
+        parCle[cle] = {
+          cle: cle,
+          libelle: LIBELLE_FAMILLE[cle] || (i.name || 'Articles'),
+          qty: 0,
+          lignes: []
+        };
+        ordre.push(cle);
+      }
+      parCle[cle].qty += (i.qty || 1);
+      /* Le détail de chaque article reste attaché à sa famille : l'atelier le
+         retrouve en propriété de la ligne correspondante, au lieu d'un bloc
+         global détaché des prix. */
+      parCle[cle].lignes.push(
+        (i.qty || 1) + '× ' + (i.name || 'Article') +
+        (i.color ? ' — ' + i.color : '') + (i.size ? ' — ' + i.size : '')
+      );
+    });
+
+    return ordre.map(function (c) { return parCle[c]; });
+  }
+  window.cartFamilies = cartFamilies;
+
   /* Quantité totale de PATCHS (ciblés par nom « Patch… »). */
   function patchQtyInCart() {
     return cart().reduce(function (s, i) {
@@ -149,7 +202,12 @@
     window.openQuoteModal({
       name: 'Commande sur devis (' + items.length + ' articles)',
       subtitle: sub,
-      details: details, qty: totalQty, previews: previews
+      details: details, qty: totalQty, previews: previews,
+      /* Le panier agrégé par famille : c'est lui qui permettra un prix par
+         type de produit au chiffrage, et une facture détaillée pour le client.
+         `details` reste envoyé tel quel, pour l'affichage et pour les devis
+         déjà en base qui n'ont que lui. */
+      familles: cartFamilies()
     });
   };
 })();
