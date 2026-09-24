@@ -484,10 +484,12 @@ class DynamicLayoutManager {
           </div>
         </div>
 
-        <div class="cv-info">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-          Le rendu est une approximation. Les couleurs et proportions peuvent légèrement varier sur le produit final.
-        </div>
+        <!-- L'avertissement « Le rendu est une approximation… » (.cv-info) a été
+             retiré de CE canvas à la demande. Malgré son nom, loadCoinsCanvas
+             sert le produit PATCHS : categoryMap inverse les deux
+             (patches -> "coins", ligne 141). Les avertissements des drapeaux et
+             du canvas des coins restent en place, dans leurs loaders
+             respectifs. -->
       </div>
     `;
 
