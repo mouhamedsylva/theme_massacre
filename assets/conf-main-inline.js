@@ -4662,7 +4662,24 @@
           var res = await window.ConfAPI.uploadLogo(file);
           var url = res && (res.url || res.secure_url);
           if (url) out.push({ label: zones[i].label, url: url });
-        } catch (e) { /* upload raté : on n'ajoute pas ce texte, sans bloquer */ }
+        } catch (e) {
+          /* ON NE BLOQUE PAS LA COMMANDE, MAIS ON NE SE TAIT PLUS.
+
+             Ce catch était VIDE. Un texte bien visible à l'écran et sur la
+             planche d'aperçu disparaissait alors des assets sans laisser la
+             moindre trace : ni message, ni console. Rien ne distinguait « ce
+             vêtement n'a pas de texte » de « son fichier n'a pas pu être
+             téléversé » — et l'atelier recevait un vêtement sans son visuel.
+
+             Le texte reste facultatif : son échec ne doit pas empêcher
+             l'ajout au panier. Mais il doit être DIAGNOSTICABLE. */
+          console.warn(
+            'Texte « ' + zones[i].z + ' » (' + zones[i].label + ') NON ajouté ' +
+            'aux assets de la commande : son téléversement a échoué. ' +
+            'Le texte reste visible sur la planche, mais l\'atelier n\'aura ' +
+            'pas son fichier séparé.', e
+          );
+        }
       }
       return out;
     }
