@@ -124,6 +124,46 @@
   }
   window.ligneSurDevis = ligneSurDevis;
 
+  /* Ce coin a-t-il DEUX faces à produire ?
+
+     Le type choisi par le client (« Recto verso », « Recto simple »,
+     « Recto verso numéroté ») est concaténé dans `color` avec les autres
+     détails, séparés par « · » (conf-main-inline.js, addCustomToCartInner) :
+     « Type : Recto verso · Forme : Rond · Taille : 30 mm ».
+
+     On cherche donc « recto verso » dans cette chaîne, ce qui couvre aussi
+     « Recto verso numéroté ». « Recto simple » ne correspond pas — c'est
+     voulu : une seule face est produite, en afficher deux laisserait croire à
+     un verso à fabriquer. */
+  function coinRectoVerso(item) {
+    if (!ligneSurDevis(item)) return false;
+    return /recto\s*-?\s*verso/i.test((item && item.color) || '');
+  }
+
+  /* L'image d'aperçu à envoyer au devis pour CET article.
+
+     Par défaut la vignette du panier (`img`), qui ne montre que le RECTO
+     (conf-main-inline.js : « img (vignette panier) = RECTO seul »). L'atelier
+     ne voyait donc jamais le verso d'un coin recto verso — pas même son
+     numéro, alors que le client l'avait demandé.
+
+     Pour un coin à deux faces, on préfère la PLANCHE (`sheet`) : elle est déjà
+     composée par le backend (/api/export/preview-multi) et porte les deux
+     faces côte à côte, chacune sous son libellé RECTO / VERSO. Le numéro du
+     verso y figure, capturé comme logo de cette face
+     (captureCoinNumberImage).
+
+     Repli systématique sur `img` : `sheet` vaut null quand la composition a
+     échoué, ou quand une seule face portait un design — aucun devis ne doit
+     perdre l'aperçu qu'il avait déjà. */
+  function apercuDeLigne(item) {
+    if (coinRectoVerso(item) && typeof item.sheet === 'string' &&
+        /^https?:\/\//i.test(item.sheet)) {
+      return { url: item.sheet, planche: true };
+    }
+    return { url: item && item.img, planche: false };
+  }
+
   /* Le panier doit-il passer en devis plutôt qu'au paiement ? Devis si :
      - un COIN est présent (seul ou couplé à n'importe quel produit) ;
      - OU patchs ≥ 100 pièces ;
@@ -190,9 +230,18 @@
     var nFam = countCartFamilies();
     details.unshift('Commande sur devis : ' + nFam + ' famille(s), ' +
       items.length + ' ligne(s), ' + totalQty + ' pièce(s).');
-    var previews = items.filter(function (i) {
-      return typeof i.img === 'string' && /^https?:\/\//i.test(i.img);
-    }).map(function (i) { return { label: (i.name || 'Article'), base: i.img }; });
+    /* Un aperçu par article. Pour un coin recto verso, c'est la PLANCHE des
+       deux faces qui part, et non la vignette du recto seul — voir
+       `apercuDeLigne`. Le libellé le dit, sinon l'atelier ne saurait pas s'il
+       regarde une face ou les deux. */
+    var previews = items.map(function (i) {
+      var ap = apercuDeLigne(i);
+      if (typeof ap.url !== 'string' || !/^https?:\/\//i.test(ap.url)) return null;
+      return {
+        label: (i.name || 'Article') + (ap.planche ? ' — recto / verso' : ''),
+        base: ap.url
+      };
+    }).filter(Boolean);
     // Sous-titre adapté : coin (toujours sur devis) vs simple mix multi-produits.
     var sub = hasCoinInCart()
       ? 'Les pièces (coins) sont chiffrées sur devis : recevez un devis global ' +
