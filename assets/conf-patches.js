@@ -301,6 +301,43 @@ async function applyDecoupeShape() {
           var cote = document.getElementById('coin-cote-logo');
           if (cote) cote.src = cleaned;
         }
+
+        /* ── L'IMAGE DÉTOURÉE PART AUSSI CHEZ CLOUDINARY ─────────────────────
+           Ce chemin posait la version détourée à l'écran et en session, mais
+           n'appelait JAMAIS uploadLogo : `CLOUDINARY_URLS['coin-recto']`
+           gardait donc l'URL de l'image d'ORIGINE, et c'est elle qui partait
+           en commande. L'atelier recevait le visuel à fond opaque pour un coin
+           explicitement demandé « découpé à la forme » — exactement l'inverse
+           de l'intention du client, et sans aucun signe.
+
+           On bascule le registre sur la version détourée, et on conserve
+           l'ancienne URL comme référence d'avant détourage : le couple obtenu
+           est le même que pour les textiles.
+
+           Non bloquant : un échec laisse le coin s'afficher détouré, avec son
+           ancienne URL en commande — soit l'état d'avant ce correctif. */
+        var zoneCoin = 'coin-' + f;
+        var urlAvant = window.CLOUDINARY_URLS && window.CLOUDINARY_URLS[zoneCoin];
+        if (window.ConfAPI && typeof window.ConfAPI.uploadLogo === 'function' &&
+            typeof window.dataUrlToFile === 'function') {
+          window.ConfAPI.uploadLogo(window.dataUrlToFile(cleaned, zoneCoin + '.png'))
+            .then(function (res) {
+              if (!res || !res.url) return;
+              if (typeof window.declarerVisuelHeberge === 'function') {
+                window.declarerVisuelHeberge(zoneCoin, res.url, owner);
+              }
+              /* L'originale devient la référence, seulement si elle existait :
+                 un coin dont l'image n'avait pas encore été hébergée n'a rien
+                 à montrer d'avant. */
+              if (urlAvant && typeof window.declarerVisuelAvant === 'function') {
+                window.declarerVisuelAvant(zoneCoin, urlAvant, owner);
+              }
+            })
+            .catch(function (err) {
+              console.warn('Coin « ' + f + ' » : version détourée non hébergée. ' +
+                           'La commande gardera l\'image à fond opaque.', err);
+            });
+        }
       }
     } else if (typeof confAlert === 'function') {
       confAlert(

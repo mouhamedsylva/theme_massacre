@@ -4569,6 +4569,7 @@
         sr: 'Logo manche droite'
       };
       const cloud = window.CLOUDINARY_URLS || {};
+      const avant = window.CLOUDINARY_URLS_AVANT || {};
       const assets = [];
       Object.keys(zoneLabels).forEach(zone => {
         // La zone est utilisée si son aperçu sidebar affiche bien une image.
@@ -4578,6 +4579,19 @@
         if (!shown) return;
         const url = cloud[zone];
         if (url) assets.push({ label: zoneLabels[zone], url: url });
+
+        /* L'IMAGE D'ORIGINE, si le client a retiré le fond. Renseignée
+           seulement dans ce cas — un fond conservé ne produit qu'une image.
+
+           APRÈS le visuel retenu, et avec un libellé DISTINCT : c'est la
+           version détourée que l'atelier imprime, l'originale n'est qu'une
+           référence pour juger d'un détourage imparfait. Le suffixe est
+           indispensable, les assets devenant des propriétés indexées par leur
+           libellé (recapitulatif.liquid) — un doublon en écraserait un. */
+        const urlAvant = avant[zone];
+        if (urlAvant && urlAvant !== url) {
+          assets.push({ label: zoneLabels[zone] + ' (avant détourage)', url: urlAvant });
+        }
       });
       return assets;
     }
@@ -4697,6 +4711,7 @@
         'coin-verso':  { label: 'Logo verso',   el: 'coin-logo-verso' },
         'c':           { label: 'Design patch', el: 'patch-logo' }
       };
+      var avant = window.CLOUDINARY_URLS_AVANT || {};
       var assets = [];
       Object.keys(map).forEach(function (zone) {
         var conf = map[zone];
@@ -4706,6 +4721,13 @@
         if (!visible) return;
         var url = cloud[zone];
         if (url) assets.push({ label: conf.label, url: url });
+
+        /* Même règle que pour les textiles : l'image d'avant détourage suit la
+           version retenue, sous un libellé distinct. */
+        var urlAvant = avant[zone];
+        if (urlAvant && urlAvant !== url) {
+          assets.push({ label: conf.label + ' (avant détourage)', url: urlAvant });
+        }
       });
       return assets;
     }
@@ -9015,6 +9037,28 @@
     window.CLOUDINARY_URLS = window.CLOUDINARY_URLS || {};
 
     /* ══════════════════════════════════════════════════════════════════════
+       IMAGE AVANT DÉTOURAGE — registre PARALLÈLE.
+
+       Quand le client retire l'arrière-plan, seule la version détourée partait
+       chez Cloudinary : l'envoi choisit UN fichier des deux (voir doUpload).
+       L'image d'origine n'existait alors nulle part — ni au DOM, ni en
+       session, ni ici — et l'atelier ne pouvait plus la consulter.
+
+       POURQUOI UN REGISTRE À PART, et non une valeur composite.
+       `CLOUDINARY_URLS[zone]` est une CHAÎNE, lue comme telle à plusieurs
+       endroits (collectDesignAssets, collectCustomAssets,
+       attendreUploadsHeberges, le repeuplement au chargement). En faire un
+       objet casserait chacun d'eux, pour une donnée seulement
+       complémentaire.
+
+       Ce registre suit donc exactement le même cycle que le principal :
+       écrit à l'upload, miroir en session, effacé à la suppression du visuel,
+       repeuplé au chargement. Il reste VIDE quand le client garde son fond —
+       il n'y a alors qu'une seule image, et la dupliquer n'apprendrait rien.
+       ══════════════════════════════════════════════════════════════════════ */
+    window.CLOUDINARY_URLS_AVANT = window.CLOUDINARY_URLS_AVANT || {};
+
+    /* ══════════════════════════════════════════════════════════════════════
        URLS HÉBERGÉES PERSISTÉES — le filet de sécurité du design.
 
        Le registre ci-dessus vit en MÉMOIRE : un rechargement l'efface. Deux
@@ -9101,16 +9145,80 @@
     }
     window.declarerVisuelHeberge = declarerVisuelHeberge;
 
+    /* ── Registre « avant détourage » : mêmes opérations, clé distincte ──
+       Volontairement calqué sur le registre principal ci-dessus. Deux jeux de
+       fonctions plutôt qu'un paramètre : les deux registres n'ont pas le même
+       statut — l'un porte le visuel à produire, l'autre une simple référence
+       dont l'absence est normale. */
+    var CLOUD_KEY_AVANT = 'conf_cloud_urls_avant';
+
+    function lireCloudUrlsAvant() {
+      try {
+        var brut = sessionStorage.getItem(CLOUD_KEY_AVANT);
+        var obj = brut ? JSON.parse(brut) : null;
+        return (obj && typeof obj === 'object') ? obj : {};
+      } catch (e) { return {}; }
+    }
+
+    function memoriserCloudUrlAvant(zone, url, owner) {
+      if (!zone || !url) return;
+      var produit = owner || currentProductType;
+      if (!produit) return;
+      try {
+        var tout = lireCloudUrlsAvant();
+        tout[produit] = tout[produit] || {};
+        tout[produit][zone] = url;
+        sessionStorage.setItem(CLOUD_KEY_AVANT, JSON.stringify(tout));
+      } catch (e) { /* quota ou mode privé : la référence est perdue, sans plus */ }
+    }
+
+    /**
+     * Enregistre l'image d'ORIGINE d'une zone, celle d'avant le détourage.
+     * Écrit les deux niveaux d'un coup, comme declarerVisuelHeberge.
+     */
+    function declarerVisuelAvant(zone, url, owner) {
+      if (!zone || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return;
+      window.CLOUDINARY_URLS_AVANT[zone] = url;
+      memoriserCloudUrlAvant(zone, url, owner);
+    }
+    window.declarerVisuelAvant = declarerVisuelAvant;
+
+    /** Efface la référence d'une zone : appelé en même temps que le principal. */
+    function oublierVisuelAvant(zone, owner) {
+      if (!zone) return;
+      if (window.CLOUDINARY_URLS_AVANT) delete window.CLOUDINARY_URLS_AVANT[zone];
+      var produit = owner || currentProductType;
+      try {
+        var tout = lireCloudUrlsAvant();
+        if (tout[produit]) {
+          delete tout[produit][zone];
+          sessionStorage.setItem(CLOUD_KEY_AVANT, JSON.stringify(tout));
+        }
+      } catch (e) {}
+    }
+
     /* REPEUPLEMENT AU DÉMARRAGE : le registre mémoire est reconstruit depuis la
        session. Sans lui, `window.CLOUDINARY_URLS` resterait vide après un F5 et
        les images partiraient en commande sans leur adresse. */
     document.addEventListener('DOMContentLoaded', function () {
       try {
         var parProduit = lireCloudUrls()[currentProductType];
-        if (!parProduit) return;
-        Object.keys(parProduit).forEach(function (z) {
-          if (!window.CLOUDINARY_URLS[z]) window.CLOUDINARY_URLS[z] = parProduit[z];
-        });
+        if (parProduit) {
+          Object.keys(parProduit).forEach(function (z) {
+            if (!window.CLOUDINARY_URLS[z]) window.CLOUDINARY_URLS[z] = parProduit[z];
+          });
+        }
+        /* Le registre « avant détourage » suit le même sort : sans ce
+           repeuplement, un F5 ferait partir la commande avec la seule image
+           détourée, alors que l'originale est toujours hébergée. */
+        var avant = lireCloudUrlsAvant()[currentProductType];
+        if (avant) {
+          Object.keys(avant).forEach(function (z) {
+            if (!window.CLOUDINARY_URLS_AVANT[z]) {
+              window.CLOUDINARY_URLS_AVANT[z] = avant[z];
+            }
+          });
+        }
       } catch (e) {}
     });
 
@@ -9408,6 +9516,46 @@
             const uploadFile = (src === original)
               ? file                                  // inchangée : garde le fichier d'origine
               : dataUrlToFile(src, file.name);        // détourée : PNG transparent
+
+            /* ── L'IMAGE D'ORIGINE, QUAND LE FOND A ÉTÉ RETIRÉ ──────────────
+               `uploadFile` ci-dessus est un ternaire : UN seul des deux
+               fichiers partait. L'image d'avant détourage n'était donc hébergée
+               nulle part, et l'atelier ne pouvait pas la consulter — alors
+               qu'elle porte le fond, les couleurs et les bords d'origine, utiles
+               pour juger d'un détourage imparfait.
+
+               On l'envoie EN PLUS, et `file` — le fichier brut du client, tel
+               qu'il l'a choisi — plutôt que `original`, qui a déjà subi le
+               recadrage des bords transparents.
+
+               COMPLÈTEMENT INDÉPENDANT de l'envoi principal :
+                 • lancé sans être attendu : l'affichage et l'ajout au panier ne
+                   ralentissent pas d'une seconde ;
+                 • absent de `attendreUploadsHeberges` : faire patienter le
+                   panier pour une référence secondaire pénaliserait le client
+                   au moment le plus sensible du parcours ;
+                 • son échec ne retire rien : la commande garde l'image
+                   détourée, exactement comme avant ce correctif.
+
+               `src === original` signifie « fond conservé » : il n'y a alors
+               qu'une seule image, la dupliquer n'apprendrait rien. */
+            if (src !== original) {
+              window.ConfAPI.uploadLogo(file)
+                .then(function (res) {
+                  if (res && res.url) {
+                    declarerVisuelAvant(zone, res.url, uploadOwner);
+                    confLog('☁️ Original (avant détourage) hébergé (' + zone + ') :', res.url);
+                  }
+                })
+                .catch(function (err) {
+                  /* Signalé, jamais bloquant : l'essentiel — le visuel à
+                     produire — est traité par l'envoi principal ci-dessous. */
+                  console.warn('Original (avant détourage) non hébergé pour la ' +
+                               'zone « ' + zone + ' » : l\'atelier n\'aura que ' +
+                               'l\'image détourée.', err);
+                });
+            }
+
             window.ConfAPI.uploadLogo(uploadFile)
               .then(res => {
                 if (res && res.url) {
@@ -9798,6 +9946,9 @@
       const baseName = (name || 'design').replace(/\.[^.]+$/, '') + '.png';
       return new File([arr], baseName, { type: mime });
     }
+    /* Exposée : conf-patches.js en a besoin pour téléverser le coin détouré,
+       qui n'existe que sous forme de data-URL à ce moment-là. */
+    window.dataUrlToFile = dataUrlToFile;
 
     /* ── Persistance des designs uploadés (image + taille/position) ──
 
@@ -10179,6 +10330,11 @@
         }
       } catch (e) {}
       if (window.CLOUDINARY_URLS) delete window.CLOUDINARY_URLS[zone];
+      /* La référence d'avant détourage part avec le visuel qu'elle accompagne.
+         Sans cela, le client retirait son image et l'original continuait de
+         voyager jusqu'à la commande — un fichier orphelin que l'atelier ne
+         saurait pas rattacher. */
+      oublierVisuelAvant(zone);
 
       const store = readUploadStore();
       const u = store.byProduct[currentProductType];
