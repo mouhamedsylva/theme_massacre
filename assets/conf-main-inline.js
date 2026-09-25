@@ -4548,8 +4548,22 @@
        Chaque entrée = { label, url }. On ne garde que les zones dont le logo est
        affiché ET dont l'upload Cloudinary a réussi. */
     function collectDesignAssets() {
+      /* La FACE porte DEUX emplacements de logo : le cœur (`f`) et la poitrine
+         droite (`fr`). Seul le premier était déclaré : un logo posé en poitrine
+         droite apparaissait bien sur la planche d'aperçu — qui lit `viewDefs`,
+         où les deux zones figurent — mais JAMAIS dans la liste des assets à
+         produire. L'atelier recevait donc un fichier de moins que ce que la
+         planche lui annonçait.
+
+         C'est le même oubli que celui corrigé pour les TEXTES (cf. le
+         commentaire de `viewDefs`, zones ['logo-f', 'logo-fr']), qui n'avait
+         pas été reporté ici.
+
+         L'ordre compte : il détermine celui des vignettes. `fr` suit `f` pour
+         que les deux zones de face restent côte à côte. */
       const zoneLabels = {
         f:  'Logo cœur',
+        fr: 'Logo poitrine droite',
         b:  'Logo dos',
         sl: 'Logo manche gauche',
         sr: 'Logo manche droite'
@@ -4594,7 +4608,21 @@
        aboutir à une URL hébergée (une data-URL serait rejetée par Shopify). */
     async function collectTextAssets() {
       if (!window.ConfAPI || typeof window.ConfAPI.uploadLogo !== 'function') return [];
-      var zones = [{ z: 'f', label: 'Texte face' }, { z: 'b', label: 'Texte dos' }];
+      /* `fr` — poitrine droite — pour la même raison que dans
+         `collectDesignAssets` : la face porte DEUX zones de texte (#text-f et
+         #text-fr), et seule la première était collectée. Un texte posé en
+         poitrine droite figurait sur la planche d'aperçu mais n'arrivait
+         jamais à l'atelier en fichier séparé.
+
+         Le libellé doit être DISTINCT des autres : ces assets deviennent des
+         propriétés de ligne indexées par leur libellé
+         (recapitulatif.liquid : properties['_' + a.label]), un doublon en
+         écraserait donc un silencieusement. */
+      var zones = [
+        { z: 'f',  label: 'Texte face' },
+        { z: 'fr', label: 'Texte poitrine droite' },
+        { z: 'b',  label: 'Texte dos' }
+      ];
       var out = [];
       for (var i = 0; i < zones.length; i++) {
         var src = await Promise.resolve(textAssetDataUrl(zones[i].z));
