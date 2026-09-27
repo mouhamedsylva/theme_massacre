@@ -3982,47 +3982,8 @@
             ? lignesPerson
             : (lignesPerson ? [lignesPerson] : []);
 
-          if (lignes.length && el && contenu) {
-            const cs = window.getComputedStyle(el);
-            /* Les styles de texte vivent sur `.dt-content`, pas sur le
-               conteneur : c'est lui qui porte la police choisie. Ils étaient
-               lus sur `el`, d'où des valeurs génériques (sans-serif, noir)
-               quand la mise en forme était posée sur le contenu. */
-            const cssContenu = window.getComputedStyle(contenu);
-            
-            /* La mise en forme peut être posée sur l'un ou l'autre : on lit le
-               contenu en priorité, le conteneur en repli. */
-            const style = function (nomProp) {
-              return cssContenu[nomProp] || cs[nomProp] || '';
-            };
-
-            const proprietes = {
-              fontFamily: style('fontFamily') || 'sans-serif',
-              fontSize: style('fontSize') || '16px',
-              fontWeight: style('fontWeight') || '400',
-              fontStyle: style('fontStyle') || 'normal',
-              color: style('color') || '#000000',
-              textDecorationLine:
-                style('textDecorationLine') || style('textDecoration') || 'none',
-              textAlign: style('textAlign') || 'left',
-              lineHeight: style('lineHeight') || 'normal',
-              letterSpacing: style('letterSpacing') || 'normal',
-              textTransform: style('textTransform') || 'none',
-              // Position et dimensions de la zone
-              left: el.style.left || '0%',
-              top: el.style.top || '0%',
-              width: el.style.width || el.style.maxWidth || '100%',
-              height: el.style.height || 'auto',
-              maxWidth: el.style.maxWidth || 'none',
-              // Données techniques pour le repositionnement
-              dataW: el.getAttribute('data-w') || '',
-              dataWantedSize: el.getAttribute('data-wanted-size') || '',
-              dataMaxFit: el.getAttribute('data-max-fit') || '',
-              // Zone et côté
-              zone: zone,
-              curved: el.classList.contains('is-shaped')
-            };
-
+          const proprietes = lignes.length ? lireProprietesTexte(zone, true) : null;
+          if (proprietes) {
             /* Sur TOUTES les lignes de cette clé. Une copie par ligne : un
                objet partagé se retrouverait modifié pour tout le monde si une
                ligne était éditée plus tard. */
@@ -4507,6 +4468,11 @@
         sheet: design.sheet,   // planche multi-vues (aperçu commande) — peut être null
         // URLs Cloudinary des logos/textes réellement utilisés (pour la commande Shopify)
         assets: logoAssets.concat(textAssets),
+        /* Typo du texte (police, taille, style, couleur…), comme pour les
+           commandes groupées : envoyée en `_Texte*` et affichée au dashboard.
+           Une seule par ligne (format `_Texte*` sans zone) : la face d'abord. */
+        textProperties: lireProprietesTexte('f') || lireProprietesTexte('fr') ||
+                        lireProprietesTexte('b'),
         /* ÉTAT COMPLET du design, pour pouvoir le rouvrir plus tard.
 
            `assets` ne porte qu'un libellé et une URL : de quoi imprimer, pas de
@@ -4620,6 +4586,76 @@
     /* Rasterise les textes (face/dos), les upload sur Cloudinary, et renvoie
        leurs assets { label, url } pour la commande. Async : l'upload doit
        aboutir à une URL hébergée (une data-URL serait rejetée par Shopify). */
+    /**
+     * PROPRIÉTÉS TYPOGRAPHIQUES du texte d'une zone, telles que le client les
+     * a réglées (police, taille, gras, italique, soulignement, couleur,
+     * position, texte courbé).
+     *
+     * `buildShopifyItems` (recapitulatif.liquid) les envoie en propriétés
+     * `_TexteFontFamily`, `_TexteFontSize`… que le dashboard et la fiche de
+     * production affichent. Sortie de `capturerVuesPourNom`, où elle ne
+     * servait qu'aux commandes groupées : une commande simple n'envoyait
+     * aucune typo, et l'atelier ne savait ni la police ni la taille.
+     *
+     * @param {string} zone - 'f', 'fr' ou 'b'
+     * @param {boolean} [memeVide] - lire même sans texte saisi (groupes : le
+     *   surnom est substitué ensuite, la typo du canvas reste valable)
+     * @returns {object|null} null si la zone n'existe pas ou n'a pas de texte
+     */
+    function lireProprietesTexte(zone, memeVide) {
+      const el = document.getElementById('text-' + zone);
+      const contenu = el ? el.querySelector('.dt-content') : null;
+      if (!el || !contenu) return null;
+      /* Texte courbé : rendu en SVG, `textContent` est vide — on se fie alors
+         à la classe is-shaped pour savoir qu'il y a bien un texte. */
+      const aDuTexte = (contenu.textContent || '').trim() || el.classList.contains('is-shaped');
+      if (!memeVide && !aDuTexte) return null;
+      /* Texte retiré : même règle que `textAssetDataUrl`, qui décide des
+         fichiers envoyés à l'atelier. Pas `offsetParent` : le texte du dos
+         est masqué tant que la vue de face est affichée, et serait ignoré. */
+      if (!memeVide && el.style.display === 'none') return null;
+
+      const cs = window.getComputedStyle(el);
+      /* Les styles de texte vivent sur `.dt-content`, pas sur le
+         conteneur : c'est lui qui porte la police choisie. Ils étaient
+         lus sur `el`, d'où des valeurs génériques (sans-serif, noir)
+         quand la mise en forme était posée sur le contenu. */
+      const cssContenu = window.getComputedStyle(contenu);
+
+      /* La mise en forme peut être posée sur l'un ou l'autre : on lit le
+         contenu en priorité, le conteneur en repli. */
+      const style = function (nomProp) {
+        return cssContenu[nomProp] || cs[nomProp] || '';
+      };
+
+      return {
+        fontFamily: style('fontFamily') || 'sans-serif',
+        fontSize: style('fontSize') || '16px',
+        fontWeight: style('fontWeight') || '400',
+        fontStyle: style('fontStyle') || 'normal',
+        color: style('color') || '#000000',
+        textDecorationLine:
+          style('textDecorationLine') || style('textDecoration') || 'none',
+        textAlign: style('textAlign') || 'left',
+        lineHeight: style('lineHeight') || 'normal',
+        letterSpacing: style('letterSpacing') || 'normal',
+        textTransform: style('textTransform') || 'none',
+        // Position et dimensions de la zone
+        left: el.style.left || '0%',
+        top: el.style.top || '0%',
+        width: el.style.width || el.style.maxWidth || '100%',
+        height: el.style.height || 'auto',
+        maxWidth: el.style.maxWidth || 'none',
+        // Données techniques pour le repositionnement
+        dataW: el.getAttribute('data-w') || '',
+        dataWantedSize: el.getAttribute('data-wanted-size') || '',
+        dataMaxFit: el.getAttribute('data-max-fit') || '',
+        // Zone et côté
+        zone: zone,
+        curved: el.classList.contains('is-shaped')
+      };
+    }
+
     async function collectTextAssets() {
       if (!window.ConfAPI || typeof window.ConfAPI.uploadLogo !== 'function') return [];
       /* `fr` — poitrine droite — pour la même raison que dans
@@ -5464,7 +5500,44 @@
             } catch (e) { console.error('Composition patch échouée :', e); }
             finally { if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origP; } }
           } else {
+            /* ── LE PATCH COMPOSÉ PART CHEZ CLOUDINARY ────────────────────────
+               Cette branche est le chemin NORMAL : `capturePatchDesign` aplatit
+               déjà la forme, la couleur et le logo dans une seule image, et
+               renvoie donc `logos: []` (« le logo est déjà dans le fond »). La
+               branche ci-dessus, qui héberge l'image, n'est empruntée que sur
+               un repli d'erreur — canvas contaminé.
+
+               Résultat : `imgSrc` restait une data-URL, et le devis écartait
+               la ligne. Le filtre de conf-cart-quote.js n'accepte que des URLs
+               http(s), à juste titre — une data-URL de plusieurs mégaoctets
+               ferait gonfler la requête, puis serait refusée en propriété de
+               ligne Shopify, silencieusement. Tout patch était donc absent des
+               aperçus, et un devis de patchs seuls n'en portait aucun.
+
+               On héberge donc l'image ici, d'où elle vient.
+
+               REPLI SUR LA DATA-URL : un échec réseau ne doit rien coûter de
+               plus qu'aujourd'hui. Le panier affiche sa vignette comme avant,
+               seul l'aperçu du devis manque — jamais pire que l'état actuel.
+
+               L'attente est DÉJÀ en place : la composition du patch se fait
+               sous « Préparation… », cet envoi s'y inscrit sans en créer une
+               nouvelle. */
             imgSrc = patch.background;
+            if (window.ConfAPI && typeof window.ConfAPI.uploadLogo === 'function') {
+              var origPB = btnEl ? btnEl.innerHTML : '';
+              if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = 'Préparation…'; }
+              try {
+                var resPB = await window.ConfAPI.uploadLogo(
+                  dataUrlToFile(patch.background, 'patch.png')
+                );
+                if (resPB && resPB.url) imgSrc = resPB.url;
+              } catch (e) {
+                console.warn('Patch composé non hébergé : la ligne partira sans ' +
+                             'aperçu dans le devis.', e);
+              }
+              finally { if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origPB; } }
+            }
           }
         }
       }

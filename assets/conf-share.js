@@ -110,20 +110,44 @@
         var raw = (content.textContent || '').trim();
         if (!raw) { resolve(''); return; }
 
-        // Tentative génération SVG serveur si activée
-        if (window.TEXT_SVG_ENABLED) {
-          rasteriserTexteViaSvgServer(el)
-            .then(resolve)
-            .catch(function(error) {
-              console.warn('SVG serveur échoué, fallback canvas:', error.message || error);
-              rasteriserTexteCanvas(el).then(resolve);
-            });
-          return;
-        }
+        attendrePolicesTexte(el).then(function () {
+          // Tentative génération SVG serveur si activée
+          if (window.TEXT_SVG_ENABLED) {
+            rasteriserTexteViaSvgServer(el)
+              .then(resolve)
+              .catch(function(error) {
+                console.warn('SVG serveur échoué, fallback canvas:', error.message || error);
+                rasteriserTexteCanvas(el).then(resolve);
+              });
+            return;
+          }
 
-        // Fallback canvas (logique existante)
-        rasteriserTexteCanvas(el).then(resolve);
+          // Fallback canvas (logique existante)
+          rasteriserTexteCanvas(el).then(resolve);
+        });
       });
+    }
+
+    /**
+     * Attend que les polices du texte soient chargées (1,5 s au plus).
+     *
+     * Le lien Google Fonts est non bloquant (`display=swap`) : un texte ajouté
+     * au panier juste après le choix d'une police est encore affiché — et donc
+     * MESURÉ — dans la police de repli. La taille envoyée au serveur et le
+     * rendu canvas de secours en héritaient. Ne bloque jamais : sans API
+     * FontFace ou après le délai, on continue avec ce qui est affiché.
+     */
+    function attendrePolicesTexte(el) {
+      if (!document.fonts || !document.fonts.load) return Promise.resolve();
+      var noeuds = el.querySelectorAll('.dt-seg');
+      var cibles = noeuds.length ? Array.prototype.slice.call(noeuds) : [el];
+      var chargements = cibles.map(function (n) {
+        var s = window.getComputedStyle(n);
+        var police = s.fontStyle + ' ' + s.fontWeight + ' ' + (parseFloat(s.fontSize) || 16) + 'px ' + s.fontFamily;
+        return document.fonts.load(police, n.textContent || 'A').catch(function () {});
+      });
+      var delai = new Promise(function (r) { setTimeout(r, 1500); });
+      return Promise.race([Promise.all(chargements), delai]);
     }
 
     /**
