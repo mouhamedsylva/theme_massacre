@@ -50,7 +50,7 @@
          du sélecteur (sections/configurateur.liquid) et de la modale de groupe
          (conf-size-quantity-modal.js:48) : les trois listes doivent coïncider,
          sinon une taille commandable ici serait absente ailleurs. */
-      return out.length ? out : ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+      return out.length ? out : ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
     }
     window.grpSizes = grpSizes;     // conf-group-csv.js
 
@@ -8917,6 +8917,13 @@
         var cible = null;
         for (var i = 0; i < btns.length; i++) {
           if (btns[i].textContent.trim() === voulue) { cible = btns[i]; break; }
+        }
+        /* Taille enregistrée qui n'existe plus (XS, retirée en septembre 2026) :
+           on revient à M, la taille par défaut, plutôt qu'au premier bouton (S). */
+        if (!cible) {
+          for (var k = 0; k < btns.length; k++) {
+            if (btns[k].textContent.trim() === 'M') { cible = btns[k]; break; }
+          }
         }
         if (!cible) cible = btns[0];
 

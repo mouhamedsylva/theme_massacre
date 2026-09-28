@@ -75,13 +75,13 @@
 
     // Fallback si aucune taille trouvée
     if (sizes.length === 0) {
-      return ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'].map(s => ({ name: s, available: true }));
+      return ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'].map(s => ({ name: s, available: true }));
     }
 
     /* Tri explicite : on ne dépend plus de l'ordre du DOM, qui variait selon
        le bloc lu. Une taille hors barème est reléguée à la fin plutôt que
        d'être écartée. */
-    const ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+    const ORDER = ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
     sizes.sort((a, b) => {
       const ia = ORDER.indexOf(a.name);
       const ib = ORDER.indexOf(b.name);
@@ -381,7 +381,7 @@
      arrivent : correct à la validation, mais rien ne le garantit après une
      restauration de session. On retrie, pour que « XS × 1, M × 5 » ne devienne
      jamais « M × 5, XS × 1 ». */
-  const ORDRE_TAILLES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+  const ORDRE_TAILLES = ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
 
   /**
    * Écrit sous le bouton « Répartir par tailles » le détail de la répartition
