@@ -59,7 +59,6 @@
     { name: 'Russo One',        css: "'Russo One', sans-serif" },
     { name: 'Passion One',      css: "'Passion One', cursive" },
     { name: 'Fjalla One',       css: "'Fjalla One', sans-serif" },
-    { name: 'Bebas',            css: "'Bebas', sans-serif" },
     { name: 'Monoton',          css: "'Monoton', cursive" },
     { name: 'Press Start 2P',   css: "'Press Start 2P', cursive" },
     { name: 'Creepster',        css: "'Creepster', cursive" },

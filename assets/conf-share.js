@@ -8,6 +8,11 @@
  */
 (function () {
   'use strict';
+    /* Rendu des textes par le serveur (PNG + SVG de découpe). Posé à `true`
+       par layout/configurateur.liquid ; défaut ici, en tête, avant toute
+       fonction qui le lit (rasteriserTexte). */
+    window.TEXT_SVG_ENABLED = window.TEXT_SVG_ENABLED || false;
+
     function openShareMenu(url, text, mode) {
       const old = document.getElementById('share-menu');
       if (old) old.remove();
@@ -198,12 +203,16 @@
              registre, que `collectTextAssets` (conf-main-inline.js) relit au
              moment de composer la commande.
 
-             Indexé par zone ('f', 'b') : l'ordre des rendus n'est pas garanti,
-             une simple variable serait écrasée par le texte suivant. */
+             Indexé par l'URL du PNG, et non plus par zone : un registre par
+             zone gardait le SVG du rendu PRÉCÉDENT quand le suivant n'en avait
+             pas (police non vectorisable, échec serveur, repli canvas) — le
+             client corrigeait JEAN en PAUL, la vignette montrait PAUL, et
+             l'atelier découpait JEAN. Ici, un SVG n'accompagne QUE le PNG
+             produit avec lui : pas de SVG pour ce PNG, pas de SVG du tout, et
+             la commande part avec le PNG seul — moins précis, mais juste. */
           if (result.svgUrl) {
-            var zone = (el.id || '').replace(/^text-/, '');
-            window.__textSvgUrls = window.__textSvgUrls || {};
-            window.__textSvgUrls[zone] = result.svgUrl;
+            window.__textSvgParPng = window.__textSvgParPng || {};
+            window.__textSvgParPng[result.url] = result.svgUrl;
           }
 
           console.log('Texte SVG généré:', result.url, `${result.width}x${result.height}`,
@@ -399,9 +408,6 @@
       return map[zoneId] || 'generic';
     }
 
-    // Feature flag (à définir dans template Shopify)
-    window.TEXT_SVG_ENABLED = window.TEXT_SVG_ENABLED || false;
-    
     window.rasteriserTexte = rasteriserTexte;   // lu par conf-main-inline.js
 
     function textZoneImage(zoneId, imgBox, layerBox, canReproject) {

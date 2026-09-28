@@ -4700,8 +4700,12 @@
              un PNG l'oblige à vectoriser approximativement.
 
              Propriété distincte, en supplément : le PNG reste l'aperçu affiché
-             dans le dashboard, qui refuse les SVG par sécurité. */
-          var svg = window.__textSvgUrls && window.__textSvgUrls[zones[i].z];
+             dans le dashboard, qui refuse les SVG par sécurité.
+
+             Retrouvé par l'URL de CE PNG (conf-share.js) : un SVG ne peut
+             accompagner que le rendu dont il est issu, jamais celui d'un
+             texte précédent de la même zone. */
+          var svg = window.__textSvgParPng && window.__textSvgParPng[src];
           if (svg) out.push({ label: zones[i].label + ' (SVG)', url: svg });
           continue;
         }

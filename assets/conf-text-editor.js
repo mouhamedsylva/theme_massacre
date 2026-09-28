@@ -58,7 +58,6 @@
     { name: "Russo One", css: "'Russo One', sans-serif" },
     { name: "Passion One", css: "'Passion One', cursive" },
     { name: "Fjalla One", css: "'Fjalla One', sans-serif" },
-    { name: "Bebas", css: "'Bebas', sans-serif" },
     { name: "Monoton", css: "'Monoton', cursive" },
     { name: "Press Start 2P", css: "'Press Start 2P', cursive" },
     { name: "Creepster", css: "'Creepster', cursive" },
@@ -160,9 +159,22 @@
     if (window.__ouvertureDepuisPanier && snap && snap.produit) return snap.produit;
     return window.currentProductType || "sweatshirt";
   }
+  /* « Bebas » a été proposé à tort : Google Fonts ne la connaît pas (seule
+     « Bebas Neue » existe), le texte s'affichait donc dans la police de repli
+     et le serveur ne pouvait pas en faire le SVG de découpe. Un design déjà
+     enregistré avec elle (panier, lien de partage) est ramené à Bebas Neue,
+     l'intention évidente du client. */
+  var BEBAS = /^\s*['"]?Bebas['"]?\s*(,|$)/i;
+  function sansFausseBebas(data) {
+    if (!data) return data;
+    if (BEBAS.test(data.font || "")) data.font = "'Bebas Neue', sans-serif";
+    if (data.fontName === "Bebas") data.fontName = "Bebas Neue";
+    if (Array.isArray(data.segments)) data.segments.forEach(sansFausseBebas);
+    return data;
+  }
   function getState(zone) {
     var all = store();
-    return (all[productKey()] || {})[zone] || null;
+    return sansFausseBebas((all[productKey()] || {})[zone] || null);
   }
   function saveState(zone, data) {
     var all = store();
