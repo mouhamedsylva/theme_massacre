@@ -66,9 +66,12 @@
       { min: 5,  price: 28.90 },
       { min: 1,  price: 29.50 }
     ],
-    /* PATCHS : prix unitaire TTC selon la quantité (grille atelier).
-       10 → 20 €, 20 → 12,50 €, 30 → 9 €, 50 → 5 €, 100 → 3,50 €.
-       Au-delà de 100 : « sur demande » (bascule en devis, géré côté UI).
+    /* PATCHS : prix unitaire HT selon la quantité — AFFICHÉS HT, sans TVA
+       ajoutée (choix du commerçant, septembre 2026).
+       Grille officielle : 1-10 → 20 €, 11-29 → 12,50 €, 30-49 → 9 €,
+       50-99 → 5 €, 100 → 3,50 € HT. Le 2e palier commence à 11 pièces : il
+       commençait à 20, et de 11 à 19 pièces le client payait 20 € au lieu de
+       12,50 €. Au-delà de 100 : « sur demande » (devis, conf-cart-quote.js).
 
        Clé `patches` — vérifié par mesure : #coins-unit-price, alimenté par
        tierUnitPrice(), appartient au template titré « Patch personnalisé »
@@ -84,8 +87,8 @@
       { min: 100, price: 3.50 },
       { min: 50,  price: 5.00 },
       { min: 30,  price: 9.00 },
-      { min: 20,  price: 12.50 },
-      { min: 10,  price: 20.00 }
+      { min: 11,  price: 12.50 },
+      { min: 10,  price: 20.00 }   // minimum de commande : 10
     ]
     // coins (= COINS métal) : pas de grille, prix chiffré à la main sur devis.
   };

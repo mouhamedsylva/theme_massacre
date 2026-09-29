@@ -10,7 +10,7 @@
  *   window.countCartFamilies() reste ici (autonome).
  *
  * Règles de bascule « Continuer » -> « Faire une demande de devis » :
- *   1) PATCHS ≥ 100 pièces (prix « sur demande »).
+ *   1) PATCHS au-delà de 100 pièces (prix « sur demande » ; 100 pile = 3,50 € HT).
  *   2) Panier ≥ 3 FAMILLES de produits différentes (commande multi-produits).
  */
 (function () {
@@ -112,8 +112,8 @@
      dans le même tiroir.
 
      À ne pas confondre avec `cartNeedsQuote()`, qui décrit le PANIER : un
-     panier de 100 patchs part aussi en devis, mais ses patchs ont un vrai prix
-     (3,50 €) et doivent continuer de l'afficher. La question posée ici est
+     panier de plus de 100 patchs part aussi en devis, mais ses patchs ont un vrai prix
+     (3,50 € HT) et doivent continuer de l'afficher. La question posée ici est
      différente : cet article a-t-il un prix à montrer ?
 
      Ciblé par NOM, comme les trois fonctions ci-dessus : `productType` vaut
@@ -166,10 +166,10 @@
 
   /* Le panier doit-il passer en devis plutôt qu'au paiement ? Devis si :
      - un COIN est présent (seul ou couplé à n'importe quel produit) ;
-     - OU patchs ≥ 100 pièces ;
+     - OU patchs AU-DELÀ de 100 pièces (à 100 pile, le palier 3,50 € HT s'applique) ;
      - OU ≥ 3 familles de produits différentes. */
   function cartNeedsQuote() {
-    return hasCoinInCart() || patchQtyInCart() >= 100 || countCartFamilies() >= 3;
+    return hasCoinInCart() || patchQtyInCart() > 100 || countCartFamilies() >= 3;
   }
   window.cartNeedsQuote = cartNeedsQuote;
 
@@ -191,12 +191,12 @@
   /* Routeur : ≥ 3 familles -> devis multi-produits ; sinon -> devis patchs. */
   window.requestCartQuote = function () {
     // Coin présent OU panier multi-familles -> devis global de tout le panier.
-    // Sinon (patchs ≥ 100 seuls) -> devis patchs.
+    // Sinon (patchs au-delà de 100 seuls) -> devis patchs.
     if (hasCoinInCart() || countCartFamilies() >= 3) return window.requestMultiProductQuote();
     return window.requestPatchQuoteFromCart();
   };
 
-  /* Devis PATCHS seuls (≥ 100 pièces, prix « sur demande »). */
+  /* Devis PATCHS seuls (au-delà de 100 pièces, prix « sur demande »). */
   window.requestPatchQuoteFromCart = function () {
     if (typeof window.closeCartDrawer === 'function') window.closeCartDrawer();
     var patchs = cart().filter(function (i) { return /patch/i.test(i.name || ''); });

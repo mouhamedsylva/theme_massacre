@@ -360,8 +360,9 @@
         /* `coins` = COINS MÉTAL, vendus SUR DEVIS -> 0 €. Un tarif ici s'affichait
            dans le tiroir du panier pour un article qu'aucune commande en ligne
            n'honore ; la valeur précédente (2,45 €) venait de l'ancienne boutique.
-           `patches` = PATCHS -> 20 €, premier palier de leur grille (10 pièces,
-           le minimum de commande). */
+           `patches` = PATCHS -> 20 € HT, premier palier de leur grille
+           (10 pièces, le minimum de commande). Les prix des patchs sont
+           affichés HT (conf-pricing-tiers.js). */
         coins: 0, drapeaux: 19.90, patches: 20.00
       };
 
@@ -966,7 +967,7 @@
     <script src="{{ 'conf-dynamic-layout.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-drapeaux.js' | asset_url }}" defer></script>
     <script src="{{ 'conf-patches.js' | asset_url }}" defer></script>
-    <!-- Devis panier (patchs ≥100 / multi-produits ≥3 familles). Déporté ici
+    <!-- Devis panier (patchs au-delà de 100 / multi-produits ≥3 familles). Déporté ici
          pour alléger le template ; lit window.getCartItems exposé plus bas. -->
     <script src="{{ 'conf-cart-quote.js' | asset_url }}" defer></script>
     <!-- Barre d'outils texte au-dessus de l'aperçu (remplace le basculement

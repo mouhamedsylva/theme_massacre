@@ -5791,7 +5791,7 @@
                        subtitle: 'Recevez un devis pour votre patch en ' + style + '.' });
     }
 
-    /* Devis depuis le panier (patchs ≥100 / multi-produits ≥3 familles) et
+    /* Devis depuis le panier (patchs au-delà de 100 / multi-produits ≥3 familles) et
        bascule du bouton de checkout : déportés dans conf-cart-quote.js. Ils
        accèdent au panier via window.getCartItems (exposé plus bas). */
 
@@ -8374,7 +8374,7 @@
       }
 
       // Bascule « Continuer » <-> « Faire une demande de devis » (coin présent,
-      // patchs ≥100, ou ≥3 familles). Logique déportée dans conf-cart-quote.js.
+      // patchs au-delà de 100, ou ≥3 familles). Logique déportée dans conf-cart-quote.js.
       refreshDrawerCheckoutBtn();
     }
     /* Exposée pour le suivi des prix en direct (configurateur.liquid) : le

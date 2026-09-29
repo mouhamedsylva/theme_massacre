@@ -554,7 +554,7 @@ class DynamicLayoutManager {
         <!-- Prix unitaire DÉGRESSIF selon la quantité (grille patchs) : injecté
              par updateCoinPrice() dans #coins-unit-price. Pas de prix total
              affiché, comme pour les textiles. -->
-        <div class="rp-unit-price-big" id="coins-unit-price">${window.tierUnitPrice && window.formatPrix ? window.formatPrix(window.tierUnitPrice("patches", 10)) : "20,00 €"} <span class="rp-unit-ht">TTC</span></div>
+        <div class="rp-unit-price-big" id="coins-unit-price">${window.tierUnitPrice && window.formatPrix ? window.formatPrix(window.tierUnitPrice("patches", 10)) : "20,00 €"} <span class="rp-unit-ht">HT</span></div>
         <div class="rp-total-subtitle" id="coins-qty-display">Par unité</div>
       </div>
 
@@ -1528,7 +1528,7 @@ function updateCoinPrice(qty) {
      grille ni prix fixe, la lire renvoyait le tarif d'un autre produit.
      Repli à 20 € = 1er palier de la grille (10 pièces), et non 2,45 €. */
   if (typeof window.tierUnitPrice === "function") {
-    unitPrice = window.tierUnitPrice("patches", q); // prix TTC du palier
+    unitPrice = window.tierUnitPrice("patches", q); // prix HT du palier
   }
   if (unitPrice == null) {
     unitPrice = window.prixUnitaire ? window.prixUnitaire("patches") : 20.0;
@@ -1545,7 +1545,9 @@ function updateCoinPrice(qty) {
       (window.formatPrix
         ? window.formatPrix(unitPrice)
         : unitPrice.toFixed(2).replace(".", ",") + " €") +
-      ' <span class="rp-unit-ht">TTC / unité</span>';
+      /* Patchs : prix affichés HORS TAXE, sans TVA ajoutée (grille HT du
+         commerçant, conf-pricing-tiers.js). */
+      ' <span class="rp-unit-ht">HT / unité</span>';
   /* Texte FIXE, sans `q` : la variable porte la quantité COURANTE, pas le
      seuil. L'interpoler ici aurait affiché « Commande minimum 50 unités » dès
      qu'un client saisit 50 — un minimum qui changerait de valeur à chaque
@@ -1553,7 +1555,7 @@ function updateCoinPrice(qty) {
 
      La dégressivité reste active (grille `patches` dans conf-pricing-tiers.js)
      et le montant ci-dessus suit déjà le palier atteint : à 100 pièces il
-     affichera 3,50 € / unité. */
+     affichera 3,50 € HT / unité. */
   if (qtyDisplayEl) qtyDisplayEl.textContent = "Commande minimum 10 unités";
 }
 
