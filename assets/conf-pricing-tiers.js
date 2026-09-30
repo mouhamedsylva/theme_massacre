@@ -43,6 +43,14 @@
 
      Si cette règle change un jour, elle se traite ICI (la grille), pas dans le
      calcul d'affichage : celui-ci doit rester le reflet fidèle de la table. */
+  var GRILLE_PATCHS = [
+    { min: 100, price: 3.50 },
+    { min: 50,  price: 5.00 },
+    { min: 30,  price: 9.00 },
+    { min: 11,  price: 12.50 },
+    { min: 10,  price: 20.00 }   // minimum de commande : 10
+  ];
+
   window.QTY_TIERS = window.QTY_TIERS || {
     sweatshirt: [
       { min: 40, price: 52.00 },
@@ -83,15 +91,25 @@
        alors avec cette grille. Mesuré : un coin à 50 pièces affichait 5,00 €/u
        et à 24 pièces 12,50 €/u — les paliers exacts de cette grille — alors
        qu'un coin se chiffre à la main sur devis. */
-    patches: [
-      { min: 100, price: 3.50 },
-      { min: 50,  price: 5.00 },
-      { min: 30,  price: 9.00 },
-      { min: 11,  price: 12.50 },
-      { min: 10,  price: 20.00 }   // minimum de commande : 10
-    ]
+    patches: GRILLE_PATCHS.map(function (t) { return { min: t.min, price: t.price }; })
     // coins (= COINS métal) : pas de grille, prix chiffré à la main sur devis.
   };
+
+  /* Copie de la grille embarquée, AVANT que le backend ne la remplace :
+     sert à signaler un écart (applyTiersFromBackend). La grille des patchs
+     est reprise de la constante, même si QTY_TIERS existait déjà. */
+  var GRILLE_THEME = JSON.parse(JSON.stringify(window.QTY_TIERS || {}));
+  GRILLE_THEME.patches = JSON.parse(JSON.stringify(GRILLE_PATCHS));
+  window.QTY_TIERS.patches = JSON.parse(JSON.stringify(GRILLE_PATCHS));
+
+  /* Grilles dont le THÈME fait foi : celle reçue de GET /api/pricing est
+     ignorée. Mesuré le 29/09/2026 : la production servait encore l'ancienne
+     grille des patchs (2e palier à 20 pièces), qui remplaçait celle-ci au
+     chargement — de 11 à 19 pièces, page et panier restaient à 20 € HT.
+     Conséquence : modifier les patchs dans le panneau « Prix » du dashboard
+     n'a plus d'effet ici ; le tarif patchs se change dans GRILLE_PATCHS. */
+  var GRILLES_THEME_FIXES = ['patches'];
+  window.GRILLE_PATCHS_THEME = GRILLE_PATCHS;
 
   /**
    * Prix unitaire dégressif d'un produit pour une quantité totale.
@@ -208,8 +226,25 @@
     var current = window.QTY_TIERS || {};
     var applied = 0;
 
+    /* Grille du SERVEUR ≠ grille du THÈME : pour les produits de
+       GRILLES_THEME_FIXES, le thème l'emporte ; pour les autres, le serveur
+       (panneau « Prix » du dashboard). Dans les deux cas l'écart est signalé. */
+    var signature = function (g) {
+      return JSON.stringify((g || []).slice().sort(function (a, b) { return b.min - a.min; })
+        .map(function (t) { return [t.min, t.price]; }));
+    };
+
     Object.keys(tiers).forEach(function (product) {
       var grid = tiers[product];
+      if (GRILLES_THEME_FIXES.indexOf(product) !== -1) {
+        if (Array.isArray(grid) && signature(grid.filter(valid)) !== signature(GRILLE_THEME[product])) {
+          console.info('Grille « ' + product + ' » du serveur ignorée : la grille du thème ' +
+                       's\'applique (conf-pricing-tiers.js).',
+                       { serveur: grid, theme: GRILLE_THEME[product] });
+        }
+        current[product] = JSON.parse(JSON.stringify(GRILLE_THEME[product]));
+        return;
+      }
       if (!Array.isArray(grid)) {
         console.warn('Grille tarifaire ignorée (pas un tableau) : ' + product);
         return;
@@ -223,6 +258,11 @@
       if (kept.length !== grid.length) {
         console.warn('Grille ' + product + ' : ' + (grid.length - kept.length) +
                      ' palier(s) invalide(s) écarté(s) (prix ≤ 0 ou min < 1).');
+      }
+      if (GRILLE_THEME[product] && signature(GRILLE_THEME[product]) !== signature(kept)) {
+        console.warn('Grille « ' + product + ' » : celle du serveur (panneau Prix) diffère de ' +
+                     'celle du thème — pour ce produit, c\'est la grille du serveur qui s\'applique.',
+                     { serveur: kept, theme: GRILLE_THEME[product] });
       }
       current[product] = kept;
       applied++;

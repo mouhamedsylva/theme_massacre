@@ -481,6 +481,10 @@
          tant qu'il n'est pas redéployé (ligne `price_coins` héritée de la
          boutique de développement). */
       if (window.PRICES) window.PRICES.coins = 0;
+      /* Patchs : prix de base pris dans la grille du thème (voir configurateur.liquid). */
+      if (window.PRICES && window.GRILLE_PATCHS_THEME && window.tierMinQty) {
+        window.PRICES.patches = window.tierUnitPrice('patches', window.tierMinQty('patches')) || window.PRICES.patches;
+      }
       /* Validée avant application — même raison que dans configurateur.liquid :
          un prix ≤ 0 venant du backend ne doit pas écraser la grille de repli.
          C'est la page qui déclenche le paiement, donc celle où un prix faux

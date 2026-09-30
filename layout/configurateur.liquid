@@ -418,6 +418,12 @@
            de la base. Les grilles suivent la même logique dans
            applyTiersFromBackend(). */
         ['coins'].forEach(function (k) { window.PRICES[k] = 0; });
+        /* Patchs : prix de base = 1er palier de la grille du THÈME (20 € HT),
+           quoi que réponde le backend — la grille des patchs est fixée côté
+           thème (GRILLES_THEME_FIXES, conf-pricing-tiers.js). */
+        if (window.GRILLE_PATCHS_THEME && window.tierMinQty) {
+          window.PRICES.patches = window.tierUnitPrice('patches', window.tierMinQty('patches')) || window.PRICES.patches;
+        }
         /* Grilles dégressives définies dans l'admin : elles REMPLACENT la
            table locale de conf-pricing-tiers.js, qui n'est plus qu'un repli
            si le backend est injoignable. Un produit absent de la réponse

@@ -543,7 +543,7 @@ class DynamicLayoutManager {
           <div class="rp-qty-subtitle">Minimum de commande : 10 unités</div>
           <div class="rp-qty-controls">
             <button type="button" class="rp-qty-btn" onclick="changeQty(-1)">−</button>
-            <input type="number" id="coin-qty-input" class="rp-qty-input" value="10" min="10" max="50000" onchange="handleQtyInput()">
+            <input type="number" id="coin-qty-input" class="rp-qty-input" value="10" min="10" max="50000" oninput="previewQtyInput()" onchange="handleQtyInput()">
             <button type="button" class="rp-qty-btn" onclick="changeQty(1)">+</button>
           </div>
         </div>
@@ -1498,6 +1498,20 @@ function changeQty(delta) {
   input.value = qty;
   updateCoinPrice(qty);
 }
+
+/* Prix EN DIRECT pendant la frappe. `handleQtyInput` n'est appelé qu'en
+   quittant le champ (onchange) : taper 12 laissait 20 € affichés jusqu'au clic
+   ailleurs. Ici on ne fait QUE recalculer le prix, sans réécrire le champ —
+   le borner à chaque touche ramènerait « 1 » (début de « 15 ») à 10. Le
+   bornage reste à la validation (handleQtyInput). */
+function previewQtyInput() {
+  const input = document.getElementById("coin-qty-input");
+  if (!input) return;
+  const q = parseInt(input.value, 10);
+  if (!isFinite(q) || q < coinMinQty()) return; // saisie incomplète : on attend
+  updateCoinPrice(Math.min(q, window.QTY_MAX || 50000));
+}
+window.previewQtyInput = previewQtyInput;
 
 // Gestion de l'input quantité
 function handleQtyInput() {
