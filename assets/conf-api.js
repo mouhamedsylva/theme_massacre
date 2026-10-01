@@ -8,18 +8,55 @@ window.ConfAPI = (function () {
   }
 
   
+  /* LIMITE DE DÉBIT (429) : on patiente et on réessaie, au lieu d'abandonner.
+     Une commande de groupe enchaîne un appel par personne ; un refus
+     ponctuel faisait perdre une fiche de production ou un fichier de
+     découpe, sans autre trace qu'un message dans la console. Le délai vient
+     de l'en-tête Retry-After (exposé par le backend), borné à 20 s. */
+  function attente(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function fetchAvecReessai(url, init) {
+    for (let essai = 0; ; essai++) {
+      const res = await fetch(url, init);
+      if (res.status !== 429 || essai >= 3) return res;
+      const s = Number(res.headers.get('Retry-After'));
+      await attente(Math.min(isFinite(s) && s > 0 ? s * 1000 : 5000 * (essai + 1), 20000));
+    }
+  }
+
+  /* Message lisible par le client, en français, selon le statut HTTP. Le
+     détail technique (souvent en anglais : validation, throttler) reste dans
+     la console pour le diagnostic. */
+  function messageErreur(res, data, defaut) {
+    const brut = (data && (data.message || data.error)) || '';
+    if (brut) console.warn('API ' + res.status + ' :', brut);
+    if (res.status === 429) return 'Trop de demandes en peu de temps : patientez une minute puis réessayez.';
+    if (res.status === 413) return 'Fichier ou demande trop volumineux.';
+    if (res.status === 400 && brut) {
+      const txt = Array.isArray(brut) ? brut.join(', ') : String(brut);
+      // Messages métier du backend (en français) : affichés tels quels.
+      return /[éèàùç]|fichier|devis|prix|quantit/i.test(txt) ? txt : 'Certaines informations sont invalides.';
+    }
+    if (res.status >= 500) return defaut || 'Le serveur est momentanément indisponible. Réessayez dans un instant.';
+    return (Array.isArray(brut) ? brut.join(', ') : brut) || defaut || ('Erreur ' + res.status);
+  }
+
   // Requête JSON générique
   async function jsonRequest(path, method, body) {
-    const res = await fetch(base() + path, {
+    const res = await fetchAvecReessai(base() + path, {
       method: method || 'GET',
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = (data && (data.message || data.error)) || ('Erreur ' + res.status);
-      throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
-    }
+    if (!res.ok) throw new Error(messageErreur(res, data));
+    return data;
+  }
+
+  // Envoi multipart (fichier) avec les mêmes réessais et messages.
+  async function envoyerFichier(path, form, defaut) {
+    const res = await fetchAvecReessai(base() + path, { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(messageErreur(res, data, defaut));
     return data;
   }
 
@@ -40,20 +77,14 @@ window.ConfAPI = (function () {
     async uploadLogo(file) {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(base() + '/uploads/logo', { method: 'POST', body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data && data.message) || 'Échec upload');
-      return data;
+      return envoyerFichier('/uploads/logo', form, 'Échec de l’envoi du logo.');
     },
     // Upload d'un aperçu (Blob/File) -> renvoie { url, publicId, ... }
     // Optimisé côté serveur puis stocké dans le dossier previews Cloudinary.
     async uploadPreview(blob, filename) {
       const form = new FormData();
       form.append('file', blob, filename || 'preview.png');
-      const res = await fetch(base() + '/uploads/preview', { method: 'POST', body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data && data.message) || 'Échec upload aperçu');
-      return data;
+      return envoyerFichier('/uploads/preview', form, 'Échec de l’envoi de l’aperçu.');
     },
       /* Piece jointe d'une demande de devis (image OU PDF).
 
@@ -63,10 +94,7 @@ window.ConfAPI = (function () {
       async uploadPieceJointe(file) {
         const form = new FormData();
         form.append('file', file, (file && file.name) ? file.name : 'piece-jointe');
-        const res = await fetch(base() + '/uploads/piece-jointe', { method: 'POST', body: form });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error((data && data.message) || 'Echec envoi du fichier');
-        return data;
+        return envoyerFichier('/uploads/piece-jointe', form, 'Échec de l’envoi du fichier.');
       },
     // Partager un design -> { shareId, shareUrl }
     shareDesign(designData) {

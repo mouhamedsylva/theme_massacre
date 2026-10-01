@@ -9311,7 +9311,10 @@
        avant de saturer sessionStorage. L'atelier n'a de toute façon pas besoin
        de cette résolution — l'original part vers Cloudinary, pas dans le
        navigateur. */
-    const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;   // 12 Mo
+    /* 10 Mo : la limite du SERVEUR (MAX_FILE_SIZE). À 12 Mo ici, un logo de
+       10 à 12 Mo était accepté puis refusé à l'envoi — et partait en commande
+       sans fichier source pour l'atelier, sans aucun message au client. */
+    const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;   // 10 Mo
 
     /* Types réellement exploitables par l'aperçu. L'attribut HTML `accept` ne
        fait qu'orienter le sélecteur de fichiers : il est contourné par un
@@ -9423,7 +9426,7 @@
       if (file.size > MAX_UPLOAD_BYTES) {
         e.target.value = '';
         const mo = (file.size / 1048576).toFixed(1).replace('.', ',');
-        const msgSize = 'Ce fichier fait ' + mo + ' Mo, au-delà de la limite de 12 Mo. ' +
+        const msgSize = 'Ce fichier fait ' + mo + ' Mo, au-delà de la limite de 10 Mo. ' +
               'Réduisez sa taille ou exportez-le en JPEG avant de le déposer.';
         if (typeof window.confAlert === 'function') window.confAlert(msgSize, { title: 'Fichier trop volumineux' });
         else alert(msgSize);
@@ -9674,7 +9677,16 @@
                  remontait jusqu'ici et se lisait comme une panne d'envoi. Le
                  diagnostic partait vers le réseau alors que le défaut était dans
                  l'affichage. La pile complète nomme le vrai coupable. */
-              .catch(err => console.warn('Upload Cloudinary échoué (' + zone + ') :', err));
+              .catch(err => {
+                console.warn('Upload Cloudinary échoué (' + zone + ') :', err);
+                /* Le client DOIT le savoir : sans fichier hébergé, l'atelier
+                   n'aurait pas la source de son logo. */
+                if (typeof window.confAlert === 'function') {
+                  window.confAlert('Votre fichier n’a pas pu être envoyé (' +
+                    ((err && err.message) || 'erreur réseau') +
+                    '). Réessayez de l’ajouter avant de commander.');
+                }
+              });
           }
         });
         });   // fin de rognerBordsTransparents()

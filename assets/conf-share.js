@@ -178,18 +178,40 @@
              window.API_BASE est posé par configurateur.liquid ; ConfAPI s'en
              sert partout ailleurs (conf-api.js). */
           var base = (window.API_BASE || '').replace(/\/$/, '');
-          var response = await fetch(base + '/uploads/text-svg', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(metadata)
-          });
 
-          if (!response.ok) {
-            var errorText = await response.text();
-            throw new Error(`API Error ${response.status}: ${errorText}`);
+          /* CACHE PAR CONTENU : le même texte (police, taille, couleur…) est
+             rendu plusieurs fois — vignette du récapitulatif, vues de la
+             commande de groupe, ajout au panier. Chaque appel créait deux
+             fichiers Cloudinary et comptait dans la limite de débit ; au-delà,
+             le rendu retombait sur le canvas et le SVG de découpe était perdu. */
+          var cle = JSON.stringify(metadata);
+          window.__textSvgCache = window.__textSvgCache || {};
+          var result = window.__textSvgCache[cle];
+
+          if (!result) {
+            var response;
+            // 429 : on patiente (Retry-After, borné) et on réessaie, 3 fois au plus.
+            for (var essai = 0; ; essai++) {
+              response = await fetch(base + '/uploads/text-svg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: cle
+              });
+              if (response.status !== 429 || essai >= 3) break;
+              var ra = Number(response.headers.get('Retry-After'));
+              await new Promise(function (r) {
+                setTimeout(r, Math.min(isFinite(ra) && ra > 0 ? ra * 1000 : 5000 * (essai + 1), 20000));
+              });
+            }
+
+            if (!response.ok) {
+              var errorText = await response.text();
+              throw new Error(`API Error ${response.status}: ${errorText}`);
+            }
+
+            result = await response.json();
+            if (result && result.url) window.__textSvgCache[cle] = result;
           }
-
-          var result = await response.json();
           if (!result.url) {
             throw new Error('URL manquante dans réponse API');
           }
