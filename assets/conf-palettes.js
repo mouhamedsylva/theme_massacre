@@ -102,7 +102,9 @@
     { numero: '01',  nom: 'Blanc',              hex: '#fefefd', slug: 'blanc', bordure: true },
     { numero: '07',  nom: 'Camel',              hex: '#bf9f7f', slug: 'camel' },
     { numero: '229', nom: 'Rose taupe',         hex: '#d9b8a7', slug: 'rose-taupe' },
-    { numero: '67',  nom: 'Vert olive',         hex: '#766e4a', slug: 'vert-olive' },
+    /* Ex-« Vert olive » (#766e4a), renommée le 02/10/2026. Le slug reste
+       'vert-olive' : c'est le nom des fichiers d'images. */
+    { numero: '67',  nom: 'Noyer',              hex: '#6c614d', slug: 'vert-olive' },
     { numero: '87',  nom: 'Marron chocolat',    hex: '#683d2f', slug: 'marron-chocolat' },
     { numero: '03',  nom: 'Jaune vif',          hex: '#fee403', slug: 'jaune-vif' },
     { numero: '31',  nom: 'Orange vif',         hex: '#f08b2c', slug: 'orange-vif' },
