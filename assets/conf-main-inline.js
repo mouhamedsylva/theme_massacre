@@ -4674,6 +4674,7 @@
         { z: 'b',  label: 'Texte dos' }
       ];
       var out = [];
+      var echecs = 0;
       for (var i = 0; i < zones.length; i++) {
         var src = await Promise.resolve(textAssetDataUrl(zones[i].z));
         if (!src) continue;
@@ -4733,7 +4734,27 @@
             'Le texte reste visible sur la planche, mais l\'atelier n\'aura ' +
             'pas son fichier séparé.', e
           );
+          /* L'ATELIER EST PRÉVENU : le texte saisi part en propriété
+             « Texte face (manquant) », lisible dans le dashboard. Sans elle,
+             rien ne distinguait une ligne sans texte d'une ligne dont le
+             visuel avait échoué (commandes du 22 au 27/09). */
+          var saisi = '';
+          try {
+            var elT = document.getElementById('text-' + zones[i].z);
+            var ct = elT && elT.querySelector('.dt-content');
+            saisi = ct ? (ct.textContent || '').trim() : '';
+          } catch (eT) { saisi = ''; }
+          out.push({ label: zones[i].label + ' (manquant)', texte: saisi || '(texte illisible)' });
+          echecs++;
         }
+      }
+      /* Le client aussi : un seul message, sans bloquer l'ajout (pas d'await). */
+      if (echecs && typeof window.confAlert === 'function') {
+        window.confAlert(
+          'Le visuel de votre texte n’a pas pu être préparé. L’article est ajouté, ' +
+          'mais nous vous conseillons de le retirer puis de l’ajouter à nouveau.',
+          { icon: 'info', title: 'Texte non préparé' }
+        );
       }
       return out;
     }

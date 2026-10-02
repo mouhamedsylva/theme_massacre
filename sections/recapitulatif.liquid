@@ -1098,6 +1098,10 @@
         if (Array.isArray(it.assets)) {
           it.assets.forEach(function (a) {
             if (a && a.label && httpUrl(a.url)) properties['_' + a.label] = a.url;
+            // Visuel de texte en échec : le texte saisi, pour prévenir l'atelier.
+            else if (a && a.label && typeof a.texte === 'string') {
+              properties['_' + a.label] = a.texte.slice(0, 200);
+            }
           });
         }
 
