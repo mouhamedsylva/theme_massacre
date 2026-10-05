@@ -3373,7 +3373,12 @@
       // Logos uploadés + textes personnalisés rasterisés (courbe/couleur/taille
       // fidèles) uploadés sur Cloudinary : les deux apparaissent parmi les
       // assets de la commande.
-      const logoAssets = collectDesignAssets();
+      /* Les envois vers Cloudinary sont attendus AVANT la collecte. L'attente
+         n'avait lieu qu'après : un logo déposé juste avant le clic figurait
+         sur la planche mais pas dans les fichiers de la commande (#20091,
+         logo cœur absent). */
+      await attendreUploadsHeberges(8000);
+      const logoAssets = await collectDesignAssets();
       const textAssets = await collectTextAssets();
 
       /* LE NOM VIENT DU TYPE DE PRODUIT, PLUS DU DOM.
@@ -4513,7 +4518,7 @@
        accessibles dans la commande Shopify (une data-URL ne le serait pas).
        Chaque entrée = { label, url }. On ne garde que les zones dont le logo est
        affiché ET dont l'upload Cloudinary a réussi. */
-    function collectDesignAssets() {
+    async function collectDesignAssets() {
       /* La FACE porte DEUX emplacements de logo : le cœur (`f`) et la poitrine
          droite (`fr`). Seul le premier était déclaré : un logo posé en poitrine
          droite apparaissait bien sur la planche d'aperçu — qui lit `viewDefs`,
@@ -4537,14 +4542,49 @@
       const cloud = window.CLOUDINARY_URLS || {};
       const avant = window.CLOUDINARY_URLS_AVANT || {};
       const assets = [];
-      Object.keys(zoneLabels).forEach(zone => {
+      const manquants = [];
+      for (const zone of Object.keys(zoneLabels)) {
         // La zone est utilisée si son aperçu sidebar affiche bien une image.
         const img = document.getElementById('i' + zone);
         const shown = img && img.getAttribute('src') && img.getAttribute('src') !== '' &&
                       img.src !== window.location.href;
-        if (!shown) return;
-        const url = cloud[zone];
-        if (url) assets.push({ label: zoneLabels[zone], url: url });
+        if (!shown) continue;
+
+        /* URL hébergée, par ordre de fiabilité : registre en mémoire, copie de
+           session, puis l'image affichée si elle est déjà une URL https. Seul
+           le registre était lu : un logo restauré depuis la session ou
+           l'image déjà hébergée passaient à la trappe. */
+        const calque = document.querySelector('#logo-' + zone + ' img');
+        const srcCalque = calque ? (calque.getAttribute('src') || '') : '';
+        let url = cloud[zone] ||
+                  (typeof cloudUrlDe === 'function' && cloudUrlDe(zone)) ||
+                  (/^https?:\/\//i.test(srcCalque) ? srcCalque : '');
+
+        /* Toujours rien, mais l'image est là en data-URL (envoi en échec ou
+           trop lent) : on l'envoie MAINTENANT plutôt que de la perdre. */
+        if (!url && /^data:image\//i.test(srcCalque) &&
+            window.ConfAPI && typeof window.ConfAPI.uploadLogo === 'function') {
+          try {
+            const res = await window.ConfAPI.uploadLogo(dataUrlToFile(srcCalque, 'logo-' + zone + '.png'));
+            url = (res && (res.url || res.secure_url)) || '';
+            if (url) {
+              window.CLOUDINARY_URLS = window.CLOUDINARY_URLS || {};
+              window.CLOUDINARY_URLS[zone] = url;
+              memoriserCloudUrl(zone, url, currentProductType);
+            }
+          } catch (e) {
+            console.warn('Logo « ' + zone + ' » non envoyé au moment de l’ajout :', e);
+          }
+        }
+
+        if (url) {
+          assets.push({ label: zoneLabels[zone], url: url });
+        } else {
+          /* L'atelier est prévenu (même mécanisme que « Texte … (manquant) »,
+             relu par recapitulatif.liquid), le client aussi, plus bas. */
+          assets.push({ label: zoneLabels[zone] + ' (manquant)', texte: 'Fichier non transmis — voir la planche' });
+          manquants.push(zoneLabels[zone].replace(/^Logo /, ''));
+        }
 
         /* L'IMAGE D'ORIGINE, si le client a retiré le fond. Renseignée
            seulement dans ce cas — un fond conservé ne produit qu'une image.
@@ -4558,7 +4598,15 @@
         if (urlAvant && urlAvant !== url) {
           assets.push({ label: zoneLabels[zone] + ' (avant détourage)', url: urlAvant });
         }
-      });
+      }
+      // Sans await : l'ajout au panier continue, le client est seulement prévenu.
+      if (manquants.length && typeof window.confAlert === 'function') {
+        window.confAlert(
+          'Votre logo (' + manquants.join(', ') + ') n’a pas pu être envoyé. L’article est ajouté, ' +
+          'mais nous vous conseillons de le retirer puis de l’ajouter à nouveau.',
+          { icon: 'info', title: 'Logo non transmis' }
+        );
+      }
       return assets;
     }
 
