@@ -718,7 +718,7 @@
 
     /* LE DÉLAI DE PRODUCTION SUIT LA QUANTITÉ QUI LE DÉTERMINE.
 
-       Pour un textile il dépend du nombre de pièces (3 semaines jusqu'à 10,
+       Pour un textile il dépend du nombre de pièces (2-3 semaines jusqu'à 10,
        4 au-delà) : sa place est sous le compteur qui le fait basculer, pas
        ailleurs. Le récapitulatif du bureau, lui, est masqué sur téléphone.
 

@@ -8,8 +8,8 @@
  *
  * Barème :
  *   • patchs, coins, drapeaux ......... 4 à 6 semaines (quelle que soit la qté)
- *   • textiles jusqu'à 10 unités ...... 3 semaines
- *   • textiles 10 unités et plus ...... 4 semaines
+ *   • textiles jusqu'à 10 unités ...... 2-3 semaines
+ *   • textiles 10 unités et plus ...... 3-4 semaines
  *
  * NOMMAGE INVERSÉ : `productType` ne désigne pas la même chose partout dans ce
  * projet ('coins' vaut tantôt les coins, tantôt les patchs). On ne s'y fie donc
@@ -28,8 +28,8 @@
   var TEXTILES = ['sweatshirt', 'tshirt', 'tshirt_polyester'];
 
   var DELAI_ATELIER = '4 à 6 semaines';
-  var DELAI_TEXTILE_PETIT = '3 semaines';
-  var DELAI_TEXTILE_GRAND = '4 semaines';
+  var DELAI_TEXTILE_PETIT = '2-3 semaines';
+  var DELAI_TEXTILE_GRAND = '3-4 semaines';
 
   /* Au-delà de ce nombre de pièces, la production passe à la semaine
      supérieure. « Jusqu'à 10 unités » inclut 10 : c'est à 11 que le délai
