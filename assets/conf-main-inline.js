@@ -6740,13 +6740,16 @@
         // (Sans ce filtre, une vue de côté vide apparaissait systématiquement.)
         if (!logos.length) continue;
 
-        // Vue miroir (manche droite) : le serveur retourne le FOND. Le logo,
-        // lui, ne doit PAS être inversé — le design du client apparaîtrait à
-        // l'envers. On lui donne donc sa position déjà convertie dans le repère
-        // retourné : x' = 1 - x - w. Le serveur le pose tel quel, à l'endroit.
-        if (def.mirror) {
-          logos.forEach(l => { l.x = 1 - l.x - l.w; });
-        }
+        /* Vue miroir (manche droite) : le serveur — et la Vue d'ensemble —
+           retournent le FOND seul ; le logo est posé à l'endroit.
+
+           AUCUNE conversion de position. Dans l'éditeur, c'est déjà l'image
+           qui est retournée, pas la couche des logos, et la zone de la manche
+           droite est placée en miroir dans le Liquid (zone-sr à 44,5 % contre
+           46,5 % pour zone-sl) : la position mesurée est donc DÉJÀ celle du
+           repère retourné, telle que le client la voit. L'ancien
+           `x' = 1 - x - w` la retournait une seconde fois : le logo droit
+           glissait de quelques points et sortait souvent de sa zone. */
 
         views.push({
           label: def.label,
