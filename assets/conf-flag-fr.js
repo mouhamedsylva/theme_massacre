@@ -32,7 +32,12 @@
   /** URL de l'image du drapeau, exposée par le layout. */
   function urlDrapeau() {
     var a = window.ASSET_URLS || {};
-    return a.franceFlag || '';
+    var src = a.franceFlag || '';
+    /* `asset_url` rend une adresse SANS protocole (« //massacre-officiel.com/
+       cdn/… »). Elle était refusée comme visuel hébergé (déclaration exigeant
+       https), et le drapeau partait en commande sans fichier — « (manquant) »
+       dans le dashboard. */
+    return src.indexOf('//') === 0 ? 'https:' + src : src;
   }
 
   /* Zone à floquer = la manche actuellement à l'écran.

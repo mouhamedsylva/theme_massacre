@@ -4555,7 +4555,7 @@
            le registre était lu : un logo restauré depuis la session ou
            l'image déjà hébergée passaient à la trappe. */
         const calque = document.querySelector('#logo-' + zone + ' img');
-        const srcCalque = calque ? (calque.getAttribute('src') || '') : '';
+        const srcCalque = urlAbsolue(calque ? (calque.getAttribute('src') || '') : '');
         let url = cloud[zone] ||
                   (typeof cloudUrlDe === 'function' && cloudUrlDe(zone)) ||
                   (/^https?:\/\//i.test(srcCalque) ? srcCalque : '');
@@ -9294,7 +9294,15 @@
      * @param {string} url   adresse http(s) déjà hébergée
      * @param {string} [owner] produit propriétaire (défaut : produit courant)
      */
+    /* Adresse sans protocole (« //… », forme rendue par `asset_url` de
+       Shopify) → https. Les visuels du thème (drapeau FR…) arrivent sous
+       cette forme et étaient refusés comme « non hébergés ». */
+    function urlAbsolue(u) {
+      return (typeof u === 'string' && u.indexOf('//') === 0) ? 'https:' + u : u;
+    }
+
     function declarerVisuelHeberge(zone, url, owner) {
+      url = urlAbsolue(url);
       if (!zone || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return;
       window.CLOUDINARY_URLS[zone] = url;
       memoriserCloudUrl(zone, url, owner);
