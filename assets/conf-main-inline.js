@@ -4301,7 +4301,15 @@
           if (url && /^https?:\/\//i.test(url)) {
             const cote = (typeof coteDe === 'function' && coteDe(r) === 'dos')
               ? 'dos' : 'face';
-            return [{ label: 'Texte ' + cote, url: url }];
+            /* Le surnom REMPLACE seulement le texte de son côté : les textes
+               communs (« C'EST QUI MON BINÔME ? » au dos, poitrine droite)
+               et leurs SVG de découpe restent. Renvoyer le seul surnom les
+               faisait disparaître de toutes les lignes du groupe. Le SVG
+               commun du même côté est retiré : il porterait un autre nom. */
+            const propre = 'Texte ' + cote;
+            return textAssets
+              .filter(function (a) { return a.label !== propre && a.label !== propre + ' (SVG)'; })
+              .concat([{ label: propre, url: url }]);
           }
           /* Capture ou envoi manqué : on retombe sur le visuel commun. Moins
              juste, mais la planche `_Aperçu` de la ligne porte le bon nom. */
@@ -4594,7 +4602,10 @@
            référence pour juger d'un détourage imparfait. Le suffixe est
            indispensable, les assets devenant des propriétés indexées par leur
            libellé (recapitulatif.liquid) — un doublon en écraserait un. */
-        const urlAvant = avant[zone];
+        /* Repli sur la session du produit en cours, comme `cloudUrlDe` pour
+           le logo : le registre en mémoire est vide après un rechargement. */
+        const urlAvant = avant[zone] ||
+          ((lireCloudUrlsAvant()[currentProductType] || {})[zone]) || '';
         if (urlAvant && urlAvant !== url) {
           assets.push({ label: zoneLabels[zone] + ' (avant détourage)', url: urlAvant });
         }
