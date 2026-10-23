@@ -4564,9 +4564,12 @@
            l'image déjà hébergée passaient à la trappe. */
         const calque = document.querySelector('#logo-' + zone + ' img');
         const srcCalque = urlAbsolue(calque ? (calque.getAttribute('src') || '') : '');
-        let url = cloud[zone] ||
-                  (typeof cloudUrlDe === 'function' && cloudUrlDe(zone)) ||
-                  (/^https?:\/\//i.test(srcCalque) ? srcCalque : '');
+        /* L'IMAGE AFFICHÉE FAIT FOI : son URL https (ligne rouverte depuis le
+           panier, F5), sinon l'URL liée à CETTE data-URL à son envoi. Le
+           registre par zone (`cloud[zone]`, `cloudUrlDe`) passait en premier :
+           il porte le dernier logo envoyé pour le produit, pas forcément celui
+           de cet article (#20981). */
+        let url = urlHebergeeDe(srcCalque);
 
         /* Toujours rien, mais l'image est là en data-URL (envoi en échec ou
            trop lent) : on l'envoie MAINTENANT plutôt que de la perdre. */
@@ -4579,6 +4582,7 @@
               window.CLOUDINARY_URLS = window.CLOUDINARY_URLS || {};
               window.CLOUDINARY_URLS[zone] = url;
               memoriserCloudUrl(zone, url, currentProductType);
+              memoriserHebergeParSrc(srcCalque, url);
             }
           } catch (e) {
             console.warn('Logo « ' + zone + ' » non envoyé au moment de l’ajout :', e);
@@ -4602,10 +4606,9 @@
            référence pour juger d'un détourage imparfait. Le suffixe est
            indispensable, les assets devenant des propriétés indexées par leur
            libellé (recapitulatif.liquid) — un doublon en écraserait un. */
-        /* Repli sur la session du produit en cours, comme `cloudUrlDe` pour
-           le logo : le registre en mémoire est vide après un rechargement. */
-        const urlAvant = avant[zone] ||
-          ((lireCloudUrlsAvant()[currentProductType] || {})[zone]) || '';
+        /* L'original de CE fichier, retrouvé par son URL : le registre par
+           zone (`avant[zone]`) mélangeait les articles d'un même produit. */
+        const urlAvant = avantDeUrl(url);
         if (urlAvant && urlAvant !== url) {
           assets.push({ label: zoneLabels[zone] + ' (avant détourage)', url: urlAvant });
         }
@@ -7550,9 +7553,10 @@
           var src = img && img.getAttribute('src');
           if (!src) continue;                       // zone vide
           if (/^https?:\/\//i.test(src)) continue;  // déjà une URL hébergée
-          /* data-URL : hébergée seulement si le registre porte son URL. */
-          var heberge = (window.CLOUDINARY_URLS && window.CLOUDINARY_URLS[z]) ||
-                        (typeof cloudUrlDe === 'function' && cloudUrlDe(z));
+          /* data-URL : hébergée seulement si SON URL est connue. Le registre
+             par zone ne prouve rien : il peut porter le logo d'un autre
+             article du même produit (#20981). */
+          var heberge = urlHebergeeDe(src);
           if (!heberge) reste.push(z);
         }
         return reste;
@@ -9351,6 +9355,64 @@
      * Enregistre l'image d'ORIGINE d'une zone, celle d'avant le détourage.
      * Écrit les deux niveaux d'un coup, comme declarerVisuelHeberge.
      */
+    /* ═══ FICHIERS HÉBERGÉS, PAR IMAGE ═══════════════════════════════════════
+
+       `CLOUDINARY_URLS[zone]` ne garde qu'UNE URL par zone et par produit :
+       celle du dernier logo envoyé. Deux t-shirts polyester aux logos
+       différents la partageaient — rouvrir le premier depuis le panier
+       remettait ses logos à l'écran, mais pas dans le registre, et chaque
+       ligne partait avec les derniers fichiers envoyés (#20981).
+
+       Ces tables lient chaque URL à l'image qu'elle représente :
+         • `__hebergeParSrc` : data-URL affichée → URL hébergée (mémoire) ;
+         • `conf_avant_par_url` : URL hébergée → original avant détourage
+           (session : quelques octets, survit à un F5). */
+    var CLE_AVANT_PAR_URL = 'conf_avant_par_url';
+    function tableHeberge() {
+      return window.__hebergeParSrc || (window.__hebergeParSrc = new Map());
+    }
+    function tableAvant() {
+      return window.__avantParSrc || (window.__avantParSrc = new Map());
+    }
+
+    function lierAvant(urlPrincipale, urlAvant) {
+      if (!urlPrincipale || !urlAvant || urlPrincipale === urlAvant) return;
+      try {
+        var t = JSON.parse(sessionStorage.getItem(CLE_AVANT_PAR_URL) || '{}') || {};
+        t[urlPrincipale] = urlAvant;
+        sessionStorage.setItem(CLE_AVANT_PAR_URL, JSON.stringify(t));
+      } catch (e) { /* quota ou mode privé : seule la référence est perdue */ }
+    }
+
+    function memoriserHebergeParSrc(src, url) {
+      if (!src || !url) return;
+      tableHeberge().set(src, url);
+      if (tableAvant().has(src)) lierAvant(url, tableAvant().get(src));
+    }
+
+    function memoriserAvantParSrc(src, urlAvant) {
+      if (!src || !urlAvant) return;
+      tableAvant().set(src, urlAvant);
+      var principale = tableHeberge().get(src);
+      if (principale) lierAvant(principale, urlAvant);
+    }
+
+    /** URL hébergée de l'image affichée : https telle quelle, sinon sa table. */
+    function urlHebergeeDe(src) {
+      if (!src) return '';
+      if (/^https?:\/\//i.test(src)) return src;
+      return tableHeberge().get(src) || '';
+    }
+
+    /** Original avant détourage de CE fichier hébergé, s'il en a un. */
+    function avantDeUrl(url) {
+      if (!url) return '';
+      try {
+        var t = JSON.parse(sessionStorage.getItem(CLE_AVANT_PAR_URL) || '{}') || {};
+        return (typeof t[url] === 'string' && /^https?:\/\//i.test(t[url])) ? t[url] : '';
+      } catch (e) { return ''; }
+    }
+
     function declarerVisuelAvant(zone, url, owner) {
       if (!zone || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return;
       window.CLOUDINARY_URLS_AVANT[zone] = url;
@@ -9722,6 +9784,7 @@
                 .then(function (res) {
                   if (res && res.url) {
                     declarerVisuelAvant(zone, res.url, uploadOwner);
+                    memoriserAvantParSrc(src, res.url);
                     confLog('☁️ Original (avant détourage) hébergé (' + zone + ') :', res.url);
                   }
                 })
@@ -9737,6 +9800,11 @@
             window.ConfAPI.uploadLogo(uploadFile)
               .then(res => {
                 if (res && res.url) {
+                  /* L'URL est liée à CETTE image, pas seulement à la zone : le
+                     registre par zone ne garde que le dernier logo envoyé pour
+                     le produit, et deux articles du même produit se
+                     partageaient ses fichiers (#20981). */
+                  memoriserHebergeParSrc(src, res.url);
                   window.CLOUDINARY_URLS[zone] = res.url;
                   /* EN SESSION AUSSI : le registre mémoire ci-dessus ne
                      survit pas à un rechargement. C'est cette copie qui permet
