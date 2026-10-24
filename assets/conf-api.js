@@ -41,6 +41,29 @@ window.ConfAPI = (function () {
   }
 
   // Requête JSON générique
+  /* LOGOS ENVOYÉS PAR LEUR URL CLOUDINARY, PAS EN BASE64.
+
+     Les captures (captureAllViews, captureFaceDesign) portent l'image affichée,
+     donc une data-URL de plusieurs Mo par logo. Trois logos lourds dépassaient
+     la limite de 10 Mo de /api/export : la planche multi-vues était refusée et
+     la commande partait avec la seule vignette de face (#21011).
+
+     Le serveur télécharge les URL de notre Cloudinary lui-même ; la data-URL
+     reste le repli d'un logo pas encore hébergé. La conversion est faite ICI,
+     au seul point d'envoi : les captures servent aussi à dessiner dans le
+     navigateur (vérification de groupe, vue d'ensemble), où une URL distante
+     pourrait bloquer un canvas. */
+  function logosLegers(logos) {
+    if (!Array.isArray(logos)) return [];
+    var heberge = window.urlHebergeeDe;
+    if (typeof heberge !== 'function') return logos;
+    return logos.map(function (l) {
+      if (!l || typeof l.src !== 'string' || !/^data:/i.test(l.src)) return l;
+      var url = heberge(l.src);
+      return url ? Object.assign({}, l, { src: url }) : l;
+    });
+  }
+
   async function jsonRequest(path, method, body) {
     const res = await fetchAvecReessai(base() + path, {
       method: method || 'GET',
@@ -108,13 +131,16 @@ window.ConfAPI = (function () {
     createPreviewImage(background, logos) {
       return jsonRequest('/export/preview-image', 'POST', {
         background: background,
-        logos: logos || []
+        logos: logosLegers(logos)
       });
     },
     // Composer une image multi-vues (face + dos + côté) -> { url } Cloudinary
     // views: [{ label, background, logos: [{ src, x, y, w }] }, ...]
     createMultiViewImage(views) {
-      return jsonRequest('/export/preview-multi', 'POST', { views: views || [] });
+      var legeres = (views || []).map(function (v) {
+        return (v && Array.isArray(v.logos)) ? Object.assign({}, v, { logos: logosLegers(v.logos) }) : v;
+      });
+      return jsonRequest('/export/preview-multi', 'POST', { views: legeres });
     },
     // Vérifier la disponibilité du backend
     health() {

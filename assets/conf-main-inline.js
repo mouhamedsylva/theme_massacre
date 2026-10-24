@@ -4968,6 +4968,12 @@
           } catch (e) {
             console.error('Composition multi-vues échouée :', e);
           }
+          /* Sans planche, `_Aperçu` retombe sur la vignette de FACE : l'atelier
+             ne voit plus ni le dos ni les manches (#21011). */
+          if (!sheet) {
+            console.warn('Planche multi-vues absente : la commande partira avec ' +
+                         'la seule vignette de face comme aperçu.');
+          }
         }
       } catch (e) { /* non textile : pas de planche */ }
 
@@ -9403,6 +9409,8 @@
       if (/^https?:\/\//i.test(src)) return src;
       return tableHeberge().get(src) || '';
     }
+    // Lu par conf-api.js pour alléger les compositions d'aperçus (#21011).
+    window.urlHebergeeDe = urlHebergeeDe;
 
     /** Original avant détourage de CE fichier hébergé, s'il en a un. */
     function avantDeUrl(url) {
