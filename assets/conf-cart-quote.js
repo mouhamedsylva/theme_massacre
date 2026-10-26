@@ -65,7 +65,7 @@
     var parCle = {};
     var ordre = [];
 
-    cart().forEach(function (i) {
+    regrouperArticles(cart()).forEach(function (i) {
       var cle = cartFamily(i);
       if (!parCle[cle]) {
         parCle[cle] = {
@@ -89,6 +89,37 @@
     return ordre.map(function (c) { return parCle[c]; });
   }
   window.cartFamilies = cartFamilies;
+
+  /* ARTICLES IDENTIQUES REGROUPÉS pour le devis.
+
+     Une répartition par tailles crée UNE ligne de panier PAR PIÈCE
+     (conf-size-quantity-modal.js, « Toujours 1 par ligne ») : 33 t-shirts M
+     partaient en 33 lignes « 1× … — M », avec 33 vignettes identiques, et
+     l'admin recevait un devis de 68 lignes pour 4 articles réels.
+
+     Même nom, même couleur, même taille ET même aperçu : une seule ligne, aux
+     quantités additionnées. L'aperçu fait partie de la clé — une liste de
+     surnoms a une planche par personne, ses lignes restent distinctes.
+
+     Appliqué à `details`, `previews` ET `familles` : le chiffrage
+     (articles-devis.ts) associe ces listes entre elles, elles doivent donc
+     être découpées de la même façon. */
+  function regrouperArticles(items) {
+    var parCle = {};
+    var out = [];
+    (items || []).forEach(function (i) {
+      if (!i) return;
+      var cle = [i.name || '', i.color || '', i.size || '', apercuDeLigne(i).url || ''].join('|');
+      if (parCle[cle]) {
+        parCle[cle].qty += (i.qty || 1);
+        return;
+      }
+      var copie = Object.assign({}, i, { qty: i.qty || 1 });
+      parCle[cle] = copie;
+      out.push(copie);
+    });
+    return out;
+  }
 
   /* Quantité totale de PATCHS (ciblés par nom « Patch… »). */
   function patchQtyInCart() {
@@ -220,7 +251,7 @@
   /* Devis MULTI-PRODUITS : panier mêlant ≥ 3 familles -> devis global. */
   window.requestMultiProductQuote = function () {
     if (typeof window.closeCartDrawer === 'function') window.closeCartDrawer();
-    var items = cart();
+    var items = regrouperArticles(cart());
     if (!items.length) { if (window.goToRecap) window.goToRecap(); return; }
     var totalQty = items.reduce(function (s, i) { return s + (i.qty || 0); }, 0);
     var details = items.map(function (i) {
