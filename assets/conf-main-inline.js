@@ -3962,6 +3962,38 @@
          * @returns {Promise<{views:Array,texte:string}|null>} les vues et le
          *   visuel du texte de CETTE personne, ou null
          */
+        /**
+         * Attend que le canvas cesse de bouger : boîte du calque et des logos
+         * identiques sur deux images consécutives, ou plafond atteint.
+         * @param {number} msMax plafond d'attente
+         */
+        const attendreCanvasStable = async function (msMax) {
+          const releve = function () {
+            const ids = ['logo-layer', 'logo-f', 'logo-fr', 'logo-b', 'logo-sl', 'logo-sr'];
+            return ids.map(function (id) {
+              const el = document.getElementById(id);
+              if (!el) return '';
+              const b = el.getBoundingClientRect();
+              return [b.left, b.top, b.width, b.height].map(function (v) { return Math.round(v); }).join(',');
+            }).join(';');
+          };
+          const image = function () {
+            return new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
+          };
+          const limite = Date.now() + (msMax || 1500);
+          let avant = releve();
+          let stables = 0;
+          while (Date.now() < limite) {
+            await image();
+            const maintenant = releve();
+            stables = (maintenant === avant) ? stables + 1 : 0;
+            if (stables >= 2) return;
+            avant = maintenant;
+          }
+          console.warn('Canvas encore en mouvement après ' + (msMax || 1500) +
+                       ' ms : captures lancées quand même.');
+        };
+
         const capturerVuesPourNom = async function (nom, zone, lignesPerson) {
           const el = document.getElementById('text-' + zone);
           const contenu = el ? el.querySelector('.dt-content') : null;
@@ -4082,6 +4114,16 @@
             lignesParCle.get(cp).push(r);
           }
 
+          /* CANVAS STABLE AVANT LA PREMIÈRE CAPTURE.
+
+             `captureAllViews` MESURE le DOM. La première personne était
+             capturée aussitôt la vérification refermée, pendant que le canvas
+             finissait sa mise en page : son logo de dos sortait décalé et
+             débordant, les suivantes étaient justes (#21189, AITO). On attend
+             que la géométrie ne bouge plus d'une image à l'autre — plafonné,
+             jamais bloquant. */
+          await attendreCanvasStable(1500);
+
           for (let iP = 0; iP < clesPlanche.length; iP++) {
             const cp = clesPlanche[iP];
             const sep = cp.lastIndexOf('|');
@@ -4163,6 +4205,36 @@
                 porteurs.push(envoyer());
               }
               await Promise.all(porteurs);
+            }
+          }
+
+          /* SECONDE CHANCE pour un surnom resté sans visuel (rendu ou envoi
+             raté). Sans elle, la ligne retombait sur le texte du CANVAS — le
+             nom d'un autre membre (#21189 : AITO reçu avec « MOMO »). Une
+             seule reprise, personne par personne ; un échec de plus laisse la
+             ligne marquée « (manquant) » (voir assetsTextePour). */
+          for (let iR = 0; iR < clesPlanche.length; iR++) {
+            const cpR = clesPlanche[iR];
+            if (/^https?:\/\//i.test(textesParCle.get(cpR) || '')) continue;
+            const sepR = cpR.lastIndexOf('|');
+            const nomR = cpR.slice(0, sepR);
+            if (!nomR) continue;   // répartition par tailles : le texte commun est le bon
+            const zoneR = (cpR.slice(sepR + 1) === 'dos') ? 'b' : 'f';
+            try {
+              majVoile('Nouvel essai du visuel de « ' + nomR + ' »…');
+              const reprise = await capturerVuesPourNom(nomR, zoneR, null);
+              let src = reprise && reprise.texte;
+              if (src && !/^https?:\/\//i.test(src) && window.ConfAPI &&
+                  typeof window.ConfAPI.uploadLogo === 'function') {
+                const res = await window.ConfAPI.uploadLogo(dataUrlToFile(src, 'texte.png'));
+                src = (res && (res.url || res.secure_url)) || '';
+              }
+              if (src && /^https?:\/\//i.test(src)) textesParCle.set(cpR, src);
+              else textesParCle.delete(cpR);
+            } catch (e) {
+              console.warn('Visuel de « ' + nomR + ' » toujours absent : la ligne ' +
+                           'partira marquée « manquant ».', e);
+              textesParCle.delete(cpR);
             }
           }
 
@@ -4311,9 +4383,21 @@
               .filter(function (a) { return a.label !== propre && a.label !== propre + ' (SVG)'; })
               .concat([{ label: propre, url: url }]);
           }
-          /* Capture ou envoi manqué : on retombe sur le visuel commun. Moins
-             juste, mais la planche `_Aperçu` de la ligne porte le bon nom. */
-          return textAssets;
+          /* VISUEL DU SURNOM ABSENT, même après la seconde chance.
+
+             Le repli renvoyait `textAssets` tel quel : le texte du CANVAS, donc
+             le nom d'un AUTRE membre, envoyé sans signal à l'atelier (#21189 :
+             « MOMO » sur la ligne d'AITO). Les textes communs restent ; celui du
+             côté du surnom est remplacé par un « (manquant) » portant le BON
+             nom, que le dashboard affiche déjà. */
+          const cleR = clePlanche(r);
+          const nomManquant = cleR.slice(0, cleR.lastIndexOf('|'));
+          if (!nomManquant) return textAssets;   // répartition par tailles : texte commun
+          const coteM = (typeof coteDe === 'function' && coteDe(r) === 'dos') ? 'dos' : 'face';
+          const propreM = 'Texte ' + coteM;
+          return textAssets
+            .filter(function (a) { return a.label !== propreM && a.label !== propreM + ' (SVG)'; })
+            .concat([{ label: propreM + ' (manquant)', texte: nomManquant }]);
         };
 
         rows.forEach(function (r, idx) {
