@@ -271,6 +271,20 @@
   /* Mise en avant discrète tant que ce n'est pas coché. */
   .rcp-consent:has(input:not(:checked)) { border-color: #e0c088; background: #fdf8ee; }
 
+  /* Autorisation de publier les photos de la commande (réponse obligatoire). */
+  .rcp-photos {
+    margin-top: 18px; padding: 12px 14px;
+    background: #f8f8f8; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 12px; line-height: 1.5; color: #444;
+  }
+  .rcp-photos:not(:has(input:checked)) { border-color: #e0c088; background: #fdf8ee; }
+  .rcp-photos-q { margin: 0 0 8px; font-weight: 600; color: var(--black); }
+  .rcp-photos label { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; cursor: pointer; }
+  .rcp-photos input {
+    flex: none; width: 17px; height: 17px; margin-top: 1px;
+    accent-color: var(--black); cursor: pointer;
+  }
+
   .rcp-continue {
     width: 100%; margin-top: 14px; padding: 14px; background: var(--black); color: #fff;
     border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
@@ -406,6 +420,16 @@
       <!-- Consentement : le bouton Commander reste bloqué tant que la case
            n'est pas cochée. Article personnalisé = pas de retour possible,
            d'où l'acceptation explicite avant paiement. -->
+      <!-- Autorisation de publier les photos de la commande : réponse
+           OBLIGATOIRE, envoyée à Shopify en attribut de panier
+           (« Autorisation photos réseaux sociaux »), visible dans le
+           dashboard et sur la fiche de production. -->
+      <fieldset class="rcp-photos" id="rcp-photos">
+        <legend class="rcp-photos-q">Acceptez-vous que nous partagions des photos de votre commande sur nos réseaux sociaux afin de mettre en avant votre création&nbsp;?</legend>
+        <label><input type="radio" name="rcp-photos" value="Oui" onchange="onConsentChange()"> <span>Oui, j'autorise la publication des photos de ma commande.</span></label>
+        <label><input type="radio" name="rcp-photos" value="Non" onchange="onConsentChange()"> <span>Non, je ne souhaite pas que les photos de ma commande soient publiées.</span></label>
+      </fieldset>
+
       <label class="rcp-consent" for="rcp-consent-chk">
         <input type="checkbox" id="rcp-consent-chk" onchange="onConsentChange()">
         <span>
@@ -1174,8 +1198,11 @@
     function onConsentChange() {
       var chk = document.getElementById('rcp-consent-chk');
       var btn = document.getElementById('rcp-continue');
+      var photos = choixPhotos();
+      // Choix mémorisé : il revient coché au retour sur la page.
+      try { if (photos) sessionStorage.setItem('conf_photos_ok', photos); } catch (e) {}
       if (!btn) return;
-      var ok = !!(chk && chk.checked);
+      var ok = !!(chk && chk.checked) && !!photos;
       btn.disabled = !ok;
       // render() peut avoir posé ces styles inline pour un panier vide :
       // on les nettoie pour ne pas laisser le bouton inerte.
@@ -1183,6 +1210,19 @@
       btn.style.opacity = ok ? '' : '';
     }
     window.onConsentChange = onConsentChange;
+
+    /** « Oui », « Non », ou '' tant que le client n'a pas répondu. */
+    function choixPhotos() {
+      var r = document.querySelector('input[name="rcp-photos"]:checked');
+      return r ? r.value : '';
+    }
+    // Restaure le choix fait plus tôt dans la session.
+    (function () {
+      var v = '';
+      try { v = sessionStorage.getItem('conf_photos_ok') || ''; } catch (e) {}
+      var r = v && document.querySelector('input[name="rcp-photos"][value="' + v + '"]');
+      if (r) r.checked = true;
+    })();
 
     async function goToCheckout(btnEl) {
       // Garde-fou : consentement obligatoire (au cas où le bouton serait forcé).
@@ -1192,6 +1232,16 @@
           'Merci d\'accepter les conditions avant de commander.',
           { icon: 'info', title: 'Consentement requis' }
         );
+        return;
+      }
+
+      if (!choixPhotos()) {
+        await confAlert(
+          'Merci d\'indiquer si nous pouvons publier les photos de votre commande.',
+          { icon: 'info', title: 'Photos de votre commande' }
+        );
+        var bloc = document.getElementById('rcp-photos');
+        if (bloc && bloc.scrollIntoView) bloc.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return;
       }
 
@@ -1338,6 +1388,24 @@
         //    design. On NE purge PAS ici : le client peut revenir en arrière et
         //    doit retrouver son panier tant que le paiement n'est pas confirmé.
         try { localStorage.setItem('conf_checkout_pending', String(Date.now())); } catch (e) {}
+
+        /* 4) Autorisation photos : attribut du PANIER, qui suit la commande
+           (note_attributes). Un échec ne bloque jamais le paiement. */
+        var reponsePhotos = choixPhotos();
+        if (reponsePhotos) {
+          for (var essaiPhotos = 0; essaiPhotos < 2; essaiPhotos++) {
+            try {
+              var rp = await fetch('/cart/update.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ attributes: { 'Autorisation photos réseaux sociaux': reponsePhotos } })
+              });
+              if (rp.ok) break;
+            } catch (e) {
+              if (essaiPhotos) console.warn('Autorisation photos non transmise :', e);
+            }
+          }
+        }
         window.location.href = '/checkout';
       } catch (err) {
         console.error('Erreur checkout :', err);
