@@ -568,7 +568,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>4 à 6 semaines</b></span>
+        <span>Délai de production <b>5 à 7 semaines</b></span>
       </div>
 
       <div class="rp-actions-coins">
@@ -1046,7 +1046,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>4 à 6 semaines</b></span>
+        <span>Délai de production <b>5 à 7 semaines</b></span>
       </div>
 
       <div class="rp-actions-coins">
@@ -1257,7 +1257,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>4 à 6 semaines</b></span>
+        <span>Délai de production <b>5 à 7 semaines</b></span>
       </div>
 
       <div class="rp-actions-coins">

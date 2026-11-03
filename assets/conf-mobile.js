@@ -931,7 +931,7 @@
 
     /* LE DÉLAI DE PRODUCTION REJOINT LA FEUILLE, comme pour les textiles.
 
-       Ces trois produits ont un délai fixe (4 à 6 semaines), écrit en dur dans
+       Ces trois produits ont un délai fixe (5 à 7 semaines), écrit en dur dans
        leur gabarit (conf-dynamic-layout.js). Ce gabarit étant réécrit à chaque
        changement de produit, un exemplaire neuf arrive à chaque fois : on
        purge les précédents ici aussi, sans quoi ils s'empileraient. */

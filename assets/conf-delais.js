@@ -7,7 +7,7 @@
  * premier changement de barème.
  *
  * Barème :
- *   • patchs, coins, drapeaux ......... 4 à 6 semaines (quelle que soit la qté)
+ *   • patchs, coins, drapeaux ......... 5 à 7 semaines (quelle que soit la qté)
  *   • textiles jusqu'à 10 unités ...... 2-3 semaines
  *   • textiles 10 unités et plus ...... 3-4 semaines
  *
@@ -27,7 +27,7 @@
      figure pas (coins, drapeaux, patchs) relève du délai atelier. */
   var TEXTILES = ['sweatshirt', 'tshirt', 'tshirt_polyester'];
 
-  var DELAI_ATELIER = '4 à 6 semaines';
+  var DELAI_ATELIER = '5 à 7 semaines';
   var DELAI_TEXTILE_PETIT = '2-3 semaines';
   var DELAI_TEXTILE_GRAND = '3-4 semaines';
 

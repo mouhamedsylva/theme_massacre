@@ -527,9 +527,17 @@
 <script>
   /* Variants Shopify pour le panier natif (produits à prix fixe).
 
-     Nommage interne INVERSÉ (voir configurateur.liquid) :
-       'coins'   = PATCHS codés -> « Patch personnalisé » (achetable en ligne)
-       'patches' = COINS réels  -> « Coin métal » (SUR DEVIS UNIQUEMENT)
+     Correspondance écran -> productType -> produit Shopify :
+       écran « Patchs » = 'patches' -> « Patch personnalisé » (achetable en ligne)
+       écran « Coins »  = 'coins'   -> « Coin métal » (SUR DEVIS UNIQUEMENT)
+     (vérifiable : conf-dynamic-layout.js categoryMap, capturePatchDesign qui
+     exige 'patches', nomProduit() de conf-group-verify.js.)
+
+     CORRIGÉ LE 03/11/2026 : la table portait encore l'ancien sens
+     (coins -> « Patch personnalisé », pas de clé patches). Un patch ne
+     trouvait donc aucun variant et était écarté : « Votre panier ne contient
+     que des articles sur devis (coins) ». Et un coin, lui, partait au
+     paiement au prix d'un patch.
 
      LES COINS N'ONT VOLONTAIREMENT PAS DE VARIANT. Ils sont chiffrés au cas par
      cas (finition, gravure, quantité) : aucun prix fixe ne peut leur être
@@ -537,7 +545,7 @@
 
      C'est `variantForItem()` renvoyant `undefined` pour eux qui alimente
      `skipped` dans buildShopifyItems(), et qui déclenche les deux garde-fous de
-     goToCheckout(). Un ID avait été câblé ici pour `patches` : il rendait ces
+     goToCheckout(). Un ID avait été câblé ici pour les coins : il rendait ces
      garde-fous inatteignables (`skipped` restait toujours vide) et laissait les
      coins partir au paiement à un prix jamais validé par le commerçant.
      NE PAS le rétablir sans retirer d'abord la bascule devis. */
@@ -561,8 +569,8 @@
        422 « variante introuvable » à chaque ajout au panier.
        La couleur réellement choisie est résolue par CONF_COLOR_VARIANTS. */
     drapeaux:         60352869663054,
-    coins:            60327529939278   // « Patch personnalisé » (patchs codés)
-    // patches (= COINS réels) : pas de variant, sur devis uniquement.
+    patches:          60327529939278   // « Patch personnalisé » (écran « Patchs »)
+    // coins (= COINS métal) : pas de variant, sur devis uniquement.
     // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
     // de clé ici sans retirer d'abord la bascule.
   };

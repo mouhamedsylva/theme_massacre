@@ -1145,13 +1145,12 @@
     window.refreshMultiNameBtn = refreshMultiNameBtn;
 
     /* ── Variants Shopify pour le panier natif (produits à prix fixe) ──
-       ATTENTION nommage interne INVERSÉ :
-         • écran visible « Coins »  = productType 'coins'   = vos PATCHS codés
-           -> produit Shopify « Patch personnalisé »
-         • écran visible « Patchs » = productType 'patches' = COINS réels
-           -> produit Shopify « Coin métal personnalisé »
-       Sans la clé 'coins', l'ajout au panier des patchs était écarté au checkout
-       (variant introuvable).
+       Correspondance écran -> productType -> produit Shopify :
+         • écran « Patchs » = productType 'patches' -> « Patch personnalisé »
+         • écran « Coins »  = productType 'coins'   -> « Coin métal » (sur devis)
+       (voir categoryMap de conf-dynamic-layout.js et capturePatchDesign).
+       Corrigé le 03/11/2026 : la clé était encore 'coins' (ancien sens) — le
+       patch était écarté au checkout, et un coin y partait au prix d'un patch.
 
        Les IDs ci-dessous appartiennent à la boutique 38cca3.myshopify.com
        (massacre-officiel.com), régénérés le 2026-08-07. Ne PAS les recopier à la
@@ -1167,8 +1166,8 @@
          supprimé à leur création. La couleur choisie est résolue par
          CONF_COLOR_VARIANTS (recapitulatif.liquid). */
       drapeaux:         60352869663054,
-      coins:            60327529939278   // « Patch personnalisé » (patchs codés)
-      // patches (= COINS réels) : pas de variant, sur devis uniquement.
+      patches:          60327529939278   // « Patch personnalisé » (écran « Patchs »)
+      // coins (= COINS métal) : pas de variant, sur devis uniquement.
       // C'est cette ABSENCE qui déclenche la bascule devis — ne pas ajouter
       // de clé ici sans retirer d'abord la bascule.
     };
