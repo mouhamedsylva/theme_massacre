@@ -1228,7 +1228,7 @@ class DynamicLayoutManager {
             <div class="rp-patch-details">
               <p>Type : <span id="coin-recap-type">Recto verso</span></p>
               <p>Forme : <span id="coin-recap-shape">Rond</span></p>
-              <p>Taille : <span id="coin-recap-size">30 mm</span></p>
+              <p>Taille : <span id="coin-recap-size">3,5 cm</span></p>
               <p>Finition : <span id="coin-recap-finish">À choisir</span></p>
             </div>
           </div>

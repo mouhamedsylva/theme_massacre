@@ -1,0 +1,34 @@
+{%- comment -%}
+  PANIER NATIF → RÉCAPITULATIF, pour les articles du configurateur.
+
+  Les prix dégressifs sont facturés par variant « Palier » (un variant par
+  palier de quantité, voir recapitulatif.liquid). Le récapitulatif choisit le
+  bon palier selon la quantité totale. Sur la page /cart, un client pourrait
+  ensuite baisser la quantité tout en gardant le prix d'un palier qu'il
+  n'atteint plus — ou passer sous le minimum de commande.
+
+  Dès que le panier contient un produit du configurateur, on renvoie donc vers
+  le récapitulatif, qui fait office de panier pour ce parcours. Les autres
+  produits de la boutique gardent la page panier normale.
+
+  IDs = CONFIGURATOR_PRODUCT_IDS du backend (pricing.service.ts).
+{%- endcomment -%}
+{%- assign conf_ids = '15982847033678,15982848246094,15982849130830,15982850572622,15982850801998,15982850998606,15982845854030,15996670869838' | split: ',' -%}
+{%- assign conf_present = false -%}
+{%- for item in cart.items -%}
+  {%- assign pid = item.product_id | append: '' -%}
+  {%- if conf_ids contains pid -%}
+    {%- assign conf_present = true -%}
+    {%- break -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if conf_present and request.design_mode == false -%}
+  <script>window.location.replace('/pages/recapitulatif');</script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Redirection configurateur",
+  "settings": []
+}
+{% endschema %}

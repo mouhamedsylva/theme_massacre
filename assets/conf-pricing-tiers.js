@@ -8,16 +8,13 @@
  * plus petit. Seuls les produits listés sont dégressifs ; les autres gardent
  * leur prix unitaire fixe (window.PRICES).
  *
- * ┌─ PAIEMENT (à faire dans Shopify, PAS dans le code) ──────────────────────┐
- * │ Ceci est un AFFICHAGE. Le panier natif facture le prix du variant. Pour  │
- * │ que le CLIENT PAIE ces paliers, créer des réductions automatiques        │
- * │ « montant fixe par article », ciblées par produit, conditionnées sur la  │
- * │ quantité. Si une grille change ici, mettre à jour les remises Shopify.    │
- * │                                                                          │
- * │ SWEATSHIRT (base 60 €) :   ≥5 −3,50   ≥15 −6,10   ≥40 −8,00              │
- * │ T-SHIRT coton & polyester (base 29,50 €) :                               │
- * │        ≥5 −0,60   ≥10 −3,00   ≥20 −3,60   ≥50 −5,00                       │
- * │ PATCHS : prix unitaires du tableau atelier (voir grille ci-dessous).     │
+ * ┌─ PAIEMENT ───────────────────────────────────────────────────────────────┐
+ * │ Ceci est un AFFICHAGE : le panier natif facture le prix du variant.      │
+ * │ Chaque palier est un VARIANT « Palier » du produit, à son propre prix,   │
+ * │ créé et tarifé PAR LE BACKEND à chaque enregistrement du panneau « Prix »│
+ * │ (customizer-backend/src/admin/tier-variant-sync.service.ts). Le récap    │
+ * │ choisit couleur + palier selon la quantité totale (variantPalier).       │
+ * │ → Les grilles se modifient dans le DASHBOARD, jamais ici ni dans Shopify.│
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 (function () {
@@ -47,7 +44,7 @@
     { min: 100, price: 3.50 },
     { min: 50,  price: 5.00 },
     { min: 30,  price: 9.00 },
-    { min: 11,  price: 12.50 },
+    { min: 20,  price: 12.50 },
     { min: 10,  price: 20.00 }   // minimum de commande : 10
   ];
 
@@ -76,10 +73,9 @@
     ],
     /* PATCHS : prix unitaire HT selon la quantité — AFFICHÉS HT, sans TVA
        ajoutée (choix du commerçant, septembre 2026).
-       Grille officielle : 1-10 → 20 €, 11-29 → 12,50 €, 30-49 → 9 €,
-       50-99 → 5 €, 100 → 3,50 € HT. Le 2e palier commence à 11 pièces : il
-       commençait à 20, et de 11 à 19 pièces le client payait 20 € au lieu de
-       12,50 €. Au-delà de 100 : « sur demande » (devis, conf-cart-quote.js).
+       Grille officielle : 10-19 → 20 €, 20-29 → 12,50 €, 30-49 → 9 €,
+       50-99 → 5 €, 100 → 3,50 € HT (2e palier à 20 pièces : décision du
+       commerçant, 04/11/2026). Au-delà de 100 : « sur demande » (devis, conf-cart-quote.js).
 
        Clé `patches` — vérifié par mesure : #coins-unit-price, alimenté par
        tierUnitPrice(), appartient au template titré « Patch personnalisé »
@@ -102,13 +98,12 @@
   GRILLE_THEME.patches = JSON.parse(JSON.stringify(GRILLE_PATCHS));
   window.QTY_TIERS.patches = JSON.parse(JSON.stringify(GRILLE_PATCHS));
 
-  /* Grilles dont le THÈME fait foi : celle reçue de GET /api/pricing est
-     ignorée. Mesuré le 29/09/2026 : la production servait encore l'ancienne
-     grille des patchs (2e palier à 20 pièces), qui remplaçait celle-ci au
-     chargement — de 11 à 19 pièces, page et panier restaient à 20 € HT.
-     Conséquence : modifier les patchs dans le panneau « Prix » du dashboard
-     n'a plus d'effet ici ; le tarif patchs se change dans GRILLE_PATCHS. */
-  var GRILLES_THEME_FIXES = ['patches'];
+  /* Grilles dont le THÈME ferait foi (celle de GET /api/pricing ignorée).
+     VIDE depuis le 04/11/2026 : le dashboard est l'unique source, car c'est
+     lui qui crée les remises Shopify facturées au paiement. Une grille figée
+     ici afficherait un prix que le paiement ne facture pas. Les patchs
+     suivent donc à nouveau le panneau « Prix ». */
+  var GRILLES_THEME_FIXES = [];
   window.GRILLE_PATCHS_THEME = GRILLE_PATCHS;
 
   /**

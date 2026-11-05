@@ -62,9 +62,14 @@
         "padding-block-start": 24,
         "padding-block-end": 0
       }
+    },
+    "conf-cart-redirect": {
+      "type": "conf-cart-redirect",
+      "settings": {}
     }
   },
   "order": [
+    "conf-cart-redirect",
     "cart-section"
   ]
 }

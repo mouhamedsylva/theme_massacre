@@ -1027,20 +1027,98 @@
       try { sessionStorage.setItem('conf_cart', JSON.stringify(items)); } catch (e) {}
     }
 
+    /* ── PALIERS DÉGRESSIFS FACTURÉS PAR VARIANT ────────────────────────────
+
+       Chaque produit dégressif porte une option « Palier » (« Dès 1 pièce »,
+       « Dès 10 pièces »…) : un variant par couleur ET par palier, à son propre
+       prix. Ces variants sont créés et tarifés par le backend à chaque
+       enregistrement du panneau « Prix » (TierVariantSyncService) — la grille
+       du dashboard reste l'unique source.
+
+       Ici, on part du variant de COULEUR (variantForItem, logique inchangée)
+       et on prend, parmi les variants de même couleur, celui du palier le plus
+       haut atteint par la QUANTITÉ TOTALE du produit — le même total que
+       l'affichage (render, totalsByType). Aucun ID de palier n'est écrit en
+       dur : ils sont lus dans /products/<handle>.js.
+
+       Tant que l'option « Palier » n'existe pas sur un produit, le variant de
+       couleur est renvoyé tel quel (comportement antérieur). */
+    var HANDLES_PRODUITS = {
+      sweatshirt:       'textile-sweatshirt',
+      tshirt:           'textile-t-shirt-coton',
+      tshirt_polyester: 'textile-t-shirt-polyester',
+      patches:          'patch-personnalise',
+      drapeaux:         'drapeau-personnalise'
+    };
+    var OPTION_PALIER = 'Palier';
+    var cacheProduits = {};
+
+    function chargerProduit(handle) {
+      if (!cacheProduits[handle]) {
+        cacheProduits[handle] = fetch('/products/' + handle + '.js', { headers: { 'Accept': 'application/json' } })
+          .then(function (r) {
+            if (!r.ok) throw new Error('Produit « ' + handle + ' » illisible (' + r.status + ').');
+            return r.json();
+          })
+          .catch(function (e) { delete cacheProduits[handle]; throw e; });
+      }
+      return cacheProduits[handle];
+    }
+
+    function seuilPalier(libelle) {
+      var m = String(libelle || '').match(/\d+/);
+      return m ? parseInt(m[0], 10) : null;
+    }
+
+    /** Variant couleur + palier. `null` = quantité sous le premier palier. */
+    function variantPalier(baseId, total, produit) {
+      if (!produit || !Array.isArray(produit.options)) return baseId;
+      var noms = produit.options.map(function (o) { return o && o.name; });
+      var iPalier = noms.indexOf(OPTION_PALIER);
+      if (iPalier === -1) return baseId;                    // pas encore migré
+      var base = (produit.variants || []).filter(function (v) { return String(v.id) === String(baseId); })[0];
+      if (!base) return baseId;
+      var autres = function (v) {
+        return (v.options || []).filter(function (_, i) { return i !== iPalier; }).join('\u0001');
+      };
+      var cle = autres(base);
+      var choisi = null, meilleur = -1;
+      (produit.variants || []).forEach(function (v) {
+        if (autres(v) !== cle) return;
+        var s = seuilPalier((v.options || [])[iPalier]);
+        if (s != null && s <= total && s > meilleur) { meilleur = s; choisi = v; }
+      });
+      return choisi ? choisi.id : null;
+    }
+
     /* Construit les line items Shopify à partir du panier local.
-       Chaque item est rattaché à son variant via productType. Les propriétés
+       Chaque item est rattaché à son variant (couleur + palier). Les propriétés
        de personnalisation (détails, taille, aperçu) sont jointes à la ligne.
        Les coins n'ont pas de variant : ils passent par une demande de devis
-       et sont ignorés ici. */
-    function buildShopifyItems(cart) {
-      var items = [], skipped = [];
+       et sont ignorés ici. Une ligne sous le premier palier (ex. patchs < 10)
+       part dans `sousMinimum` : elle ne doit pas être payée. */
+    async function buildShopifyItems(cart) {
+      var items = [], skipped = [], sousMinimum = [];
       /* Réinitialisé à chaque construction : variantForItem() y consigne les
          couleurs sans variant, pour que le checkout puisse en avertir le client
          au lieu de substituer une teinte en silence (A17). */
       window.__variantColorFallbacks = [];
+
+      // Quantité totale par produit (même calcul que l'affichage) + fiches.
+      var totaux = {}, produits = {};
+      cart.forEach(function (i) {
+        totaux[i.productType] = (totaux[i.productType] || 0) + (i.qty || 1);
+      });
+      await Promise.all(Object.keys(totaux).map(function (t) {
+        if (!HANDLES_PRODUITS[t]) return null;
+        return chargerProduit(HANDLES_PRODUITS[t]).then(function (p) { produits[t] = p; });
+      }));
+
       cart.forEach(function (it) {
-        var variantId = variantForItem(it);
-        if (!variantId) { skipped.push(it); return; }
+        var baseId = variantForItem(it);
+        if (!baseId) { skipped.push(it); return; }
+        var variantId = variantPalier(baseId, totaux[it.productType] || 0, produits[it.productType]);
+        if (!variantId) { sousMinimum.push(it); return; }
 
         var properties = {};
         // Visibles au checkout (utiles au client) : personne + couleur + taille.
@@ -1195,7 +1273,7 @@
                        'window.CONF_SLEEVE_VARIANT est absent.', it);
         }
       });
-      return { items: items, skipped: skipped };
+      return { items: items, skipped: skipped, sousMinimum: sousMinimum };
     }
 
     /* Synchronise le panier local vers le panier natif Shopify puis redirige
@@ -1256,8 +1334,39 @@
       var cart = getCart();
       if (!cart.length) { await confAlert('Votre panier est vide.', { icon: 'info', title: 'Panier vide' }); return; }
 
-      var built = buildShopifyItems(cart);
+      var built;
+      // Désactivé pendant la lecture des fiches produit : un double clic
+      // lancerait sinon deux ajouts au panier.
+      if (btnEl) btnEl.disabled = true;
+      try {
+        built = await buildShopifyItems(cart);
+        if (btnEl) btnEl.disabled = false;
+      } catch (e) {
+        if (btnEl) btnEl.disabled = false;
+        /* Fiche produit illisible : on ne connaît pas le prix du palier. On
+           bloque plutôt que de facturer le prix plein en silence. */
+        console.error('Paliers :', e);
+        await confAlert(
+          "Impossible de calculer le tarif de votre commande pour le moment. " +
+          "Vérifiez votre connexion puis réessayez.",
+          { icon: 'error', title: 'Tarif indisponible' }
+        );
+        return;
+      }
       var items = built.items, skipped = built.skipped;
+
+      /* Quantité sous le premier palier (ex. moins de 10 patchs) : aucun
+         variant n'existe à ce prix, la commande ne peut pas partir. */
+      if (built.sousMinimum.length) {
+        var noms = built.sousMinimum.map(function (it) { return it.name || it.productType; });
+        await confAlert(
+          'Quantité minimale non atteinte pour : ' +
+          noms.filter(function (n, i) { return noms.indexOf(n) === i; }).join(', ') +
+          '. Ajustez la quantité dans le configurateur.',
+          { icon: 'info', title: 'Quantité minimale' }
+        );
+        return;
+      }
 
       /* Ces deux garde-fous reposent ENTIÈREMENT sur `skipped`, donc sur le fait
          que variantForItem() renvoie `undefined` pour les coins. Ils étaient

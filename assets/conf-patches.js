@@ -461,12 +461,14 @@ function selectCoinSize(el) {
   }
 
   // COIN : taille en mm.
-  const mm = parseInt(String(size).replace('mm', ''), 10) || 30;
+  const mm = parseInt(String(size).replace('mm', ''), 10) || 35;
   /* Les deux ids coexistent selon le layout monté (#coin-recap-size sur
      l'écran Coins, #coins-recap-size sur celui des patchs). */
   const recapSize = document.getElementById('coin-recap-size')
                  || document.getElementById('coins-recap-size');
-  if (recapSize) recapSize.textContent = mm + ' mm';
+  /* Libellé de la carte (« 3,5 cm », « 25 mm ») : le récap et la commande
+     reprennent exactement ce que le client a cliqué. Repli sur les mm. */
+  if (recapSize) recapSize.textContent = label || (mm + ' mm');
 
   /* Échelle NEUTRE : le disque garde sa taille de référence quel que soit le
      diamètre choisi. On appelle quand même la fonction plutôt que de ne rien

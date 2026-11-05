@@ -50,7 +50,7 @@
          du sélecteur (sections/configurateur.liquid) et de la modale de groupe
          (conf-size-quantity-modal.js:48) : les trois listes doivent coïncider,
          sinon une taille commandable ici serait absente ailleurs. */
-      return out.length ? out : ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+      return out.length ? out : ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'];
     }
     window.grpSizes = grpSizes;     // conf-group-csv.js
 
@@ -13014,7 +13014,7 @@
          tailles, mais c'est un BOUTON D'ACTION — il ouvre la modale de
          répartition (configurateur.liquid:309), il ne désigne aucune taille.
 
-         Listé comme une option, il apparaissait sous « 5XL » dans le sélecteur
+         Listé comme une option, il apparaissait sous la dernière taille dans le sélecteur
          mobile ; choisi, il aurait fait chercher une taille nommée « Pour
          Groupe », introuvable — ou pire, cliqué le bouton et ouvert la modale
          par un chemin détourné.
