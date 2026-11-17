@@ -5231,7 +5231,14 @@
                                            valOption(i.size) === valOption(item.size) &&
                                            (i.notes || '') === (item.notes || '') &&
                                            (i.personName || '') === (item.personName || '') &&
-                                           (i.groupIndex || '') === (item.groupIndex || ''));
+                                           (i.groupIndex || '') === (item.groupIndex || '') &&
+                                           /* LE DESIGN AUSSI (11/11/2026). Même sweat,
+                                              même couleur, même taille, mais une autre
+                                              image poitrine droite : ce sont DEUX
+                                              articles. Sans ce critère, le second ajout
+                                              réécrivait la ligne du premier et son
+                                              design disparaissait en silence. */
+                                           empreinteDesign(i.design) === empreinteDesign(item.design));
       if (existing) {
         /* La quantité SUIT le sélecteur, elle n'est jamais cumulée.
 
@@ -7663,6 +7670,46 @@
       }
     }
 
+    /**
+     * EMPREINTE du contenu personnalisé d'une ligne de panier : ce qui en fait
+     * un article DIFFÉRENT d'un autre du même produit, même couleur, même taille.
+     *
+     *   - images : la source de chaque zone (URL hébergée — l'ajout attend la
+     *     fin des envois, et capturerEtatDesign ne garde que celles-ci) ;
+     *   - textes : contenu et style (texte, police, couleur, forme, graisse…).
+     *
+     * La POSITION et la TAILLE (geo, left/top/width/fontSize) sont exclues :
+     * déplacer un logo puis ré-ajouter reste une mise à jour de la même ligne.
+     * Remplacer, ajouter ou retirer une image ou un texte crée une ligne neuve.
+     *
+     * Sert à la clé de fusion de pushToCart. Design absent → chaîne vide, donc
+     * le comportement d'avant pour les lignes sans état mémorisé.
+     */
+    function empreinteDesign(design) {
+      if (!design || typeof design !== 'object') return '';
+      var produit = design.product;
+      var parts = [];
+      try {
+        var zones = design.uploads && design.uploads.byProduct
+          ? (design.uploads.byProduct[produit] || {}) : {};
+        Object.keys(zones).sort().forEach(function (z) {
+          var e = zones[z];
+          var src = (typeof e === 'string') ? e : (e && e.src);
+          if (src) parts.push('i:' + z + '=' + src);
+        });
+        var textes = design.texts ? (design.texts[produit] || {}) : {};
+        var STYLE = ['text', 'font', 'fontName', 'color', 'shape', 'bold', 'italic', 'underline'];
+        Object.keys(textes).sort().forEach(function (z) {
+          var t = textes[z];
+          if (!t || typeof t !== 'object' || !String(t.text || '').trim()) return;
+          parts.push('t:' + z + '=' + JSON.stringify(STYLE.map(function (k) { return t[k]; })) +
+                     (Array.isArray(t.segments) ? JSON.stringify(t.segments) : ''));
+        });
+      } catch (e) { return ''; }
+      return parts.join('|');
+    }
+    window.empreinteDesign = empreinteDesign;
+
     function filtrerUploadsHeberges(store) {
       if (!store || !store.byProduct) return store;
       var out = { _v: store._v || 2, byProduct: {} };
@@ -8374,7 +8421,11 @@
         : false;
 
       let total = 0;
-      partitionnerPanier(cartItems).forEach(bloc => {
+      /* PLUS RÉCENT EN HAUT (11/11/2026). `cartItems` est dans l'ordre d'ajout ;
+         on inverse seulement l'AFFICHAGE, bloc par bloc : un groupe garde ses
+         lignes dans l'ordre, et le panier en session n'est pas modifié. Les
+         boutons agissent par identifiant de ligne, jamais par position. */
+      partitionnerPanier(cartItems).reverse().forEach(bloc => {
        /* CHAQUE BLOC EST ISOLÉ. Sans ce filet, une exception sur l'un
           interrompait la boucle : les suivants existaient bien en session
           mais n'étaient jamais peints — le client voyait son panier amputé.
