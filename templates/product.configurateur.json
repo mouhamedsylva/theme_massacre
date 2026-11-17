@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "redirection": {
+      "type": "conf-product-redirect",
+      "settings": {}
+    }
+  },
+  "order": [
+    "redirection"
+  ]
+}

@@ -151,5 +151,7 @@
     {% if settings.quick_add or settings.mobile_quick_add %}
       {% render 'quick-add-modal' %}
     {% endif %}
+    {%- comment -%} Bloque le paiement d'un article du configurateur sans design (ex. #21695). {%- endcomment -%}
+    <script src="{{ 'conf-checkout-guard.js' | asset_url }}" defer></script>
   </body>
 </html>

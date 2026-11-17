@@ -1,0 +1,25 @@
+{%- comment -%}
+  PAGE PRODUIT D'UN ARTICLE DU CONFIGURATEUR → CONFIGURATEUR.
+
+  Ces produits restent vendables (le récapitulatif les ajoute au panier et lit
+  leurs paliers via /products/<handle>.js), mais leur page ne doit pas permettre
+  d'acheter sans design (ex. #21695). Ce modèle — product.configurateur — ne
+  rend aucun bouton d'achat et renvoie vers le configurateur. Les endpoints
+  JSON (.js) ne passent pas par les modèles : le configurateur n'est pas touché.
+
+  Inactif dans l'éditeur de thème, pour pouvoir y prévisualiser le modèle.
+{%- endcomment -%}
+{%- unless request.design_mode -%}
+  <script>window.location.replace('/pages/configurateur');</script>
+{%- endunless -%}
+<div style="padding:60px 16px;text-align:center">
+  <p>Cet article se personnalise dans notre configurateur.</p>
+  <p><a href="/pages/configurateur">Ouvrir le configurateur</a></p>
+</div>
+
+{% schema %}
+{
+  "name": "Redirection configurateur",
+  "settings": []
+}
+{% endschema %}
