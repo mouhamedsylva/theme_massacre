@@ -438,6 +438,11 @@
             window.QTY_TIERS = d.tiers;
           }
         }
+        /* Délais de production réglés dans le dashboard (conf-delais.js) :
+           appliqués AVANT l'événement, pour que les écrans les relisent. */
+        if (d.delais && typeof window.applyDelaisFromBackend === 'function') {
+          window.applyDelaisFromBackend(d.delais);
+        }
         if (change || premier) {
           document.dispatchEvent(new CustomEvent('conf:prices-loaded'));
         }

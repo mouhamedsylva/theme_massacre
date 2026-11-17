@@ -520,6 +520,10 @@
           window.QTY_TIERS = d.tiers;
         }
       }
+      /* Délais de production réglés dans le dashboard (conf-delais.js). */
+      if (d.delais && typeof window.applyDelaisFromBackend === 'function') {
+        window.applyDelaisFromBackend(d.delais);
+      }
       document.dispatchEvent(new CustomEvent('conf:prices-loaded'));
     })
     .catch(function () {});   // repli silencieux : la table locale reste en place

@@ -568,7 +568,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>5 à 7 semaines</b></span>
+        <span>Délai de production <b class="js-delai" data-type="patches">${window.delaiProduction ? window.delaiProduction("patches", 1) : "5 à 7 semaines"}</b></span>
       </div>
 
       <div class="rp-actions-coins">
@@ -1046,7 +1046,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>5 à 7 semaines</b></span>
+        <span>Délai de production <b class="js-delai" data-type="drapeaux">${window.delaiProduction ? window.delaiProduction("drapeaux", 1) : "5 à 7 semaines"}</b></span>
       </div>
 
       <div class="rp-actions-coins">
@@ -1257,7 +1257,7 @@ class DynamicLayoutManager {
           <circle cx="12" cy="12" r="9"/>
           <path d="M12 7v5l3 2"/>
         </svg>
-        <span>Délai de production <b>5 à 7 semaines</b></span>
+        <span>Délai de production <b class="js-delai" data-type="coins">${window.delaiProduction ? window.delaiProduction("coins", 1) : "5 à 7 semaines"}</b></span>
       </div>
 
       <div class="rp-actions-coins">

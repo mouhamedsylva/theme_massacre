@@ -11194,7 +11194,11 @@
        le template (tests, page isolée). */
     (window.PRICES_READY || Promise.resolve()).then(function () {
       updateSleeveSurcharge();
-      updateTotalPrice();
+      updateTotalPrice();          // relit aussi le délai du récap (majDelaiProduction)
+      /* Délais du dashboard arrivés avec les prix : tiroir et textes fixes
+         (patch, coin, drapeau) affichaient encore le barème de repli. */
+      if (typeof renderCartDrawer === 'function') renderCartDrawer();
+      if (typeof window.rafraichirDelais === 'function') window.rafraichirDelais();
     });
 
     /* Taille de police maximale du texte personnalisé (px CSS).
