@@ -156,8 +156,11 @@
     { numero: '55',  nom: 'Bleu marine foncé', hex: '#091f46', slug: 'bleu-marine-fonce' },
     { numero: '226', nom: 'Vert émeraude',     hex: '#079a45', slug: 'vert-emeraude' },
     { numero: '225', nom: 'Vert anis',         hex: '#9abf11', slug: 'vert-anis' },
-    { numero: '15',  nom: 'Kaki doré',         hex: '#948d50', slug: 'kaki-dore' },
-    { numero: '46',  nom: 'Vert militaire',    hex: '#4a4f44', slug: 'vert-militaire' },
+    /* Renommées le 23/11/2026 : ex-« Kaki doré » (#948d50) -> « Vert militaire »,
+       ex-« Vert militaire » (#4a4f44) -> « Plomb foncé ». Les slugs restent
+       ceux d'origine : ce sont les noms des fichiers d'images. */
+    { numero: '15',  nom: 'Vert militaire',    hex: '#6d6b4f', slug: 'kaki-dore' },
+    { numero: '46',  nom: 'Plomb foncé',       hex: '#464d41', slug: 'vert-militaire' },
     /* Même noir que les deux autres textiles — voir SWEATSHIRT. */
     { numero: '02',  nom: 'Noir',              hex: '#020204', slug: 'noir' }
   ];
