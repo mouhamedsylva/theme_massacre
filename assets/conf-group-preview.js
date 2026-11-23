@@ -61,7 +61,8 @@
   
     var key  = grpSafe(function () { return window.currentProductKey; }, '') ||
                grpSafe(function () { return window.currentProductType; }, 'sweatshirt');
-    var slug = grpSafe(function () { return window.COLOR_SLUGS_MAP[colorName]; }, '') ||
+    var slug = grpSafe(function () { return window.slugCouleurProduit(key, colorName); }, '') ||
+               grpSafe(function () { return window.COLOR_SLUGS_MAP[colorName]; }, '') ||
                grpSafe(function () { return window.COLOR_SLUGS[colorName]; }, '');
     var prefix = grpSafe(function () { return window.PRODUCT_SLUGS[key]; }, '');
   

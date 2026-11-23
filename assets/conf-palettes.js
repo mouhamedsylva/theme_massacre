@@ -308,4 +308,18 @@
     pal.forEach(function (c) { if (!slugs[c.nom]) slugs[c.nom] = c.slug; });
   });
   window.COLOR_SLUGS_PALETTES = slugs;
+
+  /* SLUG D'UNE COULEUR POUR UN PRODUIT DONNÉ.
+
+     Depuis le 23/11/2026, un même nom n'a plus forcément le même slug :
+     « Vert militaire » vaut 'vert-militaire' sur le t-shirt coton, mais
+     'kaki-dore' sur le polyester (ex-« Kaki doré » renommée). La table
+     globale ci-dessus, indexée par le seul nom, garde le premier rencontré
+     (le coton) : le polyester affichait alors l'image du Plomb foncé.
+     On interroge donc d'abord la palette du produit, la table ensuite. */
+  window.slugCouleurProduit = function (produit, nom) {
+    var c = window.couleurDansPalette(produit, nom);
+    if (c && c.slug) return c.slug;
+    return (window.COLOR_SLUGS && window.COLOR_SLUGS[nom]) || slugs[nom] || '';
+  };
 })();

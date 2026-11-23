@@ -96,7 +96,8 @@
   function fondPourCouleur(nomCouleur, vueNom) {
     if (!nomCouleur) return '';
     var key = window.currentProductKey || window.currentProductType || 'sweatshirt';
-    var slug = (window.COLOR_SLUGS_MAP && window.COLOR_SLUGS_MAP[nomCouleur]) ||
+    var slug = (typeof window.slugCouleurProduit === 'function' && window.slugCouleurProduit(key, nomCouleur)) ||
+               (window.COLOR_SLUGS_MAP && window.COLOR_SLUGS_MAP[nomCouleur]) ||
                (window.COLOR_SLUGS && window.COLOR_SLUGS[nomCouleur]);
     var prefix = window.PRODUCT_SLUGS && window.PRODUCT_SLUGS[key];
     if (!prefix || !slug || typeof window.colorImageCandidates !== 'function') return '';

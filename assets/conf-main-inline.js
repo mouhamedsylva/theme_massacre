@@ -3768,7 +3768,7 @@
           /* Même résolution que le canvas : slug EN, puis FR, puis générique.
              On passe par les candidats plutôt que de deviner un nom de fichier,
              pour hériter des replis quand une teinte n'a pas d'image dédiée. */
-          const slug = COLOR_SLUGS[couleur] || '';
+          const slug = window.slugCouleurProduit(currentProductKey, couleur) || COLOR_SLUGS[couleur] || '';
           const cand = colorImageCandidates(PRODUCT_SLUGS[currentProductKey], slug, vue);
           const base = cand[0] || fallbackSrc;
 
@@ -3912,7 +3912,7 @@
          */
         const vuesAvecCouleur = function (vues, couleur) {
           if (!vues || !couleur) return vues;
-          const slugC = COLOR_SLUGS[couleur] || '';
+          const slugC = window.slugCouleurProduit(currentProductKey, couleur) || COLOR_SLUGS[couleur] || '';
           const prefixC = PRODUCT_SLUGS[currentProductKey];
           if (!slugC || !prefixC) return vues;
 
@@ -8992,7 +8992,9 @@
       el.classList.add('on');
       currentColor = hex;
       currentColorName = name;
-      currentColorSlug = COLOR_SLUGS[name] || 'noir';
+      /* Slug lu dans la palette DU PRODUIT : un même nom peut désigner deux
+         teintes (voir slugCouleurProduit, conf-palettes.js). */
+      currentColorSlug = window.slugCouleurProduit(currentProductKey, name) || COLOR_SLUGS[name] || 'noir';
       applyColor(hex);
       /* #rc-color vit dans .recap, dont l'innerHTML est INTÉGRALEMENT remplacé
          pour les coins/drapeaux/patchs (voir DynamicLayoutManager). Sans cette
